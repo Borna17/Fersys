@@ -1,0 +1,22 @@
+
+> fersys@0.0.0 build
+> tsc -b && vite build
+
+src/layouts/AppLayout.tsx(61,9): error TS2322: Type '{ mobileOpen: boolean; onMobileClose: () => void; }' is not assignable to type 'IntrinsicAttributes'.
+  Property 'mobileOpen' does not exist on type 'IntrinsicAttributes'.
+src/pages/CustomerProfilePage.tsx(175,10): error TS6133: 'isSaving' is declared but its value is never read.
+src/src/router/AppRouter.tsx(4,23): error TS2307: Cannot find module '../layouts/AppLayout' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(5,30): error TS2307: Cannot find module '../pages/CalendarPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(6,37): error TS2307: Cannot find module '../pages/CustomerProfilePage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(7,31): error TS2307: Cannot find module '../pages/CustomersPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(8,31): error TS2307: Cannot find module '../pages/DashboardPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(10,30): error TS2307: Cannot find module '../pages/InvoicesPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(11,27): error TS2307: Cannot find module '../pages/LoginPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(13,32): error TS2307: Cannot find module '../pages/NewInvoicePage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(14,30): error TS2307: Cannot find module '../pages/NewOfferPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(15,34): error TS2307: Cannot find module '../pages/NewWorkOrderPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(16,30): error TS2307: Cannot find module '../pages/NotFoundPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(17,28): error TS2307: Cannot find module '../pages/OffersPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(18,38): error TS2307: Cannot find module '../pages/WorkOrderDetailsPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(19,39): error TS2307: Cannot find module '../pages/WorkOrderSettingsPage' or its corresponding type declarations.
+src/src/router/AppRouter.tsx(20,32): error TS2307: Cannot find module '../pages/WorkOrdersPage' or its corresponding type declarations.

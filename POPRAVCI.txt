@@ -1,0 +1,11 @@
+FERSYS ISPRAVLJENO
+
+Popravci:
+- PDF pregled ponude više ne otvara praznu about:blank stranicu.
+- workOrderStorage.ts je uključen u src/utils.
+- ispravljene TypeScript greške u WorkOrdersPage.tsx.
+- ispravljen GState u workOrderPdf.ts.
+
+Pokretanje:
+1. npm install
+2. npm run dev
