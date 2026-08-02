@@ -337,6 +337,7 @@ export async function createInvitation(
   )
 
   const {
+    data: emailResult,
     error: emailError,
   } = await supabase.functions.invoke(
     'send-company-invitation',
@@ -349,9 +350,32 @@ export async function createInvitation(
   )
 
   if (emailError) {
-    console.warn(
-      'Pozivnica je izrađena, ali e-mail nije poslan:',
+    console.error(
+      'Slanje pozivnice e-mailom nije uspjelo:',
       emailError,
+    )
+
+    throw new Error(
+      `Pozivnica je izrađena, ali e-mail nije poslan. ${emailError.message}`,
+    )
+  }
+
+  if (
+    !emailResult ||
+    emailResult.success !== true ||
+    emailResult.emailSent !== true
+  ) {
+    console.error(
+      'Edge Function nije potvrdila slanje:',
+      emailResult,
+    )
+
+    throw new Error(
+      `Pozivnica je izrađena, ali e-mail nije poslan.${
+        emailResult?.error
+          ? ` ${emailResult.error}`
+          : ''
+      }`,
     )
   }
 
