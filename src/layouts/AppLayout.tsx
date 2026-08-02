@@ -19,7 +19,10 @@ import { useAuth } from '../auth/AuthProvider'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
-import { getOnboardingStatus } from '../services/onboarding.service'
+import {
+  getOnboardingProgress,
+  type OnboardingProgress,
+} from '../services/onboarding.service'
 
 const pageTitles = [
   {
@@ -95,13 +98,17 @@ const mobileNavigation = [
   },
 ]
 
-function getInitials(value: string) {
+function getInitials(
+  value: string,
+) {
   const parts = value
     .trim()
     .split(/\s+/)
     .filter(Boolean)
 
-  if (parts.length === 0) {
+  if (
+    parts.length === 0
+  ) {
     return 'K'
   }
 
@@ -109,14 +116,28 @@ function getInitials(value: string) {
     .slice(0, 2)
     .map(
       (part) =>
-        part[0]?.toUpperCase() ?? '',
+        part[0]
+          ?.toUpperCase() ??
+        '',
     )
     .join('')
 }
 
 export default function AppLayout() {
-  const location = useLocation()
-  const { user } = useAuth()
+  const location =
+    useLocation()
+
+  const {
+    user,
+  } = useAuth()
+
+  const [
+    onboardingProgress,
+    setOnboardingProgress,
+  ] =
+    useState<OnboardingProgress | null>(
+      null,
+    )
 
   const [
     isOnboardingOpen,
@@ -126,82 +147,108 @@ export default function AppLayout() {
   useEffect(() => {
     let cancelled = false
 
-    async function checkOnboarding() {
+    async function loadOnboarding() {
       if (!user?.id) {
+        setOnboardingProgress(
+          null,
+        )
+        setIsOnboardingOpen(
+          false,
+        )
         return
       }
 
       try {
-        const status =
-          await getOnboardingStatus()
+        const progress =
+          await getOnboardingProgress()
 
-        if (
-          !cancelled &&
-          !status.completed
-        ) {
-          setIsOnboardingOpen(true)
+        if (cancelled) {
+          return
         }
+
+        setOnboardingProgress(
+          progress,
+        )
+
+        setIsOnboardingOpen(
+          !progress.completed,
+        )
       } catch (error) {
         console.error(
-          'Onboarding status nije moguće učitati:',
+          'Onboarding nije moguće učitati:',
           error,
         )
       }
     }
 
-    void checkOnboarding()
+    void loadOnboarding()
 
     return () => {
       cancelled = true
     }
   }, [user?.id])
 
-  const pageTitle = useMemo(() => {
-    const matchingPage = [
-      ...pageTitles,
-    ]
-      .sort(
-        (first, second) =>
-          second.path.length -
-          first.path.length,
+  const pageTitle =
+    useMemo(() => {
+      const matchingPage = [
+        ...pageTitles,
+      ]
+        .sort(
+          (
+            first,
+            second,
+          ) =>
+            second.path.length -
+            first.path.length,
+        )
+        .find((page) =>
+          location.pathname.startsWith(
+            page.path,
+          ),
+        )
+
+      return (
+        matchingPage?.title ??
+        'FERSYS'
       )
-      .find((page) =>
-        location.pathname.startsWith(
-          page.path,
-        ),
+    }, [
+      location.pathname,
+    ])
+
+  const displayName =
+    useMemo(() => {
+      const metadataName =
+        typeof user
+          ?.user_metadata
+          ?.full_name ===
+        'string'
+          ? user.user_metadata.full_name.trim()
+          : ''
+
+      const emailName =
+        user?.email
+          ?.split('@')[0]
+          ?.replace(
+            /[._-]+/g,
+            ' ',
+          )
+          ?.trim() ?? ''
+
+      return (
+        metadataName ||
+        emailName ||
+        'Korisnik'
       )
-
-    return (
-      matchingPage?.title ??
-      'FERSYS'
-    )
-  }, [location.pathname])
-
-  const displayName = useMemo(() => {
-    const metadataName =
-      typeof user?.user_metadata
-        ?.full_name === 'string'
-        ? user.user_metadata.full_name.trim()
-        : ''
-
-    const emailName =
-      user?.email
-        ?.split('@')[0]
-        ?.replace(/[._-]+/g, ' ')
-        ?.trim() ?? ''
-
-    return (
-      metadataName ||
-      emailName ||
-      'Korisnik'
-    )
-  }, [
-    user?.email,
-    user?.user_metadata?.full_name,
-  ])
+    }, [
+      user?.email,
+      user?.user_metadata
+        ?.full_name,
+    ])
 
   const initials =
-    getInitials(displayName)
+    getInitials(
+      displayName,
+    )
 
   return (
     <div className="flex min-h-dvh bg-slate-950 text-white">
@@ -227,7 +274,9 @@ export default function AppLayout() {
 
           <div
             className="grid h-11 w-11 place-items-center rounded-full bg-blue-600 text-xs font-black text-white"
-            title={displayName}
+            title={
+              displayName
+            }
           >
             {initials}
           </div>
@@ -242,12 +291,17 @@ export default function AppLayout() {
         <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
           {mobileNavigation.map(
             (item) => {
-              const Icon = item.icon
+              const Icon =
+                item.icon
 
               return (
                 <NavLink
-                  key={item.path}
-                  to={item.path}
+                  key={
+                    item.path
+                  }
+                  to={
+                    item.path
+                  }
                   className={({
                     isActive,
                   }) =>
@@ -258,10 +312,14 @@ export default function AppLayout() {
                     }`
                   }
                 >
-                  <Icon size={20} />
+                  <Icon
+                    size={20}
+                  />
 
                   <span>
-                    {item.name}
+                    {
+                      item.name
+                    }
                   </span>
                 </NavLink>
               )
@@ -270,14 +328,22 @@ export default function AppLayout() {
         </div>
       </nav>
 
-      {isOnboardingOpen && (
-        <OnboardingTutorial
-          displayName={displayName}
-          onClose={() =>
-            setIsOnboardingOpen(false)
-          }
-        />
-      )}
+      {isOnboardingOpen &&
+        onboardingProgress && (
+          <OnboardingTutorial
+            displayName={
+              displayName
+            }
+            initialStep={
+              onboardingProgress.currentStep
+            }
+            onClose={() => {
+              setIsOnboardingOpen(
+                false,
+              )
+            }}
+          />
+        )}
     </div>
   )
 }
