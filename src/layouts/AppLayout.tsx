@@ -5,7 +5,9 @@ import {
   Wrench,
 } from 'lucide-react'
 import {
+  useEffect,
   useMemo,
+  useState,
 } from 'react'
 import {
   NavLink,
@@ -14,8 +16,10 @@ import {
 } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
+import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
+import { getOnboardingStatus } from '../services/onboarding.service'
 
 const pageTitles = [
   {
@@ -113,6 +117,44 @@ function getInitials(value: string) {
 export default function AppLayout() {
   const location = useLocation()
   const { user } = useAuth()
+
+  const [
+    isOnboardingOpen,
+    setIsOnboardingOpen,
+  ] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function checkOnboarding() {
+      if (!user?.id) {
+        return
+      }
+
+      try {
+        const status =
+          await getOnboardingStatus()
+
+        if (
+          !cancelled &&
+          !status.completed
+        ) {
+          setIsOnboardingOpen(true)
+        }
+      } catch (error) {
+        console.error(
+          'Onboarding status nije moguće učitati:',
+          error,
+        )
+      }
+    }
+
+    void checkOnboarding()
+
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   const pageTitle = useMemo(() => {
     const matchingPage = [
@@ -227,6 +269,15 @@ export default function AppLayout() {
           )}
         </div>
       </nav>
+
+      {isOnboardingOpen && (
+        <OnboardingTutorial
+          displayName={displayName}
+          onClose={() =>
+            setIsOnboardingOpen(false)
+          }
+        />
+      )}
     </div>
   )
 }

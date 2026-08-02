@@ -12,6 +12,7 @@ import {
 import FersysLoader from '../components/FersysLoader'
 import AppLayout from '../layouts/AppLayout'
 import { AiAssistantPage } from '../pages/AiAssistantPage'
+import { AuthCallbackPage } from '../pages/AuthCallbackPage'
 import { CalendarPage } from '../pages/CalendarPage'
 import { CustomerProfilePage } from '../pages/CustomerProfilePage'
 import { CustomersPage } from '../pages/CustomersPage'
@@ -156,6 +157,11 @@ function RouterContent() {
             />
           )
         }
+      />
+
+      <Route
+        path="/auth/callback"
+        element={<AuthCallbackPage />}
       />
 
       <Route
