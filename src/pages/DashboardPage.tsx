@@ -21,6 +21,7 @@ import {
 import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
+import MissionCenter from '../components/MissionCenter'
 import {
   getCustomers,
 } from '../services/customers.service'
@@ -585,6 +586,8 @@ export function DashboardPage() {
           </button>
         </div>
       </div>
+
+      <MissionCenter />
 
       {!hasAnyBusinessData && (
         <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
