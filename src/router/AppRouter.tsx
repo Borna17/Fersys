@@ -5,14 +5,10 @@ import {
   Routes,
 } from 'react-router'
 
-import {
-  AuthProvider,
-  useAuth,
-} from '../auth/AuthProvider'
+import { AuthProvider, useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import AppLayout from '../layouts/AppLayout'
 import { AiAssistantPage } from '../pages/AiAssistantPage'
-import { AuthCallbackPage } from '../pages/AuthCallbackPage'
 import { CalendarPage } from '../pages/CalendarPage'
 import { CustomerProfilePage } from '../pages/CustomerProfilePage'
 import { CustomersPage } from '../pages/CustomersPage'
@@ -24,6 +20,7 @@ import InventoryMovementsPage from '../pages/InventoryMovementsPage'
 import InventoryPage from '../pages/InventoryPage'
 import InventoryQrScannerPage from '../pages/InventoryQrScannerPage'
 import { InvoicesPage } from '../pages/InvoicesPage'
+import { JoinInvitationPage } from '../pages/JoinInvitationPage'
 import { LoginPage } from '../pages/LoginPage'
 import { NewIncomingInvoicePage } from '../pages/NewIncomingInvoicePage'
 import NewInventoryItemPage from '../pages/NewInventoryItemPage'
@@ -40,13 +37,13 @@ import { WorkOrderDetailsPage } from '../pages/WorkOrderDetailsPage'
 import { WorkOrderSettingsPage } from '../pages/WorkOrderSettingsPage'
 import { WorkOrdersPage } from '../pages/WorkOrdersPage'
 
-type RouteGuardProps = {
+type ProtectedRouteProps = {
   children: ReactNode
 }
 
 function ProtectedRoute({
   children,
-}: RouteGuardProps) {
+}: ProtectedRouteProps) {
   const {
     session,
     isLoading,
@@ -86,9 +83,9 @@ function ProtectedRoute({
 
           <button
             type="button"
-            onClick={() => {
+            onClick={() =>
               void retryCompanySetup()
-            }}
+            }
             className="mt-5 min-h-11 rounded-2xl bg-violet-600 px-5 py-3 text-sm font-bold text-white"
           >
             Pokušaj ponovno
@@ -103,11 +100,8 @@ function ProtectedRoute({
 
 function PublicOnlyRoute({
   children,
-}: RouteGuardProps) {
-  const {
-    session,
-    isLoading,
-  } = useAuth()
+}: ProtectedRouteProps) {
+  const { session, isLoading } = useAuth()
 
   if (isLoading) {
     return (
@@ -131,10 +125,7 @@ function PublicOnlyRoute({
 }
 
 function RouterContent() {
-  const {
-    session,
-    isLoading,
-  } = useAuth()
+  const { session, isLoading } = useAuth()
 
   return (
     <Routes>
@@ -160,8 +151,8 @@ function RouterContent() {
       />
 
       <Route
-        path="/auth/callback"
-        element={<AuthCallbackPage />}
+        path="/join"
+        element={<JoinInvitationPage />}
       />
 
       <Route
@@ -194,146 +185,36 @@ function RouterContent() {
           </ProtectedRoute>
         }
       >
-        <Route
-          path="/dashboard"
-          element={<DashboardPage />}
-        />
-
-        <Route
-          path="/customers"
-          element={<CustomersPage />}
-        />
-
-        <Route
-          path="/customers/:id"
-          element={<CustomerProfilePage />}
-        />
-
-        <Route
-          path="/work-orders"
-          element={<WorkOrdersPage />}
-        />
-
-        <Route
-          path="/work-orders/new"
-          element={<NewWorkOrderPage />}
-        />
-
-        <Route
-          path="/work-orders/:id"
-          element={<WorkOrderDetailsPage />}
-        />
-
-        <Route
-          path="/offers"
-          element={<OffersPage />}
-        />
-
-        <Route
-          path="/offers/new"
-          element={<NewOfferPage />}
-        />
-
-        <Route
-          path="/offers/:offerId/edit"
-          element={<NewOfferPage />}
-        />
-
-        <Route
-          path="/invoices"
-          element={<InvoicesPage />}
-        />
-
-        <Route
-          path="/invoices/new"
-          element={<NewInvoicePage />}
-        />
-
-        <Route
-          path="/invoices/:invoiceId/edit"
-          element={<NewInvoicePage />}
-        />
-
-        <Route
-          path="/incoming-invoices"
-          element={<IncomingInvoicesPage />}
-        />
-
-        <Route
-          path="/incoming-invoices/new"
-          element={<NewIncomingInvoicePage />}
-        />
-
-        <Route
-          path="/incoming-invoices/:incomingInvoiceId/edit"
-          element={<NewIncomingInvoicePage />}
-        />
-
-        <Route
-          path="/calendar"
-          element={<CalendarPage />}
-        />
-
-        <Route
-          path="/inventory"
-          element={<InventoryPage />}
-        />
-
-        <Route
-          path="/inventory/items/new"
-          element={<NewInventoryItemPage />}
-        />
-
-        <Route
-          path="/inventory/items/:id"
-          element={<InventoryItemDetailsPage />}
-        />
-
-        <Route
-          path="/inventory/items/:id/edit"
-          element={<NewInventoryItemPage />}
-        />
-
-        <Route
-          path="/inventory/scan"
-          element={<InventoryQrScannerPage />}
-        />
-
-        <Route
-          path="/inventory/movements"
-          element={<InventoryMovementsPage />}
-        />
-
-        <Route
-          path="/settings"
-          element={<SettingsPage />}
-        />
-
-        <Route
-          path="/settings/employees"
-          element={<EmployeesPage />}
-        />
-
-        <Route
-          path="/settings/work-orders"
-          element={<WorkOrderSettingsPage />}
-        />
-
-        <Route
-          path="/ai"
-          element={<AiAssistantPage />}
-        />
-
-        <Route
-          path="/supabase-test"
-          element={<SupabaseTestPage />}
-        />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/offers" element={<OffersPage />} />
+        <Route path="/offers/new" element={<NewOfferPage />} />
+        <Route path="/offers/:offerId/edit" element={<NewOfferPage />} />
+        <Route path="/settings/employees" element={<EmployeesPage />} />
+        <Route path="/ai" element={<AiAssistantPage />} />
+        <Route path="/invoices" element={<InvoicesPage />} />
+        <Route path="/invoices/new" element={<NewInvoicePage />} />
+        <Route path="/invoices/:invoiceId/edit" element={<NewInvoicePage />} />
+        <Route path="/incoming-invoices" element={<IncomingInvoicesPage />} />
+        <Route path="/incoming-invoices/new" element={<NewIncomingInvoicePage />} />
+        <Route path="/incoming-invoices/:incomingInvoiceId/edit" element={<NewIncomingInvoicePage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/inventory/items/new" element={<NewInventoryItemPage />} />
+        <Route path="/inventory/items/:id" element={<InventoryItemDetailsPage />} />
+        <Route path="/inventory/items/:id/edit" element={<NewInventoryItemPage />} />
+        <Route path="/inventory/scan" element={<InventoryQrScannerPage />} />
+        <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
+        <Route path="/calendar" element={<CalendarPage />} />
+        <Route path="/customers" element={<CustomersPage />} />
+        <Route path="/customers/:id" element={<CustomerProfilePage />} />
+        <Route path="/work-orders" element={<WorkOrdersPage />} />
+        <Route path="/work-orders/new" element={<NewWorkOrderPage />} />
+        <Route path="/work-orders/:id" element={<WorkOrderDetailsPage />} />
+        <Route path="/settings/work-orders" element={<WorkOrderSettingsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/supabase-test" element={<SupabaseTestPage />} />
       </Route>
 
-      <Route
-        path="*"
-        element={<NotFoundPage />}
-      />
+      <Route path="*" element={<NotFoundPage />} />
     </Routes>
   )
 }

@@ -60,6 +60,16 @@ export type CompanyInvitation = {
   updatedAt: string
 }
 
+export type InvitationPreview = {
+  companyName: string
+  email: string
+  inviteeName: string
+  role: CompanyRole
+  message: string
+  status: InvitationStatus
+  expiresAt: string
+}
+
 export type CreateInvitationInput = {
   email: string
   name: string
@@ -101,6 +111,16 @@ type InvitationRow = {
   updated_at: string
 }
 
+type InvitationPreviewRow = {
+  company_name: string
+  email: string
+  invitee_name: string | null
+  role: CompanyRole
+  message: string | null
+  status: InvitationStatus
+  expires_at: string
+}
+
 function isObject(
   value: unknown,
 ): value is Record<string, unknown> {
@@ -126,6 +146,32 @@ function parsePermissions(
         typeof entry[1] === 'boolean',
     ),
   )
+}
+
+function formatSupabaseError(
+  error: {
+    message?: string
+    details?: string | null
+    hint?: string | null
+    code?: string | null
+  },
+) {
+  return [
+    error.message
+      ? `Greška: ${error.message}`
+      : 'Dogodila se nepoznata greška.',
+    error.details
+      ? `Detalji: ${error.details}`
+      : '',
+    error.hint
+      ? `Savjet: ${error.hint}`
+      : '',
+    error.code
+      ? `Kod: ${error.code}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 function mapEmployee(
@@ -181,7 +227,9 @@ async function getCurrentCompanyId(): Promise<string> {
   )
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 
   if (!data) {
@@ -201,7 +249,9 @@ export async function getEmployees(): Promise<
   )
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 
   return ((data ?? []) as EmployeeRow[]).map(
@@ -217,7 +267,9 @@ export async function getInvitations(): Promise<
   )
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 
   return ((data ?? []) as InvitationRow[]).map(
@@ -260,7 +312,14 @@ export async function createInvitation(
   )
 
   if (error) {
-    throw error
+    console.error(
+      'create_company_invitation RPC:',
+      error,
+    )
+
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 
   const row = Array.isArray(data)
@@ -273,9 +332,76 @@ export async function createInvitation(
     )
   }
 
-  return mapInvitation(
+  const invitation = mapInvitation(
     row as InvitationRow,
   )
+
+  const {
+    error: emailError,
+  } = await supabase.functions.invoke(
+    'send-company-invitation',
+    {
+      body: {
+        invitationCode:
+          invitation.inviteCode,
+      },
+    },
+  )
+
+  if (emailError) {
+    console.warn(
+      'Pozivnica je izrađena, ali e-mail nije poslan:',
+      emailError,
+    )
+  }
+
+  return invitation
+}
+
+export async function getInvitationPreview(
+  code: string,
+): Promise<InvitationPreview> {
+  const cleanCode = code
+    .trim()
+    .toUpperCase()
+
+  const { data, error } = await supabase.rpc(
+    'get_company_invitation_preview',
+    {
+      requested_code: cleanCode,
+    },
+  )
+
+  if (error) {
+    throw new Error(
+      formatSupabaseError(error),
+    )
+  }
+
+  const row = Array.isArray(data)
+    ? data[0]
+    : data
+
+  if (!row) {
+    throw new Error(
+      'Pozivnica nije pronađena.',
+    )
+  }
+
+  const preview =
+    row as InvitationPreviewRow
+
+  return {
+    companyName:
+      preview.company_name,
+    email: preview.email,
+    inviteeName:
+      preview.invitee_name ?? '',
+    role: preview.role,
+    message: preview.message ?? '',
+    status: preview.status,
+    expiresAt: preview.expires_at,
+  }
 }
 
 export async function acceptInvitation(
@@ -299,7 +425,9 @@ export async function acceptInvitation(
   )
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 
   if (!data) {
@@ -315,20 +443,19 @@ export async function updateEmployeeRole(
   membershipId: string,
   role: Exclude<CompanyRole, 'owner'>,
 ): Promise<void> {
-
   const companyId =
     await getCurrentCompanyId()
 
   const { error } = await supabase
     .from('company_members')
-    .update({
-      role,
-    })
+    .update({ role })
     .eq('id', membershipId)
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -341,14 +468,14 @@ export async function updateEmployeeStatus(
 
   const { error } = await supabase
     .from('company_members')
-    .update({
-      status,
-    })
+    .update({ status })
     .eq('id', membershipId)
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -361,14 +488,14 @@ export async function updateEmployeePermissions(
 
   const { error } = await supabase
     .from('company_members')
-    .update({
-      permissions,
-    })
+    .update({ permissions })
     .eq('id', membershipId)
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -385,7 +512,9 @@ export async function removeEmployee(
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -399,12 +528,16 @@ export async function cancelInvitation(
     .from('invitations')
     .update({
       status: 'cancelled',
+      updated_at:
+        new Date().toISOString(),
     })
     .eq('id', invitationId)
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -421,7 +554,9 @@ export async function deleteInvitation(
     .eq('company_id', companyId)
 
   if (error) {
-    throw error
+    throw new Error(
+      formatSupabaseError(error),
+    )
   }
 }
 
@@ -434,7 +569,9 @@ export async function renewInvitation(
     )
   }
 
-  await cancelInvitation(invitation.id)
+  await cancelInvitation(
+    invitation.id,
+  )
 
   return createInvitation({
     email: invitation.email,
@@ -447,10 +584,7 @@ export async function renewInvitation(
 export function createInvitationLink(
   invitationCode: string,
 ): string {
-  const baseUrl =
-    window.location.origin
-
-  return `${baseUrl}/join?code=${encodeURIComponent(
+  return `${window.location.origin}/join?code=${encodeURIComponent(
     invitationCode,
   )}`
 }
@@ -467,33 +601,32 @@ export async function copyInvitationLink(
       navigator.clipboard &&
       window.isSecureContext
     ) {
-      await navigator.clipboard.writeText(link)
+      await navigator.clipboard.writeText(
+        link,
+      )
       return link
     }
 
     const temporaryInput =
-      document.createElement('textarea')
+      document.createElement(
+        'textarea',
+      )
 
     temporaryInput.value = link
     temporaryInput.setAttribute(
       'readonly',
       '',
     )
-
-    temporaryInput.style.position = 'fixed'
-    temporaryInput.style.left = '-9999px'
-    temporaryInput.style.top = '0'
+    temporaryInput.style.position =
+      'fixed'
+    temporaryInput.style.left =
+      '-9999px'
 
     document.body.appendChild(
       temporaryInput,
     )
 
-    temporaryInput.focus()
     temporaryInput.select()
-    temporaryInput.setSelectionRange(
-      0,
-      temporaryInput.value.length,
-    )
 
     const copied =
       document.execCommand('copy')

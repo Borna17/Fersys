@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import {
   Activity,
   BarChart3,
@@ -306,6 +307,7 @@ function daysUntil(date: string) {
 }
 
 export function OffersPage() {
+  const navigate = useNavigate()
   const [offers, setOffers] = useState<Offer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
@@ -1163,11 +1165,7 @@ export function OffersPage() {
 
             <button
               type="button"
-              onClick={() =>
-                window.alert(
-                  'U sljedećem koraku povezujemo stranicu Nova ponuda.',
-                )
-              }
+              onClick={() => navigate('/offers/new')}
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
             >
               <Plus size={18} />

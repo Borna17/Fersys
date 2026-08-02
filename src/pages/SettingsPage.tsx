@@ -5,17 +5,25 @@ import {
   Clock3,
   FileText,
   ImagePlus,
+  LayoutDashboard,
+  LockKeyhole,
   Palette,
+  Plug,
+  RotateCcw,
   Save,
+  ShieldCheck,
   Stamp,
   Trash2,
   Upload,
+  UsersRound,
 } from 'lucide-react'
 import {
   useEffect,
+  useMemo,
   useState,
   type ChangeEvent,
 } from 'react'
+import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
 import {
@@ -26,12 +34,17 @@ import {
   type WorkingHours,
 } from '../services/companySettings.service'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
+import { removeLightBackgroundFromLogo } from '../utils/logoBackground'
+import { supabase } from '../lib/supabase'
+import { resetOnboarding } from '../services/onboarding.service'
 
 type SettingsTab =
+  | 'overview'
   | 'company'
   | 'documents'
   | 'working-hours'
   | 'notifications'
+  | 'security'
 
 type ImageField =
   | 'logoUrl'
@@ -43,6 +56,11 @@ const tabs: Array<{
   label: string
   icon: typeof Building2
 }> = [
+  {
+    id: 'overview',
+    label: 'Pregled',
+    icon: LayoutDashboard,
+  },
   {
     id: 'company',
     label: 'Tvrtka',
@@ -62,6 +80,11 @@ const tabs: Array<{
     id: 'notifications',
     label: 'Obavijesti',
     icon: Bell,
+  },
+  {
+    id: 'security',
+    label: 'Sigurnost',
+    icon: ShieldCheck,
   },
 ]
 
@@ -100,8 +123,10 @@ const dayLabels: Array<{
 ]
 
 export function SettingsPage() {
+  const navigate = useNavigate()
+
   const [activeTab, setActiveTab] =
-    useState<SettingsTab>('company')
+    useState<SettingsTab>('overview')
 
   const [settings, setSettings] =
     useState<CompanySettings | null>(null)
@@ -123,6 +148,15 @@ export function SettingsPage() {
 
   const [uploadingField, setUploadingField] =
     useState<ImageField | null>(null)
+
+  const [isSendingPasswordReset, setIsSendingPasswordReset] =
+    useState(false)
+
+  const [securityMessage, setSecurityMessage] =
+    useState('')
+
+  const [securityError, setSecurityError] =
+    useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -159,6 +193,37 @@ export function SettingsPage() {
       cancelled = true
     }
   }, [])
+
+  const setupCompletion = useMemo(() => {
+    if (!settings) {
+      return {
+        percentage: 0,
+        completed: 0,
+        total: 8,
+      }
+    }
+
+    const checks = [
+      Boolean(settings.name.trim()),
+      settings.oib.replace(/\D/g, '').length === 11,
+      Boolean(settings.address.trim() && settings.city.trim()),
+      Boolean(settings.phone.trim() || settings.email.trim()),
+      Boolean(settings.iban.trim()),
+      Boolean(settings.logoUrl),
+      Boolean(settings.documentFooter.trim()),
+      Boolean(settings.workingHours),
+    ]
+
+    const completed = checks.filter(Boolean).length
+
+    return {
+      percentage: Math.round(
+        (completed / checks.length) * 100,
+      ),
+      completed,
+      total: checks.length,
+    }
+  }, [settings])
 
   function updateField<
     Key extends keyof CompanySettings,
@@ -239,16 +304,18 @@ export function SettingsPage() {
       setUploadingField(field)
 
       const dataUrl =
-        await fileToCompressedDataUrl(
-          file,
-          field === 'signatureUrl'
-            ? 1200
-            : 1400,
-          field === 'signatureUrl'
-            ? 600
-            : 1400,
-          0.88,
-        )
+        field === 'logoUrl'
+          ? await removeLightBackgroundFromLogo(file)
+          : await fileToCompressedDataUrl(
+              file,
+              field === 'signatureUrl'
+                ? 1200
+                : 1400,
+              field === 'signatureUrl'
+                ? 600
+                : 1400,
+              0.88,
+            )
 
       updateField(field, dataUrl)
     } catch {
@@ -353,6 +420,70 @@ export function SettingsPage() {
     }
   }
 
+  async function sendPasswordReset() {
+    const email =
+      settings?.email.trim().toLowerCase() ||
+      ''
+
+    setSecurityMessage('')
+    setSecurityError('')
+
+    if (!email) {
+      setSecurityError(
+        'Prvo spremi e-mail adresu tvrtke ili korisnika.',
+      )
+      return
+    }
+
+    try {
+      setIsSendingPasswordReset(true)
+
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(
+          email,
+          {
+            redirectTo:
+              `${window.location.origin}/reset-password`,
+          },
+        )
+
+      if (error) {
+        throw error
+      }
+
+      setSecurityMessage(
+        'Poveznica za promjenu lozinke poslana je na e-mail.',
+      )
+    } catch (error) {
+      setSecurityError(
+        error instanceof Error
+          ? error.message
+          : 'Poveznicu nije moguće poslati.',
+      )
+    } finally {
+      setIsSendingPasswordReset(false)
+    }
+  }
+
+  async function restartTutorial() {
+    try {
+      setSecurityMessage('')
+      setSecurityError('')
+
+      await resetOnboarding()
+
+      setSecurityMessage(
+        'Tutorijal je resetiran. Otvorit će se nakon osvježavanja aplikacije.',
+      )
+    } catch (error) {
+      setSecurityError(
+        error instanceof Error
+          ? error.message
+          : 'Tutorijal nije moguće resetirati.',
+      )
+    }
+  }
+
   function resetWorkingHours() {
     updateField(
       'workingHours',
@@ -402,9 +533,9 @@ export function SettingsPage() {
           </h1>
 
           <p className="mt-2 text-slate-400">
-            Upravljaj podacima tvrtke,
-            dokumentima, radnim vremenom i
-            obavijestima.
+            Glavni upravljački centar za tvrtku,
+            dokumente, zaposlenike, sigurnost i
+            izgled FERSYS-a.
           </p>
         </div>
 
@@ -463,6 +594,15 @@ export function SettingsPage() {
       </div>
 
       <div className="mt-6">
+        {activeTab === 'overview' && (
+          <OverviewSettingsTab
+            settings={settings}
+            completion={setupCompletion}
+            onOpenTab={setActiveTab}
+            onNavigate={navigate}
+          />
+        )}
+
         {activeTab === 'company' && (
           <CompanySettingsTab
             settings={settings}
@@ -501,6 +641,26 @@ export function SettingsPage() {
           <NotificationsTab
             settings={settings}
             updateField={updateField}
+          />
+        )}
+
+        {activeTab === 'security' && (
+          <SecuritySettingsTab
+            email={settings.email}
+            isSendingPasswordReset={
+              isSendingPasswordReset
+            }
+            message={securityMessage}
+            error={securityError}
+            onSendPasswordReset={() => {
+              void sendPasswordReset()
+            }}
+            onRestartTutorial={() => {
+              void restartTutorial()
+            }}
+            onOpenEmployees={() =>
+              navigate('/settings/employees')
+            }
           />
         )}
       </div>
@@ -754,7 +914,7 @@ function CompanySettingsTab({
       <div className="space-y-6">
         <ImageSettingsCard
           title="Logo tvrtke"
-          description="Prikazuje se u aplikaciji i dokumentima."
+          description="FERSYS automatski uklanja bijelu ili gotovo bijelu pozadinu, obrezuje prazne rubove i sprema transparentni PNG."
           value={settings.logoUrl}
           field="logoUrl"
           icon={<ImagePlus size={21} />}
@@ -1215,6 +1375,443 @@ function NotificationsTab({
   )
 }
 
+function OverviewSettingsTab({
+  settings,
+  completion,
+  onOpenTab,
+  onNavigate,
+}: {
+  settings: CompanySettings
+  completion: {
+    percentage: number
+    completed: number
+    total: number
+  }
+  onOpenTab: (tab: SettingsTab) => void
+  onNavigate: (path: string) => void
+}) {
+  const setupItems = [
+    {
+      label: 'Naziv tvrtke',
+      completed: Boolean(settings.name.trim()),
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'OIB',
+      completed:
+        settings.oib.replace(/\D/g, '').length === 11,
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'Adresa i grad',
+      completed: Boolean(
+        settings.address.trim() &&
+          settings.city.trim(),
+      ),
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'Kontakt',
+      completed: Boolean(
+        settings.phone.trim() ||
+          settings.email.trim(),
+      ),
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'IBAN',
+      completed: Boolean(settings.iban.trim()),
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'Logo',
+      completed: Boolean(settings.logoUrl),
+      tab: 'company' as SettingsTab,
+    },
+    {
+      label: 'Izgled dokumenata',
+      completed: Boolean(
+        settings.documentFooter.trim(),
+      ),
+      tab: 'documents' as SettingsTab,
+    },
+    {
+      label: 'Radno vrijeme',
+      completed: Boolean(settings.workingHours),
+      tab: 'working-hours' as SettingsTab,
+    },
+  ]
+
+  return (
+    <div className="space-y-6">
+      <section className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-violet-500/10 p-6 sm:p-8">
+        <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="relative grid gap-7 lg:grid-cols-[1fr_320px] lg:items-center">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+              Postavljanje tvrtke
+            </p>
+
+            <h2 className="mt-3 text-2xl font-black text-white sm:text-3xl">
+              {completion.percentage === 100
+                ? 'Tvrtka je spremna za rad'
+                : 'Dovrši postavljanje FERSYS-a'}
+            </h2>
+
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+              Podaci koje ovdje uneseš koriste se na ponudama,
+              računima, radnim nalozima i svim dokumentima tvrtke.
+            </p>
+
+            <div className="mt-6 h-3 overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-700"
+                style={{
+                  width: `${completion.percentage}%`,
+                }}
+              />
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className="font-semibold text-slate-500">
+                {completion.completed}/{completion.total} stavki
+              </span>
+
+              <span className="font-black text-blue-400">
+                {completion.percentage}%
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            {setupItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => onOpenTab(item.tab)}
+                className={`flex min-h-16 items-center gap-3 rounded-2xl border px-3 text-left transition ${
+                  item.completed
+                    ? 'border-emerald-500/20 bg-emerald-500/10'
+                    : 'border-slate-800 bg-slate-950/50 hover:border-blue-500/30'
+                }`}
+              >
+                <span
+                  className={`grid h-7 w-7 shrink-0 place-items-center rounded-full ${
+                    item.completed
+                      ? 'bg-emerald-500/15 text-emerald-400'
+                      : 'bg-slate-800 text-slate-500'
+                  }`}
+                >
+                  {item.completed ? (
+                    <CheckCircle2 size={16} />
+                  ) : (
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />
+                  )}
+                </span>
+
+                <span className="text-xs font-bold text-slate-300">
+                  {item.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <ControlCenterCard
+          icon={<Building2 size={23} />}
+          title="Tvrtka i branding"
+          description="Podaci, logo, pečat, potpis, boje i banka."
+          action="Uredi tvrtku"
+          onClick={() => onOpenTab('company')}
+        />
+
+        <ControlCenterCard
+          icon={<FileText size={23} />}
+          title="Dokumenti"
+          description="Prefiksi, rokovi, podnožje i vodeni žig."
+          action="Uredi dokumente"
+          onClick={() => onOpenTab('documents')}
+        />
+
+        <ControlCenterCard
+          icon={<UsersRound size={23} />}
+          title="Zaposlenici"
+          description="Članovi tima, uloge i pristup aplikaciji."
+          action="Otvori zaposlenike"
+          onClick={() =>
+            onNavigate('/settings/employees')
+          }
+        />
+
+        <ControlCenterCard
+          icon={<ShieldCheck size={23} />}
+          title="Sigurnost"
+          description="Lozinka, tutorijal i zaštita korisničkog računa."
+          action="Sigurnosne postavke"
+          onClick={() => onOpenTab('security')}
+        />
+      </div>
+
+      <section className="grid gap-4 lg:grid-cols-3">
+        <StatusCard
+          icon={<Clock3 size={21} />}
+          label="Radno vrijeme"
+          value="Postavljeno"
+          detail="AI i kalendar koriste definirane radne dane."
+          onClick={() => onOpenTab('working-hours')}
+        />
+
+        <StatusCard
+          icon={<Bell size={21} />}
+          label="Obavijesti"
+          value={
+            settings.notificationsEnabled
+              ? 'Uključene'
+              : 'Isključene'
+          }
+          detail="Obavijesti u aplikaciji i putem e-maila."
+          onClick={() => onOpenTab('notifications')}
+        />
+
+        <StatusCard
+          icon={<Plug size={21} />}
+          label="Integracije"
+          value="U pripremi"
+          detail="Google Calendar, Gmail, Drive i druge usluge."
+        />
+      </section>
+    </div>
+  )
+}
+
+function ControlCenterCard({
+  icon,
+  title,
+  description,
+  action,
+  onClick,
+}: {
+  icon: React.ReactNode
+  title: string
+  description: string
+  action: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group rounded-3xl border border-slate-800 bg-slate-900 p-5 text-left transition hover:-translate-y-1 hover:border-blue-500/30"
+    >
+      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-500/10 text-blue-400">
+        {icon}
+      </div>
+
+      <h3 className="mt-5 font-black text-white">
+        {title}
+      </h3>
+
+      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">
+        {description}
+      </p>
+
+      <p className="mt-4 text-xs font-black text-blue-400">
+        {action} →
+      </p>
+    </button>
+  )
+}
+
+function StatusCard({
+  icon,
+  label,
+  value,
+  detail,
+  onClick,
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string
+  detail: string
+  onClick?: () => void
+}) {
+  const content = (
+    <>
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/10 text-violet-400">
+          {icon}
+        </div>
+
+        <span className="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-black text-slate-400">
+          {value}
+        </span>
+      </div>
+
+      <h3 className="mt-4 font-black text-white">
+        {label}
+      </h3>
+
+      <p className="mt-2 text-xs leading-5 text-slate-500">
+        {detail}
+      </p>
+    </>
+  )
+
+  if (!onClick) {
+    return (
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        {content}
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-slate-800 bg-slate-900 p-5 text-left transition hover:border-violet-500/30"
+    >
+      {content}
+    </button>
+  )
+}
+
+function SecuritySettingsTab({
+  email,
+  isSendingPasswordReset,
+  message,
+  error,
+  onSendPasswordReset,
+  onRestartTutorial,
+  onOpenEmployees,
+}: {
+  email: string
+  isSendingPasswordReset: boolean
+  message: string
+  error: string
+  onSendPasswordReset: () => void
+  onRestartTutorial: () => void
+  onOpenEmployees: () => void
+}) {
+  return (
+    <div className="space-y-6">
+      {message && (
+        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+          {message}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-6 xl:grid-cols-2">
+        <SettingsCard
+          icon={<LockKeyhole className="text-blue-400" />}
+          title="Lozinka korisnika"
+          description="Pošalji sigurnu poveznicu za promjenu lozinke."
+        >
+          <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+              E-mail
+            </p>
+
+            <p className="mt-2 break-words font-bold text-white">
+              {email || 'E-mail nije postavljen'}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSendingPasswordReset}
+            onClick={onSendPasswordReset}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white disabled:opacity-50"
+          >
+            <LockKeyhole size={18} />
+
+            {isSendingPasswordReset
+              ? 'Slanje...'
+              : 'Pošalji promjenu lozinke'}
+          </button>
+        </SettingsCard>
+
+        <SettingsCard
+          icon={<UsersRound className="text-violet-400" />}
+          title="Korisnici i pristup"
+          description="Upravljaj članovima tima i njihovim pristupom."
+        >
+          <p className="text-sm leading-6 text-slate-400">
+            Zaposlenike dodaj zasebno, dodijeli im uloge i
+            ograniči pristup osjetljivim poslovnim podacima.
+          </p>
+
+          <button
+            type="button"
+            onClick={onOpenEmployees}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-violet-500/25 bg-violet-500/10 px-5 font-bold text-violet-300"
+          >
+            <UsersRound size={18} />
+            Otvori zaposlenike
+          </button>
+        </SettingsCard>
+
+        <SettingsCard
+          icon={<RotateCcw className="text-amber-400" />}
+          title="Tutorijal i onboarding"
+          description="Ponovno pokreni početni vodič za ovaj korisnički račun."
+        >
+          <p className="text-sm leading-6 text-slate-400">
+            Resetiranje ne briše poslovne podatke. Samo vraća
+            početni tutorijal na prvi korak.
+          </p>
+
+          <button
+            type="button"
+            onClick={onRestartTutorial}
+            className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-5 font-bold text-amber-300"
+          >
+            <RotateCcw size={18} />
+            Ponovno pokreni tutorijal
+          </button>
+        </SettingsCard>
+
+        <SettingsCard
+          icon={<ShieldCheck className="text-emerald-400" />}
+          title="Napredna zaštita"
+          description="Dodatne sigurnosne mogućnosti za poslovne račune."
+        >
+          <div className="space-y-3">
+            {[
+              'Dvofaktorska autentifikacija (2FA)',
+              'Pregled aktivnih uređaja',
+              'Odjava sa svih uređaja',
+              'Dnevnik prijava i aktivnosti',
+            ].map((item) => (
+              <div
+                key={item}
+                className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3"
+              >
+                <span className="text-sm font-semibold text-slate-400">
+                  {item}
+                </span>
+
+                <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-black text-slate-500">
+                  Uskoro
+                </span>
+              </div>
+            ))}
+          </div>
+        </SettingsCard>
+      </div>
+    </div>
+  )
+}
+
 function SettingsCard({
   icon,
   title,
@@ -1297,7 +1894,7 @@ function ImageSettingsCard({
         </div>
       </div>
 
-      <div className="mt-5 flex h-48 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-white">
+      <div className="logo-preview-grid mt-5 flex h-48 items-center justify-center overflow-hidden rounded-2xl border border-slate-700">
         {value ? (
           <img
             src={value}
@@ -1352,6 +1949,23 @@ function ImageSettingsCard({
           </button>
         )}
       </div>
+
+      <style>{`
+        .logo-preview-grid {
+          background-color: #ffffff;
+          background-image:
+            linear-gradient(45deg, #e2e8f0 25%, transparent 25%),
+            linear-gradient(-45deg, #e2e8f0 25%, transparent 25%),
+            linear-gradient(45deg, transparent 75%, #e2e8f0 75%),
+            linear-gradient(-45deg, transparent 75%, #e2e8f0 75%);
+          background-size: 20px 20px;
+          background-position:
+            0 0,
+            0 10px,
+            10px -10px,
+            -10px 0;
+        }
+      `}</style>
     </div>
   )
 }

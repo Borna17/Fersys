@@ -194,6 +194,9 @@ export function EmployeesPage() {
   const [actionError, setActionError] =
     useState('')
 
+  const [actionSuccess, setActionSuccess] =
+    useState('')
+
   const [isInviteModalOpen, setIsInviteModalOpen] =
     useState(false)
 
@@ -631,6 +634,11 @@ export function EmployeesPage() {
       ...current,
     ])
 
+    setActionError('')
+    setActionSuccess(
+      `Pozivnica za ${invitation.email} uspješno je izrađena. Poveznica je poslana e-mailom ako je e-mail servis konfiguriran.`,
+    )
+
     setIsInviteModalOpen(false)
     setActiveTab('invitations')
   }
@@ -712,8 +720,14 @@ export function EmployeesPage() {
           </div>
         </div>
 
+        {actionSuccess && (
+          <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+            {actionSuccess}
+          </div>
+        )}
+
         {actionError && (
-          <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
+          <div className="mt-5 whitespace-pre-wrap break-words rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm leading-6 text-red-300">
             {actionError}
           </div>
         )}

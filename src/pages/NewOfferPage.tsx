@@ -35,6 +35,10 @@ import {
   updateOffer,
 } from '../services/offers.service'
 import { getCustomers } from '../services/customers.service'
+import {
+  getCompanySettings,
+  type CompanySettings,
+} from '../services/companySettings.service'
 import type { Customer } from '../types/customer'
 import type {
   CustomerType,
@@ -248,7 +252,10 @@ function getCustomerIcon(customerType: CustomerType) {
   return UserRound
 }
 
-function openOfferEmailDraft(offer: Offer) {
+async function openOfferEmailDraft(
+  offer: Offer,
+  company: CompanySettings,
+) {
   const recipient = offer.email.trim()
 
   if (!recipient) {
@@ -265,7 +272,7 @@ function openOfferEmailDraft(offer: Offer) {
 
   const formattedTotal = new Intl.NumberFormat('hr-HR', {
     style: 'currency',
-    currency: 'EUR',
+    currency: company.currency || 'EUR',
   }).format(total)
 
   const formattedValidUntil = offer.validUntil
@@ -274,7 +281,11 @@ function openOfferEmailDraft(offer: Offer) {
       )
     : 'nije navedeno'
 
-  const subject = `Ponuda ${offer.offerNumber} – Instalacije Ferfolja`
+  const companyName =
+    company.name.trim() || 'Tvrtka'
+
+  const subject =
+    `Ponuda ${offer.offerNumber} – ${companyName}`
 
   const body = [
     `Poštovani/a ${offer.customerName},`,
@@ -289,8 +300,14 @@ function openOfferEmailDraft(offer: Offer) {
     'Za dodatne informacije stojimo Vam na raspolaganju.',
     '',
     'Lijep pozdrav,',
-    'Instalacije Ferfolja',
-  ].join('\n')
+    companyName,
+    company.phone ? `Telefon: ${company.phone}` : '',
+    company.email ? `E-mail: ${company.email}` : '',
+  ]
+    .filter((line, index, lines) =>
+      line !== '' || lines[index - 1] !== '',
+    )
+    .join('')
 
   openOfferPdf(offer)
 
@@ -322,6 +339,8 @@ export function NewOfferPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
+  const [companySettings, setCompanySettings] =
+    useState<CompanySettings | null>(null)
 
   const [offerNumber, setOfferNumber] = useState('Automatski')
   const [date, setDate] = useState(today)
@@ -396,19 +415,42 @@ export function NewOfferPage() {
         setLoadError('')
 
         const customerListPromise = getCustomers()
+        const companySettingsPromise = getCompanySettings()
         const offerPromise = offerId
           ? getOfferById(offerId)
           : duplicateId
             ? getOfferById(duplicateId)
             : Promise.resolve(null)
 
-        const [savedCustomers, loadedOffer] = await Promise.all([
+        const [
+          savedCustomers,
+          loadedCompanySettings,
+          loadedOffer,
+        ] = await Promise.all([
           customerListPromise,
+          companySettingsPromise,
           offerPromise,
         ])
 
         if (cancelled) {
           return
+        }
+
+        setCompanySettings(
+          loadedCompanySettings,
+        )
+
+        if (!offerId && !duplicateId) {
+          setValidUntil(
+            addDays(
+              today,
+              loadedCompanySettings.defaultOfferValidityDays || 30,
+            ),
+          )
+
+          setResponsiblePerson(
+            loadedCompanySettings.name || 'Odgovorna osoba',
+          )
         }
 
         setCustomers(
@@ -725,6 +767,15 @@ export function NewOfferPage() {
       return
     }
 
+    if (!companySettings) {
+      setErrors((current) => ({
+        ...current,
+        save:
+          'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
+      }))
+      return
+    }
+
     const now = new Date().toISOString()
 
     openOfferPdf({
@@ -764,6 +815,15 @@ export function NewOfferPage() {
         top: 0,
         behavior: 'smooth',
       })
+      return
+    }
+
+    if (!companySettings) {
+      setErrors((current) => ({
+        ...current,
+        save:
+          'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
+      }))
       return
     }
 
@@ -832,7 +892,10 @@ export function NewOfferPage() {
       )
 
       if (status === 'Poslano') {
-        openOfferEmailDraft(savedOffer)
+        void openOfferEmailDraft(
+          savedOffer,
+          companySettings,
+        )
       }
 
       window.setTimeout(() => {
@@ -1050,23 +1113,15 @@ export function NewOfferPage() {
                   Odgovorna osoba
                 </label>
 
-                <select
+                <input
+                  type="text"
                   value={responsiblePerson}
                   onChange={(event) =>
                     setResponsiblePerson(event.target.value)
                   }
+                  placeholder="Ime odgovorne osobe"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-sm text-white outline-none transition focus:border-blue-500"
-                >
-                  <option value="Borna Ferfolja">
-                    Borna Ferfolja
-                  </option>
-                  <option value="Dinko Ferfolja">
-                    Dinko Ferfolja
-                  </option>
-                  <option value="Stojan Milošević">
-                    Stojan Milošević
-                  </option>
-                </select>
+                />
               </div>
             </div>
           </section>

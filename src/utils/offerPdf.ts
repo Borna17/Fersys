@@ -1,3 +1,5 @@
+import { getCompanySettings } from '../services/companySettings.service'
+
 export type OfferPdfItem = {
   id: string
   name: string
@@ -45,6 +47,7 @@ export type OfferPdfSettings = {
   companyWebsite: string
   logoDataUrl?: string
   stampDataUrl?: string
+  signatureDataUrl?: string
   primaryColor: string
   showItemImages: boolean
   showSignature: boolean
@@ -54,24 +57,70 @@ export type OfferPdfSettings = {
 }
 
 const DEFAULT_SETTINGS: OfferPdfSettings = {
-  companyName: 'Instalacije Ferfolja',
-  companySubtitle:
-    'Grijanje · hlađenje · voda · plin · servis i održavanje',
-  companyAddress: 'Slavonski Brod',
+  companyName: 'Tvrtka',
+  companySubtitle: '',
+  companyAddress: '',
   companyOib: '',
   companyIban: '',
   companyEmail: '',
   companyPhone: '',
   companyWebsite: '',
-  logoDataUrl: 'https://i.imgur.com/r61NT2v.png',
-  stampDataUrl: 'https://i.imgur.com/EAdTwng.png',
-  primaryColor: '#6d5dfc',
+  logoDataUrl: undefined,
+  stampDataUrl: undefined,
+  signatureDataUrl: undefined,
+  primaryColor: '#2563EB',
   showItemImages: true,
   showSignature: true,
   showStamp: true,
   showFooter: true,
   footerText:
-    'Hvala na ukazanom povjerenju. Ponuda je izrađena u sustavu FERSYS.',
+    'Ponuda je izrađena u sustavu FERSYS.',
+}
+
+function joinCompanyAddress(parts: Array<string | undefined>) {
+  return parts
+    .map((part) => part?.trim() ?? '')
+    .filter(Boolean)
+    .join(', ')
+}
+
+async function loadCurrentCompanyPdfSettings(): Promise<
+  Partial<OfferPdfSettings>
+> {
+  const company = await getCompanySettings()
+
+  return {
+    companyName: company.name || 'Tvrtka',
+    companySubtitle:
+      company.documentWatermark || '',
+    companyAddress: joinCompanyAddress([
+      company.address,
+      [company.postalCode, company.city]
+        .filter(Boolean)
+        .join(' '),
+      company.country,
+    ]),
+    companyOib: company.oib,
+    companyIban: company.iban,
+    companyEmail: company.email,
+    companyPhone: company.phone,
+    companyWebsite: company.website,
+    logoDataUrl:
+      company.logoUrl || undefined,
+    stampDataUrl:
+      company.stampUrl || undefined,
+    signatureDataUrl:
+      company.signatureUrl || undefined,
+    primaryColor:
+      company.primaryColor || '#2563EB',
+    footerText:
+      company.documentFooter ||
+      'Ponuda je izrađena u sustavu FERSYS.',
+    showStamp: Boolean(company.stampUrl),
+    showSignature: true,
+    showFooter: true,
+    showItemImages: true,
+  }
 }
 
 function calculateItemBase(item: OfferPdfItem) {
@@ -319,6 +368,15 @@ export function buildOfferPdfHtml(
       <section class="signature-section">
         <div class="signature-card">
           <div class="signature-space">
+            ${
+              settings.signatureDataUrl
+                ? `<img
+                    class="signature-image"
+                    src="${escapeHtml(settings.signatureDataUrl)}"
+                    alt="Potpis"
+                  />`
+                : ''
+            }
             ${stampHtml}
           </div>
 
@@ -1025,6 +1083,17 @@ export function buildOfferPdfHtml(
       overflow: visible;
     }
 
+    .signature-image {
+      position: absolute;
+      left: 50%;
+      bottom: 12px;
+      width: 150px;
+      max-height: 70px;
+      object-fit: contain;
+      transform: translateX(-50%);
+      opacity: 0.95;
+    }
+
     .stamp {
       position: absolute;
       left: 50%;
@@ -1375,26 +1444,126 @@ export function buildOfferPdfHtml(
 
 export function openOfferPdf(
   offer: OfferPdfData,
-  settings: Partial<OfferPdfSettings> = {},
+  customSettings: Partial<OfferPdfSettings> = {},
 ) {
-  const html = buildOfferPdfHtml(offer, settings)
-  const blob = new Blob([html], {
-    type: 'text/html;charset=utf-8',
-  })
-  const previewUrl = URL.createObjectURL(blob)
-  const previewWindow = window.open(previewUrl, '_blank')
+  const previewWindow = window.open('', '_blank')
 
   if (!previewWindow) {
-    URL.revokeObjectURL(previewUrl)
     window.alert(
       'Preglednik je blokirao novi prozor. Dopusti skočne prozore za FERSYS i pokušaj ponovno.',
     )
     return
   }
 
+  previewWindow.document.open()
+  previewWindow.document.write(`<!doctype html>
+    <html lang="hr">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Priprema ponude...</title>
+        <style>
+          body {
+            min-height: 100vh;
+            margin: 0;
+            display: grid;
+            place-items: center;
+            background: #020617;
+            color: #e2e8f0;
+            font-family: Inter, system-ui, sans-serif;
+          }
+
+          div {
+            text-align: center;
+          }
+
+          strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 20px;
+          }
+
+          span {
+            color: #64748b;
+            font-size: 14px;
+          }
+        </style>
+      </head>
+      <body>
+        <div>
+          <strong>Priprema PDF ponude...</strong>
+          <span>Učitavamo podatke trenutno prijavljene tvrtke.</span>
+        </div>
+      </body>
+    </html>`)
+  previewWindow.document.close()
   previewWindow.focus()
 
-  window.setTimeout(() => {
-    URL.revokeObjectURL(previewUrl)
-  }, 60_000)
+  void (async () => {
+    try {
+      const companySettings =
+        await loadCurrentCompanyPdfSettings()
+
+      const html = buildOfferPdfHtml(
+        offer,
+        {
+          ...companySettings,
+          ...customSettings,
+        },
+      )
+
+      previewWindow.document.open()
+      previewWindow.document.write(html)
+      previewWindow.document.close()
+      previewWindow.focus()
+    } catch (error) {
+      console.error(
+        'Podatke tvrtke nije moguće učitati za PDF ponude:',
+        error,
+      )
+
+      previewWindow.document.open()
+      previewWindow.document.write(`<!doctype html>
+        <html lang="hr">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>PDF nije dostupan</title>
+            <style>
+              body {
+                min-height: 100vh;
+                margin: 0;
+                display: grid;
+                place-items: center;
+                padding: 24px;
+                background: #020617;
+                color: #fff;
+                font-family: Inter, system-ui, sans-serif;
+              }
+
+              main {
+                width: min(520px, 100%);
+                padding: 28px;
+                border: 1px solid rgba(239, 68, 68, 0.25);
+                border-radius: 20px;
+                background: #0f172a;
+                text-align: center;
+              }
+
+              p {
+                color: #94a3b8;
+                line-height: 1.6;
+              }
+            </style>
+          </head>
+          <body>
+            <main>
+              <h1>PDF ponude nije moguće izraditi</h1>
+              <p>Provjeri jesu li podaci tvrtke spremljeni u Postavkama i pokušaj ponovno.</p>
+            </main>
+          </body>
+        </html>`)
+      previewWindow.document.close()
+    }
+  })()
 }

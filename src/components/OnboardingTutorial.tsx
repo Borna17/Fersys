@@ -97,8 +97,8 @@ const steps: TutorialStep[] = [
     description:
       'U ovim modulima pripremaš ponude, izlazne račune i ulazne račune te pratiš njihov status.',
     icon: ReceiptText,
-    route: '/offers',
-    actionLabel: 'Otvori Ponude',
+    route: '/offers/new',
+    actionLabel: 'Otvori Novu ponudu',
     tips: [
       'Ponudu možeš spremiti kao nacrt.',
       'Status pokazuje je li ponuda poslana ili prihvaćena.',
@@ -255,22 +255,41 @@ export default function OnboardingTutorial({
   }
 
   async function handleOpenRoute() {
-    if (!step.route) {
+    if (!step.route || isSaving) {
       return
     }
 
     try {
-      await saveOnboardingStep(
-        stepIndex,
+      setIsSaving(true)
+      setError('')
+
+      const nextStep = clampStep(
+        stepIndex + 1,
       )
+
+      await saveOnboardingStep(
+        nextStep,
+      )
+
+      navigate(step.route)
+
+      if (!isLast) {
+        setStepIndex(nextStep)
+      }
     } catch (saveError) {
       console.error(
-        'Napredak nije spremljen prije navigacije:',
+        'Stranicu tutorijala nije moguće otvoriti:',
         saveError,
       )
-    }
 
-    navigate(step.route)
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Traženu stranicu trenutno nije moguće otvoriti.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   async function finishTutorial() {
@@ -457,14 +476,15 @@ export default function OnboardingTutorial({
                 step.actionLabel && (
                   <button
                     type="button"
+                    disabled={isSaving}
                     onClick={() => {
                       void handleOpenRoute()
                     }}
-                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-bold text-blue-300 transition hover:bg-blue-500/20"
+                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-bold text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {
-                      step.actionLabel
-                    }
+                    {isSaving
+                      ? 'Otvaranje...'
+                      : step.actionLabel}
                   </button>
                 )}
             </div>

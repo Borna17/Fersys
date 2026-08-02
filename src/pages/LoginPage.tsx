@@ -110,7 +110,7 @@ export function LoginPage() {
       setError(resetError.message)
     } else {
       setMessage(
-        'Poslana je poruka za obnovu lozinke. Provjeri e-mail.',
+        'Poslana je poveznica za obnovu lozinke. Otvori je na uređaju na kojem želiš postaviti novu lozinku.',
       )
     }
 
