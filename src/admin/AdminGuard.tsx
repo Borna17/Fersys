@@ -1,35 +1,46 @@
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
-import { isPlatformAdmin } from './services/admin.service'
 
-export default function AdminGuard({ children }: { children: ReactNode }) {
-  const [loading, setLoading] = useState(true)
-  const [allowed, setAllowed] = useState(false)
+const SUPER_ADMIN_EMAILS = new Set([
+  'fersysapp@gmail.com',
+  'bornaferfolja7@gmail.com',
+])
 
-  useEffect(() => {
-    let active = true
-    void isPlatformAdmin()
-      .then((value) => {
-        if (active) setAllowed(value)
-      })
-      .catch(() => {
-        if (active) setAllowed(false)
-      })
-      .finally(() => {
-        if (active) setLoading(false)
-      })
+export default function AdminGuard({
+  children,
+}: {
+  children: ReactNode
+}) {
+  const {
+    user,
+    isLoading,
+    isAccessLoading,
+  } = useAuth()
 
-    return () => {
-      active = false
-    }
-  }, [])
-
-  if (loading) {
-    return <FersysLoader fullScreen text="Provjera FERSYS administratora..." />
+  if (isLoading || isAccessLoading) {
+    return (
+      <FersysLoader
+        fullScreen
+        text="Provjera FERSYS administratora..."
+      />
+    )
   }
 
-  return allowed ? children : <Navigate to="/dashboard" replace />
+  const email =
+    user?.email?.trim().toLowerCase() ?? ''
+
+  const isSuperAdmin =
+    SUPER_ADMIN_EMAILS.has(email)
+
+  return isSuperAdmin
+    ? children
+    : (
+      <Navigate
+        to="/dashboard"
+        replace
+      />
+    )
 }
