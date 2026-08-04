@@ -20,6 +20,7 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import MissionCenter from '../components/MissionCenter'
 import {
@@ -183,6 +184,29 @@ function getStatusClassName(
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewOffers =
+    can('offers.view')
+
+  const canViewFinance =
+    can('finance.view') ||
+    can('offers.viewPrices')
+
+  const canViewEmployees =
+    can('employees.view')
+
+  const canManageCustomers =
+    can('customers.manage')
+
+  const canManageWorkOrders =
+    can('workOrders.manage')
+
+  const canManageOffers =
+    can('offers.manage')
+
+  const canManageInventory =
+    can('inventory.manage')
 
   const [data, setData] =
     useState<DashboardData>({
@@ -216,8 +240,12 @@ export function DashboardPage() {
         ] = await Promise.all([
           getCustomers(),
           getWorkOrders(),
-          getOffers(),
-          getEmployees(),
+          canViewOffers
+            ? getOffers()
+            : Promise.resolve([]),
+          canViewEmployees
+            ? getEmployees()
+            : Promise.resolve([]),
           supabase.auth.getUser(),
         ])
 
@@ -272,7 +300,7 @@ export function DashboardPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [canViewEmployees, canViewOffers])
 
   const dashboard = useMemo(() => {
     const today =
@@ -480,21 +508,25 @@ export function DashboardPage() {
       accentClass:
         'from-violet-500/20 to-transparent',
     },
-    {
-      title: 'Prihvaćene ponude ovaj mjesec',
-      value: formatCurrency(
-        dashboard.acceptedOfferValue,
-      ),
-      description:
-        dashboard.pendingOffers.length > 0
-          ? `${dashboard.pendingOffers.length} ponuda u obradi`
-          : 'Nema ponuda u obradi',
-      icon: CircleDollarSign,
-      iconClass:
-        'bg-emerald-500/15 text-emerald-400',
-      accentClass:
-        'from-emerald-500/20 to-transparent',
-    },
+    ...(canViewFinance
+      ? [
+          {
+            title: 'Prihvaćene ponude ovaj mjesec',
+            value: formatCurrency(
+              dashboard.acceptedOfferValue,
+            ),
+            description:
+              dashboard.pendingOffers.length > 0
+                ? `${dashboard.pendingOffers.length} ponuda u obradi`
+                : 'Nema ponuda u obradi',
+            icon: CircleDollarSign,
+            iconClass:
+              'bg-emerald-500/15 text-emerald-400',
+            accentClass:
+              'from-emerald-500/20 to-transparent',
+          },
+        ]
+      : []),
     {
       title: 'Završeni poslovi ovaj mjesec',
       value: String(
@@ -537,7 +569,37 @@ export function DashboardPage() {
       icon: Package,
       route: '/inventory/items/new',
     },
-  ]
+  ].filter((action) => {
+    if (
+      action.route === '/customers' &&
+      !canManageCustomers
+    ) {
+      return false
+    }
+
+    if (
+      action.route === '/work-orders/new' &&
+      !canManageWorkOrders
+    ) {
+      return false
+    }
+
+    if (
+      action.route === '/offers/new' &&
+      !canManageOffers
+    ) {
+      return false
+    }
+
+    if (
+      action.route === '/inventory/items/new' &&
+      !canManageInventory
+    ) {
+      return false
+    }
+
+    return true
+  })
 
   const hasAnyBusinessData =
     data.customers.length > 0 ||
@@ -563,27 +625,31 @@ export function DashboardPage() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() =>
-              navigate('/customers')
-            }
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
-          >
-            <Users size={18} />
-            Novi kupac
-          </button>
+          {canManageCustomers && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate('/customers')
+              }
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+            >
+              <Users size={18} />
+              Novi kupac
+            </button>
+          )}
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate('/work-orders/new')
-            }
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
-          >
-            <Plus size={18} />
-            Novi radni nalog
-          </button>
+          {canManageWorkOrders && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate('/work-orders/new')
+              }
+              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
+            >
+              <Plus size={18} />
+              Novi radni nalog
+            </button>
+          )}
         </div>
       </div>
 
@@ -646,11 +712,12 @@ export function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.7fr_1fr]">
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-violet-400">
-                Pregled prihvaćenih ponuda
+        {canViewFinance && (
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-violet-400">
+                  Pregled prihvaćenih ponuda
               </p>
 
               <h2 className="mt-1 text-xl font-bold text-white">
@@ -711,7 +778,8 @@ export function DashboardPage() {
               )}
             </div>
           </div>
-        </section>
+          </section>
+        )}
 
         <section className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-slate-900 p-5 sm:p-6">
           <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-600/20 blur-3xl" />

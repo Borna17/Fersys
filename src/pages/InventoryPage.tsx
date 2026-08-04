@@ -21,6 +21,8 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
+
 import {
   getInventoryItems,
   getInventoryLocations,
@@ -163,10 +165,12 @@ function InventoryEmptyState({
   hasFilters,
   onClearFilters,
   onCreateItem,
+  canCreateItem,
 }: {
   hasFilters: boolean
   onClearFilters: () => void
   onCreateItem: () => void
+  canCreateItem: boolean
 }) {
   return (
     <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 px-6 text-center">
@@ -198,14 +202,16 @@ function InventoryEmptyState({
           </button>
         )}
 
-        <button
-          type="button"
-          onClick={onCreateItem}
-          className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
-        >
-          <Plus size={17} />
-          Dodaj artikl
-        </button>
+        {canCreateItem && (
+          <button
+            type="button"
+            onClick={onCreateItem}
+            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
+          >
+            <Plus size={17} />
+            Dodaj artikl
+          </button>
+        )}
       </div>
     </div>
   )
@@ -346,6 +352,13 @@ function InventoryCard({
 
 export function InventoryPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewCosts =
+    can('inventory.viewCosts')
+
+  const canManageInventory =
+    can('inventory.manage')
 
   const [items, setItems] = useState<InventoryItem[]>([])
   const [locations, setLocations] = useState<
@@ -568,16 +581,18 @@ export function InventoryPage() {
               Prometi robe
             </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/inventory/items/new')
-              }
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
-            >
-              <Plus size={18} />
-              Novi artikl
-            </button>
+            {canManageInventory && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/inventory/items/new')
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
+              >
+                <Plus size={18} />
+                Novi artikl
+              </button>
+            )}
           </div>
         </div>
 
@@ -603,12 +618,14 @@ export function InventoryPage() {
             icon={<ArrowUpFromLine size={22} />}
           />
 
-          <InventoryStatCard
-            title="Vrijednost zalihe"
-            value={formatCurrency(totalValue)}
-            description="Prema unesenim nabavnim cijenama"
-            icon={<Warehouse size={22} />}
-          />
+          {canViewCosts && (
+            <InventoryStatCard
+              title="Vrijednost zalihe"
+              value={formatCurrency(totalValue)}
+              description="Prema unesenim nabavnim cijenama"
+              icon={<Warehouse size={22} />}
+            />
+          )}
         </div>
 
         <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-sm sm:p-5">
@@ -835,9 +852,12 @@ export function InventoryPage() {
             <InventoryEmptyState
               hasFilters={hasActiveFilters}
               onClearFilters={clearFilters}
-              onCreateItem={() =>
-                navigate('/inventory/items/new')
-              }
+              canCreateItem={canManageInventory}
+              onCreateItem={() => {
+                if (canManageInventory) {
+                  navigate('/inventory/items/new')
+                }
+              }}
             />
           ) : viewMode === 'cards' ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">

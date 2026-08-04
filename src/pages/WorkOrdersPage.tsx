@@ -18,9 +18,11 @@ import {
 } from 'react'
 import { useNavigate } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import {
   getWorkOrders,
+  redactWorkOrderPrices,
   type CloudWorkOrder,
   type CloudWorkOrderStatus,
 } from '../services/workOrders.service'
@@ -89,6 +91,13 @@ function getStatusClassName(
 
 export function WorkOrdersPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewPrices =
+    can('workOrders.viewPrices')
+
+  const canManageWorkOrders =
+    can('workOrders.manage')
 
   const [orders, setOrders] = useState<
     CloudWorkOrder[]
@@ -213,7 +222,9 @@ export function WorkOrdersPage() {
       setDownloadingId(order.id)
 
       downloadWorkOrderPdf(
-        order,
+        canViewPrices
+          ? order
+          : redactWorkOrderPrices(order),
         readBranding(),
       )
     } catch (error) {
@@ -310,16 +321,18 @@ export function WorkOrdersPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            navigate('/work-orders/new')
-          }
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500"
-        >
-          <Plus size={20} />
-          Novi radni nalog
-        </button>
+        {canManageWorkOrders && (
+          <button
+            type="button"
+            onClick={() =>
+              navigate('/work-orders/new')
+            }
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500"
+          >
+            <Plus size={20} />
+            Novi radni nalog
+          </button>
+        )}
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -490,7 +503,7 @@ export function WorkOrdersPage() {
                   </td>
 
                   <td className="px-6 py-5 font-semibold text-white">
-                    {money(order.totalPrice)}
+                    {canViewPrices ? money(order.totalPrice) : 'Skriveno'}
                   </td>
 
                   <td className="px-6 py-5">
@@ -601,11 +614,13 @@ export function WorkOrdersPage() {
               <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4">
                 <div>
                   <p className="text-xs text-slate-500">
-                    Ukupno
+                    {canViewPrices
+                      ? 'Ukupno'
+                      : 'Financijski podaci'}
                   </p>
 
                   <p className="font-bold text-white">
-                    {money(order.totalPrice)}
+                    {canViewPrices ? money(order.totalPrice) : 'Skriveno'}
                   </p>
                 </div>
 

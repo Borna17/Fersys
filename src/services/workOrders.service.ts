@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertCanCreate } from '../subscription/subscription.service'
 
 export type CloudWorkOrderStatus =
   | 'Novi'
@@ -290,6 +291,25 @@ function mapWorkOrder(
   }
 }
 
+export function redactWorkOrderPrices(
+  order: CloudWorkOrder,
+): CloudWorkOrder {
+  return {
+    ...order,
+    materials: order.materials.map(
+      (material) => ({
+        ...material,
+        unitPrice: 0,
+      }),
+    ),
+    labourPrice: 0,
+    materialPrice: 0,
+    vatRate: 0,
+    totalPrice: 0,
+    priceNote: '',
+  }
+}
+
 async function getCurrentCompanyId(): Promise<string> {
   const { data, error } = await supabase.rpc(
     'current_company_id',
@@ -391,15 +411,9 @@ function createDatabasePayload(
 export async function getWorkOrders(): Promise<
   CloudWorkOrder[]
 > {
-  const { data, error } = await supabase
-    .from('work_orders')
-    .select('*')
-    .order('work_date', {
-      ascending: false,
-    })
-    .order('created_at', {
-      ascending: false,
-    })
+  const { data, error } = await supabase.rpc(
+    'get_secure_work_orders',
+  )
 
   if (error) {
     throw error
@@ -413,24 +427,34 @@ export async function getWorkOrders(): Promise<
 export async function getWorkOrderById(
   workOrderId: string,
 ): Promise<CloudWorkOrder | null> {
-  const { data, error } = await supabase
-    .from('work_orders')
-    .select('*')
-    .eq('id', workOrderId)
-    .maybeSingle()
+  const { data, error } = await supabase.rpc(
+    'get_secure_work_order_by_id',
+    {
+      requested_work_order_id:
+        workOrderId,
+    },
+  )
 
   if (error) {
     throw error
   }
 
-  return data
-    ? mapWorkOrder(data as WorkOrderRow)
+  const row = Array.isArray(data)
+    ? data[0]
+    : data
+
+  return row
+    ? mapWorkOrder(row as WorkOrderRow)
     : null
 }
 
 export async function createWorkOrder(
   input: CreateWorkOrderInput,
 ): Promise<CloudWorkOrder> {
+  await assertCanCreate(
+    'work_orders_monthly',
+  )
+
   const companyId = await getCurrentCompanyId()
 
   const orderNumber =

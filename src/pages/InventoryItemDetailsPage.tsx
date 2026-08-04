@@ -34,6 +34,8 @@ import {
   useParams,
 } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
+
 import {
   adjustInventoryQuantity,
   deleteInventoryItem,
@@ -260,6 +262,13 @@ function InformationSection({
 
 export function InventoryItemDetailsPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewCosts =
+    can('inventory.viewCosts')
+
+  const canManageInventory =
+    can('inventory.manage')
   const { id } = useParams()
 
   const [item, setItem] =
@@ -369,6 +378,13 @@ export function InventoryItemDetailsPage() {
   function openMovementModal(
     action: MovementAction,
   ) {
+    if (!canManageInventory) {
+      setErrorMessage(
+        'Nemaš dopuštenje za promjenu stanja skladišta.',
+      )
+      return
+    }
+
     if (!item) {
       return
     }
@@ -487,6 +503,13 @@ export function InventoryItemDetailsPage() {
   }
 
   function handleDeleteItem() {
+    if (!canManageInventory) {
+      setErrorMessage(
+        'Nemaš dopuštenje za brisanje artikla.',
+      )
+      return
+    }
+
     if (!item) {
       return
     }
@@ -782,11 +805,13 @@ export function InventoryItemDetailsPage() {
 
             <button
               type="button"
-              onClick={() =>
-                navigate(
-                  `/inventory/items/${item.id}/edit`,
-                )
-              }
+              onClick={() => {
+                if (canManageInventory) {
+                  navigate(
+                    `/inventory/items/${item.id}/edit`,
+                  )
+                }
+              }}
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
             >
               <Edit3 size={18} />
@@ -912,12 +937,20 @@ export function InventoryItemDetailsPage() {
               <DetailCard
                 icon={<Euro size={20} />}
                 title="Vrijednost zalihe"
-                value={formatCurrency(
-                  totalPurchaseValue,
-                )}
-                description={`Nabavna cijena: ${formatCurrency(
-                  item.purchasePrice,
-                )}`}
+                value={
+                  canViewCosts
+                    ? formatCurrency(
+                        totalPurchaseValue,
+                      )
+                    : 'Skriveno'
+                }
+                description={
+                  canViewCosts
+                    ? `Nabavna cijena: ${formatCurrency(
+                        item.purchasePrice,
+                      )}`
+                    : 'Financijski podaci nisu dostupni'
+                }
               />
             </div>
 
@@ -1275,9 +1308,11 @@ export function InventoryItemDetailsPage() {
                   </p>
 
                   <p className="mt-2 text-xl font-bold text-white">
-                    {formatCurrency(
-                      item.purchasePrice,
-                    )}
+{canViewCosts
+                      ? formatCurrency(
+                          item.purchasePrice,
+                        )
+                      : 'Skriveno'}
                   </p>
                 </div>
 
@@ -1287,7 +1322,9 @@ export function InventoryItemDetailsPage() {
                   </p>
 
                   <p className="mt-2 text-xl font-bold text-white">
-                    {formatCurrency(item.salePrice)}
+{canViewCosts
+                      ? formatCurrency(item.salePrice)
+                      : 'Skriveno'}
                   </p>
                 </div>
               </div>

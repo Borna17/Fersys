@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertCanCreate } from '../subscription/subscription.service'
 
 import type {
   Offer,
@@ -584,6 +585,10 @@ export async function getOfferByNumber(
 export async function createOffer(
   input: CreateOfferInput,
 ): Promise<Offer> {
+  await assertCanCreate(
+    'offers_monthly',
+  )
+
   if (!input.customer.name.trim()) {
     throw new Error(
       'Naziv kupca je obavezan.',

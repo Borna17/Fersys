@@ -22,9 +22,12 @@ import {
 
 import { useAuth } from '../auth/AuthProvider'
 import OnboardingTutorial from '../components/OnboardingTutorial'
+import TrialBanner from '../components/subscription/TrialBanner'
 import Sidebar from '../components/Sidebar'
 import Topbar from '../components/Topbar'
 import { supabase } from '../lib/supabase'
+import { useSubscription } from '../subscription/SubscriptionProvider'
+import type { SubscriptionFeature } from '../subscription/plans'
 import {
   getOnboardingProgress,
   resetOnboarding,
@@ -80,9 +83,18 @@ const pageTitles = [
     path: '/ai',
     title: 'AI pomoćnik',
   },
+  {
+    path: '/pricing',
+    title: 'Paketi i pretplata',
+  },
 ]
 
-const mobileNavigation = [
+const mobileNavigation: Array<{
+  name: string
+  path: string
+  icon: typeof Gauge
+  feature?: SubscriptionFeature
+}> = [
   {
     name: 'Početna',
     path: '/dashboard',
@@ -92,16 +104,19 @@ const mobileNavigation = [
     name: 'Nalozi',
     path: '/work-orders',
     icon: Wrench,
+    feature: 'work_orders',
   },
   {
     name: 'Kalendar',
     path: '/calendar',
     icon: CalendarDays,
+    feature: 'calendar',
   },
   {
     name: 'AI',
     path: '/ai',
     icon: Bot,
+    feature: 'ai',
   },
 ]
 
@@ -140,6 +155,10 @@ export default function AppLayout() {
   const {
     user,
   } = useAuth()
+
+  const {
+    hasFeature,
+  } = useSubscription()
 
   const profileMenuRef =
     useRef<HTMLDivElement | null>(
@@ -544,6 +563,8 @@ export default function AppLayout() {
           </div>
         </header>
 
+        <TrialBanner />
+
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-24 pt-3 sm:px-4 sm:pt-4 md:p-6 md:pb-6 lg:p-8">
           <Outlet />
         </main>
@@ -556,13 +577,22 @@ export default function AppLayout() {
               const Icon =
                 item.icon
 
+              const isLocked =
+                item.feature
+                  ? !hasFeature(
+                      item.feature,
+                    )
+                  : false
+
               return (
                 <NavLink
                   key={
                     item.path
                   }
                   to={
-                    item.path
+                    isLocked
+                      ? '/pricing'
+                      : item.path
                   }
                   className={({
                     isActive,

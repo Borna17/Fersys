@@ -6,6 +6,7 @@ import {
   FileInput,
   FileText,
   Gauge,
+  LockKeyhole,
   Package,
   ReceiptText,
   Settings,
@@ -26,62 +27,33 @@ import {
 
 import { useAuth } from '../auth/AuthProvider'
 import {
-  getEmployees,
   roleLabels,
-  type CompanyEmployee,
-} from '../services/employees.service'
+  type PermissionKey,
+} from '../auth/permissions'
+import { useSubscription } from '../subscription/SubscriptionProvider'
+import {
+  featureRequiredPlan,
+  plans,
+  type SubscriptionFeature,
+} from '../subscription/plans'
 
-const navigationItems = [
-  {
-    name: 'Dashboard',
-    path: '/dashboard',
-    icon: Gauge,
-  },
-  {
-    name: 'Kupci',
-    path: '/customers',
-    icon: Users,
-  },
-  {
-    name: 'Radni nalozi',
-    path: '/work-orders',
-    icon: Wrench,
-  },
-  {
-    name: 'Ponude',
-    path: '/offers',
-    icon: FileText,
-  },
-  {
-    name: 'Izlazni računi',
-    path: '/invoices',
-    icon: ReceiptText,
-  },
-  {
-    name: 'Ulazni računi',
-    path: '/incoming-invoices',
-    icon: FileInput,
-  },
-  {
-    name: 'Kalendar',
-    path: '/calendar',
-    icon: CalendarDays,
-  },
-  {
-    name: 'Skladište',
-    path: '/inventory',
-    icon: Package,
-  },
-  {
-    name: 'Zaposlenici',
-    path: '/settings/employees',
-    icon: UsersRound,
-  },
-  {
-    name: 'AI pomoćnik',
-    path: '/ai',
-    icon: Bot,
-  },
+const navigationItems: Array<{
+  name: string
+  path: string
+  icon: typeof Gauge
+  permission: PermissionKey
+  feature?: SubscriptionFeature
+}> = [
+  { name: 'Dashboard', path: '/dashboard', icon: Gauge, permission: 'dashboard.view' },
+  { name: 'Kupci', path: '/customers', icon: Users, permission: 'customers.view', feature: 'customers' },
+  { name: 'Radni nalozi', path: '/work-orders', icon: Wrench, permission: 'workOrders.view', feature: 'work_orders' },
+  { name: 'Ponude', path: '/offers', icon: FileText, permission: 'offers.view', feature: 'offers' },
+  { name: 'Izlazni računi', path: '/invoices', icon: ReceiptText, permission: 'invoices.view', feature: 'invoices' },
+  { name: 'Ulazni računi', path: '/incoming-invoices', icon: FileInput, permission: 'incomingInvoices.view', feature: 'incoming_invoices' },
+  { name: 'Kalendar', path: '/calendar', icon: CalendarDays, permission: 'calendar.view', feature: 'calendar' },
+  { name: 'Skladište', path: '/inventory', icon: Package, permission: 'inventory.view', feature: 'inventory' },
+  { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
+  { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
 
 function getInitials(value: string) {
@@ -96,13 +68,21 @@ function getInitials(value: string) {
 
   return parts
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map((part) => part[0]?.toUpperCase() ?? '')
     .join('')
 }
 
 export default function Sidebar() {
   const location = useLocation()
-  const { user } = useAuth()
+  const {
+    user,
+    role,
+    can,
+  } = useAuth()
+
+  const {
+    hasFeature,
+  } = useSubscription()
 
   const [isExpanded, setIsExpanded] =
     useState(true)
@@ -110,69 +90,30 @@ export default function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] =
     useState(false)
 
-  const [currentEmployee, setCurrentEmployee] =
-    useState<CompanyEmployee | null>(null)
-
   useEffect(() => {
     setIsMobileOpen(false)
   }, [location.pathname])
 
   useEffect(() => {
-    if (!isMobileOpen) {
-      document.body.style.overflow = ''
-      return
-    }
-
-    document.body.style.overflow = 'hidden'
+    document.body.style.overflow =
+      isMobileOpen ? 'hidden' : ''
 
     return () => {
       document.body.style.overflow = ''
     }
   }, [isMobileOpen])
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function loadCurrentEmployee() {
-      if (!user?.id) {
-        setCurrentEmployee(null)
-        return
-      }
-
-      try {
-        const employees = await getEmployees()
-
-        const employee =
-          employees.find(
-            (item) => item.userId === user.id,
-          ) ?? null
-
-        if (!cancelled) {
-          setCurrentEmployee(employee)
-        }
-      } catch (error) {
-        console.error(
-          'Korisnički podaci nisu učitani:',
-          error,
-        )
-
-        if (!cancelled) {
-          setCurrentEmployee(null)
-        }
-      }
-    }
-
-    void loadCurrentEmployee()
-
-    return () => {
-      cancelled = true
-    }
-  }, [user?.id])
+  const visibleItems = useMemo(
+    () =>
+      navigationItems.filter(
+        (item) => can(item.permission),
+      ),
+    [can],
+  )
 
   const displayName = useMemo(() => {
     const metadataName =
-      typeof user?.user_metadata?.full_name ===
-      'string'
+      typeof user?.user_metadata?.full_name === 'string'
         ? user.user_metadata.full_name.trim()
         : ''
 
@@ -182,23 +123,17 @@ export default function Sidebar() {
         ?.replace(/[._-]+/g, ' ')
         ?.trim() ?? ''
 
-    return (
-      currentEmployee?.fullName?.trim() ||
-      metadataName ||
-      emailName ||
-      'Korisnik'
-    )
+    return metadataName || emailName || 'Korisnik'
   }, [
-    currentEmployee?.fullName,
     user?.email,
     user?.user_metadata?.full_name,
   ])
 
-  const displayRole = currentEmployee
-    ? roleLabels[currentEmployee.role]
-    : 'Korisnik'
+  const displayRole =
+    role ? roleLabels[role] : 'Korisnik'
 
-  const initials = getInitials(displayName)
+  const initials =
+    getInitials(displayName)
 
   return (
     <>
@@ -207,14 +142,21 @@ export default function Sidebar() {
           isExpanded ? 'w-72' : 'w-[88px]'
         }`}
       >
-        <SidebarContent
-          isExpanded={isExpanded}
-          onCollapse={() =>
-            setIsExpanded(false)
-          }
-          onExpand={() =>
-            setIsExpanded(true)
-          }
+        <SidebarHeader
+          expanded={isExpanded}
+          onCollapse={() => setIsExpanded(false)}
+          onExpand={() => setIsExpanded(true)}
+        />
+
+        <Navigation
+          expanded={isExpanded}
+          items={visibleItems}
+          hasFeature={hasFeature}
+        />
+
+        <SidebarFooter
+          expanded={isExpanded}
+          showSettings={can('settings.manage')}
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
@@ -224,9 +166,7 @@ export default function Sidebar() {
       {!isMobileOpen && (
         <button
           type="button"
-          onClick={() =>
-            setIsMobileOpen(true)
-          }
+          onClick={() => setIsMobileOpen(true)}
           className="fixed left-0 top-1/2 z-[70] flex h-16 w-7 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-slate-700 bg-slate-900 text-slate-300 shadow-xl md:hidden"
           aria-label="Otvori izbornik"
         >
@@ -237,9 +177,7 @@ export default function Sidebar() {
       {isMobileOpen && (
         <button
           type="button"
-          onClick={() =>
-            setIsMobileOpen(false)
-          }
+          onClick={() => setIsMobileOpen(false)}
           className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-[2px] md:hidden"
           aria-label="Zatvori izbornik"
         />
@@ -253,19 +191,11 @@ export default function Sidebar() {
         }`}
       >
         <div className="flex h-20 items-center justify-between border-b border-slate-800 px-5">
-          <div className="flex items-center gap-3">
-            <FersysLogo />
-
-            <span className="text-xl font-extrabold tracking-tight">
-              FERSYS
-            </span>
-          </div>
+          <Brand expanded />
 
           <button
             type="button"
-            onClick={() =>
-              setIsMobileOpen(false)
-            }
+            onClick={() => setIsMobileOpen(false)}
             className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300"
             aria-label="Zatvori izbornik"
           >
@@ -277,100 +207,45 @@ export default function Sidebar() {
           Glavni izbornik
         </p>
 
-        <nav className="flex-1 space-y-2 overflow-y-auto px-3 pb-5">
-          {navigationItems.map((item) => {
-            const Icon = item.icon
+        <Navigation
+          expanded
+          items={visibleItems}
+          hasFeature={hasFeature}
+        />
 
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `flex h-12 items-center gap-3 rounded-xl px-4 transition ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                  }`
-                }
-              >
-                <Icon
-                  size={21}
-                  className="shrink-0"
-                />
-
-                <span className="text-sm font-semibold">
-                  {item.name}
-                </span>
-              </NavLink>
-            )
-          })}
-        </nav>
-
-        <div className="border-t border-slate-800 p-3">
-          <NavLink
-            to="/settings"
-            className={({ isActive }) =>
-              `mb-3 flex h-12 items-center gap-3 rounded-xl px-4 transition ${
-                isActive
-                  ? 'bg-blue-600 text-white'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`
-            }
-          >
-            <Settings size={21} />
-
-            <span className="text-sm font-semibold">
-              Postavke
-            </span>
-          </NavLink>
-
-          <UserCard
-            expanded
-            displayName={displayName}
-            displayRole={displayRole}
-            initials={initials}
-          />
-        </div>
+        <SidebarFooter
+          expanded
+          showSettings={can('settings.manage')}
+          displayName={displayName}
+          displayRole={displayRole}
+          initials={initials}
+        />
       </aside>
     </>
   )
 }
 
-function SidebarContent({
-  isExpanded,
+function SidebarHeader({
+  expanded,
   onCollapse,
   onExpand,
-  displayName,
-  displayRole,
-  initials,
 }: {
-  isExpanded: boolean
+  expanded: boolean
   onCollapse: () => void
   onExpand: () => void
-  displayName: string
-  displayRole: string
-  initials: string
 }) {
   return (
     <>
       <div
         className={`flex h-24 items-center ${
-          isExpanded
+          expanded
             ? 'justify-between px-6'
             : 'justify-center'
         }`}
       >
-        <div className="flex items-center gap-3">
-          <FersysLogo />
+        <Brand expanded={expanded} />
 
-          {isExpanded && (
-            <span className="text-2xl font-extrabold tracking-tight">
-              FERSYS
-            </span>
-          )}
-        </div>
-
-        {isExpanded && (
+        {expanded && (
           <button
             type="button"
             onClick={onCollapse}
@@ -382,7 +257,7 @@ function SidebarContent({
         )}
       </div>
 
-      {!isExpanded && (
+      {!expanded && (
         <button
           type="button"
           onClick={onExpand}
@@ -393,63 +268,125 @@ function SidebarContent({
         </button>
       )}
 
-      {isExpanded && (
+      {expanded && (
         <p className="px-6 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Glavni izbornik
         </p>
       )}
+    </>
+  )
+}
 
-      <nav className="flex-1 space-y-2 overflow-y-auto px-3">
-        {navigationItems.map((item) => {
-          const Icon = item.icon
+function Navigation({
+  expanded,
+  items,
+  hasFeature,
+}: {
+  expanded: boolean
+  items: typeof navigationItems
+  hasFeature: (
+    feature: SubscriptionFeature,
+  ) => boolean
+}) {
+  return (
+    <nav className="flex-1 space-y-2 overflow-y-auto px-3 pb-5">
+      {items.map((item) => {
+        const Icon = item.icon
 
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={
-                !isExpanded
-                  ? item.name
-                  : undefined
-              }
-              className={({ isActive }) =>
-                `flex h-12 items-center rounded-xl transition ${
-                  isExpanded
-                    ? 'gap-3 px-4'
-                    : 'justify-center'
-                } ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`
-              }
-            >
-              <Icon
-                size={21}
-                className="shrink-0"
-              />
+        const isLocked =
+          item.feature
+            ? !hasFeature(
+                item.feature,
+              )
+            : false
 
-              {isExpanded && (
-                <span className="text-sm font-semibold">
+        const requiredPlan =
+          item.feature
+            ? plans[
+                featureRequiredPlan[
+                  item.feature
+                ]
+              ].name
+            : ''
+
+        return (
+          <NavLink
+            key={item.path}
+            to={
+              isLocked
+                ? '/pricing'
+                : item.path
+            }
+            title={!expanded ? item.name : undefined}
+            className={({ isActive }) =>
+              `relative flex h-12 items-center rounded-xl transition ${
+                expanded
+                  ? 'gap-3 px-4'
+                  : 'justify-center'
+              } ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+              }`
+            }
+          >
+            <Icon
+              size={21}
+              className="shrink-0"
+            />
+
+            {expanded && (
+              <>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                   {item.name}
                 </span>
-              )}
-            </NavLink>
-          )
-        })}
-      </nav>
 
-      <div className="border-t border-slate-800 p-3">
+                {isLocked && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300"
+                    title={`Dostupno u ${requiredPlan}`}
+                  >
+                    <LockKeyhole size={10} />
+                    {requiredPlan}
+                  </span>
+                )}
+              </>
+            )}
+
+            {!expanded && isLocked && (
+              <span className="absolute ml-7 mt-[-24px] grid h-4 w-4 place-items-center rounded-full bg-violet-600 text-white">
+                <LockKeyhole size={9} />
+              </span>
+            )}
+          </NavLink>
+        )
+      })}
+    </nav>
+  )
+}
+
+function SidebarFooter({
+  expanded,
+  showSettings,
+  displayName,
+  displayRole,
+  initials,
+}: {
+  expanded: boolean
+  showSettings: boolean
+  displayName: string
+  displayRole: string
+  initials: string
+}) {
+  return (
+    <div className="border-t border-slate-800 p-3">
+      {showSettings && (
         <NavLink
           to="/settings"
-          title={
-            !isExpanded
-              ? 'Postavke'
-              : undefined
-          }
+          title={!expanded ? 'Postavke' : undefined}
           className={({ isActive }) =>
             `mb-3 flex h-12 items-center rounded-xl transition ${
-              isExpanded
+              expanded
                 ? 'gap-3 px-4'
                 : 'justify-center'
             } ${
@@ -464,29 +401,41 @@ function SidebarContent({
             className="shrink-0"
           />
 
-          {isExpanded && (
+          {expanded && (
             <span className="text-sm font-semibold">
               Postavke
             </span>
           )}
         </NavLink>
+      )}
 
-        <UserCard
-          expanded={isExpanded}
-          displayName={displayName}
-          displayRole={displayRole}
-          initials={initials}
-        />
-      </div>
-    </>
+      <UserCard
+        expanded={expanded}
+        displayName={displayName}
+        displayRole={displayRole}
+        initials={initials}
+      />
+    </div>
   )
 }
 
-function FersysLogo() {
+function Brand({
+  expanded,
+}: {
+  expanded: boolean
+}) {
   return (
-    <div className="relative h-11 w-11 shrink-0">
-      <span className="absolute left-0 top-0 h-8 w-8 rounded-lg bg-blue-600" />
-      <span className="absolute bottom-0 right-0 h-8 w-8 rounded-lg bg-blue-400" />
+    <div className="flex items-center gap-3">
+      <div className="relative h-11 w-11 shrink-0">
+        <span className="absolute left-0 top-0 h-8 w-8 rounded-lg bg-blue-600" />
+        <span className="absolute bottom-0 right-0 h-8 w-8 rounded-lg bg-blue-400" />
+      </div>
+
+      {expanded && (
+        <span className="text-2xl font-extrabold tracking-tight">
+          FERSYS
+        </span>
+      )}
     </div>
   )
 }

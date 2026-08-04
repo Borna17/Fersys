@@ -18,9 +18,11 @@ import {
   UserRound,
 } from 'lucide-react'
 
+import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import {
   getWorkOrderById,
+  redactWorkOrderPrices,
   type CloudWorkOrder,
 } from '../services/workOrders.service'
 import { downloadWorkOrderPdf } from '../utils/workOrderPdf'
@@ -106,6 +108,10 @@ function getPriorityClassName(
 
 export function WorkOrderDetailsPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewPrices =
+    can('workOrders.viewPrices')
   const { id } = useParams()
 
   const [order, setOrder] =
@@ -170,7 +176,9 @@ export function WorkOrderDetailsPage() {
       setIsDownloading(true)
 
       downloadWorkOrderPdf(
-        order,
+        canViewPrices
+          ? order
+          : redactWorkOrderPrices(order),
         readBranding(),
       )
     } catch (error) {
@@ -504,29 +512,45 @@ export function WorkOrderDetailsPage() {
             <div className="mt-5 space-y-4 text-sm">
               <Row
                 label="Materijal"
-                value={money(
-                  order.materialPrice,
-                )}
+                value={
+                  canViewPrices
+                    ? money(
+                        order.materialPrice,
+                      )
+                    : 'Skriveno'
+                }
               />
 
               <Row
                 label="Rad"
-                value={money(
-                  order.labourPrice,
-                )}
+                value={
+                  canViewPrices
+                    ? money(
+                        order.labourPrice,
+                      )
+                    : 'Skriveno'
+                }
               />
 
               <Row
                 label={`PDV ${order.vatRate}%`}
-                value={money(vatValue)}
+                value={
+                  canViewPrices
+                    ? money(vatValue)
+                    : 'Skriveno'
+                }
               />
 
               <div className="border-t border-slate-700 pt-4">
                 <Row
                   label="UKUPNO"
-                  value={money(
-                    order.totalPrice,
-                  )}
+                  value={
+                    canViewPrices
+                      ? money(
+                          order.totalPrice,
+                        )
+                      : 'Skriveno'
+                  }
                   strong
                 />
               </div>

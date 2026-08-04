@@ -3,6 +3,7 @@ import type {
 } from 'react'
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -16,14 +17,35 @@ import type {
 } from '@supabase/supabase-js'
 
 import { supabase } from '../lib/supabase'
+import {
+  parseEmployeePermissions,
+  resolvePermissions,
+  type CompanyRole,
+  type CurrentMembership,
+  type MemberStatus,
+  type PermissionKey,
+} from './permissions'
+
+type CurrentAccessRow = {
+  membership_id: string
+  company_id: string
+  role: CompanyRole
+  status: MemberStatus
+  permissions: unknown
+}
 
 type AuthContextValue = {
   session: Session | null
   user: User | null
+  membership: CurrentMembership | null
+  role: CompanyRole | null
   isLoading: boolean
+  isAccessLoading: boolean
   companySetupError: string
+  can: (permission: PermissionKey) => boolean
   signOut: () => Promise<void>
   retryCompanySetup: () => Promise<void>
+  refreshAccess: () => Promise<void>
 }
 
 type AuthProviderProps = {
@@ -43,14 +65,58 @@ async function ensureCompanyForCurrentUser(): Promise<void> {
   }
 }
 
+async function getCurrentMembership(): Promise<
+  CurrentMembership | null
+> {
+  const { data, error } = await supabase.rpc(
+    'get_current_user_access',
+  )
+
+  if (error) {
+    throw error
+  }
+
+  const row = Array.isArray(data)
+    ? data[0]
+    : data
+
+  if (!row) {
+    return null
+  }
+
+  const accessRow =
+    row as CurrentAccessRow
+
+  return {
+    membershipId:
+      accessRow.membership_id,
+    companyId:
+      accessRow.company_id,
+    role: accessRow.role,
+    status: accessRow.status,
+    permissions:
+      parseEmployeePermissions(
+        accessRow.permissions,
+      ),
+  }
+}
+
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
   const [session, setSession] =
     useState<Session | null>(null)
 
+  const [membership, setMembership] =
+    useState<CurrentMembership | null>(null)
+
   const [isLoading, setIsLoading] =
     useState(true)
+
+  const [
+    isAccessLoading,
+    setIsAccessLoading,
+  ] = useState(false)
 
   const [
     companySetupError,
@@ -59,6 +125,25 @@ export function AuthProvider({
 
   const preparedUserIdRef =
     useRef<string | null>(null)
+
+  const refreshAccess =
+    useCallback(async (): Promise<void> => {
+      if (!session?.user.id) {
+        setMembership(null)
+        return
+      }
+
+      try {
+        setIsAccessLoading(true)
+
+        const nextMembership =
+          await getCurrentMembership()
+
+        setMembership(nextMembership)
+      } finally {
+        setIsAccessLoading(false)
+      }
+    }, [session?.user.id])
 
   useEffect(() => {
     let isMounted = true
@@ -115,6 +200,7 @@ export function AuthProvider({
 
         if (!nextSession) {
           preparedUserIdRef.current = null
+          setMembership(null)
           setCompanySetupError('')
         }
       },
@@ -131,12 +217,14 @@ export function AuthProvider({
       session?.user.id ?? null
 
     if (!currentUserId) {
+      setMembership(null)
       return
     }
 
     if (
       preparedUserIdRef.current === currentUserId
     ) {
+      void refreshAccess()
       return
     }
 
@@ -147,19 +235,30 @@ export function AuthProvider({
     ): Promise<void> {
       try {
         setCompanySetupError('')
+        setIsAccessLoading(true)
 
         await ensureCompanyForCurrentUser()
 
+        const nextMembership =
+          await getCurrentMembership()
+
         if (!isCancelled) {
           preparedUserIdRef.current = userId
+          setMembership(nextMembership)
         }
       } catch (error) {
         if (!isCancelled) {
+          setMembership(null)
+
           setCompanySetupError(
             error instanceof Error
               ? error.message
               : 'Tvrtka se nije mogla pripremiti.',
           )
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsAccessLoading(false)
         }
       }
     }
@@ -169,7 +268,10 @@ export function AuthProvider({
     return () => {
       isCancelled = true
     }
-  }, [session?.user.id])
+  }, [
+    session?.user.id,
+    refreshAccess,
+  ])
 
   async function signOut(): Promise<void> {
     const { error } =
@@ -181,6 +283,7 @@ export function AuthProvider({
 
     preparedUserIdRef.current = null
     setSession(null)
+    setMembership(null)
     setCompanySetupError('')
   }
 
@@ -194,27 +297,69 @@ export function AuthProvider({
       )
     }
 
-    setCompanySetupError('')
+    try {
+      setCompanySetupError('')
+      setIsAccessLoading(true)
 
-    await ensureCompanyForCurrentUser()
+      await ensureCompanyForCurrentUser()
 
-    preparedUserIdRef.current =
-      currentUserId
+      const nextMembership =
+        await getCurrentMembership()
+
+      preparedUserIdRef.current =
+        currentUserId
+
+      setMembership(nextMembership)
+    } finally {
+      setIsAccessLoading(false)
+    }
   }
+
+  const resolvedPermissions =
+    useMemo(() => {
+      if (
+        !membership ||
+        membership.status !== 'active'
+      ) {
+        return null
+      }
+
+      return resolvePermissions(
+        membership.role,
+        membership.permissions,
+      )
+    }, [membership])
+
+  const can =
+    useCallback(
+      (permission: PermissionKey) =>
+        resolvedPermissions?.[permission] ??
+        false,
+      [resolvedPermissions],
+    )
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user: session?.user ?? null,
+      membership,
+      role: membership?.role ?? null,
       isLoading,
+      isAccessLoading,
       companySetupError,
+      can,
       signOut,
       retryCompanySetup,
+      refreshAccess,
     }),
     [
       session,
+      membership,
       isLoading,
+      isAccessLoading,
       companySetupError,
+      can,
+      refreshAccess,
     ],
   )
 

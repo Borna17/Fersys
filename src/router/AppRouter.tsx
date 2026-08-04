@@ -1,3 +1,4 @@
+
 import type { ReactNode } from 'react'
 import {
   Navigate,
@@ -6,7 +7,14 @@ import {
 } from 'react-router'
 
 import { AuthProvider, useAuth } from '../auth/AuthProvider'
+import AdminGuard from '../admin/AdminGuard'
+import AdminLayout from '../admin/AdminLayout'
+import { AdminDashboardPage } from '../admin/AdminDashboardPage'
+import { AdminCompaniesPage } from '../admin/AdminCompaniesPage'
+import { AdminSupportPage } from '../admin/AdminSupportPage'
+import type { PermissionKey } from '../auth/permissions'
 import FersysLoader from '../components/FersysLoader'
+import PlanLock from '../components/subscription/PlanLock'
 import AppLayout from '../layouts/AppLayout'
 import { AiAssistantPage } from '../pages/AiAssistantPage'
 import { CalendarPage } from '../pages/CalendarPage'
@@ -29,6 +37,7 @@ import { NewOfferPage } from '../pages/NewOfferPage'
 import { NewWorkOrderPage } from '../pages/NewWorkOrderPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { OffersPage } from '../pages/OffersPage'
+import { PricingPage } from '../pages/PricingPage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { ResetPasswordPage } from '../pages/ResetPasswordPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -36,22 +45,41 @@ import { SupabaseTestPage } from '../pages/SupabaseTestPage'
 import { WorkOrderDetailsPage } from '../pages/WorkOrderDetailsPage'
 import { WorkOrderSettingsPage } from '../pages/WorkOrderSettingsPage'
 import { WorkOrdersPage } from '../pages/WorkOrdersPage'
+import {
+  SubscriptionProvider,
+  useSubscription,
+} from '../subscription/SubscriptionProvider'
+import {
+  featureRequiredPlan,
+  type SubscriptionFeature,
+} from '../subscription/plans'
 
-type ProtectedRouteProps = {
+type RouteWrapperProps = {
   children: ReactNode
 }
 
 function ProtectedRoute({
   children,
-}: ProtectedRouteProps) {
+}: RouteWrapperProps) {
   const {
     session,
+    membership,
     isLoading,
+    isAccessLoading,
     companySetupError,
     retryCompanySetup,
   } = useAuth()
 
-  if (isLoading) {
+  const {
+    isLoading: isSubscriptionLoading,
+    error: subscriptionError,
+  } = useSubscription()
+
+  if (
+    isLoading ||
+    isAccessLoading ||
+    isSubscriptionLoading
+  ) {
     return (
       <FersysLoader
         fullScreen
@@ -69,7 +97,10 @@ function ProtectedRoute({
     )
   }
 
-  if (companySetupError) {
+  if (
+    companySetupError ||
+    subscriptionError
+  ) {
     return (
       <div className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
         <div className="w-full max-w-lg rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center">
@@ -78,7 +109,8 @@ function ProtectedRoute({
           </h1>
 
           <p className="mt-3 break-words text-sm leading-6 text-slate-400">
-            {companySetupError}
+            {companySetupError ||
+              subscriptionError}
           </p>
 
           <button
@@ -95,13 +127,109 @@ function ProtectedRoute({
     )
   }
 
+  if (
+    !membership ||
+    membership.status !== 'active'
+  ) {
+    return (
+      <AccessDeniedPage
+        title="Račun nema aktivan pristup"
+        description="Obrati se vlasniku ili administratoru tvrtke."
+      />
+    )
+  }
+
   return children
+}
+
+function PermissionRoute({
+  permission,
+  children,
+}: {
+  permission: PermissionKey
+  children: ReactNode
+}) {
+  const { can } = useAuth()
+
+  if (!can(permission)) {
+    return (
+      <AccessDeniedPage
+        title="Pristup nije dopušten"
+        description="Nemaš dopuštenje za pregled ovog dijela FERSYS-a."
+      />
+    )
+  }
+
+  return children
+}
+
+function PlanRoute({
+  feature,
+  children,
+}: {
+  feature: SubscriptionFeature
+  children: ReactNode
+}) {
+  const {
+    hasFeature,
+  } = useSubscription()
+
+  if (!hasFeature(feature)) {
+    return (
+      <PlanLock
+        feature={feature}
+        requiredPlan={
+          featureRequiredPlan[
+            feature
+          ]
+        }
+      />
+    )
+  }
+
+  return children
+}
+
+function AccessDeniedPage({
+  title,
+  description,
+}: {
+  title: string
+  description: string
+}) {
+  return (
+    <main className="grid min-h-[65vh] place-items-center px-4 text-white">
+      <div className="w-full max-w-md rounded-3xl border border-amber-500/20 bg-slate-900 p-7 text-center">
+        <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-amber-500/10 text-2xl">
+          🔒
+        </div>
+
+        <h1 className="mt-5 text-2xl font-black">
+          {title}
+        </h1>
+
+        <p className="mt-3 text-sm leading-6 text-slate-400">
+          {description}
+        </p>
+
+        <a
+          href="/dashboard"
+          className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
+        >
+          Povratak na Dashboard
+        </a>
+      </div>
+    </main>
+  )
 }
 
 function PublicOnlyRoute({
   children,
-}: ProtectedRouteProps) {
-  const { session, isLoading } = useAuth()
+}: RouteWrapperProps) {
+  const {
+    session,
+    isLoading,
+  } = useAuth()
 
   if (isLoading) {
     return (
@@ -112,47 +240,77 @@ function PublicOnlyRoute({
     )
   }
 
-  if (session) {
-    return (
+  return session
+    ? (
       <Navigate
         to="/dashboard"
         replace
       />
     )
-  }
+    : children
+}
 
-  return children
+function Guard({
+  permission,
+  feature,
+  children,
+}: {
+  permission: PermissionKey
+  feature?: SubscriptionFeature
+  children: ReactNode
+}) {
+  const content =
+    feature ? (
+      <PlanRoute feature={feature}>
+        {children}
+      </PlanRoute>
+    ) : (
+      children
+    )
+
+  return (
+    <PermissionRoute permission={permission}>
+      {content}
+    </PermissionRoute>
+  )
 }
 
 function RouterContent() {
-  const { session, isLoading } = useAuth()
+  const {
+    session,
+    isLoading,
+  } = useAuth()
 
   return (
     <Routes>
       <Route
         path="/"
         element={
-          isLoading ? (
-            <FersysLoader
-              fullScreen
-              text="Pokretanje FERSYS-a..."
-            />
-          ) : (
-            <Navigate
-              to={
-                session
-                  ? '/dashboard'
-                  : '/login'
-              }
-              replace
-            />
-          )
+          isLoading
+            ? (
+              <FersysLoader
+                fullScreen
+                text="Pokretanje FERSYS-a..."
+              />
+            )
+            : (
+              <Navigate
+                to={
+                  session
+                    ? '/dashboard'
+                    : '/login'
+                }
+                replace
+              />
+            )
         }
       />
 
       <Route
         path="/join"
-        element={<JoinInvitationPage />}
+        element={
+          <JoinInvitationPage />
+        }
       />
 
       <Route
@@ -175,8 +333,24 @@ function RouterContent() {
 
       <Route
         path="/reset-password"
-        element={<ResetPasswordPage />}
+        element={
+          <ResetPasswordPage />
+        }
       />
+
+      <Route
+        element={
+          <ProtectedRoute>
+            <AdminGuard>
+              <AdminLayout />
+            </AdminGuard>
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+        <Route path="/admin/support" element={<AdminSupportPage />} />
+      </Route>
 
       <Route
         element={
@@ -185,36 +359,328 @@ function RouterContent() {
           </ProtectedRoute>
         }
       >
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/offers" element={<OffersPage />} />
-        <Route path="/offers/new" element={<NewOfferPage />} />
-        <Route path="/offers/:offerId/edit" element={<NewOfferPage />} />
-        <Route path="/settings/employees" element={<EmployeesPage />} />
-        <Route path="/ai" element={<AiAssistantPage />} />
-        <Route path="/invoices" element={<InvoicesPage />} />
-        <Route path="/invoices/new" element={<NewInvoicePage />} />
-        <Route path="/invoices/:invoiceId/edit" element={<NewInvoicePage />} />
-        <Route path="/incoming-invoices" element={<IncomingInvoicesPage />} />
-        <Route path="/incoming-invoices/new" element={<NewIncomingInvoicePage />} />
-        <Route path="/incoming-invoices/:incomingInvoiceId/edit" element={<NewIncomingInvoicePage />} />
-        <Route path="/inventory" element={<InventoryPage />} />
-        <Route path="/inventory/items/new" element={<NewInventoryItemPage />} />
-        <Route path="/inventory/items/:id" element={<InventoryItemDetailsPage />} />
-        <Route path="/inventory/items/:id/edit" element={<NewInventoryItemPage />} />
-        <Route path="/inventory/scan" element={<InventoryQrScannerPage />} />
-        <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-        <Route path="/calendar" element={<CalendarPage />} />
-        <Route path="/customers" element={<CustomersPage />} />
-        <Route path="/customers/:id" element={<CustomerProfilePage />} />
-        <Route path="/work-orders" element={<WorkOrdersPage />} />
-        <Route path="/work-orders/new" element={<NewWorkOrderPage />} />
-        <Route path="/work-orders/:id" element={<WorkOrderDetailsPage />} />
-        <Route path="/settings/work-orders" element={<WorkOrderSettingsPage />} />
-        <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/supabase-test" element={<SupabaseTestPage />} />
+        <Route
+          path="/dashboard"
+          element={
+            <Guard permission="dashboard.view">
+              <DashboardPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/pricing"
+          element={<PricingPage />}
+        />
+
+        <Route
+          path="/offers"
+          element={
+            <Guard
+              permission="offers.view"
+              feature="offers"
+            >
+              <OffersPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/offers/new"
+          element={
+            <Guard
+              permission="offers.manage"
+              feature="offers"
+            >
+              <NewOfferPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/offers/:offerId/edit"
+          element={
+            <Guard
+              permission="offers.manage"
+              feature="offers"
+            >
+              <NewOfferPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/settings/employees"
+          element={
+            <Guard
+              permission="employees.view"
+              feature="employees"
+            >
+              <EmployeesPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/ai"
+          element={
+            <Guard
+              permission="ai.use"
+              feature="ai"
+            >
+              <AiAssistantPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/invoices"
+          element={
+            <Guard
+              permission="invoices.view"
+              feature="invoices"
+            >
+              <InvoicesPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/invoices/new"
+          element={
+            <Guard
+              permission="invoices.view"
+              feature="invoices"
+            >
+              <NewInvoicePage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/invoices/:invoiceId/edit"
+          element={
+            <Guard
+              permission="invoices.view"
+              feature="invoices"
+            >
+              <NewInvoicePage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/incoming-invoices"
+          element={
+            <Guard
+              permission="incomingInvoices.view"
+              feature="incoming_invoices"
+            >
+              <IncomingInvoicesPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/incoming-invoices/new"
+          element={
+            <Guard
+              permission="incomingInvoices.view"
+              feature="incoming_invoices"
+            >
+              <NewIncomingInvoicePage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/incoming-invoices/:incomingInvoiceId/edit"
+          element={
+            <Guard
+              permission="incomingInvoices.view"
+              feature="incoming_invoices"
+            >
+              <NewIncomingInvoicePage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory"
+          element={
+            <Guard
+              permission="inventory.view"
+              feature="inventory"
+            >
+              <InventoryPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory/items/new"
+          element={
+            <Guard
+              permission="inventory.manage"
+              feature="inventory"
+            >
+              <NewInventoryItemPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory/items/:id"
+          element={
+            <Guard
+              permission="inventory.view"
+              feature="inventory"
+            >
+              <InventoryItemDetailsPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory/items/:id/edit"
+          element={
+            <Guard
+              permission="inventory.manage"
+              feature="inventory"
+            >
+              <NewInventoryItemPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory/scan"
+          element={
+            <Guard
+              permission="inventory.view"
+              feature="inventory"
+            >
+              <InventoryQrScannerPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/inventory/movements"
+          element={
+            <Guard
+              permission="inventory.view"
+              feature="inventory"
+            >
+              <InventoryMovementsPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/calendar"
+          element={
+            <Guard
+              permission="calendar.view"
+              feature="calendar"
+            >
+              <CalendarPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/customers"
+          element={
+            <Guard
+              permission="customers.view"
+              feature="customers"
+            >
+              <CustomersPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/customers/:id"
+          element={
+            <Guard
+              permission="customers.view"
+              feature="customers"
+            >
+              <CustomerProfilePage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/work-orders"
+          element={
+            <Guard
+              permission="workOrders.view"
+              feature="work_orders"
+            >
+              <WorkOrdersPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/work-orders/new"
+          element={
+            <Guard
+              permission="workOrders.manage"
+              feature="work_orders"
+            >
+              <NewWorkOrderPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/work-orders/:id"
+          element={
+            <Guard
+              permission="workOrders.view"
+              feature="work_orders"
+            >
+              <WorkOrderDetailsPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/settings/work-orders"
+          element={
+            <Guard permission="settings.manage">
+              <WorkOrderSettingsPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/settings"
+          element={
+            <Guard permission="settings.manage">
+              <SettingsPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/supabase-test"
+          element={
+            <Guard permission="settings.manage">
+              <SupabaseTestPage />
+            </Guard>
+          }
+        />
       </Route>
 
-      <Route path="*" element={<NotFoundPage />} />
+      <Route
+        path="*"
+        element={<NotFoundPage />}
+      />
     </Routes>
   )
 }
@@ -222,7 +688,9 @@ function RouterContent() {
 export function AppRouter() {
   return (
     <AuthProvider>
-      <RouterContent />
+      <SubscriptionProvider>
+        <RouterContent />
+      </SubscriptionProvider>
     </AuthProvider>
   )
 }

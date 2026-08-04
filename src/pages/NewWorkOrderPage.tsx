@@ -19,6 +19,7 @@ import {
   UserRound,
 } from 'lucide-react'
 
+import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
 import {
@@ -92,6 +93,10 @@ function durationText(minutes: number) {
 
 export function NewWorkOrderPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+
+  const canViewPrices =
+    can('workOrders.viewPrices')
 
   const [customers, setCustomers] =
     useState<Customer[]>([])
@@ -444,10 +449,12 @@ export function NewWorkOrderPage() {
               Number(material.quantity) || 0,
             ),
           unitPrice:
-            Math.max(
-              0,
-              Number(material.unitPrice) || 0,
-            ),
+            canViewPrices
+              ? Math.max(
+                  0,
+                  Number(material.unitPrice) || 0,
+                )
+              : 0,
         }))
         .filter(
           (material) =>
@@ -498,34 +505,44 @@ export function NewWorkOrderPage() {
           assignedWorkers,
 
           labourPrice:
-            Math.max(
-              0,
-              Number(labourPrice) || 0,
-            ),
+            canViewPrices
+              ? Math.max(
+                  0,
+                  Number(labourPrice) || 0,
+                )
+              : 0,
 
           materialPrice:
-            cleanMaterials.reduce(
-              (sum, material) =>
-                sum +
-                material.quantity *
-                  material.unitPrice,
-              0,
-            ),
+            canViewPrices
+              ? cleanMaterials.reduce(
+                  (sum, material) =>
+                    sum +
+                    material.quantity *
+                      material.unitPrice,
+                  0,
+                )
+              : 0,
 
           vatRate:
-            Math.max(
-              0,
-              Number(vatRate) || 0,
-            ),
+            canViewPrices
+              ? Math.max(
+                  0,
+                  Number(vatRate) || 0,
+                )
+              : 0,
 
           totalPrice:
-            Math.max(
-              0,
-              totalPrice,
-            ),
+            canViewPrices
+              ? Math.max(
+                  0,
+                  totalPrice,
+                )
+              : 0,
 
           priceNote:
-            priceNote.trim(),
+            canViewPrices
+              ? priceNote.trim()
+              : '',
 
           investorName:
             investorName.trim(),
@@ -1056,23 +1073,29 @@ export function NewWorkOrderPage() {
                 className="h-11 rounded-lg bg-slate-950 px-3 text-white"
               />
 
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={material.unitPrice}
-                onChange={(event) =>
-                  updateMaterial(
-                    material.id,
-                    'unitPrice',
-                    Number(
-                      event.target.value,
-                    ),
-                  )
-                }
-                placeholder="Cijena"
-                className="h-11 rounded-lg bg-slate-950 px-3 text-white"
-              />
+              {canViewPrices ? (
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={material.unitPrice}
+                  onChange={(event) =>
+                    updateMaterial(
+                      material.id,
+                      'unitPrice',
+                      Number(
+                        event.target.value,
+                      ),
+                    )
+                  }
+                  placeholder="Cijena"
+                  className="h-11 rounded-lg bg-slate-950 px-3 text-white"
+                />
+              ) : (
+                <div className="flex h-11 items-center rounded-lg bg-slate-950 px-3 text-xs font-semibold text-slate-500">
+                  Cijena skrivena
+                </div>
+              )}
 
               <button
                 type="button"
@@ -1095,7 +1118,8 @@ export function NewWorkOrderPage() {
           )}
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+        {canViewPrices && (
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
           <label>
             <span className="text-sm font-semibold text-slate-300">
               Cijena rada
@@ -1167,7 +1191,8 @@ export function NewWorkOrderPage() {
               className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white"
             />
           </label>
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
