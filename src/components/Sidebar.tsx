@@ -10,6 +10,7 @@ import {
   Package,
   ReceiptText,
   Settings,
+  ShieldCheck,
   Users,
   UsersRound,
   Wrench,
@@ -55,6 +56,11 @@ const navigationItems: Array<{
   { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
   { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
+
+const SUPER_ADMIN_EMAILS = new Set([
+  'fersysapp@gmail.com',
+  'bornaferfolja7@gmail.com',
+])
 
 function getInitials(value: string) {
   const parts = value
@@ -135,6 +141,11 @@ export default function Sidebar() {
   const initials =
     getInitials(displayName)
 
+  const showSuperAdmin =
+    SUPER_ADMIN_EMAILS.has(
+      user?.email?.trim().toLowerCase() ?? '',
+    )
+
   return (
     <>
       <aside
@@ -157,6 +168,7 @@ export default function Sidebar() {
         <SidebarFooter
           expanded={isExpanded}
           showSettings={can('settings.manage')}
+          showSuperAdmin={showSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
@@ -216,6 +228,7 @@ export default function Sidebar() {
         <SidebarFooter
           expanded
           showSettings={can('settings.manage')}
+          showSuperAdmin={showSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
@@ -368,18 +381,53 @@ function Navigation({
 function SidebarFooter({
   expanded,
   showSettings,
+  showSuperAdmin,
   displayName,
   displayRole,
   initials,
 }: {
   expanded: boolean
   showSettings: boolean
+  showSuperAdmin: boolean
   displayName: string
   displayRole: string
   initials: string
 }) {
   return (
     <div className="border-t border-slate-800 p-3">
+      {showSuperAdmin && (
+        <NavLink
+          to="/admin"
+          title={
+            !expanded
+              ? 'Super Admin'
+              : undefined
+          }
+          className={({ isActive }) =>
+            `mb-3 flex h-12 items-center rounded-xl border transition ${
+              expanded
+                ? 'gap-3 px-4'
+                : 'justify-center'
+            } ${
+              isActive
+                ? 'border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-950/30'
+                : 'border-violet-500/20 bg-violet-500/5 text-violet-300 hover:border-violet-500/40 hover:bg-violet-500/10'
+            }`
+          }
+        >
+          <ShieldCheck
+            size={21}
+            className="shrink-0"
+          />
+
+          {expanded && (
+            <span className="text-sm font-semibold">
+              Super Admin
+            </span>
+          )}
+        </NavLink>
+      )}
+
       {showSettings && (
         <NavLink
           to="/settings"
