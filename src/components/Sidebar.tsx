@@ -59,11 +59,6 @@ const navigationItems: Array<{
   { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
 
-const SUPER_ADMIN_EMAILS = new Set([
-  'fersysapp@gmail.com',
-  'bornaferfolja7@gmail.com',
-])
-
 function getInitials(value: string) {
   const parts = value
     .trim()
@@ -86,6 +81,7 @@ export default function Sidebar() {
     user,
     role,
     can,
+    isSuperAdmin,
   } = useAuth()
 
   const {
@@ -143,11 +139,6 @@ export default function Sidebar() {
   const initials =
     getInitials(displayName)
 
-  const showSuperAdmin =
-    SUPER_ADMIN_EMAILS.has(
-      user?.email?.trim().toLowerCase() ?? '',
-    )
-
   return (
     <>
       <aside
@@ -170,7 +161,7 @@ export default function Sidebar() {
         <SidebarFooter
           expanded={isExpanded}
           showSettings={can('settings.manage')}
-          showSuperAdmin={showSuperAdmin}
+          showSuperAdmin={isSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
@@ -230,7 +221,7 @@ export default function Sidebar() {
         <SidebarFooter
           expanded
           showSettings={can('settings.manage')}
-          showSuperAdmin={showSuperAdmin}
+          showSuperAdmin={isSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}

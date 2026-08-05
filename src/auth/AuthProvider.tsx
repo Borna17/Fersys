@@ -39,6 +39,7 @@ type AuthContextValue = {
   user: User | null
   membership: CurrentMembership | null
   role: CompanyRole | null
+  isSuperAdmin: boolean
   isLoading: boolean
   isAccessLoading: boolean
   companySetupError: string
@@ -51,6 +52,11 @@ type AuthContextValue = {
 type AuthProviderProps = {
   children: ReactNode
 }
+
+const SUPER_ADMIN_EMAILS = new Set([
+  'fersysapp@gmail.com',
+  'bornaferfolja7@gmail.com',
+])
 
 const AuthContext =
   createContext<AuthContextValue | null>(null)
@@ -338,12 +344,22 @@ export function AuthProvider({
       [resolvedPermissions],
     )
 
+  const isSuperAdmin = useMemo(() => {
+    const email =
+      session?.user.email
+        ?.trim()
+        .toLowerCase() ?? ''
+
+    return SUPER_ADMIN_EMAILS.has(email)
+  }, [session?.user.email])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user: session?.user ?? null,
       membership,
       role: membership?.role ?? null,
+      isSuperAdmin,
       isLoading,
       isAccessLoading,
       companySetupError,
@@ -355,6 +371,7 @@ export function AuthProvider({
     [
       session,
       membership,
+      isSuperAdmin,
       isLoading,
       isAccessLoading,
       companySetupError,
