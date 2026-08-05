@@ -45,6 +45,7 @@ import { SupabaseTestPage } from '../pages/SupabaseTestPage'
 import { WorkOrderDetailsPage } from '../pages/WorkOrderDetailsPage'
 import { WorkOrderSettingsPage } from '../pages/WorkOrderSettingsPage'
 import { WorkOrdersPage } from '../pages/WorkOrdersPage'
+import { SupportPage } from '../pages/SupportPage'
 import {
   SubscriptionProvider,
   useSubscription,
@@ -368,6 +369,15 @@ function RouterContent() {
           element={
             <Guard permission="dashboard.view">
               <DashboardPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/support"
+          element={
+            <Guard permission="dashboard.view">
+              <SupportPage />
             </Guard>
           }
         />

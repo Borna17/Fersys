@@ -6,6 +6,7 @@ import {
   FileInput,
   FileText,
   Gauge,
+  Headphones,
   LockKeyhole,
   Package,
   ReceiptText,
@@ -54,6 +55,7 @@ const navigationItems: Array<{
   { name: 'Kalendar', path: '/calendar', icon: CalendarDays, permission: 'calendar.view', feature: 'calendar' },
   { name: 'Skladište', path: '/inventory', icon: Package, permission: 'inventory.view', feature: 'inventory' },
   { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
+  { name: 'Podrška', path: '/support', icon: Headphones, permission: 'dashboard.view' },
   { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
 
