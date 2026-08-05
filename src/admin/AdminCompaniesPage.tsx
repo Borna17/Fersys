@@ -18,6 +18,7 @@ import {
   useMemo,
   useState,
 } from 'react'
+import { Link } from 'react-router'
 
 import {
   getAdminCompanies,
@@ -506,14 +507,23 @@ function CompanyRow({
       </td>
 
       <td className="px-5 py-4 text-right">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm font-black text-slate-200 transition hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-200"
-        >
-          <Settings2 size={16} />
-          Uredi
-        </button>
+        <div className="inline-flex items-center gap-2">
+          <Link
+            to={`/admin/companies/${company.companyId}`}
+            className="inline-flex h-10 items-center rounded-xl border border-violet-500/20 bg-violet-500/5 px-3 text-sm font-black text-violet-300 transition hover:border-violet-500/40 hover:bg-violet-500/10"
+          >
+            Otvori
+          </Link>
+
+          <button
+            type="button"
+            onClick={onEdit}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-3 text-sm font-black text-slate-200 transition hover:border-violet-500/40 hover:bg-violet-500/10 hover:text-violet-200"
+          >
+            <Settings2 size={16} />
+            Uredi
+          </button>
+        </div>
       </td>
     </tr>
   )

@@ -1,4 +1,3 @@
-
 import type { ReactNode } from 'react'
 import {
   Navigate,
@@ -11,6 +10,7 @@ import AdminGuard from '../admin/AdminGuard'
 import AdminLayout from '../admin/AdminLayout'
 import { AdminDashboardPage } from '../admin/AdminDashboardPage'
 import { AdminCompaniesPage } from '../admin/AdminCompaniesPage'
+import { AdminCompanyDetailsPage } from '../admin/AdminCompanyDetailsPage'
 import { AdminSupportPage } from '../admin/AdminSupportPage'
 import type { PermissionKey } from '../auth/permissions'
 import FersysLoader from '../components/FersysLoader'
@@ -349,6 +349,10 @@ function RouterContent() {
       >
         <Route path="/admin" element={<AdminDashboardPage />} />
         <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+        <Route
+          path="/admin/companies/:companyId"
+          element={<AdminCompanyDetailsPage />}
+        />
         <Route path="/admin/support" element={<AdminSupportPage />} />
       </Route>
 
