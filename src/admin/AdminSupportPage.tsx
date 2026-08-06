@@ -333,10 +333,18 @@ export function AdminSupportPage() {
                 <p className="mt-2 line-clamp-2 text-sm text-slate-400">
                   {ticket.message}
                 </p>
-                <p className="mt-3 text-xs text-slate-500">
-                  {ticket.companyName ||
-                    ticket.requesterEmail}
-                </p>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                  <span className="truncate">
+                    {ticket.companyName ||
+                      ticket.requesterEmail}
+                  </span>
+
+                  <span className="shrink-0 font-semibold text-slate-400">
+                    {formatDateTime(
+                      ticket.createdAt,
+                    )}
+                  </span>
+                </div>
               </button>
             ))}
           </div>
@@ -465,9 +473,32 @@ function TicketChat({
             {ticket.subject}
           </h2>
           <p className="mt-2 text-sm text-slate-500">
-            {ticket.companyName} ·{' '}
-            {ticket.requesterEmail}
+            {ticket.companyName ||
+              'Tvrtka bez naziva'}
+            {' · '}
+            {ticket.requesterName ||
+              ticket.requesterEmail}
           </p>
+
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500">
+            <span>
+              Poslano:{' '}
+              <strong className="text-slate-300">
+                {formatDateTime(
+                  ticket.createdAt,
+                )}
+              </strong>
+            </span>
+
+            <span>
+              Zadnja promjena:{' '}
+              <strong className="text-slate-300">
+                {formatDateTime(
+                  ticket.updatedAt,
+                )}
+              </strong>
+            </span>
+          </div>
         </div>
 
         <button
