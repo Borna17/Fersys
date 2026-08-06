@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320">
+<defs>
+<linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#2563EB"/><stop offset="1" stop-color="#3B82F6"/></linearGradient>
+<linearGradient id="p" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7C3AED"/><stop offset="1" stop-color="#A855F7"/></linearGradient>
+</defs>
+<rect x="70" y="65" width="190" height="190" rx="44" transform="rotate(45 165 160)" fill="url(#b)"/>
+<rect x="202" y="65" width="190" height="190" rx="44" transform="rotate(45 297 160)" fill="url(#p)" opacity=".96"/>
+<text x="430" y="205" font-family="Inter,Arial,sans-serif" font-size="132" font-weight="800" letter-spacing="10" fill="#0F172A">FERSYS</text>
+</svg>

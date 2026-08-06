@@ -27,6 +27,8 @@ import {
   useLocation,
 } from 'react-router'
 
+import fersysIcon from '../assets/fersys-icon.svg'
+
 import { useAuth } from '../auth/AuthProvider'
 import {
   roleLabels,
@@ -467,13 +469,14 @@ function Brand({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="relative h-11 w-11 shrink-0">
-        <span className="absolute left-0 top-0 h-8 w-8 rounded-lg bg-blue-600" />
-        <span className="absolute bottom-0 right-0 h-8 w-8 rounded-lg bg-blue-400" />
-      </div>
+      <img
+        src={fersysIcon}
+        alt="FERSYS"
+        className="h-11 w-11 shrink-0 object-contain"
+      />
 
       {expanded && (
-        <span className="text-2xl font-extrabold tracking-tight">
+        <span className="text-2xl font-black tracking-[0.08em] text-slate-50">
           FERSYS
         </span>
       )}
