@@ -28,6 +28,8 @@ import {
 } from 'react-router'
 
 import fersysIcon from '../assets/fersys-icon.svg'
+import CompanyLogo from './CompanyLogo'
+import { useCompanyBranding } from '../services/companyBranding.service'
 
 import { useAuth } from '../auth/AuthProvider'
 import {
@@ -79,6 +81,7 @@ function getInitials(value: string) {
 
 export default function Sidebar() {
   const location = useLocation()
+  const { branding } = useCompanyBranding()
   const {
     user,
     role,
@@ -167,6 +170,8 @@ export default function Sidebar() {
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
+          companyName={branding?.name || 'FERSYS tvrtka'}
+          companyLogoUrl={branding?.logoUrl}
         />
       </aside>
 
@@ -227,6 +232,8 @@ export default function Sidebar() {
           displayName={displayName}
           displayRole={displayRole}
           initials={initials}
+          companyName={branding?.name || 'FERSYS tvrtka'}
+          companyLogoUrl={branding?.logoUrl}
         />
       </aside>
     </>
@@ -380,6 +387,8 @@ function SidebarFooter({
   displayName,
   displayRole,
   initials,
+  companyName,
+  companyLogoUrl,
 }: {
   expanded: boolean
   showSettings: boolean
@@ -387,6 +396,8 @@ function SidebarFooter({
   displayName: string
   displayRole: string
   initials: string
+  companyName: string
+  companyLogoUrl?: string
 }) {
   return (
     <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-3">
@@ -452,12 +463,57 @@ function SidebarFooter({
         </NavLink>
       )}
 
+      <CompanyCard
+        expanded={expanded}
+        companyName={companyName}
+        companyLogoUrl={companyLogoUrl}
+      />
+
       <UserCard
         expanded={expanded}
         displayName={displayName}
         displayRole={displayRole}
         initials={initials}
       />
+    </div>
+  )
+}
+
+function CompanyCard({
+  expanded,
+  companyName,
+  companyLogoUrl,
+}: {
+  expanded: boolean
+  companyName: string
+  companyLogoUrl?: string
+}) {
+  return (
+    <div
+      className={`mb-3 flex items-center rounded-2xl border border-slate-700/70 bg-slate-950/55 ${
+        expanded
+          ? 'gap-3 p-3'
+          : 'justify-center p-2'
+      }`}
+      title={!expanded ? companyName : undefined}
+    >
+      <CompanyLogo
+        logoUrl={companyLogoUrl}
+        companyName={companyName}
+        className="h-10 w-10"
+      />
+
+      {expanded && (
+        <div className="min-w-0">
+          <p className="truncate text-sm font-black text-white">
+            {companyName}
+          </p>
+
+          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-400">
+            Aktivna tvrtka
+          </p>
+        </div>
+      )}
     </div>
   )
 }

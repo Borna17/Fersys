@@ -19,6 +19,8 @@ import { useLocation, useNavigate } from 'react-router'
 
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
+import CompanyLogo from './CompanyLogo'
+import { useCompanyBranding } from '../services/companyBranding.service'
 import {
   getEmployees,
   roleLabels,
@@ -73,25 +75,6 @@ const quickActions = [
     route: '/vehicles',
   },
 ]
-
-function getInitials(value: string) {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-
-  if (parts.length === 0) {
-    return 'K'
-  }
-
-  return parts
-    .slice(0, 2)
-    .map(
-      (part) =>
-        part[0]?.toUpperCase() ?? '',
-    )
-    .join('')
-}
 
 function formatNotificationDate(
   value: string,
@@ -159,6 +142,7 @@ export default function Topbar() {
   const location = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
+  const { branding } = useCompanyBranding()
 
   const [
     isQuickMenuOpen,
@@ -347,8 +331,6 @@ export default function Topbar() {
       ? roleLabels[currentEmployee.role]
       : 'Korisnik'
 
-  const initials =
-    getInitials(displayName)
 
   const currentTitle =
     pageTitles[location.pathname] ??
@@ -778,17 +760,19 @@ export default function Topbar() {
             }}
             className="flex min-w-[235px] items-center gap-3 rounded-2xl px-3 py-2 text-left transition hover:bg-slate-900"
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white shadow-lg shadow-blue-950/40">
-              {initials}
-            </span>
+            <CompanyLogo
+              logoUrl={branding?.logoUrl}
+              companyName={branding?.name || 'FERSYS tvrtka'}
+              className="h-11 w-11"
+            />
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">
-                {displayName}
+                {branding?.name || displayName}
               </p>
 
-              <p className="mt-0.5 text-xs text-slate-400">
-                {displayRole}
+              <p className="mt-0.5 truncate text-xs text-slate-400">
+                {displayName} · {displayRole}
               </p>
             </div>
 
@@ -807,16 +791,22 @@ export default function Topbar() {
           {isProfileOpen && (
             <div className="absolute right-0 top-[60px] w-72 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/40">
               <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-950/60 p-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
-                  {initials}
-                </span>
+                <CompanyLogo
+                  logoUrl={branding?.logoUrl}
+                  companyName={branding?.name || 'FERSYS tvrtka'}
+                  className="h-11 w-11"
+                />
 
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-white">
-                    {displayName}
+                    {branding?.name || 'Tvrtka'}
                   </p>
 
-                  <p className="truncate text-xs text-slate-500">
+                  <p className="truncate text-xs text-slate-400">
+                    {displayName} · {displayRole}
+                  </p>
+
+                  <p className="mt-0.5 truncate text-[11px] text-slate-600">
                     {displayEmail ||
                       'E-mail nije dostupan'}
                   </p>

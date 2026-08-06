@@ -37,6 +37,7 @@ import { fileToCompressedDataUrl } from '../utils/imageUtils'
 import { removeLightBackgroundFromLogo } from '../utils/logoBackground'
 import { supabase } from '../lib/supabase'
 import { resetOnboarding } from '../services/onboarding.service'
+import { notifyCompanyBrandingUpdated } from '../services/companyBranding.service'
 
 type SettingsTab =
   | 'overview'
@@ -408,6 +409,7 @@ export function SettingsPage() {
         })
 
       setSettings(updated)
+      notifyCompanyBrandingUpdated(updated)
       setSaved(true)
     } catch (error) {
       setSaveError(
