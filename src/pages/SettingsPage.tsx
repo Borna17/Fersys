@@ -26,6 +26,7 @@ import {
 import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
+import DocumentLivePreview from '../components/settings/DocumentLivePreview'
 import {
   defaultWorkingHours,
   getCompanySettings,
@@ -975,120 +976,120 @@ function DocumentSettingsTab({
   updateField: UpdateField
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-      <SettingsCard
-        icon={
-          <FileText className="text-blue-400" />
-        }
-        title="Oznake dokumenata"
-        description="Prefiksi koji se prikazuju ispred rednog broja dokumenta."
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <TextField
-            label="Radni nalozi"
-            value={settings.workOrderPrefix}
-            placeholder="RN"
-            maxLength={10}
-            onChange={(value) =>
-              updateField(
-                'workOrderPrefix',
-                value.toUpperCase(),
-              )
-            }
-          />
+    <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(520px,0.9fr)]">
+      <div className="space-y-6">
+        <SettingsCard
+          icon={
+            <FileText className="text-blue-400" />
+          }
+          title="Oznake dokumenata"
+          description="Prefiksi koji se prikazuju ispred rednog broja dokumenta."
+        >
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <TextField
+              label="Radni nalozi"
+              value={settings.workOrderPrefix}
+              placeholder="RN"
+              maxLength={10}
+              onChange={(value) =>
+                updateField(
+                  'workOrderPrefix',
+                  value.toUpperCase(),
+                )
+              }
+            />
 
-          <TextField
-            label="Ponude"
-            value={settings.offerPrefix}
-            placeholder="P"
-            maxLength={10}
-            onChange={(value) =>
-              updateField(
-                'offerPrefix',
-                value.toUpperCase(),
-              )
-            }
-          />
+            <TextField
+              label="Ponude"
+              value={settings.offerPrefix}
+              placeholder="P"
+              maxLength={10}
+              onChange={(value) =>
+                updateField(
+                  'offerPrefix',
+                  value.toUpperCase(),
+                )
+              }
+            />
 
-          <TextField
-            label="Izlazni računi"
-            value={settings.invoicePrefix}
-            placeholder="R"
-            maxLength={10}
-            onChange={(value) =>
-              updateField(
-                'invoicePrefix',
-                value.toUpperCase(),
-              )
-            }
-          />
+            <TextField
+              label="Izlazni računi"
+              value={settings.invoicePrefix}
+              placeholder="R"
+              maxLength={10}
+              onChange={(value) =>
+                updateField(
+                  'invoicePrefix',
+                  value.toUpperCase(),
+                )
+              }
+            />
 
-          <TextField
-            label="Ulazni računi"
-            value={
-              settings.incomingInvoicePrefix
-            }
-            placeholder="UR"
-            maxLength={10}
-            onChange={(value) =>
-              updateField(
-                'incomingInvoicePrefix',
-                value.toUpperCase(),
-              )
-            }
-          />
-        </div>
-      </SettingsCard>
+            <TextField
+              label="Ulazni računi"
+              value={
+                settings.incomingInvoicePrefix
+              }
+              placeholder="UR"
+              maxLength={10}
+              onChange={(value) =>
+                updateField(
+                  'incomingInvoicePrefix',
+                  value.toUpperCase(),
+                )
+              }
+            />
+          </div>
+        </SettingsCard>
 
-      <SettingsCard
-        icon={
-          <Clock3 className="text-amber-400" />
-        }
-        title="Rokovi dokumenata"
-        description="Zadani rokovi pri izradi novih ponuda i računa."
-      >
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <NumberField
-            label="Rok plaćanja"
-            value={
-              settings.defaultPaymentDays
-            }
-            min={0}
-            max={365}
-            suffix="dana"
-            onChange={(value) =>
-              updateField(
-                'defaultPaymentDays',
-                value,
-              )
-            }
-          />
+        <SettingsCard
+          icon={
+            <Clock3 className="text-amber-400" />
+          }
+          title="Rokovi dokumenata"
+          description="Zadani rokovi pri izradi novih ponuda i računa."
+        >
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            <NumberField
+              label="Rok plaćanja"
+              value={
+                settings.defaultPaymentDays
+              }
+              min={0}
+              max={365}
+              suffix="dana"
+              onChange={(value) =>
+                updateField(
+                  'defaultPaymentDays',
+                  value,
+                )
+              }
+            />
 
-          <NumberField
-            label="Valjanost ponude"
-            value={
-              settings.defaultOfferValidityDays
-            }
-            min={1}
-            max={365}
-            suffix="dana"
-            onChange={(value) =>
-              updateField(
-                'defaultOfferValidityDays',
-                value,
-              )
-            }
-          />
-        </div>
-      </SettingsCard>
+            <NumberField
+              label="Valjanost ponude"
+              value={
+                settings.defaultOfferValidityDays
+              }
+              min={1}
+              max={365}
+              suffix="dana"
+              onChange={(value) =>
+                updateField(
+                  'defaultOfferValidityDays',
+                  value,
+                )
+              }
+            />
+          </div>
+        </SettingsCard>
 
-      <div className="xl:col-span-2">
         <SettingsCard
           icon={
             <FileText className="text-violet-400" />
           }
           title="Izgled dokumenata"
-          description="Tekst koji će se prikazivati na dokumentima tvrtke."
+          description="Promjene se odmah prikazuju u živom A4 pregledu."
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <TextAreaField
@@ -1121,6 +1122,16 @@ function DocumentSettingsTab({
             />
           </div>
         </SettingsCard>
+
+        <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4 text-sm leading-6 text-slate-400">
+          Logo, pečat, potpis i boje uređuju se u kartici
+          <strong className="text-blue-300"> Tvrtka</strong>.
+          Nakon promjene odmah će se koristiti i u ovom pregledu.
+        </div>
+      </div>
+
+      <div className="min-w-0 2xl:sticky 2xl:top-6 2xl:self-start">
+        <DocumentLivePreview settings={settings} />
       </div>
     </div>
   )

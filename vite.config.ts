@@ -39,6 +39,9 @@ export default defineConfig({
       },
 
       workbox: {
+        maximumFileSizeToCacheInBytes:
+          5 * 1024 * 1024,
+
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
@@ -63,7 +66,8 @@ export default defineConfig({
 
               expiration: {
                 maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 7,
+                maxAgeSeconds:
+                  60 * 60 * 24 * 7,
               },
 
               cacheableResponse: {
@@ -83,7 +87,8 @@ export default defineConfig({
 
               expiration: {
                 maxEntries: 100,
-                maxAgeSeconds: 60 * 60 * 24 * 30,
+                maxAgeSeconds:
+                  60 * 60 * 24 * 30,
               },
 
               cacheableResponse: {
@@ -103,7 +108,8 @@ export default defineConfig({
 
               expiration: {
                 maxEntries: 30,
-                maxAgeSeconds: 60 * 60 * 24 * 365,
+                maxAgeSeconds:
+                  60 * 60 * 24 * 365,
               },
 
               cacheableResponse: {
