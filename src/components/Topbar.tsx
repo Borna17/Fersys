@@ -815,6 +815,10 @@ export default function Topbar() {
 
               <button
                 type="button"
+                onClick={() => {
+                  setIsProfileOpen(false)
+                  navigate('/profile')
+                }}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
               >
                 <UserRound size={18} />

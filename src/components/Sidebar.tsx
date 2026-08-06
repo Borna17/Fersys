@@ -63,22 +63,6 @@ const navigationItems: Array<{
   { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
 
-function getInitials(value: string) {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-
-  if (parts.length === 0) {
-    return 'K'
-  }
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
-}
-
 export default function Sidebar() {
   const location = useLocation()
   const { branding } = useCompanyBranding()
@@ -141,8 +125,6 @@ export default function Sidebar() {
   const displayRole =
     role ? roleLabels[role] : 'Korisnik'
 
-  const initials =
-    getInitials(displayName)
 
   return (
     <>
@@ -169,7 +151,6 @@ export default function Sidebar() {
           showSuperAdmin={isSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
-          initials={initials}
           companyName={branding?.name || 'FERSYS tvrtka'}
           companyLogoUrl={branding?.logoUrl}
         />
@@ -231,7 +212,6 @@ export default function Sidebar() {
           showSuperAdmin={isSuperAdmin}
           displayName={displayName}
           displayRole={displayRole}
-          initials={initials}
           companyName={branding?.name || 'FERSYS tvrtka'}
           companyLogoUrl={branding?.logoUrl}
         />
@@ -386,7 +366,6 @@ function SidebarFooter({
   showSuperAdmin,
   displayName,
   displayRole,
-  initials,
   companyName,
   companyLogoUrl,
 }: {
@@ -395,7 +374,6 @@ function SidebarFooter({
   showSuperAdmin: boolean
   displayName: string
   displayRole: string
-  initials: string
   companyName: string
   companyLogoUrl?: string
 }) {
@@ -463,57 +441,13 @@ function SidebarFooter({
         </NavLink>
       )}
 
-      <CompanyCard
-        expanded={expanded}
-        companyName={companyName}
-        companyLogoUrl={companyLogoUrl}
-      />
-
       <UserCard
         expanded={expanded}
         displayName={displayName}
         displayRole={displayRole}
-        initials={initials}
-      />
-    </div>
-  )
-}
-
-function CompanyCard({
-  expanded,
-  companyName,
-  companyLogoUrl,
-}: {
-  expanded: boolean
-  companyName: string
-  companyLogoUrl?: string
-}) {
-  return (
-    <div
-      className={`mb-3 flex items-center rounded-2xl border border-slate-700/70 bg-slate-950/55 ${
-        expanded
-          ? 'gap-3 p-3'
-          : 'justify-center p-2'
-      }`}
-      title={!expanded ? companyName : undefined}
-    >
-      <CompanyLogo
-        logoUrl={companyLogoUrl}
         companyName={companyName}
-        className="h-10 w-10"
+        companyLogoUrl={companyLogoUrl}
       />
-
-      {expanded && (
-        <div className="min-w-0">
-          <p className="truncate text-sm font-black text-white">
-            {companyName}
-          </p>
-
-          <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.14em] text-blue-400">
-            Aktivna tvrtka
-          </p>
-        </div>
-      )}
     </div>
   )
 }
@@ -544,12 +478,14 @@ function UserCard({
   expanded,
   displayName,
   displayRole,
-  initials,
+  companyName,
+  companyLogoUrl,
 }: {
   expanded: boolean
   displayName: string
   displayRole: string
-  initials: string
+  companyName: string
+  companyLogoUrl?: string
 }) {
   return (
     <div
@@ -558,10 +494,17 @@ function UserCard({
           ? 'gap-3 p-3'
           : 'justify-center p-2'
       }`}
+      title={
+        !expanded
+          ? `${displayName} · ${displayRole}`
+          : undefined
+      }
     >
-      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-bold">
-        {initials}
-      </div>
+      <CompanyLogo
+        logoUrl={companyLogoUrl}
+        companyName={companyName}
+        className="h-10 w-10"
+      />
 
       {expanded && (
         <div className="min-w-0">
@@ -569,7 +512,7 @@ function UserCard({
             {displayName}
           </p>
 
-          <p className="text-xs text-slate-400">
+          <p className="truncate text-xs text-slate-400">
             {displayRole}
           </p>
         </div>

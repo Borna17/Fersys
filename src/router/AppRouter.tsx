@@ -38,6 +38,7 @@ import { NewWorkOrderPage } from '../pages/NewWorkOrderPage'
 import { NotFoundPage } from '../pages/NotFoundPage'
 import { OffersPage } from '../pages/OffersPage'
 import { PricingPage } from '../pages/PricingPage'
+import { ProfilePage } from '../pages/ProfilePage'
 import { RegisterPage } from '../pages/RegisterPage'
 import { ResetPasswordPage } from '../pages/ResetPasswordPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -670,6 +671,11 @@ function RouterContent() {
               <WorkOrderSettingsPage />
             </Guard>
           }
+        />
+
+        <Route
+          path="/profile"
+          element={<ProfilePage />}
         />
 
         <Route
