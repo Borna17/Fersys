@@ -12,6 +12,18 @@ export type SupportTicketStatus =
   | 'resolved'
   | 'closed'
 
+export type SupportMessage = {
+  id: string
+  ticketId: string
+  senderType: 'user' | 'admin'
+  senderName: string
+  message: string
+  attachmentUrl: string
+  createdAt: string
+  readByUserAt: string | null
+  readByAdminAt: string | null
+}
+
 export type MySupportTicket = {
   id: string
   ticketNumber: string
@@ -23,7 +35,6 @@ export type MySupportTicket = {
   module: string
   contactPhone: string
   attachmentUrl: string
-  adminReply: string
   createdAt: string
   updatedAt: string
 }
@@ -46,9 +57,11 @@ export async function createSupportTicket(
     {
       requested_category: input.category,
       requested_subject: input.subject,
-      requested_description: input.description,
+      requested_description:
+        input.description,
       requested_priority: input.priority,
-      requested_module: input.module || null,
+      requested_module:
+        input.module || null,
       requested_contact_phone:
         input.contactPhone || null,
       requested_attachment_url:
@@ -79,8 +92,12 @@ Promise<MySupportTicket[]> {
       ticketNumber: String(
         row.ticket_number ?? '',
       ),
-      category: String(row.category ?? ''),
-      subject: String(row.subject ?? ''),
+      category: String(
+        row.category ?? '',
+      ),
+      subject: String(
+        row.subject ?? '',
+      ),
       description: String(
         row.description ?? '',
       ),
@@ -97,9 +114,6 @@ Promise<MySupportTicket[]> {
       attachmentUrl: String(
         row.attachment_url ?? '',
       ),
-      adminReply: String(
-        row.admin_reply ?? '',
-      ),
       createdAt: String(
         row.created_at ?? '',
       ),
@@ -108,4 +122,67 @@ Promise<MySupportTicket[]> {
       ),
     }),
   )
+}
+
+export async function getMySupportMessages(
+  ticketId: string,
+): Promise<SupportMessage[]> {
+  const { data, error } = await supabase.rpc(
+    'get_my_support_messages',
+    {
+      requested_ticket_id: ticketId,
+    },
+  )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(
+    (row: Record<string, unknown>) => ({
+      id: String(row.id ?? ''),
+      ticketId: String(
+        row.ticket_id ?? '',
+      ),
+      senderType: String(
+        row.sender_type ?? 'user',
+      ) as 'user' | 'admin',
+      senderName: String(
+        row.sender_name ?? '',
+      ),
+      message: String(
+        row.message ?? '',
+      ),
+      attachmentUrl: String(
+        row.attachment_url ?? '',
+      ),
+      createdAt: String(
+        row.created_at ?? '',
+      ),
+      readByUserAt: row.read_by_user_at
+        ? String(row.read_by_user_at)
+        : null,
+      readByAdminAt: row.read_by_admin_at
+        ? String(row.read_by_admin_at)
+        : null,
+    }),
+  )
+}
+
+export async function sendMySupportMessage(
+  ticketId: string,
+  message: string,
+): Promise<void> {
+  const { error } = await supabase.rpc(
+    'send_support_message',
+    {
+      requested_ticket_id: ticketId,
+      requested_message: message,
+      requested_attachment_url: null,
+    },
+  )
+
+  if (error) {
+    throw error
+  }
 }

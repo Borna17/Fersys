@@ -2,12 +2,12 @@ import type { ReactNode } from 'react'
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock3,
   Headphones,
   MailQuestion,
   MessageSquareText,
   RefreshCw,
   Send,
+  X,
 } from 'lucide-react'
 import {
   useCallback,
@@ -18,8 +18,11 @@ import {
 
 import {
   createSupportTicket,
+  getMySupportMessages,
   getMySupportTickets,
+  sendMySupportMessage,
   type MySupportTicket,
+  type SupportMessage,
   type SupportTicketPriority,
 } from '../services/support.service'
 
@@ -68,9 +71,17 @@ const priorityLabels: Record<
 export function SupportPage() {
   const [tickets, setTickets] =
     useState<MySupportTicket[]>([])
+  const [selected, setSelected] =
+    useState<MySupportTicket | null>(null)
+  const [messages, setMessages] =
+    useState<SupportMessage[]>([])
   const [loading, setLoading] =
     useState(true)
+  const [messagesLoading, setMessagesLoading] =
+    useState(false)
   const [submitting, setSubmitting] =
+    useState(false)
+  const [sending, setSending] =
     useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] =
@@ -90,14 +101,25 @@ export function SupportPage() {
     useState('')
   const [contactPhone, setContactPhone] =
     useState('')
+  const [reply, setReply] =
+    useState('')
 
   const load = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
-      setTickets(
-        await getMySupportTickets(),
-      )
+      const next =
+        await getMySupportTickets()
+      setTickets(next)
+
+      if (selected) {
+        setSelected(
+          next.find(
+            (ticket) =>
+              ticket.id === selected.id,
+          ) ?? null,
+        )
+      }
     } catch (value) {
       setError(
         value instanceof Error
@@ -107,11 +129,42 @@ export function SupportPage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [selected])
+
+  const loadMessages =
+    useCallback(async (
+      ticketId: string,
+    ) => {
+      try {
+        setMessagesLoading(true)
+        setError('')
+        setMessages(
+          await getMySupportMessages(
+            ticketId,
+          ),
+        )
+      } catch (value) {
+        setError(
+          value instanceof Error
+            ? value.message
+            : 'Razgovor nije moguće učitati.',
+        )
+      } finally {
+        setMessagesLoading(false)
+      }
+    }, [])
 
   useEffect(() => {
     void load()
-  }, [load])
+  }, [])
+
+  useEffect(() => {
+    if (selected) {
+      void loadMessages(selected.id)
+    } else {
+      setMessages([])
+    }
+  }, [selected?.id])
 
   const openCount = useMemo(
     () =>
@@ -175,6 +228,37 @@ export function SupportPage() {
     }
   }
 
+  async function sendReply() {
+    if (
+      !selected ||
+      reply.trim().length < 1
+    ) {
+      return
+    }
+
+    try {
+      setSending(true)
+      setError('')
+
+      await sendMySupportMessage(
+        selected.id,
+        reply.trim(),
+      )
+
+      setReply('')
+      await loadMessages(selected.id)
+      await load()
+    } catch (value) {
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Poruku nije moguće poslati.',
+      )
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <section className="mx-auto max-w-[1500px]">
       <div>
@@ -188,9 +272,9 @@ export function SupportPage() {
         </h1>
 
         <p className="mt-2 max-w-2xl text-slate-400">
-          Pošalji support zahtjev i prati
-          odgovor FERSYS administracije
-          izravno u aplikaciji.
+          Pošalji support zahtjev i razgovaraj
+          s FERSYS administracijom izravno
+          u aplikaciji.
         </p>
       </div>
 
@@ -221,38 +305,27 @@ export function SupportPage() {
       </div>
 
       {error && (
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-          <AlertTriangle
-            size={19}
-            className="mt-0.5 shrink-0"
-          />
-          <span>{error}</span>
-        </div>
+        <MessageBox
+          type="error"
+          text={error}
+        />
       )}
 
       {success && (
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-          <CheckCircle2
-            size={19}
-            className="mt-0.5 shrink-0"
-          />
-          <span>{success}</span>
-        </div>
+        <MessageBox
+          type="success"
+          text={success}
+        />
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
         <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
           <h2 className="text-xl font-black text-white">
             Novi support zahtjev
           </h2>
 
-          <p className="mt-2 text-sm text-slate-500">
-            Opiši problem što detaljnije.
-          </p>
-
           <div className="mt-6 space-y-4">
-            <label className="block text-sm font-bold text-slate-300">
-              Kategorija
+            <Field label="Kategorija">
               <select
                 value={category}
                 onChange={(event) =>
@@ -260,7 +333,7 @@ export function SupportPage() {
                     event.target.value,
                   )
                 }
-                className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-blue-500"
+                className={inputClass}
               >
                 {categories.map((item) => (
                   <option
@@ -271,10 +344,9 @@ export function SupportPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </Field>
 
-            <label className="block text-sm font-bold text-slate-300">
-              Predmet
+            <Field label="Predmet">
               <input
                 value={subject}
                 onChange={(event) =>
@@ -284,12 +356,11 @@ export function SupportPage() {
                 }
                 placeholder="Primjer: Ne mogu spremiti radni nalog"
                 maxLength={120}
-                className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                className={inputClass}
               />
-            </label>
+            </Field>
 
-            <label className="block text-sm font-bold text-slate-300">
-              Opis problema
+            <Field label="Opis problema">
               <textarea
                 value={description}
                 onChange={(event) =>
@@ -297,15 +368,14 @@ export function SupportPage() {
                     event.target.value,
                   )
                 }
-                placeholder="Napiši što si pokušao, što se dogodilo i prikazuje li se neka greška..."
+                placeholder="Napiši što si pokušao i što se dogodilo..."
                 maxLength={4000}
-                className="mt-2 min-h-40 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                className={`${inputClass} min-h-40 py-3`}
               />
-            </label>
+            </Field>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-bold text-slate-300">
-                Modul
+              <Field label="Modul">
                 <select
                   value={module}
                   onChange={(event) =>
@@ -313,7 +383,7 @@ export function SupportPage() {
                       event.target.value,
                     )
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-blue-500"
+                  className={inputClass}
                 >
                   <option value="">
                     Nije odabrano
@@ -327,10 +397,9 @@ export function SupportPage() {
                     </option>
                   ))}
                 </select>
-              </label>
+              </Field>
 
-              <label className="block text-sm font-bold text-slate-300">
-                Prioritet
+              <Field label="Prioritet">
                 <select
                   value={priority}
                   onChange={(event) =>
@@ -339,7 +408,7 @@ export function SupportPage() {
                         .value as SupportTicketPriority,
                     )
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-blue-500"
+                  className={inputClass}
                 >
                   {Object.entries(
                     priorityLabels,
@@ -354,11 +423,10 @@ export function SupportPage() {
                     ),
                   )}
                 </select>
-              </label>
+              </Field>
             </div>
 
-            <label className="block text-sm font-bold text-slate-300">
-              Kontakt telefon — opcionalno
+            <Field label="Kontakt telefon — opcionalno">
               <input
                 value={contactPhone}
                 onChange={(event) =>
@@ -367,15 +435,15 @@ export function SupportPage() {
                   )
                 }
                 placeholder="+385..."
-                className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none placeholder:text-slate-600 focus:border-blue-500"
+                className={inputClass}
               />
-            </label>
+            </Field>
 
             <button
               type="button"
               disabled={submitting}
               onClick={() => void submit()}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
             >
               <Send size={18} />
               {submitting
@@ -386,13 +454,13 @@ export function SupportPage() {
         </article>
 
         <article className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-800 p-5 sm:p-6">
+          <div className="flex items-center justify-between border-b border-slate-800 p-5">
             <div>
               <h2 className="text-xl font-black text-white">
                 Moji zahtjevi
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Statusi i odgovori podrške.
+                Klikni ticket za razgovor.
               </p>
             </div>
 
@@ -400,8 +468,7 @@ export function SupportPage() {
               type="button"
               disabled={loading}
               onClick={() => void load()}
-              className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400 transition hover:text-white disabled:opacity-50"
-              aria-label="Osvježi"
+              className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
             >
               <RefreshCw
                 size={18}
@@ -414,99 +481,204 @@ export function SupportPage() {
             </button>
           </div>
 
-          <div className="max-h-[760px] overflow-y-auto">
-            {tickets.map((ticket) => (
-              <TicketCard
-                key={ticket.id}
-                ticket={ticket}
-              />
-            ))}
-
-            {!loading &&
-              tickets.length === 0 && (
-                <div className="px-6 py-20 text-center">
-                  <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-blue-500/10 text-blue-300">
-                    <Headphones size={30} />
-                  </div>
-                  <h3 className="mt-5 text-xl font-black text-white">
-                    Još nema zahtjeva
-                  </h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Poslani support zahtjevi
-                    prikazat će se ovdje.
+          {selected ? (
+            <div className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-300">
+                    {selected.ticketNumber}
                   </p>
+                  <h3 className="mt-2 text-xl font-black text-white">
+                    {selected.subject}
+                  </h3>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSelected(null)
+                  }
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="mt-5 max-h-[470px] space-y-3 overflow-y-auto rounded-2xl bg-slate-950/50 p-4">
+                {messages.map((message) => (
+                  <ChatBubble
+                    key={message.id}
+                    message={message}
+                  />
+                ))}
+
+                {messagesLoading && (
+                  <p className="py-8 text-center text-sm text-slate-500">
+                    Učitavanje razgovora...
+                  </p>
+                )}
+              </div>
+
+              {![
+                'resolved',
+                'closed',
+              ].includes(selected.status) && (
+                <div className="mt-4 flex gap-3">
+                  <textarea
+                    value={reply}
+                    onChange={(event) =>
+                      setReply(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Napiši poruku podršci..."
+                    className="min-h-24 flex-1 resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-blue-500"
+                  />
+
+                  <button
+                    type="button"
+                    disabled={
+                      sending ||
+                      !reply.trim()
+                    }
+                    onClick={() =>
+                      void sendReply()
+                    }
+                    className="self-end rounded-xl bg-blue-600 p-4 text-white disabled:opacity-50"
+                  >
+                    <Send size={20} />
+                  </button>
                 </div>
               )}
+            </div>
+          ) : (
+            <div className="max-h-[700px] overflow-y-auto">
+              {tickets.map((ticket) => (
+                <button
+                  key={ticket.id}
+                  type="button"
+                  onClick={() =>
+                    setSelected(ticket)
+                  }
+                  className="w-full border-b border-slate-800 p-5 text-left transition hover:bg-slate-800/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-300">
+                        {ticket.ticketNumber}
+                      </p>
+                      <p className="mt-2 font-black text-white">
+                        {ticket.subject}
+                      </p>
+                    </div>
 
-            {loading && (
-              <div className="px-6 py-20 text-center text-slate-500">
-                Učitavanje zahtjeva...
-              </div>
-            )}
-          </div>
+                    <StatusBadge
+                      status={ticket.status}
+                    />
+                  </div>
+
+                  <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-400">
+                    {ticket.description}
+                  </p>
+                </button>
+              ))}
+
+              {!loading &&
+                tickets.length === 0 && (
+                  <div className="px-6 py-20 text-center text-slate-500">
+                    Još nema zahtjeva.
+                  </div>
+                )}
+            </div>
+          )}
         </article>
       </div>
     </section>
   )
 }
 
-function TicketCard({
-  ticket,
+const inputClass =
+  'mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none placeholder:text-slate-600 focus:border-blue-500'
+
+function Field({
+  label,
+  children,
 }: {
-  ticket: MySupportTicket
+  label: string
+  children: ReactNode
 }) {
   return (
-    <div className="border-b border-slate-800 p-5 last:border-0 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-300">
-            {ticket.ticketNumber}
-          </p>
-          <h3 className="mt-2 text-lg font-black text-white">
-            {ticket.subject}
-          </h3>
-        </div>
+    <label className="block text-sm font-bold text-slate-300">
+      {label}
+      {children}
+    </label>
+  )
+}
 
-        <StatusBadge
-          status={ticket.status}
-        />
+function ChatBubble({
+  message,
+}: {
+  message: SupportMessage
+}) {
+  const isAdmin =
+    message.senderType === 'admin'
+
+  return (
+    <div
+      className={`flex ${
+        isAdmin
+          ? 'justify-start'
+          : 'justify-end'
+      }`}
+    >
+      <div
+        className={`max-w-[85%] rounded-2xl p-4 ${
+          isAdmin
+            ? 'bg-violet-500/10 text-slate-200'
+            : 'bg-blue-600 text-white'
+        }`}
+      >
+        <p className="text-xs font-black opacity-70">
+          {message.senderName ||
+            (isAdmin
+              ? 'FERSYS podrška'
+              : 'Korisnik')}
+        </p>
+        <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
+          {message.message}
+        </p>
+        <p className="mt-2 text-[11px] opacity-60">
+          {formatDateTime(
+            message.createdAt,
+          )}
+        </p>
       </div>
+    </div>
+  )
+}
 
-      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-400">
-        {ticket.description}
-      </p>
+function MessageBox({
+  type,
+  text,
+}: {
+  type: 'error' | 'success'
+  text: string
+}) {
+  const isError = type === 'error'
+  const Icon = isError
+    ? AlertTriangle
+    : CheckCircle2
 
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
-          {ticket.category}
-        </span>
-        <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
-          {priorityLabels[
-            ticket.priority
-          ]}
-        </span>
-        {ticket.module && (
-          <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-300">
-            {ticket.module}
-          </span>
-        )}
-      </div>
-
-      {ticket.adminReply && (
-        <div className="mt-5 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-          <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-300">
-            Odgovor FERSYS podrške
-          </p>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
-            {ticket.adminReply}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-4 flex items-center gap-2 text-xs text-slate-600">
-        <Clock3 size={14} />
-        {formatDateTime(ticket.createdAt)}
-      </div>
+  return (
+    <div
+      className={`mt-5 flex items-start gap-3 rounded-2xl border p-4 text-sm ${
+        isError
+          ? 'border-red-500/20 bg-red-500/10 text-red-300'
+          : 'border-green-500/20 bg-green-500/10 text-green-300'
+      }`}
+    >
+      <Icon size={19} />
+      <span>{text}</span>
     </div>
   )
 }
@@ -522,7 +694,7 @@ function SummaryCard({
 }) {
   return (
     <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-slate-500">
             {label}
@@ -531,7 +703,6 @@ function SummaryCard({
             {value}
           </p>
         </div>
-
         <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/10 text-blue-300">
           {icon}
         </div>
@@ -545,21 +716,8 @@ function StatusBadge({
 }: {
   status: string
 }) {
-  const className =
-    status === 'new'
-      ? 'border-blue-500/20 bg-blue-500/10 text-blue-300'
-      : status === 'open'
-        ? 'border-violet-500/20 bg-violet-500/10 text-violet-300'
-        : status === 'waiting'
-          ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
-          : status === 'resolved'
-            ? 'border-green-500/20 bg-green-500/10 text-green-300'
-            : 'border-slate-700 bg-slate-800 text-slate-300'
-
   return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}
-    >
+    <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs font-black text-slate-300">
       {statusLabels[status] ?? status}
     </span>
   )

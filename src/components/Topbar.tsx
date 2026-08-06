@@ -1,15 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bell,
+  BriefcaseBusiness,
   CalendarDays,
   CheckCheck,
   ChevronDown,
+  CircleDollarSign,
+  Headphones,
   LogOut,
   Moon,
   Plus,
   Search,
   Settings,
   UserRound,
+  UsersRound,
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 
@@ -25,6 +29,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
   type AppNotification,
+  type AppNotificationKind,
 } from '../services/notifications.service'
 
 const pageTitles: Record<string, string> = {
@@ -40,8 +45,10 @@ const pageTitles: Record<string, string> = {
   '/reports': 'Izvještaji',
   '/ai': 'AI pomoćnik',
   '/documents': 'Dokumenti',
+  '/support': 'Podrška',
   '/settings': 'Postavke',
-  '/settings/work-orders': 'Postavke radnih naloga',
+  '/settings/work-orders':
+    'Postavke radnih naloga',
 }
 
 const quickActions = [
@@ -79,8 +86,73 @@ function getInitials(value: string) {
 
   return parts
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map(
+      (part) =>
+        part[0]?.toUpperCase() ?? '',
+    )
     .join('')
+}
+
+function formatNotificationDate(
+  value: string,
+) {
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Vrijeme nije dostupno'
+  }
+
+  return date.toLocaleString('hr-HR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getNotificationIcon(
+  kind: AppNotificationKind,
+) {
+  if (kind === 'support') {
+    return Headphones
+  }
+
+  if (kind === 'subscription') {
+    return CircleDollarSign
+  }
+
+  if (kind === 'employee') {
+    return UsersRound
+  }
+
+  if (kind === 'calendar') {
+    return CalendarDays
+  }
+
+  return BriefcaseBusiness
+}
+
+function getNotificationIconClasses(
+  kind: AppNotificationKind,
+) {
+  if (kind === 'support') {
+    return 'bg-violet-500/10 text-violet-300'
+  }
+
+  if (kind === 'subscription') {
+    return 'bg-emerald-500/10 text-emerald-300'
+  }
+
+  if (kind === 'employee') {
+    return 'bg-amber-500/10 text-amber-300'
+  }
+
+  if (kind === 'calendar') {
+    return 'bg-blue-500/10 text-blue-300'
+  }
+
+  return 'bg-slate-700 text-slate-300'
 }
 
 export default function Topbar() {
@@ -88,18 +160,45 @@ export default function Topbar() {
   const navigate = useNavigate()
   const { user } = useAuth()
 
-  const [isQuickMenuOpen, setIsQuickMenuOpen] = useState(false)
-  const [isProfileOpen, setIsProfileOpen] = useState(false)
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const [notifications, setNotifications] =
-    useState<AppNotification[]>([])
-  const [isNotificationsLoading, setIsNotificationsLoading] =
-    useState(true)
-  const [notificationsError, setNotificationsError] =
-    useState('')
-  const [currentEmployee, setCurrentEmployee] =
-    useState<CompanyEmployee | null>(null)
+  const [
+    isQuickMenuOpen,
+    setIsQuickMenuOpen,
+  ] = useState(false)
+  const [
+    isProfileOpen,
+    setIsProfileOpen,
+  ] = useState(false)
+  const [
+    isNotificationsOpen,
+    setIsNotificationsOpen,
+  ] = useState(false)
+  const [
+    isLoggingOut,
+    setIsLoggingOut,
+  ] = useState(false)
+  const [
+    isMarkingAllRead,
+    setIsMarkingAllRead,
+  ] = useState(false)
+  const [
+    notifications,
+    setNotifications,
+  ] = useState<AppNotification[]>([])
+  const [
+    isNotificationsLoading,
+    setIsNotificationsLoading,
+  ] = useState(true)
+  const [
+    notificationsError,
+    setNotificationsError,
+  ] = useState('')
+  const [
+    currentEmployee,
+    setCurrentEmployee,
+  ] =
+    useState<CompanyEmployee | null>(
+      null,
+    )
 
   useEffect(() => {
     let cancelled = false
@@ -111,11 +210,13 @@ export default function Topbar() {
       }
 
       try {
-        const employees = await getEmployees()
+        const employees =
+          await getEmployees()
 
         const employee =
           employees.find(
-            (item) => item.userId === user.id,
+            (item) =>
+              item.userId === user.id,
           ) ?? null
 
         if (!cancelled) {
@@ -174,7 +275,9 @@ export default function Topbar() {
         }
       } finally {
         if (!cancelled) {
-          setIsNotificationsLoading(false)
+          setIsNotificationsLoading(
+            false,
+          )
         }
       }
     }
@@ -184,7 +287,7 @@ export default function Topbar() {
     const intervalId =
       window.setInterval(() => {
         void loadNotifications()
-      }, 60_000)
+      }, 30_000)
 
     function handleWindowFocus() {
       void loadNotifications()
@@ -213,8 +316,8 @@ export default function Topbar() {
 
   const displayName = useMemo(() => {
     const metadataName =
-      typeof user?.user_metadata?.full_name ===
-      'string'
+      typeof user?.user_metadata
+        ?.full_name === 'string'
         ? user.user_metadata.full_name.trim()
         : ''
 
@@ -236,23 +339,32 @@ export default function Topbar() {
     user?.user_metadata?.full_name,
   ])
 
-  const displayEmail = user?.email ?? ''
+  const displayEmail =
+    user?.email ?? ''
 
-  const displayRole = currentEmployee
-    ? roleLabels[currentEmployee.role]
-    : 'Korisnik'
+  const displayRole =
+    currentEmployee
+      ? roleLabels[currentEmployee.role]
+      : 'Korisnik'
 
-  const initials = getInitials(displayName)
+  const initials =
+    getInitials(displayName)
 
   const currentTitle =
     pageTitles[location.pathname] ??
-    (location.pathname.startsWith('/customers/')
+    (location.pathname.startsWith(
+      '/customers/',
+    )
       ? 'Profil kupca'
-      : location.pathname.startsWith('/work-orders/')
+      : location.pathname.startsWith(
+            '/work-orders/',
+          )
         ? 'Radni nalog'
         : 'FERSYS')
 
-  function handleQuickAction(route: string) {
+  function handleQuickAction(
+    route: string,
+  ) {
     setIsQuickMenuOpen(false)
     navigate(route)
   }
@@ -266,17 +378,15 @@ export default function Topbar() {
           notification.id,
         )
 
-        setNotifications(
-          (current) =>
-            current.map((item) =>
-              item.id ===
-              notification.id
-                ? {
-                    ...item,
-                    isRead: true,
-                  }
-                : item,
-            ),
+        setNotifications((current) =>
+          current.map((item) =>
+            item.id === notification.id
+              ? {
+                  ...item,
+                  isRead: true,
+                }
+              : item,
+          ),
         )
       }
     } catch (error) {
@@ -302,25 +412,25 @@ export default function Topbar() {
             notification.id,
         )
 
-    if (
-      unreadKeys.length === 0
-    ) {
+    if (unreadKeys.length === 0) {
       return
     }
 
     try {
+      setIsMarkingAllRead(true)
+      setNotificationsError('')
+
       await markAllNotificationsRead(
         unreadKeys,
       )
 
-      setNotifications(
-        (current) =>
-          current.map(
-            (notification) => ({
-              ...notification,
-              isRead: true,
-            }),
-          ),
+      setNotifications((current) =>
+        current.map(
+          (notification) => ({
+            ...notification,
+            isRead: true,
+          }),
+        ),
       )
     } catch (error) {
       console.error(
@@ -333,6 +443,8 @@ export default function Topbar() {
           ? error.message
           : 'Promjenu nije moguće spremiti.',
       )
+    } finally {
+      setIsMarkingAllRead(false)
     }
   }
 
@@ -345,21 +457,31 @@ export default function Topbar() {
       setIsLoggingOut(true)
       setIsProfileOpen(false)
 
-      const { error } = await supabase.auth.signOut()
+      const { error } =
+        await supabase.auth.signOut()
 
       if (error) {
         throw error
       }
 
-      localStorage.removeItem('fersys_auth')
-      localStorage.removeItem('fersys_user_email')
-      localStorage.removeItem('fersys_remember_me')
+      localStorage.removeItem(
+        'fersys_auth',
+      )
+      localStorage.removeItem(
+        'fersys_user_email',
+      )
+      localStorage.removeItem(
+        'fersys_remember_me',
+      )
 
       navigate('/login', {
         replace: true,
       })
     } catch (error) {
-      console.error('Greška pri odjavi:', error)
+      console.error(
+        'Greška pri odjavi:',
+        error,
+      )
 
       window.alert(
         error instanceof Error
@@ -403,9 +525,13 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => {
-              setIsQuickMenuOpen((value) => !value)
+              setIsQuickMenuOpen(
+                (value) => !value,
+              )
               setIsProfileOpen(false)
-              setIsNotificationsOpen(false)
+              setIsNotificationsOpen(
+                false,
+              )
             }}
             className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
           >
@@ -415,27 +541,35 @@ export default function Topbar() {
             <ChevronDown
               size={17}
               className={`transition-transform ${
-                isQuickMenuOpen ? 'rotate-180' : ''
+                isQuickMenuOpen
+                  ? 'rotate-180'
+                  : ''
               }`}
             />
           </button>
 
           {isQuickMenuOpen && (
             <div className="absolute right-0 top-14 w-64 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/40">
-              {quickActions.map((action) => (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={() => handleQuickAction(action.route)}
-                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                >
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-                    <Plus size={17} />
-                  </span>
+              {quickActions.map(
+                (action) => (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={() =>
+                      handleQuickAction(
+                        action.route,
+                      )
+                    }
+                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                      <Plus size={17} />
+                    </span>
 
-                  {action.label}
-                </button>
-              ))}
+                    {action.label}
+                  </button>
+                ),
+              )}
             </div>
           )}
         </div>
@@ -452,7 +586,9 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => {
-              setIsNotificationsOpen((value) => !value)
+              setIsNotificationsOpen(
+                (value) => !value,
+              )
               setIsQuickMenuOpen(false)
               setIsProfileOpen(false)
             }}
@@ -461,9 +597,11 @@ export default function Topbar() {
           >
             <Bell size={20} />
 
-            {unreadNotificationsCount > 0 && (
+            {unreadNotificationsCount >
+              0 && (
               <span className="absolute right-1.5 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-black text-white">
-                {unreadNotificationsCount > 99
+                {unreadNotificationsCount >
+                99
                   ? '99+'
                   : unreadNotificationsCount}
               </span>
@@ -471,7 +609,7 @@ export default function Topbar() {
           </button>
 
           {isNotificationsOpen && (
-            <div className="absolute right-0 top-14 w-[360px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/40">
+            <div className="absolute right-0 top-14 w-[430px] max-w-[calc(100vw-24px)] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/40">
               <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4">
                 <div>
                   <p className="font-bold text-white">
@@ -479,36 +617,46 @@ export default function Topbar() {
                   </p>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    {unreadNotificationsCount > 0
+                    {unreadNotificationsCount >
+                    0
                       ? `${unreadNotificationsCount} nepročitanih`
-                      : 'Nema novih obavijesti'}
+                      : 'Sve je pročitano'}
                   </p>
                 </div>
 
-                {unreadNotificationsCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void handleMarkAllRead()
-                    }}
-                    className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white"
-                  >
-                    <CheckCheck size={15} />
-                    Pročitaj sve
-                  </button>
-                )}
+                <button
+                  type="button"
+                  disabled={
+                    unreadNotificationsCount ===
+                      0 ||
+                    isMarkingAllRead
+                  }
+                  onClick={() => {
+                    void handleMarkAllRead()
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <CheckCheck
+                    size={15}
+                  />
+                  {isMarkingAllRead
+                    ? 'Spremanje...'
+                    : 'Pročitaj sve'}
+                </button>
               </div>
 
-              <div className="max-h-[430px] overflow-y-auto p-2">
+              <div className="max-h-[540px] overflow-y-auto p-2">
                 {isNotificationsLoading ? (
                   <div className="px-4 py-10 text-center text-sm text-slate-500">
-                    Učitavanje obavijesti...
+                    Učitavanje
+                    obavijesti...
                   </div>
                 ) : notificationsError ? (
                   <div className="rounded-xl bg-red-500/10 px-4 py-4 text-sm text-red-300">
                     {notificationsError}
                   </div>
-                ) : notifications.length === 0 ? (
+                ) : notifications.length ===
+                  0 ? (
                   <div className="px-5 py-10 text-center">
                     <Bell
                       size={30}
@@ -518,49 +666,95 @@ export default function Topbar() {
                     <p className="mt-3 font-semibold text-slate-300">
                       Nema obavijesti
                     </p>
-
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      Ovdje će se pojaviti nadolazeći termini i druge važne promjene.
-                    </p>
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {notifications.map((notification) => (
-                      <button
-                        key={notification.id}
-                        type="button"
-                        onClick={() => {
-                          void handleNotificationClick(
-                            notification,
+                    {notifications.map(
+                      (notification) => {
+                        const Icon =
+                          getNotificationIcon(
+                            notification.kind,
                           )
-                        }}
-                        className={`flex w-full items-start gap-3 rounded-xl px-4 py-3 text-left transition hover:bg-slate-800 ${
-                          notification.isRead
-                            ? 'opacity-65'
-                            : 'bg-blue-500/5'
-                        }`}
-                      >
-                        <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
-                          <CalendarDays size={18} />
-                        </span>
 
-                        <span className="min-w-0 flex-1">
-                          <span className="flex items-center gap-2">
-                            <span className="truncate text-sm font-semibold text-white">
-                              {notification.title}
+                        return (
+                          <button
+                            key={
+                              notification.id
+                            }
+                            type="button"
+                            onClick={() => {
+                              void handleNotificationClick(
+                                notification,
+                              )
+                            }}
+                            className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition hover:bg-slate-800 ${
+                              notification.isRead
+                                ? 'border-transparent opacity-60'
+                                : 'border-blue-500/10 bg-blue-500/5'
+                            }`}
+                          >
+                            <span
+                              className={`mt-0.5 grid h-10 w-10 shrink-0 place-items-center rounded-xl ${getNotificationIconClasses(
+                                notification.kind,
+                              )}`}
+                            >
+                              <Icon
+                                size={18}
+                              />
                             </span>
 
-                            {!notification.isRead && (
-                              <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
-                            )}
-                          </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-start justify-between gap-3">
+                                <span className="min-w-0">
+                                  <span className="flex items-center gap-2">
+                                    <span className="truncate text-sm font-bold text-white">
+                                      {
+                                        notification.title
+                                      }
+                                    </span>
 
-                          <span className="mt-1 block text-xs leading-5 text-slate-400">
-                            {notification.description}
-                          </span>
-                        </span>
-                      </button>
-                    ))}
+                                    {!notification.isRead && (
+                                      <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                                    )}
+                                  </span>
+
+                                  {(notification.companyName ||
+                                    notification.senderName) && (
+                                    <span className="mt-1 block truncate text-xs font-semibold text-blue-300">
+                                      {notification.companyName ||
+                                        'Korisnik'}
+                                      {notification.senderName
+                                        ? ` · ${notification.senderName}`
+                                        : ''}
+                                    </span>
+                                  )}
+                                </span>
+
+                                <span className="shrink-0 text-[10px] text-slate-500">
+                                  {formatNotificationDate(
+                                    notification.createdAt,
+                                  )}
+                                </span>
+                              </span>
+
+                              <span className="mt-2 block text-xs leading-5 text-slate-400">
+                                {
+                                  notification.description
+                                }
+                              </span>
+
+                              {notification.fersysCode && (
+                                <span className="mt-2 inline-flex rounded-md bg-slate-800 px-2 py-1 font-mono text-[10px] font-bold tracking-wide text-slate-400">
+                                  {
+                                    notification.fersysCode
+                                  }
+                                </span>
+                              )}
+                            </span>
+                          </button>
+                        )
+                      },
+                    )}
                   </div>
                 )}
               </div>
@@ -574,9 +768,13 @@ export default function Topbar() {
           <button
             type="button"
             onClick={() => {
-              setIsProfileOpen((value) => !value)
+              setIsProfileOpen(
+                (value) => !value,
+              )
               setIsQuickMenuOpen(false)
-              setIsNotificationsOpen(false)
+              setIsNotificationsOpen(
+                false,
+              )
             }}
             className="flex min-w-[235px] items-center gap-3 rounded-2xl px-3 py-2 text-left transition hover:bg-slate-900"
           >
@@ -598,7 +796,9 @@ export default function Topbar() {
               <ChevronDown
                 size={18}
                 className={`transition-transform ${
-                  isProfileOpen ? 'rotate-180' : ''
+                  isProfileOpen
+                    ? 'rotate-180'
+                    : ''
                 }`}
               />
             </span>
@@ -617,7 +817,8 @@ export default function Topbar() {
                   </p>
 
                   <p className="truncate text-xs text-slate-500">
-                    {displayEmail || 'E-mail nije dostupan'}
+                    {displayEmail ||
+                      'E-mail nije dostupan'}
                   </p>
                 </div>
               </div>

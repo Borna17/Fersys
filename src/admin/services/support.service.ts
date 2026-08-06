@@ -1,4 +1,3 @@
-
 import { supabase } from '../../lib/supabase'
 
 export type SupportTicketStatus =
@@ -13,6 +12,18 @@ export type SupportTicketPriority =
   | 'high'
   | 'urgent'
 
+export type SupportMessage = {
+  id: string
+  ticketId: string
+  senderType: 'user' | 'admin'
+  senderName: string
+  message: string
+  attachmentUrl: string
+  createdAt: string
+  readByUserAt: string | null
+  readByAdminAt: string | null
+}
+
 export type AdminSupportTicket = {
   id: string
   companyId: string
@@ -23,7 +34,6 @@ export type AdminSupportTicket = {
   message: string
   status: SupportTicketStatus
   priority: SupportTicketPriority
-  adminReply: string
   internalNote: string
   createdAt: string
   updatedAt: string
@@ -66,9 +76,6 @@ Promise<AdminSupportTicket[]> {
       priority: String(
         row.priority ?? 'normal',
       ) as SupportTicketPriority,
-      adminReply: String(
-        row.admin_reply ?? '',
-      ),
       internalNote: String(
         row.internal_note ?? '',
       ),
@@ -82,12 +89,74 @@ Promise<AdminSupportTicket[]> {
   )
 }
 
+export async function getAdminSupportMessages(
+  ticketId: string,
+): Promise<SupportMessage[]> {
+  const { data, error } = await supabase.rpc(
+    'get_admin_support_messages',
+    {
+      requested_ticket_id: ticketId,
+    },
+  )
+
+  if (error) {
+    throw error
+  }
+
+  return (data ?? []).map(
+    (row: Record<string, unknown>) => ({
+      id: String(row.id ?? ''),
+      ticketId: String(
+        row.ticket_id ?? '',
+      ),
+      senderType: String(
+        row.sender_type ?? 'user',
+      ) as 'user' | 'admin',
+      senderName: String(
+        row.sender_name ?? '',
+      ),
+      message: String(
+        row.message ?? '',
+      ),
+      attachmentUrl: String(
+        row.attachment_url ?? '',
+      ),
+      createdAt: String(
+        row.created_at ?? '',
+      ),
+      readByUserAt: row.read_by_user_at
+        ? String(row.read_by_user_at)
+        : null,
+      readByAdminAt: row.read_by_admin_at
+        ? String(row.read_by_admin_at)
+        : null,
+    }),
+  )
+}
+
+export async function sendAdminSupportMessage(
+  ticketId: string,
+  message: string,
+): Promise<void> {
+  const { error } = await supabase.rpc(
+    'admin_send_support_message',
+    {
+      requested_ticket_id: ticketId,
+      requested_message: message,
+      requested_attachment_url: null,
+    },
+  )
+
+  if (error) {
+    throw error
+  }
+}
+
 export async function updateAdminSupportTicket(
   input: {
     ticketId: string
     status: SupportTicketStatus
     priority: SupportTicketPriority
-    adminReply?: string
     internalNote?: string
   },
 ): Promise<void> {
@@ -96,12 +165,10 @@ export async function updateAdminSupportTicket(
     {
       requested_ticket_id:
         input.ticketId,
-      requested_status:
-        input.status,
+      requested_status: input.status,
       requested_priority:
         input.priority,
-      requested_admin_reply:
-        input.adminReply ?? null,
+      requested_admin_reply: null,
       requested_internal_note:
         input.internalNote ?? null,
     },
