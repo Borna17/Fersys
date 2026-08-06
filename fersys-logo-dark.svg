@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title">
+  <title id="title">FERSYS</title>
+  <defs>
+    <linearGradient id="blueGradient" x1="40" y1="35" x2="260" y2="280" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#60A5FA"/>
+      <stop offset="0.45" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="purpleGradient" x1="165" y1="35" x2="395" y2="285" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C084FC"/>
+      <stop offset="0.48" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="35" y="74" width="190" height="190" rx="48"
+        transform="rotate(-45 130 169)"
+        fill="url(#blueGradient)"/>
+  <rect x="140" y="74" width="190" height="190" rx="48"
+        transform="rotate(-45 235 169)"
+        fill="url(#purpleGradient)"
+        opacity="0.96"/>
+
+  <text x="390" y="208"
+        font-family="Inter, Arial, sans-serif"
+        font-size="136"
+        font-weight="850"
+        letter-spacing="8"
+        fill="#F8FAFC">FERSYS</text>
+</svg>
