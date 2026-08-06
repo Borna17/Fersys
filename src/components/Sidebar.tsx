@@ -142,7 +142,7 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`hidden h-screen shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${
+        className={`sticky top-0 hidden h-dvh min-h-0 shrink-0 self-start flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${
           isExpanded ? 'w-72' : 'w-[88px]'
         }`}
       >
@@ -189,13 +189,13 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-[80] flex w-[86vw] max-w-[330px] flex-col border-r border-slate-800 bg-slate-900 text-white shadow-2xl transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-[80] flex h-dvh min-h-0 w-[86vw] max-w-[330px] flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white shadow-2xl transition-transform duration-200 md:hidden ${
           isMobileOpen
             ? 'translate-x-0'
             : '-translate-x-full'
         }`}
       >
-        <div className="flex h-20 items-center justify-between border-b border-slate-800 px-5">
+        <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-800 px-5">
           <Brand expanded />
 
           <button
@@ -208,7 +208,7 @@ export default function Sidebar() {
           </button>
         </div>
 
-        <p className="px-5 pb-3 pt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <p className="shrink-0 px-5 pb-3 pt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Glavni izbornik
         </p>
 
@@ -295,7 +295,7 @@ function Navigation({
   ) => boolean
 }) {
   return (
-    <nav className="flex-1 space-y-2 overflow-y-auto px-3 pb-5">
+    <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-5">
       {items.map((item) => {
         const Icon = item.icon
 
@@ -387,7 +387,7 @@ function SidebarFooter({
   initials: string
 }) {
   return (
-    <div className="border-t border-slate-800 p-3">
+    <div className="shrink-0 border-t border-slate-800 bg-slate-900 p-3">
       {showSuperAdmin && (
         <NavLink
           to="/admin"
