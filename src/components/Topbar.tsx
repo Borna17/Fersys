@@ -73,7 +73,7 @@ const quickActions = [
   },
   {
     label: 'Novo vozilo',
-    route: '/vehicles',
+    route: '/vehicles?new=1',
   },
 ]
 

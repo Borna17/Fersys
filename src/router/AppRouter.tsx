@@ -46,6 +46,8 @@ import { SupabaseTestPage } from '../pages/SupabaseTestPage'
 import { WorkOrderDetailsPage } from '../pages/WorkOrderDetailsPage'
 import { WorkOrderSettingsPage } from '../pages/WorkOrderSettingsPage'
 import { WorkOrdersPage } from '../pages/WorkOrdersPage'
+import { VehiclesPage } from '../pages/VehiclesPage'
+import { VehicleDetailsPage } from '../pages/VehicleDetailsPage'
 import { SupportPage } from '../pages/SupportPage'
 import {
   SubscriptionProvider,
@@ -600,6 +602,24 @@ function RouterContent() {
               feature="calendar"
             >
               <CalendarPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/vehicles"
+          element={
+            <Guard permission="dashboard.view">
+              <VehiclesPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/vehicles/:id"
+          element={
+            <Guard permission="dashboard.view">
+              <VehicleDetailsPage />
             </Guard>
           }
         />

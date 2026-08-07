@@ -1,6 +1,7 @@
 import {
   Bot,
   CalendarDays,
+  CarFront,
   ChevronLeft,
   ChevronRight,
   FileInput,
@@ -57,6 +58,7 @@ const navigationItems: Array<{
   { name: 'Izlazni računi', path: '/invoices', icon: ReceiptText, permission: 'invoices.view', feature: 'invoices' },
   { name: 'Ulazni računi', path: '/incoming-invoices', icon: FileInput, permission: 'incomingInvoices.view', feature: 'incoming_invoices' },
   { name: 'Kalendar', path: '/calendar', icon: CalendarDays, permission: 'calendar.view', feature: 'calendar' },
+  { name: 'Vozila', path: '/vehicles', icon: CarFront, permission: 'dashboard.view' },
   { name: 'Skladište', path: '/inventory', icon: Package, permission: 'inventory.view', feature: 'inventory' },
   { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
   { name: 'Podrška', path: '/support', icon: Headphones, permission: 'dashboard.view' },

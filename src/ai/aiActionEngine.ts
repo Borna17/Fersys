@@ -14,10 +14,6 @@ import {
   type CreateWorkOrderInput,
 } from '../services/workOrders.service'
 
-import {
-  getWorkOrderBrandingFromCompanySettings,
-} from '../services/workOrderBranding.service'
-
 import type {
   AiClientAction,
 } from '../services/aiAssistant.service'
@@ -29,6 +25,16 @@ import {
 import {
   downloadWorkOrderPdf,
 } from '../utils/workOrderPdf'
+
+import {
+  getWorkOrderBrandingFromCompanySettings,
+} from '../services/workOrderBranding.service'
+
+import {
+  addVehicleService,
+  createVehicle,
+  updateVehicle,
+} from '../services/vehicles.service'
 
 function requiredString(
   value: unknown,
@@ -523,7 +529,7 @@ export async function executeAiClientAction(
         const branding =
           await getWorkOrderBrandingFromCompanySettings()
 
-        downloadWorkOrderPdf(
+        await downloadWorkOrderPdf(
           created,
           branding,
         )
@@ -696,6 +702,199 @@ export async function executeAiClientAction(
       }
     }
 
+    case 'create_vehicle': {
+      const created =
+        await createVehicle({
+          registration:
+            requiredString(
+              action.payload.registration,
+              'registraciju',
+            ),
+          make:
+            requiredString(
+              action.payload.make,
+              'marku',
+            ),
+          model:
+            requiredString(
+              action.payload.model,
+              'model',
+            ),
+          year:
+            action.payload.year
+              ? numberValue(
+                  action.payload.year,
+                )
+              : null,
+          vin:
+            stringValue(
+              action.payload.vin,
+            ),
+          mileage:
+            numberValue(
+              action.payload.mileage,
+              0,
+            ),
+          fuel:
+            (
+              [
+                'Dizel',
+                'Benzin',
+                'Hibrid',
+                'Električno',
+                'LPG',
+                'Ostalo',
+              ].includes(
+                stringValue(
+                  action.payload.fuel,
+                ),
+              )
+                ? stringValue(
+                    action.payload.fuel,
+                  )
+                : 'Dizel'
+            ) as
+              | 'Dizel'
+              | 'Benzin'
+              | 'Hibrid'
+              | 'Električno'
+              | 'LPG'
+              | 'Ostalo',
+          color:
+            stringValue(
+              action.payload.color,
+            ),
+          status: 'Aktivno',
+          assignedEmployeeName:
+            stringValue(
+              action.payload.assignedEmployeeName,
+            ),
+          registrationExpiresOn:
+            stringValue(
+              action.payload.registrationExpiresOn,
+            ),
+          insuranceExpiresOn:
+            stringValue(
+              action.payload.insuranceExpiresOn,
+            ),
+          nextServiceDate:
+            stringValue(
+              action.payload.nextServiceDate,
+            ),
+          nextServiceMileage:
+            action.payload.nextServiceMileage
+              ? numberValue(
+                  action.payload.nextServiceMileage,
+                )
+              : null,
+          notes:
+            stringValue(
+              action.payload.notes,
+            ),
+        })
+
+      navigate(
+        `/vehicles/${created.id}`,
+      )
+
+      return {
+        message:
+          `Vozilo ${created.registration} (${created.make} ${created.model}) je uspješno dodano.`,
+      }
+    }
+
+    case 'update_vehicle_mileage': {
+      const vehicleId =
+        requiredString(
+          action.payload.vehicleId,
+          'ID vozila',
+        )
+
+      const newMileage =
+        Math.max(
+          0,
+          numberValue(
+            action.payload.mileage,
+            0,
+          ),
+        )
+
+      const updated =
+        await updateVehicle(
+          vehicleId,
+          {
+            mileage:
+              newMileage,
+          },
+        )
+
+      return {
+        message:
+          `Kilometraža vozila ${updated.registration} promijenjena je na ${newMileage.toLocaleString('hr-HR')} km.`,
+      }
+    }
+
+    case 'add_vehicle_service': {
+      const vehicleId =
+        requiredString(
+          action.payload.vehicleId,
+          'ID vozila',
+        )
+
+      await addVehicleService(
+        vehicleId,
+        {
+          serviceDate:
+            requiredString(
+              action.payload.serviceDate,
+              'datum servisa',
+            ),
+          title:
+            requiredString(
+              action.payload.title,
+              'naziv servisa',
+            ),
+          description:
+            stringValue(
+              action.payload.description,
+            ),
+          provider:
+            stringValue(
+              action.payload.provider,
+            ),
+          mileage:
+            action.payload.mileage
+              ? numberValue(
+                  action.payload.mileage,
+                )
+              : null,
+          cost:
+            Math.max(
+              0,
+              numberValue(
+                action.payload.cost,
+                0,
+              ),
+            ),
+          nextServiceDate:
+            stringValue(
+              action.payload.nextServiceDate,
+            ),
+          nextServiceMileage:
+            action.payload.nextServiceMileage
+              ? numberValue(
+                  action.payload.nextServiceMileage,
+                )
+              : null,
+        },
+      )
+
+      return {
+        message:
+          'Servis vozila je uspješno evidentiran.',
+      }
+    }
+
     case 'generate_offer_pdf': {
       const offerId =
         requiredString(
@@ -743,7 +942,7 @@ export async function executeAiClientAction(
       const branding =
         await getWorkOrderBrandingFromCompanySettings()
 
-      downloadWorkOrderPdf(
+      await downloadWorkOrderPdf(
         order,
         branding,
       )
