@@ -409,6 +409,38 @@ export function useAiConversation() {
       )
     }, [replace])
 
+  const appendAssistantMessage =
+    useCallback(
+      (content: string) => {
+        const clean =
+          content.trim()
+
+        if (!clean) {
+          return
+        }
+
+        const current =
+          readMessages()
+
+        replace(
+          [
+            ...current,
+            createMessage(
+              'assistant',
+              clean,
+            ),
+          ],
+          readJson<AiProposedAction>(
+            ACTION_KEY,
+          ),
+          readJson<AiClientAction>(
+            CLIENT_ACTION_KEY,
+          ),
+        )
+      },
+      [replace],
+    )
+
   const clear =
     useCallback(() => {
       setError('')
@@ -431,6 +463,7 @@ export function useAiConversation() {
     confirm,
     cancelAction,
     clearClientAction,
+    appendAssistantMessage,
     clear,
   }
 }

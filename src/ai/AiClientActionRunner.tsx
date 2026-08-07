@@ -21,6 +21,7 @@ export default function AiClientActionRunner() {
   const {
     clientAction,
     clearClientAction,
+    appendAssistantMessage,
   } =
     useAiConversation()
 
@@ -49,10 +50,17 @@ export default function AiClientActionRunner() {
 
     void (async () => {
       try {
-        await executeAiClientAction(
-          clientAction,
-          navigate,
-        )
+        const result =
+          await executeAiClientAction(
+            clientAction,
+            navigate,
+          )
+
+        if (result?.message) {
+          appendAssistantMessage(
+            result.message,
+          )
+        }
       } catch (error) {
         console.error(
           'AI client action nije izvršena:',
@@ -70,6 +78,7 @@ export default function AiClientActionRunner() {
     })()
   }, [
     clientAction,
+    appendAssistantMessage,
     clearClientAction,
     navigate,
   ])

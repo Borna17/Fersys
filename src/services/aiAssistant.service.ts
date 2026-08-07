@@ -14,6 +14,8 @@ export type AiAssistantMessage = {
 export type AiActionType =
   | 'create_calendar_event'
   | 'change_offer_status'
+  | 'create_work_order'
+  | 'create_offer'
   | 'generate_offer_pdf'
   | 'generate_work_order_pdf'
   | 'answer'
@@ -23,6 +25,8 @@ export type AiClientActionType =
   | 'open_customer'
   | 'open_offer'
   | 'open_work_order'
+  | 'create_work_order'
+  | 'create_offer'
   | 'generate_offer_pdf'
   | 'generate_work_order_pdf'
 
