@@ -24,6 +24,7 @@ import {
   useNavigate,
 } from 'react-router'
 
+import AiClientActionRunner from '../ai/AiClientActionRunner'
 import { useAuth } from '../auth/AuthProvider'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
@@ -351,6 +352,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-dvh bg-slate-950 text-white">
+      <AiClientActionRunner />
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">

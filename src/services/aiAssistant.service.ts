@@ -14,8 +14,22 @@ export type AiAssistantMessage = {
 export type AiActionType =
   | 'create_calendar_event'
   | 'change_offer_status'
+  | 'generate_offer_pdf'
+  | 'generate_work_order_pdf'
   | 'answer'
   | 'none'
+
+export type AiClientActionType =
+  | 'open_customer'
+  | 'open_offer'
+  | 'open_work_order'
+  | 'generate_offer_pdf'
+  | 'generate_work_order_pdf'
+
+export type AiClientAction = {
+  type: AiClientActionType
+  payload: Record<string, unknown>
+}
 
 export type AiProposedAction = {
   type: AiActionType
@@ -29,6 +43,7 @@ export type AiProposedAction = {
 export type AiAssistantResponse = {
   message: string
   proposedAction: AiProposedAction | null
+  clientAction: AiClientAction | null
 }
 
 const AI_TIMEOUT_MS = 30_000
@@ -45,7 +60,7 @@ async function withTimeout<T>(
         window.setTimeout(() => {
           reject(
             new Error(
-              'AI pomoćnik nije odgovorio unutar 30 sekundi. Provjeri je li Supabase Edge Function "dynamic-handler" deployana i pokušaj ponovno.',
+              'AI pomoćnik nije odgovorio unutar 30 sekundi. Provjeri Supabase Edge Function "dynamic-handler" i pokušaj ponovno.',
             ),
           )
         }, timeoutMs)
@@ -61,6 +76,44 @@ async function withTimeout<T>(
   }
 }
 
+function parseResponse(
+  data: unknown,
+): AiAssistantResponse {
+  if (
+    !data ||
+    typeof data !== 'object'
+  ) {
+    throw new Error(
+      'AI pomoćnik nije vratio ispravan odgovor.',
+    )
+  }
+
+  const value =
+    data as Record<string, unknown>
+
+  if (
+    typeof value.message !== 'string'
+  ) {
+    throw new Error(
+      'AI pomoćnik nije vratio tekstualni odgovor.',
+    )
+  }
+
+  return {
+    message: value.message,
+    proposedAction:
+      value.proposedAction &&
+      typeof value.proposedAction === 'object'
+        ? (value.proposedAction as AiProposedAction)
+        : null,
+    clientAction:
+      value.clientAction &&
+      typeof value.clientAction === 'object'
+        ? (value.clientAction as AiClientAction)
+        : null,
+  }
+}
+
 export async function askAiAssistant(
   message: string,
   conversation: AiAssistantMessage[],
@@ -73,95 +126,66 @@ export async function askAiAssistant(
     )
   }
 
-  const invokePromise =
-    supabase.functions.invoke(
-      'dynamic-handler',
-      {
-        body: {
-          message: cleanMessage,
-          conversation:
-            conversation.map(
-              (item) => ({
-                role: item.role,
-                content: item.content,
-              }),
-            ),
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        'dynamic-handler',
+        {
+          body: {
+            message: cleanMessage,
+            conversation:
+              conversation.map(
+                (item) => ({
+                  role: item.role,
+                  content: item.content,
+                }),
+              ),
+          },
         },
-      },
+      ),
     )
 
-  const { data, error } =
-    await withTimeout(invokePromise)
-
-  if (error) {
+  if (result.error) {
     throw new Error(
-      error.message ||
+      result.error.message ||
         'Supabase AI funkcija nije dostupna.',
     )
   }
 
-  if (
-    !data ||
-    typeof data.message !== 'string'
-  ) {
-    throw new Error(
-      'AI pomoćnik nije vratio ispravan odgovor.',
-    )
-  }
-
-  return {
-    message: data.message,
-    proposedAction:
-      data.proposedAction &&
-      typeof data.proposedAction ===
-        'object'
-        ? (data.proposedAction as AiProposedAction)
-        : null,
-  }
+  return parseResponse(result.data)
 }
 
 export async function confirmAiAction(
   action: AiProposedAction,
 ): Promise<AiAssistantResponse> {
-  const invokePromise =
-    supabase.functions.invoke(
-      'dynamic-handler',
-      {
-        body: {
-          confirmAction: action,
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        'dynamic-handler',
+        {
+          body: {
+            confirmAction: action,
+          },
         },
-      },
+      ),
     )
 
-  const { data, error } =
-    await withTimeout(invokePromise)
-
-  if (error) {
+  if (result.error) {
     throw new Error(
-      error.message ||
+      result.error.message ||
         'Radnju nije moguće izvršiti.',
     )
   }
 
-  if (
-    !data ||
-    typeof data.message !== 'string'
-  ) {
-    throw new Error(
-      'AI nije vratio potvrdu izvršene radnje.',
-    )
-  }
-
-  return {
-    message: data.message,
-    proposedAction: null,
-  }
+  return parseResponse(result.data)
 }
 
 function arrayBufferToBase64(
   buffer: ArrayBuffer,
 ) {
-  const bytes = new Uint8Array(buffer)
+  const bytes =
+    new Uint8Array(buffer)
+
   const chunkSize = 0x8000
   let binary = ''
 
@@ -170,15 +194,16 @@ function arrayBufferToBase64(
     index < bytes.length;
     index += chunkSize
   ) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(
-        index,
-        Math.min(
-          index + chunkSize,
-          bytes.length,
+    binary +=
+      String.fromCharCode(
+        ...bytes.subarray(
+          index,
+          Math.min(
+            index + chunkSize,
+            bytes.length,
+          ),
         ),
-      ),
-    )
+      )
   }
 
   return btoa(binary)
@@ -190,39 +215,36 @@ export async function transcribeAiAudio(
   const buffer =
     await blob.arrayBuffer()
 
-  const audioBase64 =
-    arrayBufferToBase64(buffer)
-
-  const invokePromise =
-    supabase.functions.invoke(
-      'dynamic-handler',
-      {
-        body: {
-          audioBase64,
-          audioMimeType:
-            blob.type ||
-            'audio/webm',
-        },
-      },
-    )
-
-  const { data, error } =
+  const result =
     await withTimeout(
-      invokePromise,
+      supabase.functions.invoke(
+        'dynamic-handler',
+        {
+          body: {
+            audioBase64:
+              arrayBufferToBase64(
+                buffer,
+              ),
+            audioMimeType:
+              blob.type ||
+              'audio/webm',
+          },
+        },
+      ),
       45_000,
     )
 
-  if (error) {
+  if (result.error) {
     throw new Error(
-      error.message ||
+      result.error.message ||
         'Govor nije moguće pretvoriti u tekst.',
     )
   }
 
   const transcript =
-    typeof data?.transcript ===
+    typeof result.data?.transcript ===
       'string'
-      ? data.transcript.trim()
+      ? result.data.transcript.trim()
       : ''
 
   if (!transcript) {
