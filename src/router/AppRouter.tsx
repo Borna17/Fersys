@@ -195,6 +195,33 @@ function PlanRoute({
   return children
 }
 
+function BusinessPlanRoute({
+  children,
+}: RouteWrapperProps) {
+  const {
+    subscription,
+    isTrialing,
+  } = useSubscription()
+
+  if (isTrialing) {
+    return children
+  }
+
+  if (
+    subscription?.planId !== 'business' &&
+    subscription?.planId !== 'pro'
+  ) {
+    return (
+      <PlanLock
+        feature="inventory"
+        requiredPlan="business"
+      />
+    )
+  }
+
+  return children
+}
+
 function AccessDeniedPage({
   title,
   description,
@@ -611,18 +638,22 @@ function RouterContent() {
         <Route
           path="/vehicles"
           element={
-            <Guard permission="dashboard.view">
-              <VehiclesPage />
-            </Guard>
+            <PermissionRoute permission="dashboard.view">
+              <BusinessPlanRoute>
+                <VehiclesPage />
+              </BusinessPlanRoute>
+            </PermissionRoute>
           }
         />
 
         <Route
           path="/vehicles/:id"
           element={
-            <Guard permission="dashboard.view">
-              <VehicleDetailsPage />
-            </Guard>
+            <PermissionRoute permission="dashboard.view">
+              <BusinessPlanRoute>
+                <VehicleDetailsPage />
+              </BusinessPlanRoute>
+            </PermissionRoute>
           }
         />
 
