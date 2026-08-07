@@ -14,6 +14,10 @@ import {
   type CreateWorkOrderInput,
 } from '../services/workOrders.service'
 
+import {
+  getWorkOrderBrandingFromCompanySettings,
+} from '../services/workOrderBranding.service'
+
 import type {
   AiClientAction,
 } from '../services/aiAssistant.service'
@@ -25,10 +29,6 @@ import {
 import {
   downloadWorkOrderPdf,
 } from '../utils/workOrderPdf'
-
-import {
-  readBranding,
-} from '../utils/workOrderStorage'
 
 function requiredString(
   value: unknown,
@@ -520,9 +520,12 @@ export async function executeAiClientAction(
             .generatePdfAfterCreate,
         )
       ) {
+        const branding =
+          await getWorkOrderBrandingFromCompanySettings()
+
         downloadWorkOrderPdf(
           created,
-          readBranding(),
+          branding,
         )
       }
 
@@ -737,9 +740,12 @@ export async function executeAiClientAction(
         )
       }
 
+      const branding =
+        await getWorkOrderBrandingFromCompanySettings()
+
       downloadWorkOrderPdf(
         order,
-        readBranding(),
+        branding,
       )
 
       return {
