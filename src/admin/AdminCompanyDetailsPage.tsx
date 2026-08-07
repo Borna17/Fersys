@@ -1,17 +1,25 @@
-import type { ReactNode } from 'react'
+import type {
+  ReactNode,
+} from 'react'
 import {
+  Activity,
   AlertTriangle,
   ArrowLeft,
   Building2,
   CalendarDays,
+  CarFront,
   CheckCircle2,
+  Clock3,
+  FileInput,
   FileText,
   Mail,
   PackageCheck,
+  ReceiptText,
   RefreshCw,
   Save,
   ShieldBan,
   Sparkles,
+  UserRound,
   Users,
   Wrench,
 } from 'lucide-react'
@@ -28,12 +36,15 @@ import {
 } from 'react-router'
 
 import {
-  getAdminCompanies,
+  getAdminCompany,
+  getAdminCompanyInsights,
   updateCompanySubscription,
   type AdminCompany,
+  type AdminCompanyInsights,
 } from './services/admin.service'
 
-const planLabels: Record<
+const planLabels:
+Record<
   AdminCompany['planId'],
   string
 > = {
@@ -42,78 +53,186 @@ const planLabels: Record<
   pro: 'FERSYS Pro',
 }
 
-const statusLabels: Record<string, string> = {
+const statusLabels:
+Record<string, string> = {
   trialing: 'Trial',
   active: 'Aktivno',
-  past_due: 'Neuspjela naplata',
+  past_due:
+    'Neuspjela naplata',
   cancelled: 'Otkazano',
   expired: 'Isteklo',
   blocked: 'Blokirano',
 }
 
+const emptyInsights:
+AdminCompanyInsights = {
+  usersCount: 0,
+  customersCount: 0,
+  workOrdersCount: 0,
+  offersCount: 0,
+  invoicesCount: 0,
+  incomingInvoicesCount: 0,
+  vehiclesCount: 0,
+  vehicleServicesCount: 0,
+  users: [],
+  activity: [],
+  generatedAt: '',
+}
+
 export function AdminCompanyDetailsPage() {
-  const { companyId } = useParams<{ companyId: string }>()
-  const navigate = useNavigate()
+  const {
+    companyId,
+  } =
+    useParams<{
+      companyId: string
+    }>()
 
-  const [company, setCompany] = useState<AdminCompany | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
-  const [planId, setPlanId] = useState<AdminCompany['planId']>('business')
-  const [status, setStatus] = useState('trialing')
-  const [trialDays, setTrialDays] = useState(7)
-  const [note, setNote] = useState('')
+  const navigate =
+    useNavigate()
 
-  const loadCompany = useCallback(async (): Promise<void> => {
-    if (!companyId) {
-      setError('Nedostaje ID tvrtke.')
-      setLoading(false)
-      return
-    }
+  const [
+    company,
+    setCompany,
+  ] =
+    useState<
+      AdminCompany | null
+    >(null)
 
-    try {
-      setLoading(true)
-      setError('')
-      setSuccess('')
+  const [
+    insights,
+    setInsights,
+  ] =
+    useState<
+      AdminCompanyInsights
+    >(emptyInsights)
 
-      const companies = await getAdminCompanies()
-      const found = companies.find((item) => item.companyId === companyId) ?? null
+  const [
+    loading,
+    setLoading,
+  ] = useState(true)
 
-      if (!found) {
-        setCompany(null)
-        setError('Tražena tvrtka nije pronađena.')
-        return
-      }
+  const [
+    saving,
+    setSaving,
+  ] = useState(false)
 
-      setCompany(found)
-      setPlanId(found.planId)
-      setStatus(found.subscriptionStatus)
-    } catch (value) {
-      setError(
-        value instanceof Error
-          ? value.message
-          : 'Podatke tvrtke nije moguće učitati.',
-      )
-    } finally {
-      setLoading(false)
-    }
-  }, [companyId])
+  const [error, setError] =
+    useState('')
+
+  const [
+    success,
+    setSuccess,
+  ] = useState('')
+
+  const [
+    planId,
+    setPlanId,
+  ] =
+    useState<
+      AdminCompany['planId']
+    >('business')
+
+  const [
+    status,
+    setStatus,
+  ] =
+    useState('trialing')
+
+  const [
+    trialDays,
+    setTrialDays,
+  ] = useState(7)
+
+  const [note, setNote] =
+    useState('')
+
+  const loadCompany =
+    useCallback(
+      async () => {
+        if (!companyId) {
+          setError(
+            'Nedostaje ID tvrtke.',
+          )
+          setLoading(false)
+          return
+        }
+
+        try {
+          setLoading(true)
+          setError('')
+          setSuccess('')
+
+          const [
+            nextCompany,
+            nextInsights,
+          ] =
+            await Promise.all([
+              getAdminCompany(
+                companyId,
+              ),
+              getAdminCompanyInsights(
+                companyId,
+              ),
+            ])
+
+          if (!nextCompany) {
+            setCompany(null)
+            setError(
+              'Tražena tvrtka nije pronađena.',
+            )
+            return
+          }
+
+          setCompany(
+            nextCompany,
+          )
+          setInsights(
+            nextInsights,
+          )
+          setPlanId(
+            nextCompany.planId,
+          )
+          setStatus(
+            nextCompany.subscriptionStatus,
+          )
+        } catch (value) {
+          setError(
+            value instanceof
+              Error
+              ? value.message
+              : 'Podatke tvrtke nije moguće učitati.',
+          )
+        } finally {
+          setLoading(false)
+        }
+      },
+      [companyId],
+    )
 
   useEffect(() => {
     void loadCompany()
   }, [loadCompany])
 
-  const totalUsage = useMemo(() => {
-    if (!company) return 0
-
-    return (
-      company.usersCount +
-      company.customersCount +
-      company.workOrdersCount +
-      company.offersCount
+  const totalUsage =
+    useMemo(
+      () =>
+        insights.customersCount +
+        insights.workOrdersCount +
+        insights.offersCount +
+        insights.invoicesCount +
+        insights.incomingInvoicesCount +
+        insights.vehiclesCount,
+      [insights],
     )
-  }, [company])
+
+  const period =
+    useMemo(
+      () =>
+        getSubscriptionPeriod(
+          company,
+        ),
+      [company],
+    )
 
   async function saveChanges() {
     if (!company) return
@@ -124,14 +243,22 @@ export function AdminCompanyDetailsPage() {
       setSuccess('')
 
       await updateCompanySubscription({
-        companyId: company.companyId,
+        companyId:
+          company.companyId,
         planId,
         status,
-        trialDays: status === 'trialing' ? trialDays : undefined,
+        trialDays:
+          status ===
+          'trialing'
+            ? trialDays
+            : undefined,
         note,
       })
 
-      setSuccess('Promjene su uspješno spremljene.')
+      setSuccess(
+        'Pretplata je uspješno ažurirana.',
+      )
+
       await loadCompany()
     } catch (value) {
       setError(
@@ -148,7 +275,7 @@ export function AdminCompanyDetailsPage() {
     return (
       <section className="mx-auto max-w-[1500px]">
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 text-slate-400">
-          Učitavanje podataka tvrtke...
+          Učitavanje Super Admin podataka...
         </div>
       </section>
     )
@@ -158,18 +285,33 @@ export function AdminCompanyDetailsPage() {
     return (
       <section className="mx-auto max-w-[1500px]">
         <div className="rounded-3xl border border-red-500/20 bg-red-500/10 p-8 text-center">
-          <AlertTriangle size={34} className="mx-auto text-red-300" />
-          <h1 className="mt-4 text-2xl font-black">Tvrtka nije pronađena</h1>
+          <AlertTriangle
+            size={34}
+            className="mx-auto text-red-300"
+          />
+
+          <h1 className="mt-4 text-2xl font-black">
+            Tvrtka nije pronađena
+          </h1>
+
           <p className="mt-2 text-sm text-red-200/80">
-            {error || 'Traženi zapis nije dostupan.'}
+            {error ||
+              'Traženi zapis nije dostupan.'}
           </p>
+
           <button
             type="button"
-            onClick={() => navigate('/admin/companies')}
+            onClick={() =>
+              navigate(
+                '/admin/companies',
+              )
+            }
             className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-black text-white"
           >
-            <ArrowLeft size={17} />
-            Povratak na tvrtke
+            <ArrowLeft
+              size={17}
+            />
+            Povratak
           </button>
         </div>
       </section>
@@ -177,229 +319,694 @@ export function AdminCompanyDetailsPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1500px]">
+    <section className="mx-auto max-w-[1550px]">
       <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <Link
             to="/admin/companies"
             className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 transition hover:text-white"
           >
-            <ArrowLeft size={17} />
+            <ArrowLeft
+              size={17}
+            />
             Natrag na tvrtke
           </Link>
 
           <div className="mt-5 flex items-start gap-4">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-violet-500/10 text-xl font-black text-violet-300">
-              {getInitials(company.companyName)}
-            </div>
+            <CompanyAvatar
+              company={
+                company
+              }
+            />
 
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="text-3xl font-black sm:text-4xl">
-                  {company.companyName || 'Tvrtka bez naziva'}
+                  {company.companyName ||
+                    'Tvrtka bez naziva'}
                 </h1>
-                <StatusBadge status={company.subscriptionStatus} />
+
+                <StatusBadge
+                  status={
+                    company.subscriptionStatus
+                  }
+                />
               </div>
-              <p className="mt-2 text-slate-400">OIB {company.companyOib || '—'}</p>
+
+              <p className="mt-2 text-slate-400">
+                OIB{' '}
+                {company.companyOib ||
+                  '—'}
+              </p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <span className="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-black text-violet-300">
+                  {
+                    planLabels[
+                      company.planId
+                    ]
+                  }
+                </span>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-xs font-black ${period.className}`}
+                >
+                  {
+                    period.label
+                  }
+                </span>
+              </div>
             </div>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={() => void loadCompany()}
+          onClick={() =>
+            void loadCompany()
+          }
           className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 text-sm font-black text-slate-200 transition hover:bg-slate-800"
         >
-          <RefreshCw size={17} />
+          <RefreshCw
+            size={17}
+          />
           Osvježi
         </button>
       </div>
 
       {error && (
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
-          <AlertTriangle size={19} className="mt-0.5 shrink-0" />
-          <span>{error}</span>
-        </div>
+        <Message
+          tone="error"
+          icon={
+            <AlertTriangle
+              size={19}
+            />
+          }
+        >
+          {error}
+        </Message>
       )}
 
       {success && (
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-green-500/20 bg-green-500/10 p-4 text-sm text-green-300">
-          <CheckCircle2 size={19} className="mt-0.5 shrink-0" />
-          <span>{success}</span>
-        </div>
+        <Message
+          tone="success"
+          icon={
+            <CheckCircle2
+              size={19}
+            />
+          }
+        >
+          {success}
+        </Message>
       )}
 
-      <div className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <TopStat
+          icon={<Clock3 />}
+          label="Preostalo"
+          value={
+            period.shortLabel
+          }
+          note={
+            period.dateLabel
+          }
+          accent={
+            period.warning
+              ? 'amber'
+              : 'violet'
+          }
+        />
+
+        <TopStat
+          icon={<Users />}
+          label="Korisnici"
+          value={
+            insights.usersCount
+          }
+          note="Članovi ove tvrtke"
+          accent="blue"
+        />
+
+        <TopStat
+          icon={<Building2 />}
+          label="Kupci"
+          value={
+            insights.customersCount
+          }
+          note="Spremljeni kupci"
+          accent="green"
+        />
+
+        <TopStat
+          icon={<Activity />}
+          label="Aktivnost"
+          value={
+            totalUsage
+          }
+          note="Poslovni zapisi"
+          accent="violet"
+        />
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.18fr_0.82fr]">
         <div className="space-y-6">
-          <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+          <Card>
             <SectionTitle
-              icon={<Building2 size={21} />}
+              icon={
+                <Building2
+                  size={21}
+                />
+              }
               title="Podaci o tvrtki"
-              description="Osnovni podaci i vlasnik računa."
+              description="Identitet tvrtke i vlasnik FERSYS računa."
             />
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <InfoCard label="Naziv tvrtke" value={company.companyName || '—'} />
-              <InfoCard label="OIB" value={company.companyOib || '—'} />
+              <InfoCard
+                label="Naziv"
+                value={
+                  company.companyName ||
+                  '—'
+                }
+              />
+
+              <InfoCard
+                label="OIB"
+                value={
+                  company.companyOib ||
+                  '—'
+                }
+              />
+
               <InfoCard
                 label="Vlasnik / e-mail"
-                value={company.ownerEmail || 'Nema e-maila'}
-                icon={<Mail size={17} />}
+                value={
+                  company.ownerEmail ||
+                  'Nema e-maila'
+                }
+                icon={
+                  <Mail
+                    size={17}
+                  />
+                }
               />
+
               <InfoCard
                 label="Registrirana"
-                value={formatDate(company.createdAt)}
-                icon={<CalendarDays size={17} />}
+                value={formatDate(
+                  company.createdAt,
+                )}
+                icon={
+                  <CalendarDays
+                    size={17}
+                  />
+                }
               />
             </div>
-          </article>
+          </Card>
 
-          <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+          <Card>
             <SectionTitle
-              icon={<Sparkles size={21} />}
-              title="Korištenje aplikacije"
-              description="Broj zapisa koji pripadaju ovoj tvrtki."
+              icon={
+                <Sparkles
+                  size={21}
+                />
+              }
+              title="Korištenje FERSYS-a"
+              description="Stvarni broj podataka spremljenih za ovu tvrtku."
             />
 
-            <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <UsageCard label="Korisnici" value={company.usersCount} icon={<Users size={20} />} />
-              <UsageCard label="Kupci" value={company.customersCount} icon={<Building2 size={20} />} />
-              <UsageCard label="Radni nalozi" value={company.workOrdersCount} icon={<Wrench size={20} />} />
-              <UsageCard label="Ponude" value={company.offersCount} icon={<FileText size={20} />} />
-            </div>
-
-            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-              <div className="flex items-center justify-between gap-4">
-                <p className="text-sm text-slate-500">Ukupna aktivnost</p>
-                <span className="text-lg font-black">{totalUsage}</span>
-              </div>
-            </div>
-          </article>
-
-          <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-            <SectionTitle
-              icon={<PackageCheck size={21} />}
-              title="Trenutna pretplata"
-              description="Sažetak paketa i perioda."
-            />
-
-            <div className="mt-6 grid gap-4 sm:grid-cols-3">
-              <InfoCard label="Paket" value={planLabels[company.planId]} />
-              <InfoCard
-                label="Status"
-                value={statusLabels[company.subscriptionStatus] ?? company.subscriptionStatus}
+            <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <UsageCard
+                icon={
+                  <Users />
+                }
+                label="Korisnici"
+                value={
+                  insights.usersCount
+                }
               />
-              <InfoCard label="Trial / period" value={getPeriodLabel(company)} />
+
+              <UsageCard
+                icon={
+                  <Building2 />
+                }
+                label="Kupci"
+                value={
+                  insights.customersCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <Wrench />
+                }
+                label="Radni nalozi"
+                value={
+                  insights.workOrdersCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <FileText />
+                }
+                label="Ponude"
+                value={
+                  insights.offersCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <ReceiptText />
+                }
+                label="Izlazni računi"
+                value={
+                  insights.invoicesCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <FileInput />
+                }
+                label="Ulazni računi"
+                value={
+                  insights.incomingInvoicesCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <CarFront />
+                }
+                label="Vozila"
+                value={
+                  insights.vehiclesCount
+                }
+              />
+
+              <UsageCard
+                icon={
+                  <Wrench />
+                }
+                label="Servisi vozila"
+                value={
+                  insights.vehicleServicesCount
+                }
+              />
             </div>
-          </article>
+          </Card>
+
+          <Card>
+            <SectionTitle
+              icon={
+                <Users
+                  size={21}
+                />
+              }
+              title="Korisnici tvrtke"
+              description="Članovi, uloge i zadnja poznata aktivnost."
+            />
+
+            <div className="mt-5 overflow-hidden rounded-2xl border border-slate-800">
+              {insights.users.length ===
+              0 ? (
+                <EmptyState
+                  text="Nema dostupnih korisnika za ovu tvrtku."
+                />
+              ) : (
+                <div className="divide-y divide-slate-800">
+                  {insights.users.map(
+                    (user) => (
+                      <div
+                        key={
+                          user.id ||
+                          user.userId
+                        }
+                        className="grid gap-3 bg-slate-950/35 p-4 sm:grid-cols-[1fr_170px_120px] sm:items-center"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
+                            <UserRound
+                              size={18}
+                            />
+                          </span>
+
+                          <div className="min-w-0">
+                            <p className="truncate font-black text-white">
+                              {
+                                user.name
+                              }
+                            </p>
+
+                            <p className="mt-1 truncate text-xs text-slate-500">
+                              {user.email ||
+                                'E-mail nije dostupan'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-black text-slate-300">
+                            {
+                              user.role
+                            }
+                          </p>
+
+                          <p className="mt-1 text-[11px] text-slate-600">
+                            {user.lastActiveAt
+                              ? `Aktivnost ${formatRelativeDate(
+                                  user.lastActiveAt,
+                                )}`
+                              : 'Aktivnost nije zabilježena'}
+                          </p>
+                        </div>
+
+                        <span className="justify-self-start rounded-full bg-emerald-500/10 px-3 py-1 text-[10px] font-black uppercase text-emerald-300 sm:justify-self-end">
+                          {
+                            user.status
+                          }
+                        </span>
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card>
+            <SectionTitle
+              icon={
+                <Activity
+                  size={21}
+                />
+              }
+              title="Zadnja aktivnost"
+              description="Najnovije akcije unutar ove tvrtke."
+            />
+
+            <div className="mt-5 space-y-3">
+              {insights.activity.length ===
+              0 ? (
+                <EmptyState
+                  text="Aktivnost još nije zabilježena. Notification Center v2 će ovdje prikazivati nove događaje."
+                />
+              ) : (
+                insights.activity.map(
+                  (item) => (
+                    <div
+                      key={
+                        item.id
+                      }
+                      className="flex gap-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
+                    >
+                      <span className="mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
+                        <Activity
+                          size={16}
+                        />
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-black text-slate-200">
+                            {
+                              item.title
+                            }
+                          </p>
+
+                          <span className="text-[11px] text-slate-600">
+                            {formatRelativeDate(
+                              item.createdAt,
+                            )}
+                          </span>
+                        </div>
+
+                        {item.description && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            {
+                              item.description
+                            }
+                          </p>
+                        )}
+
+                        {item.actorName && (
+                          <p className="mt-2 text-[11px] font-bold text-slate-600">
+                            {
+                              item.actorName
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ),
+                )
+              )}
+            </div>
+          </Card>
         </div>
 
         <aside className="space-y-6">
-          <article className="rounded-3xl border border-violet-500/20 bg-slate-900 p-6">
+          <Card accent>
             <SectionTitle
-              icon={<Sparkles size={21} />}
-              title="Upravljanje pretplatom"
+              icon={
+                <PackageCheck
+                  size={21}
+                />
+              }
+              title="Pretplata"
+              description="Paket, status i trajanje pristupa."
+            />
+
+            <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    Trenutni paket
+                  </p>
+
+                  <p className="mt-2 text-2xl font-black">
+                    {
+                      planLabels[
+                        company.planId
+                      ]
+                    }
+                  </p>
+                </div>
+
+                <StatusBadge
+                  status={
+                    company.subscriptionStatus
+                  }
+                />
+              </div>
+
+              <div className="mt-5 border-t border-slate-800 pt-5">
+                <p className="text-sm font-bold text-slate-500">
+                  {
+                    period.label
+                  }
+                </p>
+
+                <p className="mt-1 text-xs text-slate-600">
+                  {
+                    period.dateLabel
+                  }
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          <Card accent>
+            <SectionTitle
+              icon={
+                <Sparkles
+                  size={21}
+                />
+              }
+              title="Upravljanje"
               description="Promijeni paket, status ili produži trial."
             />
 
             <div className="mt-6 space-y-4">
-              <label className="block text-sm font-bold text-slate-300">
-                Paket
+              <FieldLabel
+                label="Paket"
+              >
                 <select
                   value={planId}
                   onChange={(event) =>
-                    setPlanId(event.target.value as AdminCompany['planId'])
+                    setPlanId(
+                      event.target
+                        .value as AdminCompany['planId'],
+                    )
                   }
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-violet-500"
+                  className={inputClass}
                 >
-                  <option value="starter">Starter — 15 €</option>
-                  <option value="business">Business — 25 €</option>
-                  <option value="pro">FERSYS Pro — 45 €</option>
-                </select>
-              </label>
+                  <option value="starter">
+                    Starter — 15 €
+                  </option>
 
-              <label className="block text-sm font-bold text-slate-300">
-                Status
+                  <option value="business">
+                    Business — 25 €
+                  </option>
+
+                  <option value="pro">
+                    FERSYS Pro — 45 €
+                  </option>
+                </select>
+              </FieldLabel>
+
+              <FieldLabel
+                label="Status"
+              >
                 <select
                   value={status}
-                  onChange={(event) => setStatus(event.target.value)}
-                  className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-violet-500"
+                  onChange={(event) =>
+                    setStatus(
+                      event.target.value,
+                    )
+                  }
+                  className={inputClass}
                 >
-                  <option value="trialing">Trial</option>
-                  <option value="active">Aktivno</option>
-                  <option value="past_due">Neuspjela naplata</option>
-                  <option value="cancelled">Otkazano</option>
-                  <option value="expired">Isteklo</option>
-                  <option value="blocked">Blokirano</option>
+                  <option value="trialing">
+                    Trial
+                  </option>
+                  <option value="active">
+                    Aktivno
+                  </option>
+                  <option value="past_due">
+                    Neuspjela naplata
+                  </option>
+                  <option value="cancelled">
+                    Otkazano
+                  </option>
+                  <option value="expired">
+                    Isteklo
+                  </option>
+                  <option value="blocked">
+                    Blokirano
+                  </option>
                 </select>
-              </label>
+              </FieldLabel>
 
-              {status === 'trialing' && (
+              {status ===
+                'trialing' && (
                 <div>
-                  <p className="text-sm font-bold text-slate-300">Produži trial</p>
+                  <p className="text-sm font-bold text-slate-300">
+                    Produži trial
+                  </p>
+
                   <div className="mt-2 grid grid-cols-3 gap-2">
-                    {[7, 14, 30].map((days) => (
-                      <button
-                        key={days}
-                        type="button"
-                        onClick={() => setTrialDays(days)}
-                        className={`h-11 rounded-xl border text-sm font-black transition ${
-                          trialDays === days
-                            ? 'border-violet-500 bg-violet-600 text-white'
-                            : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-slate-600'
-                        }`}
-                      >
-                        +{days}
-                      </button>
-                    ))}
+                    {[
+                      7,
+                      14,
+                      30,
+                    ].map(
+                      (days) => (
+                        <button
+                          key={
+                            days
+                          }
+                          type="button"
+                          onClick={() =>
+                            setTrialDays(
+                              days,
+                            )
+                          }
+                          className={`h-11 rounded-xl border text-sm font-black ${
+                            trialDays ===
+                            days
+                              ? 'border-violet-500 bg-violet-600 text-white'
+                              : 'border-slate-700 bg-slate-950 text-slate-400'
+                          }`}
+                        >
+                          +
+                          {
+                            days
+                          }{' '}
+                          dana
+                        </button>
+                      ),
+                    )}
                   </div>
 
                   <input
                     type="number"
                     min={1}
                     max={365}
-                    value={trialDays}
-                    onChange={(event) =>
-                      setTrialDays(Math.max(1, Number(event.target.value) || 1))
+                    value={
+                      trialDays
                     }
-                    className="mt-3 h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-violet-500"
+                    onChange={(event) =>
+                      setTrialDays(
+                        Math.max(
+                          1,
+                          Number(
+                            event.target.value,
+                          ) || 1,
+                        ),
+                      )
+                    }
+                    className={`${inputClass} mt-3`}
                   />
                 </div>
               )}
 
-              <label className="block text-sm font-bold text-slate-300">
-                Interna napomena
+              <FieldLabel
+                label="Interna napomena"
+              >
                 <textarea
                   value={note}
-                  onChange={(event) => setNote(event.target.value)}
+                  onChange={(event) =>
+                    setNote(
+                      event.target.value,
+                    )
+                  }
                   placeholder="Razlog promjene ili interna bilješka..."
                   className="mt-2 min-h-28 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-violet-500"
                 />
-              </label>
+              </FieldLabel>
 
               <button
                 type="button"
-                onClick={() => void saveChanges()}
+                onClick={() =>
+                  void saveChanges()
+                }
                 disabled={saving}
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-5 font-black text-white transition hover:bg-violet-500 disabled:opacity-50"
               >
-                <Save size={18} />
-                {saving ? 'Spremanje...' : 'Spremi promjene'}
+                <Save
+                  size={18}
+                />
+                {saving
+                  ? 'Spremanje...'
+                  : 'Spremi promjene'}
               </button>
             </div>
-          </article>
+          </Card>
 
           <article className="rounded-3xl border border-amber-500/20 bg-amber-500/5 p-6">
-            <div className="flex items-start gap-3">
-              <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-500/10 text-amber-300">
-                <ShieldBan size={21} />
-              </div>
+            <div className="flex gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-amber-500/10 text-amber-300">
+                <ShieldBan
+                  size={21}
+                />
+              </span>
 
               <div>
-                <h2 className="font-black">Administrativne akcije</h2>
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Blokiranje računa trenutno se radi promjenom statusa na „Blokirano”.
-                  Brisanje tvrtke i prijava kao korisnik nisu još uključeni radi sigurnosti.
+                <h2 className="font-black">
+                  Administrativna kontrola
+                </h2>
+
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Za privremenu zabranu pristupa postavi status na
+                  <strong className="text-amber-200">
+                    {' '}
+                    Blokirano
+                  </strong>
+                  . Brisanje tvrtke i prijava kao korisnik namjerno nisu uključeni.
                 </p>
               </div>
             </div>
@@ -407,6 +1014,197 @@ export function AdminCompanyDetailsPage() {
         </aside>
       </div>
     </section>
+  )
+}
+
+const inputClass =
+  'mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-violet-500'
+
+function getSubscriptionPeriod(
+  company:
+    AdminCompany | null,
+) {
+  if (!company) {
+    return {
+      label: '—',
+      shortLabel: '—',
+      dateLabel: '',
+      warning: false,
+      className:
+        'bg-slate-800 text-slate-400',
+    }
+  }
+
+  const date =
+    company.subscriptionStatus ===
+      'trialing'
+      ? company.trialEndsAt
+      : company.currentPeriodEnd
+
+  if (!date) {
+    if (
+      company.subscriptionStatus ===
+      'active'
+    ) {
+      return {
+        label:
+          'Aktivna pretplata',
+        shortLabel:
+          'Aktivno',
+        dateLabel:
+          'Datum isteka nije postavljen',
+        warning: false,
+        className:
+          'bg-emerald-500/10 text-emerald-300',
+      }
+    }
+
+    return {
+      label:
+        statusLabels[
+          company.subscriptionStatus
+        ] ??
+        company.subscriptionStatus,
+      shortLabel: '—',
+      dateLabel:
+        'Datum nije dostupan',
+      warning: false,
+      className:
+        'bg-slate-800 text-slate-400',
+    }
+  }
+
+  const target =
+    new Date(date)
+
+  const now =
+    new Date()
+
+  now.setHours(
+    0,
+    0,
+    0,
+    0,
+  )
+
+  target.setHours(
+    0,
+    0,
+    0,
+    0,
+  )
+
+  const days =
+    Math.ceil(
+      (
+        target.getTime() -
+        now.getTime()
+      ) /
+        86_400_000,
+    )
+
+  if (days < 0) {
+    return {
+      label:
+        `Isteklo prije ${Math.abs(
+          days,
+        )} dana`,
+      shortLabel:
+        `${Math.abs(
+          days,
+        )} d kasni`,
+      dateLabel:
+        `Istek: ${formatDate(
+          date,
+        )}`,
+      warning: true,
+      className:
+        'bg-red-500/10 text-red-300',
+    }
+  }
+
+  if (days === 0) {
+    return {
+      label:
+        'Istječe danas',
+      shortLabel:
+        'Danas',
+      dateLabel:
+        formatDate(date),
+      warning: true,
+      className:
+        'bg-red-500/10 text-red-300',
+    }
+  }
+
+  return {
+    label:
+      company.subscriptionStatus ===
+      'trialing'
+        ? `Trial traje još ${days} dana`
+        : `Pretplata traje još ${days} dana`,
+    shortLabel:
+      `${days} dana`,
+    dateLabel:
+      `Do ${formatDate(
+        date,
+      )}`,
+    warning:
+      days <= 5,
+    className:
+      days <= 5
+        ? 'bg-amber-500/10 text-amber-300'
+        : 'bg-emerald-500/10 text-emerald-300',
+  }
+}
+
+function CompanyAvatar({
+  company,
+}: {
+  company: AdminCompany
+}) {
+  if (
+    company.companyLogoUrl
+  ) {
+    return (
+      <span className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-3xl border border-slate-700 bg-white">
+        <img
+          src={
+            company.companyLogoUrl
+          }
+          alt=""
+          className="h-full w-full object-contain p-1.5"
+        />
+      </span>
+    )
+  }
+
+  return (
+    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-3xl bg-violet-500/10 text-xl font-black text-violet-300">
+      {getInitials(
+        company.companyName,
+      )}
+    </span>
+  )
+}
+
+function Card({
+  children,
+  accent = false,
+}: {
+  children: ReactNode
+  accent?: boolean
+}) {
+  return (
+    <article
+      className={`rounded-3xl bg-slate-900 p-6 ${
+        accent
+          ? 'border border-violet-500/20'
+          : 'border border-slate-800'
+      }`}
+    >
+      {children}
+    </article>
   )
 }
 
@@ -421,12 +1219,18 @@ function SectionTitle({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/10 text-violet-300">
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/10 text-violet-300">
         {icon}
-      </div>
+      </span>
+
       <div>
-        <h2 className="text-xl font-black">{title}</h2>
-        <p className="text-sm text-slate-500">{description}</p>
+        <h2 className="font-black">
+          {title}
+        </h2>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {description}
+        </p>
       </div>
     </div>
   )
@@ -443,85 +1247,287 @@ function InfoCard({
 }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-      <div className="flex items-center gap-2 text-slate-500">
+      <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-600">
         {icon}
-        <p className="text-xs font-black uppercase tracking-[0.1em]">{label}</p>
+        {label}
       </div>
-      <p className="mt-3 break-words font-black text-slate-200">{value}</p>
+
+      <p className="mt-2 break-words text-sm font-black text-slate-200">
+        {value}
+      </p>
     </div>
   )
 }
 
 function UsageCard({
+  icon,
   label,
   value,
-  icon,
 }: {
+  icon: ReactNode
   label: string
   value: number
-  icon: ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs font-black uppercase tracking-[0.1em] text-slate-500">{label}</p>
-        <span className="text-violet-300">{icon}</span>
-      </div>
-      <p className="mt-4 text-3xl font-black">{value}</p>
+      <span className="text-violet-300">
+        {icon}
+      </span>
+
+      <p className="mt-4 text-2xl font-black">
+        {value}
+      </p>
+
+      <p className="mt-1 text-xs font-bold text-slate-500">
+        {label}
+      </p>
     </div>
   )
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const className =
-    status === 'active'
-      ? 'border-green-500/20 bg-green-500/10 text-green-300'
-      : status === 'trialing'
-        ? 'border-blue-500/20 bg-blue-500/10 text-blue-300'
-        : status === 'past_due'
-          ? 'border-amber-500/20 bg-amber-500/10 text-amber-300'
-          : status === 'blocked'
-            ? 'border-red-500/20 bg-red-500/10 text-red-300'
-            : 'border-slate-700 bg-slate-800 text-slate-300'
+function TopStat({
+  icon,
+  label,
+  value,
+  note,
+  accent,
+}: {
+  icon: ReactNode
+  label: string
+  value:
+    | string
+    | number
+  note: string
+  accent:
+    | 'blue'
+    | 'green'
+    | 'violet'
+    | 'amber'
+}) {
+  const classes = {
+    blue:
+      'bg-blue-500/10 text-blue-300',
+    green:
+      'bg-emerald-500/10 text-emerald-300',
+    violet:
+      'bg-violet-500/10 text-violet-300',
+    amber:
+      'bg-amber-500/10 text-amber-300',
+  }
 
   return (
-    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${className}`}>
-      {statusLabels[status] ?? status}
+    <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
+            {label}
+          </p>
+
+          <p className="mt-3 text-2xl font-black">
+            {value}
+          </p>
+
+          <p className="mt-2 text-xs text-slate-600">
+            {note}
+          </p>
+        </div>
+
+        <span
+          className={`grid h-11 w-11 place-items-center rounded-2xl ${classes[accent]}`}
+        >
+          {icon}
+        </span>
+      </div>
+    </article>
+  )
+}
+
+function StatusBadge({
+  status,
+}: {
+  status: string
+}) {
+  const className =
+    status === 'active'
+      ? 'bg-emerald-500/10 text-emerald-300'
+      : status ===
+          'trialing'
+        ? 'bg-violet-500/10 text-violet-300'
+        : [
+              'past_due',
+              'expired',
+              'blocked',
+            ].includes(
+              status,
+            )
+          ? 'bg-red-500/10 text-red-300'
+          : 'bg-slate-800 text-slate-400'
+
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${className}`}
+    >
+      {statusLabels[
+        status
+      ] ?? status}
     </span>
   )
 }
 
-function getPeriodLabel(company: AdminCompany): string {
-  if (company.subscriptionStatus === 'trialing' && company.trialEndsAt) {
-    return `Trial do ${formatDate(company.trialEndsAt)}`
-  }
-
-  if (company.currentPeriodEnd) {
-    return `Do ${formatDate(company.currentPeriodEnd)}`
-  }
-
-  return '—'
+function FieldLabel({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <label className="block text-sm font-bold text-slate-300">
+      {label}
+      {children}
+    </label>
+  )
 }
 
-function formatDate(value: string): string {
-  const date = new Date(value)
+function Message({
+  tone,
+  icon,
+  children,
+}: {
+  tone:
+    | 'error'
+    | 'success'
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div
+      className={`mt-5 flex items-start gap-3 rounded-2xl border p-4 text-sm ${
+        tone ===
+        'error'
+          ? 'border-red-500/20 bg-red-500/10 text-red-300'
+          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
+      }`}
+    >
+      <span className="mt-0.5 shrink-0">
+        {icon}
+      </span>
 
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return date.toLocaleDateString('hr-HR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+      {children}
+    </div>
+  )
 }
 
-function getInitials(value: string): string {
-  const parts = value.trim().split(/\s+/).filter(Boolean)
+function EmptyState({
+  text,
+}: {
+  text: string
+}) {
+  return (
+    <div className="p-8 text-center text-sm text-slate-500">
+      {text}
+    </div>
+  )
+}
 
-  if (parts.length === 0) return 'T'
+function getInitials(
+  value: string,
+) {
+  return (
+    value
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(
+        (part) =>
+          part[0]?.toUpperCase() ??
+          '',
+      )
+      .join('') ||
+    'FT'
+  )
+}
 
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
-    .join('')
+function formatDate(
+  value:
+    | string
+    | null,
+) {
+  if (!value) return '—'
+
+  const date =
+    new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return '—'
+  }
+
+  return new Intl.DateTimeFormat(
+    'hr-HR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    },
+  ).format(date)
+}
+
+function formatRelativeDate(
+  value: string,
+) {
+  const date =
+    new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return '—'
+  }
+
+  const diff =
+    Date.now() -
+    date.getTime()
+
+  const minutes =
+    Math.max(
+      0,
+      Math.floor(
+        diff / 60_000,
+      ),
+    )
+
+  if (minutes < 1) {
+    return 'upravo sada'
+  }
+
+  if (minutes < 60) {
+    return `prije ${minutes} min`
+  }
+
+  const hours =
+    Math.floor(
+      minutes / 60,
+    )
+
+  if (hours < 24) {
+    return `prije ${hours} h`
+  }
+
+  const days =
+    Math.floor(
+      hours / 24,
+    )
+
+  if (days < 30) {
+    return `prije ${days} d`
+  }
+
+  return formatDate(value)
 }
