@@ -8,7 +8,7 @@ import {
   CircleDollarSign,
   Headphones,
   LogOut,
-  Moon,
+  Sparkles,
   Plus,
   Search,
   Settings,
@@ -20,6 +20,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import CompanyLogo from './CompanyLogo'
+import AIChatPanel from './ai/AIChatPanel'
 import { useCompanyBranding } from '../services/companyBranding.service'
 import {
   getEmployees,
@@ -151,6 +152,10 @@ export default function Topbar() {
   const [
     isProfileOpen,
     setIsProfileOpen,
+  ] = useState(false)
+  const [
+    isAiOpen,
+    setIsAiOpen,
   ] = useState(false)
   const [
     isNotificationsOpen,
@@ -514,6 +519,7 @@ export default function Topbar() {
               setIsNotificationsOpen(
                 false,
               )
+              setIsAiOpen(false)
             }}
             className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
           >
@@ -558,10 +564,22 @@ export default function Topbar() {
 
         <button
           type="button"
-          className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
-          aria-label="Promijeni temu"
+          onClick={() => {
+            setIsAiOpen((value) => !value)
+            setIsQuickMenuOpen(false)
+            setIsNotificationsOpen(false)
+            setIsProfileOpen(false)
+          }}
+          className={`relative flex h-12 w-12 items-center justify-center rounded-xl border transition ${
+            isAiOpen
+              ? 'border-violet-500/50 bg-violet-500/15 text-violet-300 ring-4 ring-violet-500/10'
+              : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300'
+          }`}
+          aria-label="FERSYS AI"
+          title="FERSYS AI"
         >
-          <Moon size={20} />
+          <Sparkles size={20} />
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
         </button>
 
         <div className="relative">
@@ -573,6 +591,7 @@ export default function Topbar() {
               )
               setIsQuickMenuOpen(false)
               setIsProfileOpen(false)
+              setIsAiOpen(false)
             }}
             className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
             aria-label="Obavijesti"
@@ -757,6 +776,7 @@ export default function Topbar() {
               setIsNotificationsOpen(
                 false,
               )
+              setIsAiOpen(false)
             }}
             className="flex min-w-[235px] items-center gap-3 rounded-2xl px-3 py-2 text-left transition hover:bg-slate-900"
           >
@@ -815,10 +835,6 @@ export default function Topbar() {
 
               <button
                 type="button"
-                onClick={() => {
-                  setIsProfileOpen(false)
-                  navigate('/profile')
-                }}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
               >
                 <UserRound size={18} />
@@ -856,6 +872,11 @@ export default function Topbar() {
           )}
         </div>
       </div>
+
+      <AIChatPanel
+        open={isAiOpen}
+        onClose={() => setIsAiOpen(false)}
+      />
     </header>
   )
 }
