@@ -1,5 +1,6 @@
 import {
   getCompanySettings,
+  type CompanySettings,
 } from './companySettings.service'
 
 import {
@@ -7,11 +8,9 @@ import {
   type WorkOrderBranding,
 } from '../types/workOrder'
 
-export async function getWorkOrderBrandingFromCompanySettings():
-Promise<WorkOrderBranding> {
-  const settings =
-    await getCompanySettings()
-
+export function mapCompanySettingsToWorkOrderBranding(
+  settings: CompanySettings,
+): WorkOrderBranding {
   const address = [
     settings.address,
     [
@@ -65,7 +64,7 @@ Promise<WorkOrderBranding> {
       '#0F172A',
 
     borderColor:
-      '#CBD5E1',
+      '#D8E0EB',
 
     backgroundColor:
       '#FFFFFF',
@@ -114,4 +113,14 @@ Promise<WorkOrderBranding> {
     footerText:
       settings.documentFooter,
   }
+}
+
+export async function getWorkOrderBrandingFromCompanySettings():
+Promise<WorkOrderBranding> {
+  const settings =
+    await getCompanySettings()
+
+  return mapCompanySettingsToWorkOrderBranding(
+    settings,
+  )
 }

@@ -1,4 +1,497 @@
-import { getCompanySettings } from '../services/companySettings.service'
+import {
+  getCompanySettings,
+} from '../services/companySettings.service'
+
+
+function compactDensityClass(
+  itemCount: number,
+) {
+  if (itemCount >= 11) {
+    return 'density-tight'
+  }
+
+  if (itemCount >= 7) {
+    return 'density-compact'
+  }
+
+  return 'density-normal'
+}
+
+function documentCss(
+  primaryColor: string,
+) {
+  return `
+    :root {
+      --primary: ${primaryColor};
+      --ink: #0f172a;
+      --text: #334155;
+      --muted: #64748b;
+      --border: #dbe3ee;
+      --surface: #f8fafc;
+      --soft: color-mix(in srgb, var(--primary) 8%, white);
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      background: #dfe5ec;
+      color: var(--text);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      background: rgba(15, 23, 42, .97);
+    }
+
+    .toolbar button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .toolbar .primary { background: var(--primary); color: white; }
+    .toolbar .secondary { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; }
+
+    .page {
+      position: relative;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 14px auto;
+      padding: 9mm 11mm 10mm;
+      background: white;
+      box-shadow: 0 18px 55px rgba(15, 23, 42, .18);
+    }
+
+    .page::before {
+      position: absolute;
+      inset: 0 0 auto;
+      height: 2.2mm;
+      content: "";
+      background: var(--primary);
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: start;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .company {
+      display: flex;
+      gap: 11px;
+      min-width: 0;
+    }
+
+    .logo, .logo-fallback {
+      width: 54px;
+      height: 54px;
+      flex: 0 0 54px;
+      object-fit: contain;
+    }
+
+    .logo-fallback {
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 18px;
+      font-weight: 900;
+    }
+
+    .company h1 {
+      margin: 0;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.15;
+      font-weight: 900;
+    }
+
+    .subtitle {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.25;
+    }
+
+    .seller-lines {
+      margin-top: 5px;
+      color: #475569;
+      font-size: 7.5px;
+      line-height: 1.35;
+    }
+
+    .heading {
+      min-width: 150px;
+      text-align: right;
+    }
+
+    .kicker {
+      color: var(--primary);
+      font-size: 7.5px;
+      font-weight: 900;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .heading h2 {
+      margin: 3px 0 0;
+      color: var(--ink);
+      font-size: 24px;
+      line-height: 1;
+      font-weight: 950;
+    }
+
+    .number {
+      display: inline-flex;
+      margin-top: 6px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      background: var(--soft);
+      color: var(--primary);
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      margin-top: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--border);
+    }
+
+    .summary > div {
+      padding: 6px 8px;
+      background: var(--surface);
+    }
+
+    .summary span {
+      display: block;
+      color: var(--muted);
+      font-size: 6.8px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .summary strong {
+      display: block;
+      margin-top: 2px;
+      color: var(--ink);
+      font-size: 8.7px;
+    }
+
+    .summary .total strong {
+      color: var(--primary);
+      font-size: 10px;
+    }
+
+    .party-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+      margin-top: 10px;
+    }
+
+    .card {
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      break-inside: avoid;
+    }
+
+    .card h3 {
+      margin: 0 0 6px;
+      color: var(--muted);
+      font-size: 7px;
+      font-weight: 900;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .party-name {
+      color: var(--ink);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .party-details {
+      margin-top: 5px;
+      font-size: 7.7px;
+      line-height: 1.45;
+    }
+
+    .description {
+      margin-top: 8px;
+      padding: 7px 9px;
+      border-left: 3px solid var(--primary);
+      border-radius: 0 8px 8px 0;
+      background: color-mix(in srgb, var(--primary) 4%, white);
+      font-size: 8px;
+      line-height: 1.4;
+      break-inside: avoid;
+    }
+
+    .section-title {
+      margin: 11px 0 5px;
+      color: var(--ink);
+      font-size: 9px;
+      font-weight: 900;
+    }
+
+    .table-wrap {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 7.5px;
+    }
+
+    thead { display: table-header-group; }
+
+    th {
+      padding: 5px 4px;
+      background: var(--ink);
+      color: white;
+      font-size: 6.4px;
+      text-align: left;
+      text-transform: uppercase;
+    }
+
+    th:nth-child(1) { width: 5%; }
+    th:nth-child(2) { width: 35%; }
+    th:nth-child(3) { width: 7%; }
+    th:nth-child(4) { width: 7%; }
+    th:nth-child(5) { width: 13%; }
+    th:nth-child(6) { width: 9%; }
+    th:nth-child(7) { width: 8%; }
+    th:nth-child(8) { width: 16%; }
+
+    td {
+      padding: 5px 4px;
+      border-bottom: 1px solid #e9eef5;
+      vertical-align: top;
+    }
+
+    tbody tr:nth-child(even) td { background: #fbfdff; }
+    tbody tr:last-child td { border-bottom: 0; }
+
+    tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    td strong {
+      color: var(--ink);
+      font-size: 7.6px;
+    }
+
+    td p {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 6.5px;
+      line-height: 1.25;
+    }
+
+    .right { text-align: right; white-space: nowrap; }
+    .center { text-align: center; }
+    .strong { font-weight: 900; color: var(--ink); }
+
+    .bottom {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 220px;
+      gap: 10px;
+      align-items: start;
+      margin-top: 9px;
+      break-inside: avoid;
+    }
+
+    .payment-card, .terms-card {
+      padding: 8px 9px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface);
+    }
+
+    .payment-card h3, .terms-card h3 {
+      margin: 0 0 5px;
+      color: var(--ink);
+      font-size: 8px;
+    }
+
+    .payment-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 3px 0;
+      border-bottom: 1px dashed var(--border);
+      font-size: 7.2px;
+    }
+
+    .payment-row:last-child { border-bottom: 0; }
+
+    .terms-card p {
+      margin: 3px 0;
+      font-size: 7.3px;
+      line-height: 1.35;
+    }
+
+    .totals {
+      overflow: hidden;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: #fff;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 4px 7px;
+      border-bottom: 1px solid #e9eef5;
+      font-size: 7.3px;
+    }
+
+    .total-row:last-child { border-bottom: 0; }
+
+    .total-row.grand {
+      padding: 7px;
+      background: var(--soft);
+      color: var(--primary);
+      font-size: 10px;
+      font-weight: 900;
+    }
+
+    .signature {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 36px;
+      margin-top: 13px;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    .signature-space {
+      position: relative;
+      height: 42px;
+    }
+
+    .stamp {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      max-width: 130px;
+      max-height: 42px;
+      object-fit: contain;
+      transform: translateX(-50%);
+    }
+
+    .signature-line {
+      border-top: 1px solid #94a3b8;
+      padding-top: 4px;
+      text-align: center;
+      font-size: 7px;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 10px;
+      padding-top: 5px;
+      border-top: 1px solid var(--border);
+      color: #94a3b8;
+      font-size: 6.5px;
+    }
+
+    .density-compact td { padding-top: 3.6px; padding-bottom: 3.6px; }
+    .density-compact .description { padding-top: 5px; padding-bottom: 5px; }
+    .density-compact .party-grid { margin-top: 7px; }
+    .density-compact .section-title { margin-top: 8px; }
+
+    .density-tight .header { padding-bottom: 7px; }
+    .density-tight .logo, .density-tight .logo-fallback {
+      width: 46px;
+      height: 46px;
+      flex-basis: 46px;
+    }
+    .density-tight .company h1 { font-size: 16px; }
+    .density-tight .summary { margin-top: 7px; }
+    .density-tight .summary > div { padding: 4px 6px; }
+    .density-tight .party-grid { margin-top: 7px; gap: 7px; }
+    .density-tight .card { padding: 6px 8px; }
+    .density-tight .description { margin-top: 6px; padding: 5px 7px; }
+    .density-tight .section-title { margin-top: 7px; }
+    .density-tight td { padding-top: 3px; padding-bottom: 3px; font-size: 6.9px; }
+    .density-tight th { padding-top: 4px; padding-bottom: 4px; }
+    .density-tight .bottom { margin-top: 7px; }
+    .density-tight .signature { margin-top: 8px; }
+    .density-tight .signature-space { height: 34px; }
+
+    @media print {
+      @page { size: A4; margin: 0; }
+
+      html, body { background: #fff; }
+
+      .toolbar { display: none !important; }
+
+      .page {
+        width: 210mm;
+        min-height: 297mm;
+        margin: 0;
+        box-shadow: none;
+      }
+    }
+
+    @media screen and (max-width: 900px) {
+      .page {
+        width: calc(100% - 16px);
+        min-height: auto;
+        margin: 8px;
+        padding: 20px;
+      }
+
+      .header,
+      .party-grid,
+      .bottom {
+        grid-template-columns: 1fr;
+      }
+
+      .heading { text-align: left; }
+
+      .summary {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .table-wrap { overflow-x: auto; }
+      table { min-width: 780px; }
+    }
+  `
+}
+
 
 export type OfferPdfItem = {
   id: string
@@ -17,7 +510,10 @@ export type OfferPdfData = {
   id: string
   offerNumber: string
   customerName: string
-  customerType: 'Fizička osoba' | 'Tvrtka' | 'Zgrada'
+  customerType:
+    | 'Fizička osoba'
+    | 'Tvrtka'
+    | 'Zgrada'
   oib: string
   email: string
   phone: string
@@ -56,7 +552,8 @@ export type OfferPdfSettings = {
   footerText: string
 }
 
-const DEFAULT_SETTINGS: OfferPdfSettings = {
+const DEFAULT_SETTINGS:
+OfferPdfSettings = {
   companyName: 'Tvrtka',
   companySubtitle: '',
   companyAddress: '',
@@ -69,7 +566,7 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
   stampDataUrl: undefined,
   signatureDataUrl: undefined,
   primaryColor: '#2563EB',
-  showItemImages: true,
+  showItemImages: false,
   showSignature: true,
   showStamp: true,
   showFooter: true,
@@ -77,123 +574,13 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
     'Ponuda je izrađena u sustavu FERSYS.',
 }
 
-function joinCompanyAddress(parts: Array<string | undefined>) {
-  return parts
-    .map((part) => part?.trim() ?? '')
-    .filter(Boolean)
-    .join(', ')
-}
-
-async function loadCurrentCompanyPdfSettings(): Promise<
-  Partial<OfferPdfSettings>
-> {
-  const company = await getCompanySettings()
-
-  return {
-    companyName: company.name || 'Tvrtka',
-    companySubtitle:
-      company.documentWatermark || '',
-    companyAddress: joinCompanyAddress([
-      company.address,
-      [company.postalCode, company.city]
-        .filter(Boolean)
-        .join(' '),
-      company.country,
-    ]),
-    companyOib: company.oib,
-    companyIban: company.iban,
-    companyEmail: company.email,
-    companyPhone: company.phone,
-    companyWebsite: company.website,
-    logoDataUrl:
-      company.logoUrl || undefined,
-    stampDataUrl:
-      company.stampUrl || undefined,
-    signatureDataUrl:
-      company.signatureUrl || undefined,
-    primaryColor:
-      company.primaryColor || '#2563EB',
-    footerText:
-      company.documentFooter ||
-      'Ponuda je izrađena u sustavu FERSYS.',
-    showStamp: Boolean(company.stampUrl),
-    showSignature: true,
-    showFooter: true,
-    showItemImages: true,
-  }
-}
-
-function calculateItemBase(item: OfferPdfItem) {
-  return item.quantity * item.price
-}
-
-function calculateItemDiscount(item: OfferPdfItem) {
-  return calculateItemBase(item) * (item.discount / 100)
-}
-
-function calculateItemNet(item: OfferPdfItem) {
-  return calculateItemBase(item) - calculateItemDiscount(item)
-}
-
-function calculateItemVat(item: OfferPdfItem) {
-  return calculateItemNet(item) * (item.vat / 100)
-}
-
-function calculateOfferBase(offer: OfferPdfData) {
-  return offer.items.reduce(
-    (total, item) => total + calculateItemBase(item),
-    0,
-  )
-}
-
-function calculateOfferDiscount(offer: OfferPdfData) {
-  return offer.items.reduce(
-    (total, item) => total + calculateItemDiscount(item),
-    0,
-  )
-}
-
-function calculateOfferNet(offer: OfferPdfData) {
-  return offer.items.reduce(
-    (total, item) => total + calculateItemNet(item),
-    0,
-  )
-}
-
-function calculateOfferVat(offer: OfferPdfData) {
-  return offer.items.reduce(
-    (total, item) => total + calculateItemVat(item),
-    0,
-  )
-}
-
-function calculateOfferTotal(offer: OfferPdfData) {
-  return calculateOfferNet(offer) + calculateOfferVat(offer)
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value)
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(value)
-}
-
-function formatDate(date: string) {
-  if (!date) {
-    return '—'
-  }
-
-  return new Date(`${date}T12:00:00`).toLocaleDateString('hr-HR')
-}
-
-function escapeHtml(value: string | number | undefined | null) {
+function escapeHtml(
+  value:
+    | string
+    | number
+    | null
+    | undefined,
+) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -202,1166 +589,411 @@ function escapeHtml(value: string | number | undefined | null) {
     .replaceAll("'", '&#039;')
 }
 
-function multilineHtml(value: string) {
-  return escapeHtml(value).replace(/\r?\n/g, '<br />')
+function multilineHtml(
+  value: string,
+) {
+  return escapeHtml(value)
+    .replace(
+      /\r?\n/g,
+      '<br />',
+    )
 }
 
-function getSafeFileName(value: string) {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
+function formatCurrency(
+  value: number,
+) {
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      style: 'currency',
+      currency: 'EUR',
+    },
+  ).format(value)
 }
 
-function getCompanyContactLines(settings: OfferPdfSettings) {
-  return [
-    settings.companyAddress,
-    settings.companyOib ? `OIB: ${settings.companyOib}` : '',
-    settings.companyIban ? `IBAN: ${settings.companyIban}` : '',
-    settings.companyEmail,
-    settings.companyPhone,
-    settings.companyWebsite,
-  ].filter(Boolean)
+function formatNumber(
+  value: number,
+) {
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      maximumFractionDigits: 2,
+    },
+  ).format(value)
 }
 
-function getValidityText(validUntil: string) {
-  if (!validUntil) {
-    return 'Rok valjanosti nije naveden.'
-  }
+function formatDate(
+  value: string,
+) {
+  if (!value) return '—'
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
-  const targetDate = new Date(`${validUntil}T00:00:00`)
-  const difference = Math.ceil(
-    (targetDate.getTime() - today.getTime()) /
-      (1000 * 60 * 60 * 24),
+  return new Date(
+    `${value}T12:00:00`,
+  ).toLocaleDateString(
+    'hr-HR',
   )
+}
 
-  if (difference < 0) {
-    return `Ponuda je istekla ${formatDate(validUntil)}.`
+function itemNet(
+  item: OfferPdfItem,
+) {
+  return (
+    item.quantity *
+    item.price *
+    (1 -
+      item.discount / 100)
+  )
+}
+
+function itemVat(
+  item: OfferPdfItem,
+) {
+  return (
+    itemNet(item) *
+    (item.vat / 100)
+  )
+}
+
+function safeFileName(
+  value: string,
+) {
+  return value
+    .replace(
+      /[\\/:*?"<>|]+/g,
+      '-',
+    )
+    .replace(/\s+/g, '-')
+}
+
+function companySettingsFromCurrent(
+  settings:
+    Awaited<
+      ReturnType<
+        typeof getCompanySettings
+      >
+    >,
+): Partial<OfferPdfSettings> {
+  return {
+    companyName:
+      settings.name,
+    companySubtitle:
+      settings.documentWatermark,
+    companyAddress:
+      [
+        settings.address,
+        [
+          settings.postalCode,
+          settings.city,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      ]
+        .filter(Boolean)
+        .join(', '),
+    companyOib:
+      settings.oib,
+    companyIban:
+      settings.iban,
+    companyEmail:
+      settings.email,
+    companyPhone:
+      settings.phone,
+    companyWebsite:
+      settings.website,
+    logoDataUrl:
+      settings.logoUrl ||
+      undefined,
+    stampDataUrl:
+      settings.stampUrl ||
+      undefined,
+    signatureDataUrl:
+      settings.signatureUrl ||
+      undefined,
+    primaryColor:
+      settings.primaryColor,
+    footerText:
+      settings.documentFooter,
+    showStamp:
+      Boolean(
+        settings.stampUrl,
+      ),
+    showSignature:
+      true,
+    showFooter:
+      true,
+    showItemImages:
+      false,
   }
-
-  if (difference === 0) {
-    return `Ponuda vrijedi do danas, ${formatDate(validUntil)}.`
-  }
-
-  return `Ponuda vrijedi do ${formatDate(
-    validUntil,
-  )} (${difference} dana).`
 }
 
 export function buildOfferPdfHtml(
   offer: OfferPdfData,
-  customSettings: Partial<OfferPdfSettings> = {},
+  customSettings:
+    Partial<OfferPdfSettings> = {},
 ) {
   const settings = {
     ...DEFAULT_SETTINGS,
     ...customSettings,
   }
 
-  const base = calculateOfferBase(offer)
-  const discount = calculateOfferDiscount(offer)
-  const net = calculateOfferNet(offer)
-  const vat = calculateOfferVat(offer)
-  const total = calculateOfferTotal(offer)
+  const items =
+    offer.items.filter(
+      (item) =>
+        item.name.trim(),
+    )
 
-  const cleanItems = offer.items.filter((item) => item.name.trim())
+  const densityClass =
+    compactDensityClass(
+      items.length,
+    )
 
-  const itemRows = cleanItems
-    .map((item, index) => {
-      const itemNet = calculateItemNet(item)
-      const itemVat = calculateItemVat(item)
-      const itemTotal = itemNet + itemVat
+  const base =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        item.quantity *
+          item.price,
+      0,
+    )
 
-      const imageHtml =
-        settings.showItemImages && item.imageDataUrl
-          ? `
-            <div class="item-image-wrap">
-              <img
-                class="item-image"
-                src="${escapeHtml(item.imageDataUrl)}"
-                alt="${escapeHtml(item.name)}"
-              />
-            </div>
-          `
-          : ''
+  const net =
+    items.reduce(
+      (sum, item) =>
+        sum + itemNet(item),
+      0,
+    )
 
-      return `
-        <tr>
-          <td class="center muted-cell">${index + 1}</td>
+  const vat =
+    items.reduce(
+      (sum, item) =>
+        sum + itemVat(item),
+      0,
+    )
 
-          <td>
-            <div class="item-content">
-              ${imageHtml}
+  const discount =
+    base - net
 
-              <div class="item-copy">
-                <strong>${escapeHtml(item.name)}</strong>
+  const total =
+    net + vat
 
-                ${
-                  item.description
-                    ? `<p>${multilineHtml(item.description)}</p>`
-                    : ''
-                }
-              </div>
-            </div>
-          </td>
+  const logo =
+    settings.logoDataUrl
+      ? `<img class="logo" src="${escapeHtml(
+          settings.logoDataUrl,
+        )}" alt="Logo" />`
+      : `<div class="logo-fallback">${escapeHtml(
+          settings.companyName
+            .slice(0, 2)
+            .toUpperCase(),
+        )}</div>`
 
-          <td class="right">${formatNumber(item.quantity)}</td>
-          <td class="center">${escapeHtml(item.unit)}</td>
-          <td class="right">${formatCurrency(item.price)}</td>
-          <td class="right">${formatNumber(item.discount)}%</td>
-          <td class="right">${formatNumber(item.vat)}%</td>
-          <td class="right strong">${formatCurrency(itemTotal)}</td>
-        </tr>
-      `
-    })
-    .join('')
-
-  const emptyItemsHtml =
-    cleanItems.length === 0
-      ? `
-        <tr>
-          <td colspan="8" class="empty-row">
-            Nema unesenih stavki.
-          </td>
-        </tr>
-      `
-      : ''
-
-  const customerAddress = [offer.address, offer.city]
-    .filter(Boolean)
-    .join(', ')
-
-  const companyContactHtml = getCompanyContactLines(settings)
-    .map((line) => `<div>${escapeHtml(line)}</div>`)
-    .join('')
-
-  const logoHtml = settings.logoDataUrl
-    ? `
-      <img
-        class="company-logo"
-        src="${escapeHtml(settings.logoDataUrl)}"
-        alt="${escapeHtml(settings.companyName)}"
-      />
-    `
-    : `
-      <div class="company-logo-placeholder">
-        ${escapeHtml(settings.companyName.slice(0, 2).toUpperCase())}
-      </div>
-    `
-
-  const stampHtml =
-    settings.showStamp && settings.stampDataUrl
-      ? `
-        <img
-          class="stamp"
-          src="${escapeHtml(settings.stampDataUrl)}"
-          alt="Pečat"
-        />
-      `
-      : ''
-
-  const signatureHtml = settings.showSignature
-    ? `
-      <section class="signature-section">
-        <div class="signature-card">
-          <div class="signature-space">
-            ${
-              settings.signatureDataUrl
-                ? `<img
-                    class="signature-image"
-                    src="${escapeHtml(settings.signatureDataUrl)}"
-                    alt="Potpis"
-                  />`
-                : ''
-            }
-            ${stampHtml}
-          </div>
-
-          <div class="signature-line">
-            <span>Za izvođača</span>
-            <strong>${escapeHtml(
-              offer.responsiblePerson || settings.companyName,
-            )}</strong>
-          </div>
-        </div>
-
-        <div class="signature-card">
-          <div class="signature-space"></div>
-
-          <div class="signature-line">
-            <span>Kupac / naručitelj</span>
-            <strong>Potpis i potvrda ponude</strong>
-          </div>
-        </div>
-      </section>
-    `
-    : ''
-
-  const footerHtml = settings.showFooter
-    ? `
-      <footer class="document-footer">
-        <span>${escapeHtml(settings.footerText)}</span>
-        <span>${escapeHtml(offer.offerNumber)}</span>
-      </footer>
-    `
-    : ''
-
-  const customerContactRows = [
-    offer.oib
-      ? `<div><span>OIB</span><strong>${escapeHtml(offer.oib)}</strong></div>`
+  const companyLines = [
+    settings.companyAddress,
+    settings.companyOib
+      ? `OIB: ${settings.companyOib}`
       : '',
-    customerAddress
-      ? `<div><span>Adresa</span><strong>${escapeHtml(
-          customerAddress,
-        )}</strong></div>`
+    settings.companyIban
+      ? `IBAN: ${settings.companyIban}`
+      : '',
+    [
+      settings.companyPhone,
+      settings.companyEmail,
+    ]
+      .filter(Boolean)
+      .join(' • '),
+    settings.companyWebsite,
+  ]
+    .filter(Boolean)
+    .map(
+      (line) =>
+        `<div>${escapeHtml(
+          line,
+        )}</div>`,
+    )
+    .join('')
+
+  const customerLines = [
+    offer.oib
+      ? `<div><strong>OIB:</strong> ${escapeHtml(
+          offer.oib,
+        )}</div>`
+      : '',
+    [offer.address, offer.city]
+      .filter(Boolean)
+      .join(', ')
+      ? `<div>${escapeHtml(
+          [
+            offer.address,
+            offer.city,
+          ]
+            .filter(Boolean)
+            .join(', '),
+        )}</div>`
       : '',
     offer.email
-      ? `<div><span>E-mail</span><strong>${escapeHtml(
+      ? `<div>${escapeHtml(
           offer.email,
-        )}</strong></div>`
+        )}</div>`
       : '',
     offer.phone
-      ? `<div><span>Telefon</span><strong>${escapeHtml(
+      ? `<div>${escapeHtml(
           offer.phone,
-        )}</strong></div>`
+        )}</div>`
       : '',
   ]
     .filter(Boolean)
     .join('')
 
+  const rows =
+    items.length
+      ? items
+          .map(
+            (item, index) => {
+              const lineTotal =
+                itemNet(item) +
+                itemVat(item)
+
+              return `
+                <tr>
+                  <td class="center">${index + 1}</td>
+                  <td>
+                    <strong>${escapeHtml(item.name)}</strong>
+                    ${
+                      item.description
+                        ? `<p>${multilineHtml(
+                            item.description,
+                          )}</p>`
+                        : ''
+                    }
+                  </td>
+                  <td class="right">${formatNumber(item.quantity)}</td>
+                  <td class="center">${escapeHtml(item.unit)}</td>
+                  <td class="right">${formatCurrency(item.price)}</td>
+                  <td class="right">${formatNumber(item.discount)}%</td>
+                  <td class="right">${formatNumber(item.vat)}%</td>
+                  <td class="right strong">${formatCurrency(lineTotal)}</td>
+                </tr>
+              `
+            },
+          )
+          .join('')
+      : `<tr><td colspan="8" class="center">Nema unesenih stavki.</td></tr>`
+
+  const stamp =
+    settings.showStamp &&
+    settings.stampDataUrl
+      ? `<img class="stamp" src="${escapeHtml(
+          settings.stampDataUrl,
+        )}" alt="Pečat" />`
+      : ''
+
   return `<!doctype html>
 <html lang="hr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <title>${escapeHtml(offer.offerNumber)} - ${escapeHtml(
-    offer.customerName,
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(
+    offer.offerNumber,
   )}</title>
-
-  <style>
-    :root {
-      --primary: ${escapeHtml(settings.primaryColor)};
-      --primary-soft: color-mix(in srgb, var(--primary) 9%, white);
-      --primary-faint: color-mix(in srgb, var(--primary) 4%, white);
-      --ink: #0f172a;
-      --text: #1e293b;
-      --muted: #64748b;
-      --border: #dbe3ee;
-      --border-soft: #e9eef5;
-      --surface: #f8fafc;
-      --white: #ffffff;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      background: #dfe5ec;
-    }
-
-    body {
-      margin: 0;
-      font-family:
-        Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", Arial, sans-serif;
-      color: var(--text);
-      background: #dfe5ec;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-
-    .toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 50;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      padding: 13px;
-      background: rgba(15, 23, 42, 0.97);
-      box-shadow: 0 12px 35px rgba(15, 23, 42, 0.25);
-      backdrop-filter: blur(12px);
-    }
-
-    .toolbar button {
-      appearance: none;
-      border: 1px solid transparent;
-      border-radius: 11px;
-      padding: 11px 17px;
-      font-size: 13px;
-      font-weight: 800;
-      cursor: pointer;
-      transition:
-        transform 0.15s ease,
-        opacity 0.15s ease;
-    }
-
-    .toolbar button:hover {
-      transform: translateY(-1px);
-    }
-
-    .toolbar .primary {
-      background: var(--primary);
-      color: #fff;
-    }
-
-    .toolbar .secondary {
-      border-color: #475569;
-      background: #1e293b;
-      color: #e2e8f0;
-    }
-
-    .page {
-      position: relative;
-      width: 210mm;
-      min-height: 297mm;
-      margin: 18px auto;
-      padding: 13mm 14mm 12mm;
-      overflow: hidden;
-      background: var(--white);
-      box-shadow: 0 22px 65px rgba(15, 23, 42, 0.2);
-    }
-
-    .page::before {
-      position: absolute;
-      top: 0;
-      right: 0;
-      left: 0;
-      height: 5px;
-      content: "";
-      background: linear-gradient(
-        90deg,
-        var(--primary),
-        color-mix(in srgb, var(--primary) 55%, #22d3ee)
-      );
-    }
-
-    .header {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: start;
-      gap: 28px;
-      padding-bottom: 18px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .company {
-      display: flex;
-      min-width: 0;
-      align-items: flex-start;
-      gap: 15px;
-    }
-
-    .company-logo {
-      width: 78px;
-      height: 78px;
-      flex: 0 0 78px;
-      object-fit: contain;
-    }
-
-    .company-logo-placeholder {
-      display: flex;
-      width: 70px;
-      height: 70px;
-      flex: 0 0 70px;
-      align-items: center;
-      justify-content: center;
-      border-radius: 16px;
-      background: var(--primary);
-      color: #fff;
-      font-size: 23px;
-      font-weight: 900;
-      box-shadow: 0 10px 25px
-        color-mix(in srgb, var(--primary) 22%, transparent);
-    }
-
-    .company-copy {
-      min-width: 0;
-    }
-
-    .company h1 {
-      margin: 1px 0 0;
-      color: var(--ink);
-      font-size: 25px;
-      font-weight: 900;
-      letter-spacing: -0.55px;
-    }
-
-    .company-subtitle {
-      max-width: 380px;
-      margin-top: 5px;
-      color: var(--muted);
-      font-size: 10.5px;
-      font-weight: 600;
-      line-height: 1.5;
-    }
-
-    .company-contact {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 3px 12px;
-      max-width: 420px;
-      margin-top: 8px;
-      color: #475569;
-      font-size: 9.5px;
-      line-height: 1.45;
-    }
-
-    .document-heading {
-      min-width: 190px;
-      text-align: right;
-    }
-
-    .document-kicker {
-      color: var(--primary);
-      font-size: 10px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.18em;
-    }
-
-    .document-heading h2 {
-      margin: 4px 0 0;
-      color: var(--ink);
-      font-size: 34px;
-      font-weight: 950;
-      letter-spacing: -1.2px;
-    }
-
-    .offer-number {
-      display: inline-flex;
-      margin-top: 8px;
-      border: 1px solid
-        color-mix(in srgb, var(--primary) 22%, var(--border));
-      border-radius: 999px;
-      padding: 6px 11px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      font-size: 12px;
-      font-weight: 900;
-    }
-
-    .summary-strip {
-      display: grid;
-      grid-template-columns: 1.05fr 1fr 1fr 1fr;
-      gap: 1px;
-      margin-top: 16px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--border);
-    }
-
-    .summary-item {
-      min-width: 0;
-      padding: 10px 12px;
-      background: var(--surface);
-    }
-
-    .summary-item span {
-      display: block;
-      color: var(--muted);
-      font-size: 8.5px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .summary-item strong {
-      display: block;
-      margin-top: 3px;
-      overflow: hidden;
-      color: var(--ink);
-      font-size: 11px;
-      font-weight: 850;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .summary-item.total strong {
-      color: var(--primary);
-      font-size: 13px;
-    }
-
-    .details-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
-      gap: 14px;
-      margin-top: 17px;
-    }
-
-    .info-card {
-      padding: 14px 15px;
-      border: 1px solid var(--border);
-      border-radius: 13px;
-      break-inside: avoid;
-      background: #fff;
-    }
-
-    .info-card-title {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 11px;
-    }
-
-    .info-card-title h3 {
-      margin: 0;
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 900;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-    }
-
-    .customer-type {
-      border-radius: 999px;
-      padding: 4px 7px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      font-size: 8px;
-      font-weight: 900;
-    }
-
-    .customer-name {
-      margin: 0;
-      color: var(--ink);
-      font-size: 16px;
-      font-weight: 900;
-      letter-spacing: -0.25px;
-    }
-
-    .contact-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px 14px;
-      margin-top: 11px;
-    }
-
-    .contact-grid div {
-      min-width: 0;
-    }
-
-    .contact-grid span {
-      display: block;
-      color: var(--muted);
-      font-size: 8px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-    }
-
-    .contact-grid strong {
-      display: block;
-      margin-top: 2px;
-      overflow-wrap: anywhere;
-      color: var(--text);
-      font-size: 9.5px;
-      font-weight: 700;
-      line-height: 1.4;
-    }
-
-    .offer-meta-list {
-      display: grid;
-      gap: 8px;
-    }
-
-    .offer-meta-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 18px;
-      padding-bottom: 7px;
-      border-bottom: 1px dashed var(--border);
-      font-size: 10px;
-    }
-
-    .offer-meta-row:last-child {
-      padding-bottom: 0;
-      border-bottom: 0;
-    }
-
-    .offer-meta-row span {
-      color: var(--muted);
-    }
-
-    .offer-meta-row strong {
-      color: var(--ink);
-      font-weight: 850;
-      text-align: right;
-    }
-
-    .description {
-      margin-top: 14px;
-      padding: 12px 14px;
-      border: 1px solid
-        color-mix(in srgb, var(--primary) 18%, var(--border));
-      border-left: 4px solid var(--primary);
-      border-radius: 0 11px 11px 0;
-      background: var(--primary-faint);
-      color: #334155;
-      font-size: 10.5px;
-      line-height: 1.55;
-      break-inside: avoid;
-    }
-
-    .section-heading {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 20px;
-      margin-top: 20px;
-      margin-bottom: 8px;
-    }
-
-    .section-heading h3 {
-      margin: 0;
-      color: var(--ink);
-      font-size: 13px;
-      font-weight: 900;
-      letter-spacing: -0.15px;
-    }
-
-    .section-heading span {
-      color: var(--muted);
-      font-size: 9px;
-      font-weight: 700;
-    }
-
-    .table-wrap {
-      width: 100%;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 11px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 9px;
-    }
-
-    thead {
-      display: table-header-group;
-    }
-
-    th {
-      padding: 8px 5px;
-      background: var(--ink);
-      color: #fff;
-      font-size: 7.8px;
-      font-weight: 850;
-      text-align: left;
-      text-transform: uppercase;
-      letter-spacing: 0.035em;
-    }
-
-    th:nth-child(1) {
-      width: 5%;
-    }
-
-    th:nth-child(2) {
-      width: 35%;
-    }
-
-    th:nth-child(3) {
-      width: 7%;
-    }
-
-    th:nth-child(4) {
-      width: 7%;
-    }
-
-    th:nth-child(5) {
-      width: 13%;
-    }
-
-    th:nth-child(6) {
-      width: 9%;
-    }
-
-    th:nth-child(7) {
-      width: 8%;
-    }
-
-    th:nth-child(8) {
-      width: 16%;
-    }
-
-    td {
-      padding: 8px 5px;
-      border-bottom: 1px solid var(--border-soft);
-      vertical-align: top;
-      color: #334155;
-    }
-
-    tbody tr:nth-child(even) td {
-      background: #fbfdff;
-    }
-
-    tbody tr:last-child td {
-      border-bottom: 0;
-    }
-
-    tr {
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .right {
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .center {
-      text-align: center;
-      white-space: nowrap;
-    }
-
-    .strong {
-      color: var(--ink);
-      font-weight: 850;
-    }
-
-    .muted-cell {
-      color: var(--muted);
-      font-weight: 750;
-    }
-
-    .item-content {
-      display: flex;
-      min-width: 0;
-      align-items: flex-start;
-      gap: 8px;
-    }
-
-    .item-copy {
-      min-width: 0;
-    }
-
-    .item-content strong {
-      display: block;
-      overflow-wrap: anywhere;
-      color: var(--ink);
-      font-size: 9.3px;
-      font-weight: 850;
-      line-height: 1.35;
-    }
-
-    .item-content p {
-      margin: 3px 0 0;
-      overflow-wrap: anywhere;
-      color: var(--muted);
-      font-size: 8.2px;
-      line-height: 1.35;
-    }
-
-    .item-image-wrap {
-      width: 39px;
-      height: 39px;
-      flex: 0 0 39px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 7px;
-      background: var(--surface);
-    }
-
-    .item-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .empty-row {
-      padding: 24px;
-      color: var(--muted);
-      text-align: center;
-    }
-
-    .bottom-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 285px;
-      gap: 18px;
-      align-items: start;
-      margin-top: 16px;
-    }
-
-    .terms-card {
-      padding: 13px 14px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--surface);
-      break-inside: avoid;
-    }
-
-    .terms-card h3 {
-      margin: 0 0 7px;
-      color: var(--ink);
-      font-size: 10px;
-      font-weight: 900;
-    }
-
-    .terms-card p {
-      margin: 5px 0;
-      color: #475569;
-      font-size: 9.5px;
-      line-height: 1.55;
-    }
-
-    .validity {
-      margin-top: 9px !important;
-      color: var(--primary) !important;
-      font-weight: 850;
-    }
-
-    .totals {
-      overflow: hidden;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: #fff;
-      break-inside: avoid;
-    }
-
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 8px 11px;
-      border-bottom: 1px solid var(--border-soft);
-      color: #475569;
-      font-size: 9.5px;
-    }
-
-    .total-row strong {
-      color: var(--ink);
-    }
-
-    .total-row.discount strong {
-      color: #c2410c;
-    }
-
-    .total-row:last-child {
-      border-bottom: 0;
-    }
-
-    .total-row.grand {
-      padding: 12px 11px;
-      background: var(--primary-soft);
-      color: var(--primary);
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    .total-row.grand span:last-child {
-      font-size: 15px;
-    }
-
-    .signature-section {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 46px;
-      margin-top: 36px;
-      break-inside: avoid;
-      page-break-inside: avoid;
-    }
-
-    .signature-card {
-      min-height: 220px;
-    }
-
-    .signature-space {
-      position: relative;
-      height: 180px;
-      overflow: visible;
-    }
-
-    .signature-image {
-      position: absolute;
-      left: 50%;
-      bottom: 12px;
-      width: 150px;
-      max-height: 70px;
-      object-fit: contain;
-      transform: translateX(-50%);
-      opacity: 0.95;
-    }
-
-    .stamp {
-      position: absolute;
-      left: 50%;
-      bottom: 0;
-      transform: translateX(-50%);
-      width: 100%;
-      max-width: 430px;
-      max-height: 180px;
-      object-fit: contain;
-      object-position: center;
-      opacity: 1;
-    }
-
-    .signature-line {
-      border-top: 1px solid #94a3b8;
-      padding-top: 7px;
-      text-align: center;
-    }
-
-    .signature-line span {
-      display: block;
-      color: var(--muted);
-      font-size: 8px;
-      font-weight: 800;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    .signature-line strong {
-      display: block;
-      margin-top: 3px;
-      color: var(--ink);
-      font-size: 9.5px;
-      font-weight: 850;
-    }
-
-    .document-footer {
-      display: flex;
-      justify-content: space-between;
-      gap: 18px;
-      margin-top: 28px;
-      padding-top: 8px;
-      border-top: 1px solid var(--border);
-      color: #94a3b8;
-      font-size: 7.8px;
-    }
-
-    @media print {
-      @page {
-        size: A4;
-        margin: 0;
-      }
-
-      html,
-      body {
-        background: #fff;
-      }
-
-      .toolbar {
-        display: none !important;
-      }
-
-      .page {
-        width: 210mm;
-        min-height: 297mm;
-        margin: 0;
-        box-shadow: none;
-      }
-
-      .document-footer {
-        position: running(documentFooter);
-      }
-    }
-
-    @media screen and (max-width: 900px) {
-      .page {
-        width: calc(100% - 18px);
-        min-height: auto;
-        margin: 9px;
-        padding: 21px;
-      }
-
-      .header,
-      .details-grid,
-      .bottom-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .document-heading {
-        text-align: left;
-      }
-
-      .summary-strip {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .contact-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .table-wrap {
-        overflow-x: auto;
-      }
-
-      table {
-        min-width: 850px;
-      }
-
-      .signature-section {
-        gap: 22px;
-      }
-    }
-  </style>
+  <style>${documentCss(
+    settings.primaryColor,
+  )}</style>
 </head>
-
 <body>
   <div class="toolbar">
-    <button class="primary" onclick="window.print()">
-      Ispis / spremi kao PDF
-    </button>
-
-    <button class="secondary" onclick="window.close()">
-      Zatvori pregled
-    </button>
+    <button class="primary" onclick="window.print()">Ispis / spremi kao PDF</button>
+    <button class="secondary" onclick="window.close()">Zatvori</button>
   </div>
 
-  <main class="page">
+  <main class="page ${densityClass}">
     <header class="header">
       <div class="company">
-        ${logoHtml}
-
-        <div class="company-copy">
+        ${logo}
+        <div>
           <h1>${escapeHtml(settings.companyName)}</h1>
-
           ${
             settings.companySubtitle
-              ? `
-                <div class="company-subtitle">
-                  ${escapeHtml(settings.companySubtitle)}
-                </div>
-              `
+              ? `<div class="subtitle">${escapeHtml(
+                  settings.companySubtitle,
+                )}</div>`
               : ''
           }
-
-          ${
-            companyContactHtml
-              ? `
-                <div class="company-contact">
-                  ${companyContactHtml}
-                </div>
-              `
-              : ''
-          }
+          <div class="seller-lines">${companyLines}</div>
         </div>
       </div>
 
-      <div class="document-heading">
-        <div class="document-kicker">Komercijalni dokument</div>
+      <div class="heading">
+        <div class="kicker">Komercijalni dokument</div>
         <h2>PONUDA</h2>
-        <div class="offer-number">
-          ${escapeHtml(offer.offerNumber || 'Bez broja')}
-        </div>
+        <div class="number">${escapeHtml(
+          offer.offerNumber,
+        )}</div>
       </div>
     </header>
 
-    <section class="summary-strip">
-      <div class="summary-item">
-        <span>Datum ponude</span>
-        <strong>${escapeHtml(formatDate(offer.date))}</strong>
+    <section class="summary">
+      <div>
+        <span>Datum</span>
+        <strong>${formatDate(offer.date)}</strong>
       </div>
-
-      <div class="summary-item">
+      <div>
         <span>Vrijedi do</span>
-        <strong>${escapeHtml(
-          formatDate(offer.validUntil),
-        )}</strong>
+        <strong>${formatDate(offer.validUntil)}</strong>
       </div>
-
-      <div class="summary-item">
+      <div>
         <span>Odgovorna osoba</span>
         <strong>${escapeHtml(
           offer.responsiblePerson || '—',
         )}</strong>
       </div>
-
-      <div class="summary-item total">
-        <span>Ukupna vrijednost</span>
+      <div class="total">
+        <span>Ukupno</span>
         <strong>${formatCurrency(total)}</strong>
       </div>
     </section>
 
-    <section class="details-grid">
-      <article class="info-card">
-        <div class="info-card-title">
-          <h3>Podaci o kupcu</h3>
-
-          <span class="customer-type">
-            ${escapeHtml(offer.customerType)}
-          </span>
-        </div>
-
-        <p class="customer-name">
-          ${escapeHtml(offer.customerName || 'Kupac nije unesen')}
-        </p>
-
-        ${
-          customerContactRows
-            ? `
-              <div class="contact-grid">
-                ${customerContactRows}
-              </div>
-            `
-            : ''
-        }
+    <section class="party-grid">
+      <article class="card">
+        <h3>Kupac / naručitelj</h3>
+        <div class="party-name">${escapeHtml(
+          offer.customerName,
+        )}</div>
+        <div class="party-details">${customerLines}</div>
       </article>
 
-      <article class="info-card">
-        <div class="info-card-title">
-          <h3>Podaci o ponudi</h3>
+      <article class="card">
+        <h3>Podaci ponude</h3>
+        <div class="payment-row">
+          <span>Status</span>
+          <strong>${escapeHtml(offer.status)}</strong>
         </div>
-
-        <div class="offer-meta-list">
-          <div class="offer-meta-row">
-            <span>Status</span>
-            <strong>${escapeHtml(offer.status || 'Nacrt')}</strong>
-          </div>
-
-          <div class="offer-meta-row">
-            <span>Verzija</span>
-            <strong>${escapeHtml(offer.version || 1)}</strong>
-          </div>
-
-          <div class="offer-meta-row">
-            <span>Broj stavki</span>
-            <strong>${cleanItems.length}</strong>
-          </div>
-
-          <div class="offer-meta-row">
-            <span>Valjanost</span>
-            <strong>${escapeHtml(
-              formatDate(offer.validUntil),
-            )}</strong>
-          </div>
+        <div class="payment-row">
+          <span>Verzija</span>
+          <strong>${offer.version || 1}</strong>
+        </div>
+        <div class="payment-row">
+          <span>Broj stavki</span>
+          <strong>${items.length}</strong>
         </div>
       </article>
     </section>
 
     ${
       offer.description
-        ? `
-          <section class="description">
-            ${multilineHtml(offer.description)}
-          </section>
-        `
+        ? `<section class="description">${multilineHtml(
+            offer.description,
+          )}</section>`
         : ''
     }
 
-    <div class="section-heading">
-      <h3>Troškovnik i stavke ponude</h3>
-      <span>Svi iznosi izraženi su u eurima.</span>
-    </div>
+    <div class="section-title">Stavke ponude</div>
 
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th class="center">R.br.</th>
-            <th>Opis stavke</th>
+            <th>Opis</th>
             <th class="right">Kol.</th>
             <th class="center">JM</th>
             <th class="right">Cijena</th>
@@ -1370,56 +1002,42 @@ export function buildOfferPdfHtml(
             <th class="right">Ukupno</th>
           </tr>
         </thead>
-
-        <tbody>
-          ${itemRows}
-          ${emptyItemsHtml}
-        </tbody>
+        <tbody>${rows}</tbody>
       </table>
     </div>
 
-    <section class="bottom-grid">
+    <section class="bottom">
       <article class="terms-card">
         <h3>Uvjeti i napomene</h3>
-
-        <p>
-          ${multilineHtml(
-            offer.paymentTerms || 'Uvjeti plaćanja nisu navedeni.',
-          )}
-        </p>
-
-        <p class="validity">
-          ${escapeHtml(getValidityText(offer.validUntil))}
-        </p>
+        <p>${multilineHtml(
+          offer.paymentTerms ||
+            'Plaćanje prema dogovoru.',
+        )}</p>
+        <p>Ponuda vrijedi do ${formatDate(
+          offer.validUntil,
+        )}.</p>
       </article>
 
       <div class="totals">
         <div class="total-row">
-          <span>Vrijednost stavki</span>
+          <span>Vrijednost</span>
           <strong>${formatCurrency(base)}</strong>
         </div>
-
         ${
           discount > 0
-            ? `
-              <div class="total-row discount">
-                <span>Ukupni popust</span>
-                <strong>− ${formatCurrency(discount)}</strong>
-              </div>
-            `
+            ? `<div class="total-row"><span>Popust</span><strong>− ${formatCurrency(
+                discount,
+              )}</strong></div>`
             : ''
         }
-
         <div class="total-row">
           <span>Osnovica</span>
           <strong>${formatCurrency(net)}</strong>
         </div>
-
         <div class="total-row">
           <span>PDV</span>
           <strong>${formatCurrency(vat)}</strong>
         </div>
-
         <div class="total-row grand">
           <span>UKUPNO</span>
           <span>${formatCurrency(total)}</span>
@@ -1427,15 +1045,55 @@ export function buildOfferPdfHtml(
       </div>
     </section>
 
-    ${signatureHtml}
-    ${footerHtml}
+    ${
+      settings.showSignature
+        ? `
+          <section class="signature">
+            <div>
+              <div class="signature-space">
+                ${stamp}
+              </div>
+              <div class="signature-line">
+                <span>Za izvođača</span><br />
+                <strong>${escapeHtml(
+                  offer.responsiblePerson ||
+                    settings.companyName,
+                )}</strong>
+              </div>
+            </div>
+
+            <div>
+              <div class="signature-space"></div>
+              <div class="signature-line">
+                <span>Kupac / naručitelj</span><br />
+                <strong>Potpis</strong>
+              </div>
+            </div>
+          </section>
+        `
+        : ''
+    }
+
+    ${
+      settings.showFooter
+        ? `<footer><span>${escapeHtml(
+            settings.footerText,
+          )}</span><span>${escapeHtml(
+            offer.offerNumber,
+          )}</span></footer>`
+        : ''
+    }
   </main>
 
   <script>
     document.title = ${JSON.stringify(
-      `${getSafeFileName(
-        offer.offerNumber || 'Ponuda',
-      )}-${getSafeFileName(offer.customerName || 'Kupac')}`,
+      `${safeFileName(
+        offer.offerNumber ||
+          'Ponuda',
+      )}-${safeFileName(
+        offer.customerName ||
+          'Kupac',
+      )}`,
     )};
   </script>
 </body>
@@ -1444,125 +1102,51 @@ export function buildOfferPdfHtml(
 
 export function openOfferPdf(
   offer: OfferPdfData,
-  customSettings: Partial<OfferPdfSettings> = {},
+  customSettings:
+    Partial<OfferPdfSettings> = {},
 ) {
-  const previewWindow = window.open('', '_blank')
+  const previewWindow =
+    window.open('', '_blank')
 
   if (!previewWindow) {
     window.alert(
-      'Preglednik je blokirao novi prozor. Dopusti skočne prozore za FERSYS i pokušaj ponovno.',
+      'Preglednik je blokirao novi prozor. Dopusti skočne prozore za FERSYS.',
     )
     return
   }
 
-  previewWindow.document.open()
-  previewWindow.document.write(`<!doctype html>
-    <html lang="hr">
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>Priprema ponude...</title>
-        <style>
-          body {
-            min-height: 100vh;
-            margin: 0;
-            display: grid;
-            place-items: center;
-            background: #020617;
-            color: #e2e8f0;
-            font-family: Inter, system-ui, sans-serif;
-          }
-
-          div {
-            text-align: center;
-          }
-
-          strong {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 20px;
-          }
-
-          span {
-            color: #64748b;
-            font-size: 14px;
-          }
-        </style>
-      </head>
-      <body>
-        <div>
-          <strong>Priprema PDF ponude...</strong>
-          <span>Učitavamo podatke trenutno prijavljene tvrtke.</span>
-        </div>
-      </body>
-    </html>`)
-  previewWindow.document.close()
-  previewWindow.focus()
+  previewWindow.document.write(
+    '<p style="font-family:system-ui;padding:24px">Priprema ponude...</p>',
+  )
 
   void (async () => {
     try {
-      const companySettings =
-        await loadCurrentCompanyPdfSettings()
+      const company =
+        await getCompanySettings()
 
-      const html = buildOfferPdfHtml(
-        offer,
-        {
-          ...companySettings,
-          ...customSettings,
-        },
-      )
+      const html =
+        buildOfferPdfHtml(
+          offer,
+          {
+            ...companySettingsFromCurrent(
+              company,
+            ),
+            ...customSettings,
+          },
+        )
 
       previewWindow.document.open()
-      previewWindow.document.write(html)
+      previewWindow.document.write(
+        html,
+      )
       previewWindow.document.close()
-      previewWindow.focus()
     } catch (error) {
-      console.error(
-        'Podatke tvrtke nije moguće učitati za PDF ponude:',
-        error,
-      )
+      console.error(error)
 
       previewWindow.document.open()
-      previewWindow.document.write(`<!doctype html>
-        <html lang="hr">
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <title>PDF nije dostupan</title>
-            <style>
-              body {
-                min-height: 100vh;
-                margin: 0;
-                display: grid;
-                place-items: center;
-                padding: 24px;
-                background: #020617;
-                color: #fff;
-                font-family: Inter, system-ui, sans-serif;
-              }
-
-              main {
-                width: min(520px, 100%);
-                padding: 28px;
-                border: 1px solid rgba(239, 68, 68, 0.25);
-                border-radius: 20px;
-                background: #0f172a;
-                text-align: center;
-              }
-
-              p {
-                color: #94a3b8;
-                line-height: 1.6;
-              }
-            </style>
-          </head>
-          <body>
-            <main>
-              <h1>PDF ponude nije moguće izraditi</h1>
-              <p>Provjeri jesu li podaci tvrtke spremljeni u Postavkama i pokušaj ponovno.</p>
-            </main>
-          </body>
-        </html>`)
+      previewWindow.document.write(
+        '<p style="font-family:system-ui;padding:24px">PDF ponude nije moguće izraditi.</p>',
+      )
       previewWindow.document.close()
     }
   })()
