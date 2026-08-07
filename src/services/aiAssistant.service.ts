@@ -31,6 +31,36 @@ export type AiAssistantResponse = {
   proposedAction: AiProposedAction | null
 }
 
+const AI_TIMEOUT_MS = 30_000
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs = AI_TIMEOUT_MS,
+): Promise<T> {
+  let timeoutId = 0
+
+  const timeoutPromise =
+    new Promise<never>((_, reject) => {
+      timeoutId =
+        window.setTimeout(() => {
+          reject(
+            new Error(
+              'AI pomoćnik nije odgovorio unutar 30 sekundi. Provjeri je li Supabase Edge Function "dynamic-handler" deployana i pokušaj ponovno.',
+            ),
+          )
+        }, timeoutMs)
+    })
+
+  try {
+    return await Promise.race([
+      promise,
+      timeoutPromise,
+    ])
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
+}
+
 export async function askAiAssistant(
   message: string,
   conversation: AiAssistantMessage[],
@@ -39,27 +69,36 @@ export async function askAiAssistant(
 
   if (!cleanMessage) {
     throw new Error(
-      'Upišite ili izgovorite poruku.',
+      'Upiši ili izgovori poruku.',
     )
   }
 
-  const { data, error } =
-    await supabase.functions.invoke(
+  const invokePromise =
+    supabase.functions.invoke(
       'dynamic-handler',
       {
         body: {
           message: cleanMessage,
-          conversation: conversation.map(
-            (item) => ({
-              role: item.role,
-              content: item.content,
-            }),
-          ),
+          conversation:
+            conversation.map(
+              (item) => ({
+                role: item.role,
+                content: item.content,
+              }),
+            ),
         },
       },
     )
 
-  if (error) throw error
+  const { data, error } =
+    await withTimeout(invokePromise)
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        'Supabase AI funkcija nije dostupna.',
+    )
+  }
 
   if (
     !data ||
@@ -74,7 +113,8 @@ export async function askAiAssistant(
     message: data.message,
     proposedAction:
       data.proposedAction &&
-      typeof data.proposedAction === 'object'
+      typeof data.proposedAction ===
+        'object'
         ? (data.proposedAction as AiProposedAction)
         : null,
   }
@@ -83,8 +123,8 @@ export async function askAiAssistant(
 export async function confirmAiAction(
   action: AiProposedAction,
 ): Promise<AiAssistantResponse> {
-  const { data, error } =
-    await supabase.functions.invoke(
+  const invokePromise =
+    supabase.functions.invoke(
       'dynamic-handler',
       {
         body: {
@@ -93,14 +133,22 @@ export async function confirmAiAction(
       },
     )
 
-  if (error) throw error
+  const { data, error } =
+    await withTimeout(invokePromise)
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        'Radnju nije moguće izvršiti.',
+    )
+  }
 
   if (
     !data ||
     typeof data.message !== 'string'
   ) {
     throw new Error(
-      'Radnju nije moguće izvršiti.',
+      'AI nije vratio potvrdu izvršene radnje.',
     )
   }
 
@@ -139,32 +187,47 @@ function arrayBufferToBase64(
 export async function transcribeAiAudio(
   blob: Blob,
 ): Promise<string> {
-  const buffer = await blob.arrayBuffer()
+  const buffer =
+    await blob.arrayBuffer()
+
   const audioBase64 =
     arrayBufferToBase64(buffer)
 
-  const { data, error } =
-    await supabase.functions.invoke(
+  const invokePromise =
+    supabase.functions.invoke(
       'dynamic-handler',
       {
         body: {
           audioBase64,
           audioMimeType:
-            blob.type || 'audio/webm',
+            blob.type ||
+            'audio/webm',
         },
       },
     )
 
-  if (error) throw error
+  const { data, error } =
+    await withTimeout(
+      invokePromise,
+      45_000,
+    )
+
+  if (error) {
+    throw new Error(
+      error.message ||
+        'Govor nije moguće pretvoriti u tekst.',
+    )
+  }
 
   const transcript =
-    typeof data?.transcript === 'string'
+    typeof data?.transcript ===
+      'string'
       ? data.transcript.trim()
       : ''
 
   if (!transcript) {
     throw new Error(
-      'Govor nije moguće pretvoriti u tekst.',
+      'Nisam prepoznao govor. Pokušaj ponovno.',
     )
   }
 
