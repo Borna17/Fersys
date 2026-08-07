@@ -13,9 +13,7 @@ export type AiAssistantMessage = {
 
 export type AiActionType =
   | 'create_calendar_event'
-  | 'create_work_order'
-  | 'create_customer'
-  | 'create_offer'
+  | 'change_offer_status'
   | 'answer'
   | 'none'
 
@@ -40,7 +38,9 @@ export async function askAiAssistant(
   const cleanMessage = message.trim()
 
   if (!cleanMessage) {
-    throw new Error('Upišite ili izgovorite poruku.')
+    throw new Error(
+      'Upišite ili izgovorite poruku.',
+    )
   }
 
   const { data, error } =
@@ -59,9 +59,7 @@ export async function askAiAssistant(
       },
     )
 
-  if (error) {
-    throw error
-  }
+  if (error) throw error
 
   if (
     !data ||
@@ -76,8 +74,7 @@ export async function askAiAssistant(
     message: data.message,
     proposedAction:
       data.proposedAction &&
-      typeof data.proposedAction ===
-        'object'
+      typeof data.proposedAction === 'object'
         ? (data.proposedAction as AiProposedAction)
         : null,
   }
@@ -96,9 +93,7 @@ export async function confirmAiAction(
       },
     )
 
-  if (error) {
-    throw error
-  }
+  if (error) throw error
 
   if (
     !data ||
@@ -113,4 +108,65 @@ export async function confirmAiAction(
     message: data.message,
     proposedAction: null,
   }
+}
+
+function arrayBufferToBase64(
+  buffer: ArrayBuffer,
+) {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  let binary = ''
+
+  for (
+    let index = 0;
+    index < bytes.length;
+    index += chunkSize
+  ) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(
+        index,
+        Math.min(
+          index + chunkSize,
+          bytes.length,
+        ),
+      ),
+    )
+  }
+
+  return btoa(binary)
+}
+
+export async function transcribeAiAudio(
+  blob: Blob,
+): Promise<string> {
+  const buffer = await blob.arrayBuffer()
+  const audioBase64 =
+    arrayBufferToBase64(buffer)
+
+  const { data, error } =
+    await supabase.functions.invoke(
+      'dynamic-handler',
+      {
+        body: {
+          audioBase64,
+          audioMimeType:
+            blob.type || 'audio/webm',
+        },
+      },
+    )
+
+  if (error) throw error
+
+  const transcript =
+    typeof data?.transcript === 'string'
+      ? data.transcript.trim()
+      : ''
+
+  if (!transcript) {
+    throw new Error(
+      'Govor nije moguće pretvoriti u tekst.',
+    )
+  }
+
+  return transcript
 }

@@ -20,7 +20,7 @@ import { useLocation, useNavigate } from 'react-router'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/AuthProvider'
 import CompanyLogo from './CompanyLogo'
-import AIChatPanel from './ai/AIChatPanel'
+import AIChatPanel from '../ai/AIChatPanel'
 import { useCompanyBranding } from '../services/companyBranding.service'
 import {
   getEmployees,
