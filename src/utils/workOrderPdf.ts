@@ -1,102 +1,34 @@
+import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import type {
   WorkOrder,
   WorkOrderBranding,
-  WorkOrderImage,
 } from '../types/workOrder'
 
-type RGB = [number, number, number]
-
-type Density = {
-  body: number
-  small: number
-  rowHeight: number
-  sectionGap: number
-  descriptionLine: number
+function escapeHtml(
+  value:
+    | string
+    | number
+    | null
+    | undefined,
+) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;')
 }
 
-function getDensity(
-  order: WorkOrder,
-): Density {
-  const itemCount =
-    order.materials.length
-
-  const descriptionLength =
-    (
-      order.title +
-      order.description
-    ).length
-
-  if (
-    itemCount >= 11 ||
-    descriptionLength > 850
-  ) {
-    return {
-      body: 7.2,
-      small: 6.3,
-      rowHeight: 4.5,
-      sectionGap: 4,
-      descriptionLine: 3.4,
-    }
-  }
-
-  if (
-    itemCount >= 7 ||
-    descriptionLength > 500
-  ) {
-    return {
-      body: 7.8,
-      small: 6.6,
-      rowHeight: 5,
-      sectionGap: 5,
-      descriptionLine: 3.7,
-    }
-  }
-
-  return {
-    body: 8.4,
-    small: 7,
-    rowHeight: 5.6,
-    sectionGap: 6,
-    descriptionLine: 4,
-  }
-}
-
-function hexToRgb(
-  hex: string,
-): RGB {
-  const clean =
-    hex.replace('#', '').trim()
-
-  const full =
-    clean.length === 3
-      ? clean
-          .split('')
-          .map(
-            (character) =>
-              character +
-              character,
-          )
-          .join('')
-      : clean
-          .padEnd(6, '0')
-          .slice(0, 6)
-
-  return [
-    Number.parseInt(
-      full.slice(0, 2),
-      16,
-    ) || 0,
-    Number.parseInt(
-      full.slice(2, 4),
-      16,
-    ) || 0,
-    Number.parseInt(
-      full.slice(4, 6),
-      16,
-    ) || 0,
-  ]
+function multilineHtml(
+  value: string,
+) {
+  return escapeHtml(value)
+    .replace(
+      /\r?\n/g,
+      '<br />',
+    )
 }
 
 function formatMoney(
@@ -147,227 +79,76 @@ function durationLabel(
   return `${rest} min`
 }
 
-function imageFormat(
-  dataUrl: string,
-): 'PNG' | 'JPEG' {
-  return dataUrl.startsWith(
-    'data:image/png',
-  )
-    ? 'PNG'
-    : 'JPEG'
-}
-
-function safeAddImage(
-  doc: jsPDF,
-  image: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
+function densityClass(
+  order: WorkOrder,
 ) {
-  if (!image) return
+  const itemCount =
+    order.materials.length
 
-  try {
-    const properties =
-      doc.getImageProperties(
-        image,
-      )
-
-    const ratio =
-      Math.min(
-        width /
-          properties.width,
-        height /
-          properties.height,
-      )
-
-    const renderWidth =
-      properties.width * ratio
-
-    const renderHeight =
-      properties.height * ratio
-
-    doc.addImage(
-      image,
-      imageFormat(image),
-      x +
-        (width -
-          renderWidth) /
-          2,
-      y +
-        (height -
-          renderHeight) /
-          2,
-      renderWidth,
-      renderHeight,
-    )
-  } catch {
-    // Ne prekidaj PDF zbog slike.
-  }
-}
-
-function addPageBackground(
-  doc: jsPDF,
-  branding: WorkOrderBranding,
-) {
-  const pageWidth =
-    doc.internal.pageSize.getWidth()
-
-  const pageHeight =
-    doc.internal.pageSize.getHeight()
-
-  doc.setFillColor(
-    ...hexToRgb(
-      branding.backgroundColor ||
-        '#FFFFFF',
-    ),
-  )
-
-  doc.rect(
-    0,
-    0,
-    pageWidth,
-    pageHeight,
-    'F',
-  )
-
-  doc.setFillColor(
-    ...hexToRgb(
-      branding.primaryColor,
-    ),
-  )
-
-  doc.rect(
-    0,
-    0,
-    pageWidth,
-    2.2,
-    'F',
-  )
+  const textLength =
+    (
+      order.title +
+      order.description
+    ).length
 
   if (
-    branding.watermarkText.trim()
+    itemCount >= 11 ||
+    textLength > 850
   ) {
-    doc.setTextColor(
-      238,
-      241,
-      246,
-    )
-
-    doc.setFontSize(28)
-
-    doc.text(
-      branding.watermarkText
-        .toUpperCase(),
-      pageWidth / 2,
-      pageHeight / 2,
-      {
-        align: 'center',
-        angle: 35,
-      },
-    )
+    return 'density-tight'
   }
+
+  if (
+    itemCount >= 7 ||
+    textLength > 500
+  ) {
+    return 'density-compact'
+  }
+
+  return 'density-normal'
 }
 
-function addHeader(
-  doc: jsPDF,
+function safeFileName(
+  value: string,
+) {
+  return value
+    .trim()
+    .replace(
+      /[\\/:*?"<>|]+/g,
+      '-',
+    )
+    .replace(/\s+/g, '-')
+}
+
+export function buildWorkOrderPdfHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const pageWidth =
-    doc.internal.pageSize.getWidth()
-
-  const primary =
-    hexToRgb(
-      branding.primaryColor,
-    )
-
-  const ink =
-    hexToRgb(
-      branding.textColor ||
-        '#0F172A',
-    )
-
-  const muted: RGB =
-    [83, 102, 128]
-
-  const border =
-    hexToRgb(
-      branding.borderColor ||
-        '#D8E0EB',
-    )
-
-  const top = 8
-
-  if (
+  const logo =
     branding.showLogo &&
     branding.logo
-  ) {
-    doc.setDrawColor(...border)
-    doc.roundedRect(
-      12,
-      top,
-      27,
-      23,
-      2.5,
-      2.5,
-      'S',
-    )
+      ? `<img class="logo" src="${escapeHtml(
+          branding.logo,
+        )}" alt="Logo" />`
+      : `<div class="logo-fallback">${escapeHtml(
+          (
+            branding.companyName ||
+            'FT'
+          )
+            .slice(0, 2)
+            .toUpperCase(),
+        )}</div>`
 
-    safeAddImage(
-      doc,
-      branding.logo,
-      14,
-      top + 2,
-      23,
-      19,
-    )
-  }
-
-  const companyX =
-    branding.showLogo &&
-    branding.logo
-      ? 44
-      : 13
-
-  doc.setTextColor(...ink)
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(13)
-
-  doc.text(
-    branding.companyName ||
-      'Naziv tvrtke',
-    companyX,
-    14,
-    {
-      maxWidth: 92,
-    },
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-
-  doc.setFontSize(7.2)
-  doc.setTextColor(...muted)
-
-  const contactLines = [
+  const companyLines = [
     branding.companyAddress,
-    [
-      branding.showCompanyOib &&
-      branding.companyOib
-        ? `OIB: ${branding.companyOib}`
-        : '',
-      branding.showCompanyWebsite
-        ? branding.companyWebsite
-        : '',
-    ]
-      .filter(Boolean)
-      .join(' • '),
+    branding.showCompanyOib &&
+    branding.companyOib
+      ? `OIB: ${branding.companyOib}`
+      : '',
+    branding.showCompanyIban &&
+    branding.companyIban
+      ? `IBAN: ${branding.companyIban}`
+      : '',
     [
       branding.showCompanyPhone
         ? branding.companyPhone
@@ -378,1295 +159,1144 @@ function addHeader(
     ]
       .filter(Boolean)
       .join(' • '),
-  ].filter(Boolean)
-
-  let lineY = 18.5
-
-  contactLines
-    .slice(0, 3)
-    .forEach((line) => {
-      doc.text(
-        String(line),
-        companyX,
-        lineY,
-        {
-          maxWidth: 92,
-        },
-      )
-
-      lineY += 4
-    })
-
-  doc.setTextColor(...primary)
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(8)
-
-  doc.text(
-    'RADNI NALOG',
-    pageWidth - 13,
-    12,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.setTextColor(...ink)
-  doc.setFontSize(13)
-
-  doc.text(
-    order.orderNumber,
-    pageWidth - 13,
-    19,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setTextColor(...muted)
-  doc.setFontSize(7.2)
-
-  doc.text(
-    `Datum: ${formatDate(
-      order.date,
-    )}`,
-    pageWidth - 13,
-    25,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.setDrawColor(...border)
-
-  doc.line(
-    12,
-    35,
-    pageWidth - 12,
-    35,
-  )
-
-  return 40
-}
-
-function addMiniContinuationHeader(
-  doc: jsPDF,
-  order: WorkOrder,
-  branding: WorkOrderBranding,
-) {
-  const pageWidth =
-    doc.internal.pageSize.getWidth()
-
-  const primary =
-    hexToRgb(
-      branding.primaryColor,
-    )
-
-  doc.setTextColor(...primary)
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(8)
-
-  doc.text(
-    `RADNI NALOG · ${order.orderNumber}`,
-    12,
-    10,
-  )
-
-  doc.setTextColor(
-    100,
-    116,
-    139,
-  )
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setFontSize(7)
-
-  doc.text(
-    order.customerName,
-    pageWidth - 12,
-    10,
-    {
-      align: 'right',
-    },
-  )
-
-  return 15
-}
-
-function sectionTitle(
-  doc: jsPDF,
-  title: string,
-  y: number,
-  branding: WorkOrderBranding,
-) {
-  const primary =
-    hexToRgb(
-      branding.primaryColor,
-    )
-
-  doc.setFillColor(...primary)
-
-  doc.rect(
-    12,
-    y - 3.8,
-    1.4,
-    5.8,
-    'F',
-  )
-
-  doc.setTextColor(
-    15,
-    23,
-    42,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setFontSize(8.4)
-
-  doc.text(
-    title,
-    16,
-    y,
-  )
-
-  return y + 4.5
-}
-
-function addInfoBlock(
-  doc: jsPDF,
-  order: WorkOrder,
-  y: number,
-  branding: WorkOrderBranding,
-  density: Density,
-) {
-  const border =
-    hexToRgb(
-      branding.borderColor,
-    )
-
-  const muted: RGB =
-    [100, 116, 139]
-
-  const ink: RGB =
-    [15, 23, 42]
-
-  const leftX = 12
-  const rightX = 108
-  const boxWidth = 90
-  const boxHeight = 31
-
-  doc.setDrawColor(...border)
-  doc.setFillColor(
-    248,
-    250,
-    252,
-  )
-
-  doc.roundedRect(
-    leftX,
-    y,
-    boxWidth,
-    boxHeight,
-    2.5,
-    2.5,
-    'S',
-  )
-
-  doc.roundedRect(
-    rightX,
-    y,
-    boxWidth,
-    boxHeight,
-    2.5,
-    2.5,
-    'F',
-  )
-
-  doc.setFontSize(
-    density.small,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setTextColor(...muted)
-
-  doc.text(
-    'KUPAC / INVESTITOR',
-    leftX + 4,
-    y + 5,
-  )
-
-  doc.setTextColor(...ink)
-  doc.setFontSize(
-    density.body + 1,
-  )
-
-  doc.text(
-    order.customerName ||
-      '—',
-    leftX + 4,
-    y + 10,
-    {
-      maxWidth: 80,
-    },
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-
-  doc.setFontSize(
-    density.small + 0.3,
-  )
-
-  doc.setTextColor(
-    71,
-    85,
-    105,
-  )
-
-  const customerLines = [
-    order.address,
-    order.customerOib
-      ? `OIB: ${order.customerOib}`
+    branding.showCompanyWebsite
+      ? branding.companyWebsite
       : '',
-    [
-      order.customerPhone,
-      order.customerEmail,
-    ]
-      .filter(Boolean)
-      .join(' • '),
-  ].filter(Boolean)
-
-  let customerY = y + 15
-
-  customerLines
-    .slice(0, 3)
-    .forEach((line) => {
-      doc.text(
-        line,
-        leftX + 4,
-        customerY,
-        {
-          maxWidth: 80,
-        },
-      )
-
-      customerY += 4.2
-    })
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setTextColor(...muted)
-
-  doc.text(
-    'PODACI DOKUMENTA',
-    rightX + 4,
-    y + 5,
-  )
-
-  const meta = [
-    [
-      'Vrijeme',
-      [
-        order.arrivalTime ||
-          '—',
-        order.departureTime ||
-          '—',
-      ].join(' – '),
-    ],
-    [
-      'Trajanje',
-      durationLabel(
-        order.durationMinutes,
-      ),
-    ],
-    [
-      'Status',
-      `${order.status} · ${order.priority}`,
-    ],
-    [
-      'Radnici',
-      order.assignedWorkers
-        .join(', ') || '—',
-    ],
   ]
-
-  let metaY = y + 10
-
-  meta.forEach(
-    ([label, value]) => {
-      doc.setFont(
-        'helvetica',
-        'normal',
-      )
-      doc.setTextColor(...muted)
-      doc.text(
-        label,
-        rightX + 4,
-        metaY,
-      )
-
-      doc.setFont(
-        'helvetica',
-        'bold',
-      )
-      doc.setTextColor(...ink)
-      doc.text(
-        value,
-        rightX + 86,
-        metaY,
-        {
-          align: 'right',
-          maxWidth: 55,
-        },
-      )
-
-      metaY += 5
-    },
-  )
-
-  return y + boxHeight
-}
-
-function addDescription(
-  doc: jsPDF,
-  order: WorkOrder,
-  y: number,
-  branding: WorkOrderBranding,
-  density: Density,
-) {
-  y = sectionTitle(
-    doc,
-    'Opis radova',
-    y,
-    branding,
-  )
-
-  doc.setDrawColor(
-    ...hexToRgb(
-      branding.borderColor,
-    ),
-  )
-
-  const text =
-    [
-      order.title,
-      order.description,
-    ]
-      .filter(Boolean)
-      .join('\n')
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-
-  doc.setFontSize(
-    density.body,
-  )
-
-  doc.setTextColor(
-    51,
-    65,
-    85,
-  )
-
-  const lines =
-    doc.splitTextToSize(
-      text ||
-        'Nema dodatnog opisa.',
-      174,
+    .filter(Boolean)
+    .map(
+      (line) =>
+        `<div>${escapeHtml(
+          line,
+        )}</div>`,
     )
+    .join('')
 
-  const boxHeight =
-    Math.max(
-      12,
-      lines.length *
-        density.descriptionLine +
-        6,
-    )
-
-  doc.roundedRect(
-    12,
-    y,
-    186,
-    boxHeight,
-    2.2,
-    2.2,
-    'S',
-  )
-
-  doc.text(
-    lines,
-    16,
-    y + 5,
-  )
-
-  return y + boxHeight
-}
-
-function newContentPage(
-  doc: jsPDF,
-  order: WorkOrder,
-  branding: WorkOrderBranding,
-) {
-  doc.addPage()
-  addPageBackground(
-    doc,
-    branding,
-  )
-
-  return addMiniContinuationHeader(
-    doc,
-    order,
-    branding,
-  )
-}
-
-function addMaterials(
-  doc: jsPDF,
-  order: WorkOrder,
-  startY: number,
-  branding: WorkOrderBranding,
-  density: Density,
-) {
-  let y = sectionTitle(
-    doc,
-    'Utrošeni materijal',
-    startY,
-    branding,
-  )
-
-  const primary =
-    hexToRgb(
-      branding.primaryColor,
-    )
-
-  const border =
-    hexToRgb(
-      branding.borderColor,
-    )
-
-  function addTableHeader() {
-    doc.setFillColor(...primary)
-
-    doc.roundedRect(
-      12,
-      y,
-      186,
-      7,
-      1.5,
-      1.5,
-      'F',
-    )
-
-    doc.setTextColor(
-      255,
-      255,
-      255,
-    )
-
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
-
-    doc.setFontSize(
-      density.small,
-    )
-
-    doc.text(
-      'Materijal',
-      16,
-      y + 4.7,
-    )
-
-    doc.text(
-      'Količina',
-      129,
-      y + 4.7,
-      {
-        align: 'center',
-      },
-    )
-
-    doc.text(
-      'Cijena',
-      171,
-      y + 4.7,
-      {
-        align: 'right',
-      },
-    )
-
-    doc.text(
-      'Ukupno',
-      194,
-      y + 4.7,
-      {
-        align: 'right',
-      },
-    )
-
-    y += 8.3
-  }
-
-  addTableHeader()
-
-  if (
-    order.materials.length ===
-    0
-  ) {
-    doc.setTextColor(
-      100,
-      116,
-      139,
-    )
-
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-
-    doc.setFontSize(
-      density.body,
-    )
-
-    doc.text(
-      'Nema evidentiranog materijala.',
-      16,
-      y + 3.8,
-    )
-
-    y += 7
-  } else {
-    for (
-      let index = 0;
-      index <
-      order.materials.length;
-      index += 1
-    ) {
-      const material =
-        order.materials[index]
-
-      if (
-        y +
-          density.rowHeight >
-        250
-      ) {
-        y = newContentPage(
-          doc,
-          order,
-          branding,
-        )
-
-        y = sectionTitle(
-          doc,
-          'Utrošeni materijal · nastavak',
-          y,
-          branding,
-        )
-
-        addTableHeader()
-      }
-
-      if (
-        index % 2 === 1
-      ) {
-        doc.setFillColor(
-          249,
-          251,
-          253,
-        )
-
-        doc.rect(
-          12,
-          y - 1.5,
-          186,
-          density.rowHeight,
-          'F',
-        )
-      }
-
-      doc.setFont(
-        'helvetica',
-        'normal',
-      )
-
-      doc.setFontSize(
-        density.body,
-      )
-
-      doc.setTextColor(
-        30,
-        41,
-        59,
-      )
-
-      doc.text(
-        material.name,
-        16,
-        y + 2.1,
-        {
-          maxWidth: 92,
-        },
-      )
-
-      doc.text(
-        `${material.quantity} ${material.unit}`,
-        129,
-        y + 2.1,
-        {
-          align: 'center',
-        },
-      )
-
-      doc.text(
-        formatMoney(
-          material.unitPrice,
-        ),
-        171,
-        y + 2.1,
-        {
-          align: 'right',
-        },
-      )
-
-      doc.text(
-        formatMoney(
-          material.quantity *
-            material.unitPrice,
-        ),
-        194,
-        y + 2.1,
-        {
-          align: 'right',
-        },
-      )
-
-      doc.setDrawColor(...border)
-
-      doc.line(
-        12,
-        y +
-          density.rowHeight -
-          1.5,
-        198,
-        y +
-          density.rowHeight -
-          1.5,
-      )
-
-      y += density.rowHeight
-    }
-  }
-
-  return y
-}
-
-function addTotals(
-  doc: jsPDF,
-  order: WorkOrder,
-  y: number,
-  branding: WorkOrderBranding,
-  density: Density,
-) {
-  const pageWidth =
-    doc.internal.pageSize.getWidth()
-
-  if (y > 235) {
-    y = newContentPage(
-      doc,
-      order,
-      branding,
-    )
-  }
+  const materialRows =
+    order.materials.length
+      ? order.materials
+          .map(
+            (
+              material,
+            ) => `
+              <tr>
+                <td>${escapeHtml(
+                  material.name,
+                )}</td>
+                <td class="center">${escapeHtml(
+                  material.quantity,
+                )} ${escapeHtml(
+                  material.unit,
+                )}</td>
+                <td class="right">${formatMoney(
+                  material.unitPrice,
+                )}</td>
+                <td class="right strong">${formatMoney(
+                  material.quantity *
+                    material.unitPrice,
+                )}</td>
+              </tr>
+            `,
+          )
+          .join('')
+      : `
+        <tr>
+          <td colspan="4" class="empty">
+            Nema evidentiranog materijala.
+          </td>
+        </tr>
+      `
 
   const vatValue =
     order.totalPrice -
     order.materialPrice -
     order.labourPrice
 
-  const rows = [
-    [
-      'Materijal',
-      formatMoney(
-        order.materialPrice,
-      ),
-    ],
-    [
-      'Rad',
-      formatMoney(
-        order.labourPrice,
-      ),
-    ],
-    [
-      `PDV ${order.vatRate}%`,
-      formatMoney(vatValue),
-    ],
-  ]
-
-  const x = 128
-
-  doc.setFontSize(
-    density.body,
-  )
-
-  rows.forEach(
-    ([label, value]) => {
-      doc.setFont(
-        'helvetica',
-        'normal',
-      )
-
-      doc.setTextColor(
-        100,
-        116,
-        139,
-      )
-
-      doc.text(
-        label,
-        x,
-        y,
-      )
-
-      doc.setTextColor(
-        30,
-        41,
-        59,
-      )
-
-      doc.text(
-        value,
-        pageWidth - 14,
-        y,
-        {
-          align: 'right',
-        },
-      )
-
-      y += 4.6
-    },
-  )
-
-  doc.setTextColor(
-    ...hexToRgb(
-      branding.primaryColor,
-    ),
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setFontSize(
-    density.body + 2.8,
-  )
-
-  doc.text(
-    'UKUPNO',
-    x,
-    y + 1,
-  )
-
-  doc.text(
-    formatMoney(
-      order.totalPrice,
-    ),
-    pageWidth - 14,
-    y + 1,
-    {
-      align: 'right',
-    },
-  )
-
-  y += 8
-
-  if (order.priceNote) {
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-
-    doc.setFontSize(
-      density.small,
-    )
-
-    doc.setTextColor(
-      100,
-      116,
-      139,
-    )
-
-    const note =
-      doc.splitTextToSize(
-        `Napomena: ${order.priceNote}`,
-        174,
-      )
-
-    doc.text(
-      note,
-      16,
-      y,
-    )
-
-    y +=
-      note.length * 3.4 +
-      2
-  }
-
-  return y
-}
-
-function addSignatures(
-  doc: jsPDF,
-  order: WorkOrder,
-  y: number,
-  branding: WorkOrderBranding,
-  density: Density,
-) {
-  const requiredHeight = 43
-
-  if (
-    y + requiredHeight >
-    274
-  ) {
-    y = newContentPage(
-      doc,
-      order,
-      branding,
-    )
-  }
-
-  y = sectionTitle(
-    doc,
-    'Potpis i ovjera',
-    y,
-    branding,
-  )
-
-  const top = y + 1
-  const lineY =
-    top + 29
-
-  doc.setDrawColor(
-    148,
-    163,
-    184,
-  )
-
-  doc.line(
-    18,
-    lineY,
-    91,
-    lineY,
-  )
-
-  doc.line(
-    119,
-    lineY,
-    192,
-    lineY,
-  )
-
-  if (
+  const stamp =
     branding.showStamp &&
     branding.stamp
-  ) {
-    safeAddImage(
-      doc,
-      branding.stamp,
-      26,
-      top,
-      56,
-      25,
-    )
-  }
+      ? `<img class="stamp" src="${escapeHtml(
+          branding.stamp,
+        )}" alt="Pečat" />`
+      : ''
 
-  if (
+  const investorSignature =
     order.investorSignature
-  ) {
-    safeAddImage(
-      doc,
-      order.investorSignature,
-      128,
-      top,
-      55,
-      23,
-    )
-  }
+      ? `<img class="signature-image" src="${escapeHtml(
+          order.investorSignature,
+        )}" alt="Potpis investitora" />`
+      : ''
 
-  doc.setFontSize(
-    density.small,
-  )
+  return `
+    <article class="pdf-page ${densityClass(
+      order,
+    )}">
+      <div class="top-line"></div>
 
-  doc.setTextColor(
-    100,
-    116,
-    139,
-  )
+      <header class="header">
+        <div class="company">
+          ${logo}
 
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
+          <div class="company-copy">
+            <h1>${escapeHtml(
+              branding.companyName ||
+                'Naziv tvrtke',
+            )}</h1>
 
-  doc.text(
-    'Izvođač radova / pečat',
-    54.5,
-    lineY + 4,
-    {
-      align: 'center',
-    },
-  )
+            <div class="company-lines">
+              ${companyLines}
+            </div>
+          </div>
+        </div>
 
-  doc.setTextColor(
-    30,
-    41,
-    59,
-  )
+        <div class="document-heading">
+          <div class="kicker">
+            RADNI NALOG
+          </div>
 
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
+          <div class="document-number">
+            ${escapeHtml(
+              order.orderNumber,
+            )}
+          </div>
 
-  doc.text(
-    order.investorName ||
-      'Investitor',
-    155.5,
-    lineY + 4,
-    {
-      align: 'center',
-    },
-  )
+          <div class="document-date">
+            Datum:
+            ${escapeHtml(
+              formatDate(
+                order.date,
+              ),
+            )}
+          </div>
+        </div>
+      </header>
 
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
+      <section class="info-grid">
+        <article class="info-card">
+          <div class="eyebrow">
+            KUPAC / INVESTITOR
+          </div>
 
-  doc.setTextColor(
-    100,
-    116,
-    139,
-  )
+          <div class="customer-name">
+            ${escapeHtml(
+              order.customerName,
+            )}
+          </div>
 
-  doc.text(
-    'Potpis investitora',
-    155.5,
-    lineY + 8,
-    {
-      align: 'center',
-    },
-  )
+          ${
+            order.address
+              ? `<div class="info-line">${escapeHtml(
+                  order.address,
+                )}</div>`
+              : ''
+          }
 
-  return lineY + 10
+          ${
+            order.customerOib
+              ? `<div class="info-line">OIB: ${escapeHtml(
+                  order.customerOib,
+                )}</div>`
+              : ''
+          }
+
+          ${
+            order.customerPhone ||
+            order.customerEmail
+              ? `<div class="info-line">${escapeHtml(
+                  [
+                    order.customerPhone,
+                    order.customerEmail,
+                  ]
+                    .filter(Boolean)
+                    .join(' • '),
+                )}</div>`
+              : ''
+          }
+        </article>
+
+        <article class="info-card muted-card">
+          <div class="eyebrow">
+            PODACI DOKUMENTA
+          </div>
+
+          <div class="meta-row">
+            <span>Vrijeme</span>
+            <strong>${escapeHtml(
+              `${order.arrivalTime || '—'} – ${order.departureTime || '—'}`,
+            )}</strong>
+          </div>
+
+          <div class="meta-row">
+            <span>Trajanje</span>
+            <strong>${escapeHtml(
+              durationLabel(
+                order.durationMinutes,
+              ),
+            )}</strong>
+          </div>
+
+          <div class="meta-row">
+            <span>Status</span>
+            <strong>${escapeHtml(
+              order.status,
+            )}</strong>
+          </div>
+
+          <div class="meta-row">
+            <span>Radnici</span>
+            <strong>${escapeHtml(
+              order.assignedWorkers
+                .join(', ') ||
+                '—',
+            )}</strong>
+          </div>
+        </article>
+      </section>
+
+      <section class="section">
+        <h2>Opis radova</h2>
+
+        <div class="description-box">
+          ${
+            order.title
+              ? `<strong class="work-title">${escapeHtml(
+                  order.title,
+                )}</strong>`
+              : ''
+          }
+
+          ${
+            order.description
+              ? `<div class="normal-text">${multilineHtml(
+                  order.description,
+                )}</div>`
+              : `<div class="normal-text muted">Nema dodatnog opisa.</div>`
+          }
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Utrošeni materijal</h2>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Materijal</th>
+                <th class="center">
+                  Količina
+                </th>
+                <th class="right">
+                  Cijena
+                </th>
+                <th class="right">
+                  Ukupno
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              ${materialRows}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="totals-wrap">
+        <div class="totals">
+          <div class="total-row">
+            <span>Materijal</span>
+            <strong>${formatMoney(
+              order.materialPrice,
+            )}</strong>
+          </div>
+
+          <div class="total-row">
+            <span>Rad</span>
+            <strong>${formatMoney(
+              order.labourPrice,
+            )}</strong>
+          </div>
+
+          <div class="total-row">
+            <span>PDV ${escapeHtml(
+              order.vatRate,
+            )}%</span>
+            <strong>${formatMoney(
+              vatValue,
+            )}</strong>
+          </div>
+
+          <div class="grand-total">
+            <span>UKUPNO</span>
+            <strong>${formatMoney(
+              order.totalPrice,
+            )}</strong>
+          </div>
+        </div>
+      </section>
+
+      ${
+        order.priceNote
+          ? `
+            <div class="price-note">
+              <strong>Napomena:</strong>
+              ${multilineHtml(
+                order.priceNote,
+              )}
+            </div>
+          `
+          : ''
+      }
+
+      <section class="signature-section">
+        <h2>Potpis i ovjera</h2>
+
+        <div class="signature-grid">
+          <div class="signature-card">
+            <div class="signature-space">
+              ${stamp}
+            </div>
+
+            <div class="signature-line">
+              <strong>Izvođač radova</strong>
+              <span>Pečat / potpis</span>
+            </div>
+          </div>
+
+          <div class="signature-card">
+            <div class="signature-space">
+              ${investorSignature}
+            </div>
+
+            <div class="signature-line">
+              <strong>${escapeHtml(
+                order.investorName ||
+                  'Investitor',
+              )}</strong>
+              <span>Potpis investitora</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <span>${escapeHtml(
+          branding.footerText ||
+            '',
+        )}</span>
+
+        <span>${escapeHtml(
+          order.orderNumber,
+        )}</span>
+      </footer>
+    </article>
+  `
 }
 
-function addPhotoPages(
-  doc: jsPDF,
+function workOrderCss(
+  primary: string,
+) {
+  return `
+    * {
+      box-sizing: border-box;
+      letter-spacing: normal;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: #ffffff;
+      color: #334155;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      font-style: normal;
+      font-kerning: normal;
+      text-rendering: geometricPrecision;
+      -webkit-font-smoothing:
+        antialiased;
+    }
+
+    .pdf-page {
+      position: relative;
+      width: 794px;
+      min-height: 1123px;
+      padding: 42px 46px 38px;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .top-line {
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 8px;
+      background: ${primary};
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: start;
+      padding-bottom: 22px;
+      border-bottom:
+        1px solid #dbe3ee;
+    }
+
+    .company {
+      display: flex;
+      gap: 15px;
+      min-width: 0;
+    }
+
+    .logo,
+    .logo-fallback {
+      width: 72px;
+      height: 72px;
+      flex: 0 0 72px;
+    }
+
+    .logo {
+      object-fit: contain;
+    }
+
+    .logo-fallback {
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      background: ${primary};
+      color: #fff;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .company-copy h1 {
+      margin: 2px 0 0;
+      color: #0f172a;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      font-size: 26px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .company-lines {
+      margin-top: 8px;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .document-heading {
+      min-width: 185px;
+      text-align: right;
+    }
+
+    .kicker {
+      color: ${primary};
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+    }
+
+    .document-number {
+      margin-top: 7px;
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .document-date {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .info-card {
+      min-height: 130px;
+      padding: 16px 18px;
+      border:
+        1px solid #dbe3ee;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    .muted-card {
+      background: #f8fafc;
+    }
+
+    .eyebrow {
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+    }
+
+    .customer-name {
+      margin-top: 11px;
+      color: #0f172a;
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .info-line {
+      margin-top: 6px;
+      color: #475569;
+      font-size: 13px;
+      line-height: 1.35;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 5px 0;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .meta-row strong {
+      max-width: 62%;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: right;
+      letter-spacing: normal;
+    }
+
+    .section {
+      margin-top: 19px;
+    }
+
+    .section h2,
+    .signature-section > h2 {
+      position: relative;
+      margin: 0 0 10px;
+      padding-left: 15px;
+      color: #0f172a;
+      font-size: 16px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .section h2::before,
+    .signature-section > h2::before {
+      position: absolute;
+      top: -3px;
+      bottom: -3px;
+      left: 0;
+      width: 4px;
+      content: "";
+      background: ${primary};
+    }
+
+    .description-box {
+      padding: 13px 16px;
+      border:
+        1px solid #dbe3ee;
+      border-radius: 12px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .work-title {
+      display: block;
+      margin-bottom: 5px;
+      color: #1e293b;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .normal-text {
+      color: #334155;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      font-size: 13px;
+      line-height: 1.55;
+      font-weight: 400;
+      letter-spacing: normal;
+      word-spacing: normal;
+      white-space: normal;
+    }
+
+    .muted {
+      color: #94a3b8;
+    }
+
+    .table-wrap {
+      overflow: hidden;
+      border:
+        1px solid #dbe3ee;
+      border-radius: 11px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    th {
+      padding: 9px 10px;
+      background: ${primary};
+      color: #ffffff;
+      font-size: 11px;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: normal;
+      text-align: left;
+    }
+
+    th:nth-child(1) {
+      width: 55%;
+    }
+
+    th:nth-child(2) {
+      width: 15%;
+    }
+
+    th:nth-child(3) {
+      width: 15%;
+    }
+
+    th:nth-child(4) {
+      width: 15%;
+    }
+
+    td {
+      padding: 8px 10px;
+      border-bottom:
+        1px solid #e2e8f0;
+      color: #1e293b;
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 400;
+      letter-spacing: normal;
+      word-spacing: normal;
+      vertical-align: middle;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .right {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .strong {
+      font-weight: 700;
+    }
+
+    .empty {
+      padding: 14px;
+      color: #94a3b8;
+      text-align: center;
+    }
+
+    .totals-wrap {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 14px;
+    }
+
+    .totals {
+      width: 290px;
+    }
+
+    .total-row,
+    .grand-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      padding: 5px 2px;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .total-row strong {
+      color: #1e293b;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .grand-total {
+      margin-top: 2px;
+      color: ${primary};
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .grand-total strong {
+      font-weight: 700;
+    }
+
+    .price-note {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.4;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .signature-section {
+      margin-top: 22px;
+      break-inside: avoid;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns:
+        1fr 1fr;
+      gap: 70px;
+      margin-top: 18px;
+    }
+
+    .signature-space {
+      position: relative;
+      height: 62px;
+    }
+
+    .stamp,
+    .signature-image {
+      position: absolute;
+      left: 50%;
+      bottom: 5px;
+      max-width: 150px;
+      max-height: 58px;
+      object-fit: contain;
+      transform: translateX(-50%);
+    }
+
+    .signature-line {
+      border-top:
+        1px solid #94a3b8;
+      padding-top: 7px;
+      text-align: center;
+    }
+
+    .signature-line strong {
+      display: block;
+      color: #1e293b;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: normal;
+    }
+
+    .signature-line span {
+      display: block;
+      margin-top: 2px;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 18px;
+      padding-top: 7px;
+      border-top:
+        1px solid #e2e8f0;
+      color: #94a3b8;
+      font-size: 9px;
+      font-weight: 400;
+      letter-spacing: normal;
+    }
+
+    .density-compact {
+      padding-top: 36px;
+    }
+
+    .density-compact .header {
+      padding-bottom: 17px;
+    }
+
+    .density-compact .logo,
+    .density-compact .logo-fallback {
+      width: 62px;
+      height: 62px;
+      flex-basis: 62px;
+    }
+
+    .density-compact .info-grid {
+      margin-top: 15px;
+    }
+
+    .density-compact .info-card {
+      min-height: 112px;
+      padding: 13px 15px;
+    }
+
+    .density-compact .section {
+      margin-top: 14px;
+    }
+
+    .density-compact td {
+      padding-top: 6px;
+      padding-bottom: 6px;
+    }
+
+    .density-compact .signature-section {
+      margin-top: 16px;
+    }
+
+    .density-tight {
+      padding-top: 31px;
+    }
+
+    .density-tight .logo,
+    .density-tight .logo-fallback {
+      width: 54px;
+      height: 54px;
+      flex-basis: 54px;
+    }
+
+    .density-tight .company-copy h1 {
+      font-size: 22px;
+    }
+
+    .density-tight .header {
+      padding-bottom: 13px;
+    }
+
+    .density-tight .info-grid {
+      margin-top: 12px;
+      gap: 10px;
+    }
+
+    .density-tight .info-card {
+      min-height: 100px;
+      padding: 11px 13px;
+    }
+
+    .density-tight .section {
+      margin-top: 11px;
+    }
+
+    .density-tight .description-box {
+      padding: 9px 12px;
+    }
+
+    .density-tight td {
+      padding-top: 5px;
+      padding-bottom: 5px;
+      font-size: 11px;
+    }
+
+    .density-tight th {
+      padding-top: 7px;
+      padding-bottom: 7px;
+    }
+
+    .density-tight .signature-section {
+      margin-top: 12px;
+    }
+
+    .density-tight .signature-space {
+      height: 48px;
+    }
+  `
+}
+
+function buildDocument(
   order: WorkOrder,
   branding: WorkOrderBranding,
-  images: WorkOrderImage[],
 ) {
-  for (
-    let index = 0;
-    index < images.length;
-    index += 4
-  ) {
-    doc.addPage()
-    addPageBackground(
-      doc,
-      branding,
-    )
+  return `
+    <div
+      data-fersys-work-order
+      style="
+        position: fixed;
+        left: -100000px;
+        top: 0;
+        width: 794px;
+        background: white;
+        z-index: -1;
+      "
+    >
+      <style>
+        ${workOrderCss(
+          branding.primaryColor ||
+            '#2563EB',
+        )}
+      </style>
 
-    let y =
-      addMiniContinuationHeader(
-        doc,
+      ${buildWorkOrderPdfHtml(
         order,
         branding,
-      )
-
-    y = sectionTitle(
-      doc,
-      'Fotografije izvedenih radova',
-      y,
-      branding,
-    )
-
-    const group =
-      images.slice(
-        index,
-        index + 4,
-      )
-
-    const positions = [
-      [12, y + 2],
-      [106, y + 2],
-      [12, y + 122],
-      [106, y + 122],
-    ]
-
-    group.forEach(
-      (image, imageIndex) => {
-        const [
-          x,
-          photoY,
-        ] =
-          positions[imageIndex]
-
-        doc.setDrawColor(
-          ...hexToRgb(
-            branding.borderColor,
-          ),
-        )
-
-        doc.roundedRect(
-          x,
-          photoY,
-          92,
-          112,
-          2,
-          2,
-          'S',
-        )
-
-        safeAddImage(
-          doc,
-          image.dataUrl,
-          x + 2,
-          photoY + 2,
-          88,
-          103,
-        )
-
-        doc.setFontSize(6.5)
-
-        doc.setTextColor(
-          100,
-          116,
-          139,
-        )
-
-        doc.text(
-          image.name ||
-            `Fotografija ${
-              index +
-              imageIndex +
-              1
-            }`,
-          x + 3,
-          photoY + 109,
-          {
-            maxWidth: 85,
-          },
-        )
-      },
-    )
-  }
+      )}
+    </div>
+  `
 }
 
-function addFooters(
-  doc: jsPDF,
-  branding: WorkOrderBranding,
-) {
-  const totalPages =
-    doc.getNumberOfPages()
-
-  for (
-    let page = 1;
-    page <= totalPages;
-    page += 1
-  ) {
-    doc.setPage(page)
-
-    const pageWidth =
-      doc.internal.pageSize.getWidth()
-
-    const pageHeight =
-      doc.internal.pageSize.getHeight()
-
-    doc.setDrawColor(
-      220,
-      226,
-      234,
-    )
-
-    doc.line(
-      12,
-      pageHeight - 12,
-      pageWidth - 12,
-      pageHeight - 12,
-    )
-
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-
-    doc.setFontSize(6.5)
-
-    doc.setTextColor(
-      148,
-      163,
-      184,
-    )
-
-    doc.text(
-      branding.footerText ||
-        '',
-      12,
-      pageHeight - 7,
-      {
-        maxWidth: 140,
-      },
-    )
-
-    doc.text(
-      `Stranica ${page} / ${totalPages}`,
-      pageWidth - 12,
-      pageHeight - 7,
-      {
-        align: 'right',
-      },
-    )
-  }
-}
-
-export function createWorkOrderPdf(
+async function renderWorkOrderCanvas(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const doc = new jsPDF({
-    orientation:
-      'portrait',
-    unit: 'mm',
-    format: 'a4',
-    compress: true,
-  })
+  const wrapper =
+    document.createElement(
+      'div',
+    )
 
-  const density =
-    getDensity(order)
-
-  addPageBackground(
-    doc,
-    branding,
-  )
-
-  let y =
-    addHeader(
-      doc,
+  wrapper.innerHTML =
+    buildDocument(
       order,
       branding,
     )
 
-  y = addInfoBlock(
-    doc,
-    order,
-    y,
-    branding,
-    density,
-  )
+  const target =
+    wrapper.firstElementChild as
+      | HTMLElement
+      | null
 
-  y += density.sectionGap
-
-  y = addDescription(
-    doc,
-    order,
-    y,
-    branding,
-    density,
-  )
-
-  y += density.sectionGap
-
-  if (y > 228) {
-    y = newContentPage(
-      doc,
-      order,
-      branding,
+  if (!target) {
+    throw new Error(
+      'PDF dokument nije moguće pripremiti.',
     )
   }
 
-  y = addMaterials(
-    doc,
-    order,
-    y,
-    branding,
-    density,
+  document.body.appendChild(
+    target,
   )
 
-  y += 5
+  try {
+    await document.fonts?.ready
 
-  y = addTotals(
-    doc,
-    order,
-    y,
-    branding,
-    density,
-  )
+    const images =
+      Array.from(
+        target.querySelectorAll(
+          'img',
+        ),
+      )
 
-  y += 2
+    await Promise.all(
+      images.map(
+        (image) =>
+          new Promise<void>(
+            (resolve) => {
+              if (
+                image.complete
+              ) {
+                resolve()
+                return
+              }
 
-  addSignatures(
-    doc,
-    order,
-    y,
-    branding,
-    density,
-  )
+              image.onload =
+                () => resolve()
 
-  if (
-    order.images.length > 0
+              image.onerror =
+                () => resolve()
+            },
+          ),
+      ),
+    )
+
+    return await html2canvas(
+      target.querySelector(
+        '.pdf-page',
+      ) as HTMLElement,
+      {
+        scale: 2,
+        backgroundColor:
+          '#ffffff',
+        useCORS: true,
+        logging: false,
+      },
+    )
+  } finally {
+    target.remove()
+  }
+}
+
+function canvasToPdf(
+  canvas: HTMLCanvasElement,
+) {
+  const doc =
+    new jsPDF({
+      orientation:
+        'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    })
+
+  const pageWidth =
+    210
+
+  const pageHeight =
+    297
+
+  const sourcePageHeight =
+    Math.floor(
+      canvas.width *
+        (pageHeight /
+          pageWidth),
+    )
+
+  let sourceY = 0
+  let pageIndex = 0
+
+  while (
+    sourceY <
+    canvas.height
   ) {
-    addPhotoPages(
-      doc,
-      order,
-      branding,
-      order.images,
-    )
-  }
+    const sliceHeight =
+      Math.min(
+        sourcePageHeight,
+        canvas.height -
+          sourceY,
+      )
 
-  addFooters(
-    doc,
-    branding,
-  )
+    const pageCanvas =
+      document.createElement(
+        'canvas',
+      )
+
+    pageCanvas.width =
+      canvas.width
+
+    pageCanvas.height =
+      sourcePageHeight
+
+    const context =
+      pageCanvas.getContext(
+        '2d',
+      )
+
+    if (!context) {
+      throw new Error(
+        'PDF stranicu nije moguće pripremiti.',
+      )
+    }
+
+    context.fillStyle =
+      '#ffffff'
+
+    context.fillRect(
+      0,
+      0,
+      pageCanvas.width,
+      pageCanvas.height,
+    )
+
+    context.drawImage(
+      canvas,
+      0,
+      sourceY,
+      canvas.width,
+      sliceHeight,
+      0,
+      0,
+      canvas.width,
+      sliceHeight,
+    )
+
+    if (pageIndex > 0) {
+      doc.addPage()
+    }
+
+    const imageData =
+      pageCanvas.toDataURL(
+        'image/jpeg',
+        0.96,
+      )
+
+    doc.addImage(
+      imageData,
+      'JPEG',
+      0,
+      0,
+      pageWidth,
+      pageHeight,
+      undefined,
+      'FAST',
+    )
+
+    sourceY +=
+      sourcePageHeight
+
+    pageIndex += 1
+  }
 
   return doc
 }
 
-export function getWorkOrderPdfBlobUrl(
+export async function createWorkOrderPdf(
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+) {
+  const canvas =
+    await renderWorkOrderCanvas(
+      order,
+      branding,
+    )
+
+  return canvasToPdf(
+    canvas,
+  )
+}
+
+export async function getWorkOrderPdfBlobUrl(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
   const doc =
-    createWorkOrderPdf(
+    await createWorkOrderPdf(
       order,
       branding,
     )
@@ -1676,17 +1306,21 @@ export function getWorkOrderPdfBlobUrl(
   )
 }
 
-export function downloadWorkOrderPdf(
+export async function downloadWorkOrderPdf(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
   const doc =
-    createWorkOrderPdf(
+    await createWorkOrderPdf(
       order,
       branding,
     )
 
   doc.save(
-    `${order.orderNumber}-${order.customerName}.pdf`,
+    `${safeFileName(
+      order.orderNumber,
+    )}-${safeFileName(
+      order.customerName,
+    )}.pdf`,
   )
 }

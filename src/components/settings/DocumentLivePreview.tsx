@@ -510,23 +510,50 @@ export default function DocumentLivePreview({
         settings,
       )
 
-    const url =
-      getWorkOrderPdfBlobUrl(
-        order,
-        branding,
-      )
+    let disposed =
+      false
 
-    setWorkOrderUrl(
-      String(url),
-    )
+    let currentUrl = ''
+
+    void (async () => {
+      try {
+        const url =
+          await getWorkOrderPdfBlobUrl(
+            order,
+            branding,
+          )
+
+        currentUrl =
+          String(url)
+
+        if (!disposed) {
+          setWorkOrderUrl(
+            currentUrl,
+          )
+        }
+      } catch (error) {
+        console.error(
+          'Preview radnog naloga nije moguće generirati:',
+          error,
+        )
+
+        if (!disposed) {
+          setWorkOrderUrl('')
+        }
+      }
+    })()
 
     return () => {
-      try {
-        URL.revokeObjectURL(
-          String(url),
-        )
-      } catch {
-        // ignore
+      disposed = true
+
+      if (currentUrl) {
+        try {
+          URL.revokeObjectURL(
+            currentUrl,
+          )
+        } catch {
+          // ignore
+        }
       }
     }
   }, [settings])

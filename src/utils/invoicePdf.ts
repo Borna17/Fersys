@@ -31,7 +31,11 @@ function documentCss(
       --soft: color-mix(in srgb, var(--primary) 8%, white);
     }
 
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+      letter-spacing: normal;
+      word-spacing: normal;
+    }
 
     html, body {
       margin: 0;
