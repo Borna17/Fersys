@@ -11,6 +11,7 @@ import AdminLayout from '../admin/AdminLayout'
 import { AdminDashboardPage } from '../admin/AdminDashboardPage'
 import { AdminCompaniesPage } from '../admin/AdminCompaniesPage'
 import { AdminCompanyDetailsPage } from '../admin/AdminCompanyDetailsPage'
+import { AdminEmailCenterPage } from '../admin/AdminEmailCenterPage'
 import { AdminSupportPage } from '../admin/AdminSupportPage'
 import type { PermissionKey } from '../auth/permissions'
 import FersysLoader from '../components/FersysLoader'
@@ -357,6 +358,7 @@ function RouterContent() {
           path="/admin/companies/:companyId"
           element={<AdminCompanyDetailsPage />}
         />
+        <Route path="/admin/email" element={<AdminEmailCenterPage />} />
         <Route path="/admin/support" element={<AdminSupportPage />} />
       </Route>
 

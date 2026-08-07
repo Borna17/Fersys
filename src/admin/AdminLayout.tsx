@@ -5,6 +5,7 @@ import {
   Headphones,
   LayoutDashboard,
   LogOut,
+  Mail,
   ShieldCheck,
 } from 'lucide-react'
 import {
@@ -27,6 +28,11 @@ const items = [
     icon: Building2,
   },
   {
+    name: 'E-mail centar',
+    path: '/admin/email',
+    icon: Mail,
+  },
+  {
     name: 'Podrška',
     path: '/admin/support',
     icon: Headphones,
@@ -38,6 +44,7 @@ export default function AdminLayout() {
 
   async function signOut() {
     await supabase.auth.signOut()
+
     navigate('/login', {
       replace: true,
     })
@@ -48,11 +55,11 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex min-h-dvh bg-slate-950 text-white">
-      <aside className="hidden w-72 shrink-0 border-r border-slate-800 bg-slate-900 md:flex md:flex-col">
-        <div className="flex h-24 items-center gap-3 border-b border-slate-800 px-6">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-600">
-            <ShieldCheck size={24} />
+    <div className="flex min-h-screen bg-slate-950 text-white">
+      <aside className="hidden w-72 shrink-0 flex-col border-r border-slate-800 bg-slate-950 md:flex">
+        <div className="flex items-center gap-3 border-b border-slate-800 p-5">
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-600 text-white">
+            <ShieldCheck size={22} />
           </div>
 
           <div>
