@@ -2,10 +2,12 @@ import {
   useEffect,
   useState,
 } from 'react'
+
 import {
   useNavigate,
   useParams,
 } from 'react-router'
+
 import {
   ArrowLeft,
   CalendarDays,
@@ -18,42 +20,71 @@ import {
   UserRound,
 } from 'lucide-react'
 
-import { useAuth } from '../auth/AuthProvider'
+import {
+  useAuth,
+} from '../auth/AuthProvider'
+
 import FersysLoader from '../components/FersysLoader'
+
 import {
   getWorkOrderById,
   redactWorkOrderPrices,
   type CloudWorkOrder,
 } from '../services/workOrders.service'
-import { downloadWorkOrderPdf } from '../utils/workOrderPdf'
-import { readBranding } from '../utils/workOrderStorage'
+
+import {
+  getWorkOrderBrandingFromCompanySettings,
+} from '../services/workOrderBranding.service'
+
+import {
+  downloadWorkOrderPdf,
+} from '../utils/workOrderPdf'
 
 function money(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(value)
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      style: 'currency',
+      currency: 'EUR',
+    },
+  ).format(value)
 }
 
-function formatDate(value: string) {
+function formatDate(
+  value: string,
+) {
   if (!value) {
     return '—'
   }
 
-  const parsedDate = new Date(`${value}T00:00:00`)
+  const parsedDate =
+    new Date(
+      `${value}T00:00:00`,
+    )
 
-  if (Number.isNaN(parsedDate.getTime())) {
+  if (
+    Number.isNaN(
+      parsedDate.getTime(),
+    )
+  ) {
     return value
   }
 
-  return new Intl.DateTimeFormat('hr-HR').format(
-    parsedDate,
-  )
+  return new Intl.DateTimeFormat(
+    'hr-HR',
+  ).format(parsedDate)
 }
 
-function durationText(minutes: number) {
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
+function durationText(
+  minutes: number,
+) {
+  const hours =
+    Math.floor(
+      minutes / 60,
+    )
+
+  const rest =
+    minutes % 60
 
   if (hours && rest) {
     return `${hours} h ${rest} min`
@@ -69,19 +100,27 @@ function durationText(minutes: number) {
 function getStatusClassName(
   status: CloudWorkOrder['status'],
 ) {
-  if (status === 'Završen') {
+  if (
+    status === 'Završen'
+  ) {
     return 'bg-emerald-500/15 text-emerald-400'
   }
 
-  if (status === 'U tijeku') {
+  if (
+    status === 'U tijeku'
+  ) {
     return 'bg-violet-500/15 text-violet-400'
   }
 
-  if (status === 'Zakazan') {
+  if (
+    status === 'Zakazan'
+  ) {
     return 'bg-amber-500/15 text-amber-400'
   }
 
-  if (status === 'Otkazan') {
+  if (
+    status === 'Otkazan'
+  ) {
     return 'bg-red-500/15 text-red-400'
   }
 
@@ -89,17 +128,24 @@ function getStatusClassName(
 }
 
 function getPriorityClassName(
-  priority: CloudWorkOrder['priority'],
+  priority:
+    CloudWorkOrder['priority'],
 ) {
-  if (priority === 'Hitno') {
+  if (
+    priority === 'Hitno'
+  ) {
     return 'bg-red-500/15 text-red-400'
   }
 
-  if (priority === 'Visok') {
+  if (
+    priority === 'Visok'
+  ) {
     return 'bg-orange-500/15 text-orange-400'
   }
 
-  if (priority === 'Nizak') {
+  if (
+    priority === 'Nizak'
+  ) {
     return 'bg-slate-700 text-slate-300'
   }
 
@@ -107,24 +153,42 @@ function getPriorityClassName(
 }
 
 export function WorkOrderDetailsPage() {
-  const navigate = useNavigate()
-  const { can } = useAuth()
+  const navigate =
+    useNavigate()
+
+  const { can } =
+    useAuth()
 
   const canViewPrices =
-    can('workOrders.viewPrices')
-  const { id } = useParams()
+    can(
+      'workOrders.viewPrices',
+    )
 
-  const [order, setOrder] =
-    useState<CloudWorkOrder | null>(null)
+  const { id } =
+    useParams()
 
-  const [isLoading, setIsLoading] =
-    useState(true)
+  const [
+    order,
+    setOrder,
+  ] =
+    useState<CloudWorkOrder | null>(
+      null,
+    )
 
-  const [loadError, setLoadError] =
-    useState('')
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true)
 
-  const [isDownloading, setIsDownloading] =
-    useState(false)
+  const [
+    loadError,
+    setLoadError,
+  ] = useState('')
+
+  const [
+    isDownloading,
+    setIsDownloading,
+  ] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -140,10 +204,14 @@ export function WorkOrderDetailsPage() {
         setLoadError('')
 
         const savedOrder =
-          await getWorkOrderById(id)
+          await getWorkOrderById(
+            id,
+          )
 
         if (!cancelled) {
-          setOrder(savedOrder)
+          setOrder(
+            savedOrder,
+          )
         }
       } catch (error) {
         if (!cancelled) {
@@ -167,21 +235,34 @@ export function WorkOrderDetailsPage() {
     }
   }, [id])
 
-  function handleDownloadPdf() {
-    if (!order) {
+  async function handleDownloadPdf() {
+    if (
+      !order ||
+      isDownloading
+    ) {
       return
     }
 
     try {
       setIsDownloading(true)
 
+      const branding =
+        await getWorkOrderBrandingFromCompanySettings()
+
       downloadWorkOrderPdf(
         canViewPrices
           ? order
-          : redactWorkOrderPrices(order),
-        readBranding(),
+          : redactWorkOrderPrices(
+              order,
+            ),
+        branding,
       )
     } catch (error) {
+      console.error(
+        'Izrada PDF-a radnog naloga nije uspjela:',
+        error,
+      )
+
       alert(
         error instanceof Error
           ? error.message
@@ -194,7 +275,9 @@ export function WorkOrderDetailsPage() {
 
   if (isLoading) {
     return (
-      <FersysLoader text="Učitavanje radnog naloga..." />
+      <FersysLoader
+        text="Učitavanje radnog naloga..."
+      />
     )
   }
 
@@ -208,7 +291,8 @@ export function WorkOrderDetailsPage() {
           />
 
           <h1 className="mt-5 text-2xl font-bold text-white">
-            Radni nalog nije moguće učitati
+            Radni nalog nije
+            moguće učitati
           </h1>
 
           <p className="mt-3 break-words text-sm leading-6 text-red-300">
@@ -233,17 +317,21 @@ export function WorkOrderDetailsPage() {
     return (
       <div className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center">
         <h1 className="text-2xl font-bold text-white">
-          Radni nalog nije pronađen
+          Radni nalog nije
+          pronađen
         </h1>
 
         <p className="mt-3 text-sm text-slate-400">
-          Nalog ne postoji ili više nije dostupan.
+          Nalog ne postoji ili
+          više nije dostupan.
         </p>
 
         <button
           type="button"
           onClick={() =>
-            navigate('/work-orders')
+            navigate(
+              '/work-orders',
+            )
           }
           className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white"
         >
@@ -265,17 +353,25 @@ export function WorkOrderDetailsPage() {
           <button
             type="button"
             onClick={() =>
-              navigate('/work-orders')
+              navigate(
+                '/work-orders',
+              )
             }
             className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white"
           >
-            <ArrowLeft size={18} />
-            Povratak na radne naloge
+            <ArrowLeft
+              size={18}
+            />
+
+            Povratak na radne
+            naloge
           </button>
 
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="text-3xl font-extrabold text-white">
-              {order.orderNumber}
+              {
+                order.orderNumber
+              }
             </h1>
 
             <span
@@ -291,7 +387,9 @@ export function WorkOrderDetailsPage() {
                 order.priority,
               )}`}
             >
-              {order.priority}
+              {
+                order.priority
+              }
             </span>
           </div>
 
@@ -302,11 +400,17 @@ export function WorkOrderDetailsPage() {
 
         <button
           type="button"
-          disabled={isDownloading}
-          onClick={handleDownloadPdf}
+          disabled={
+            isDownloading
+          }
+          onClick={
+            handleDownloadPdf
+          }
           className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Download size={19} />
+          <Download
+            size={19}
+          />
 
           {isDownloading
             ? 'Izrada PDF-a...'
@@ -323,35 +427,63 @@ export function WorkOrderDetailsPage() {
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="Kupac"
-                value={order.customerName}
+                value={
+                  order.customerName
+                }
               />
 
               <Info
-                icon={<MapPin size={18} />}
+                icon={
+                  <MapPin
+                    size={18}
+                  />
+                }
                 label="Adresa"
-                value={order.address}
+                value={
+                  order.address
+                }
               />
 
               <Info
-                icon={<CalendarDays size={18} />}
+                icon={
+                  <CalendarDays
+                    size={18}
+                  />
+                }
                 label="Datum"
-                value={formatDate(order.date)}
+                value={formatDate(
+                  order.date,
+                )}
               />
 
               <Info
-                icon={<Clock3 size={18} />}
+                icon={
+                  <Clock3
+                    size={18}
+                  />
+                }
                 label="Dolazak / odlazak"
                 value={`${
-                  order.arrivalTime || '—'
+                  order.arrivalTime ||
+                  '—'
                 } – ${
-                  order.departureTime || '—'
+                  order.departureTime ||
+                  '—'
                 }`}
               />
 
               <Info
-                icon={<Clock3 size={18} />}
+                icon={
+                  <Clock3
+                    size={18}
+                  />
+                }
                 label="Trajanje"
                 value={durationText(
                   order.durationMinutes,
@@ -359,11 +491,20 @@ export function WorkOrderDetailsPage() {
               />
 
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="Radnici"
                 value={
-                  order.assignedWorkers.length > 0
-                    ? order.assignedWorkers.join(', ')
+                  order
+                    .assignedWorkers
+                    .length >
+                  0
+                    ? order.assignedWorkers.join(
+                        ', ',
+                      )
                     : 'Nije uneseno'
                 }
               />
@@ -372,12 +513,17 @@ export function WorkOrderDetailsPage() {
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
             <h2 className="text-xl font-bold text-white">
-              Kontaktni podaci kupca
+              Kontaktni podaci
+              kupca
             </h2>
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="Kontakt osoba"
                 value={
                   order.customerContactPerson ||
@@ -386,21 +532,39 @@ export function WorkOrderDetailsPage() {
               />
 
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="OIB"
-                value={order.customerOib}
+                value={
+                  order.customerOib
+                }
               />
 
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="Telefon"
-                value={order.customerPhone}
+                value={
+                  order.customerPhone
+                }
               />
 
               <Info
-                icon={<UserRound size={18} />}
+                icon={
+                  <UserRound
+                    size={18}
+                  />
+                }
                 label="E-mail"
-                value={order.customerEmail}
+                value={
+                  order.customerEmail
+                }
               />
             </div>
           </div>
@@ -421,26 +585,40 @@ export function WorkOrderDetailsPage() {
               Materijal
             </h2>
 
-            {order.materials.length === 0 ? (
+            {order.materials
+              .length === 0 ? (
               <p className="mt-4 text-sm text-slate-500">
-                Nema evidentiranog materijala.
+                Nema
+                evidentiranog
+                materijala.
               </p>
             ) : (
               <div className="mt-5 space-y-3">
                 {order.materials.map(
-                  (material) => (
+                  (
+                    material,
+                  ) => (
                     <div
-                      key={material.id}
+                      key={
+                        material.id
+                      }
                       className="flex flex-col gap-3 rounded-xl bg-slate-800/70 p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <div>
                         <p className="font-semibold text-white">
-                          {material.name}
+                          {
+                            material.name
+                          }
                         </p>
 
                         <p className="mt-1 text-sm text-slate-400">
-                          {material.quantity}{' '}
-                          {material.unit} ×{' '}
+                          {
+                            material.quantity
+                          }{' '}
+                          {
+                            material.unit
+                          }{' '}
+                          ×{' '}
                           {money(
                             material.unitPrice,
                           )}
@@ -465,35 +643,54 @@ export function WorkOrderDetailsPage() {
               <FileImage className="text-violet-400" />
 
               <h2 className="text-xl font-bold text-white">
-                Fotografije ({order.images.length})
+                Fotografije (
+                {
+                  order.images
+                    .length
+                }
+                )
               </h2>
             </div>
 
-            {order.images.length === 0 ? (
+            {order.images
+              .length === 0 ? (
               <p className="mt-5 text-sm text-slate-500">
-                Fotografije nisu dodane.
+                Fotografije
+                nisu dodane.
               </p>
             ) : (
               <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3">
-                {order.images.map((image) => (
-                  <a
-                    key={image.id}
-                    href={image.dataUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800 transition hover:border-blue-500"
-                  >
-                    <img
-                      src={image.dataUrl}
-                      alt={image.name}
-                      className="aspect-square w-full object-cover"
-                    />
+                {order.images.map(
+                  (image) => (
+                    <a
+                      key={
+                        image.id
+                      }
+                      href={
+                        image.dataUrl
+                      }
+                      target="_blank"
+                      rel="noreferrer"
+                      className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800 transition hover:border-blue-500"
+                    >
+                      <img
+                        src={
+                          image.dataUrl
+                        }
+                        alt={
+                          image.name
+                        }
+                        className="aspect-square w-full object-cover"
+                      />
 
-                    <p className="truncate px-3 py-2 text-xs text-slate-400">
-                      {image.name}
-                    </p>
-                  </a>
-                ))}
+                      <p className="truncate px-3 py-2 text-xs text-slate-400">
+                        {
+                          image.name
+                        }
+                      </p>
+                    </a>
+                  ),
+                )}
               </div>
             )}
           </div>
@@ -536,7 +733,9 @@ export function WorkOrderDetailsPage() {
                 label={`PDV ${order.vatRate}%`}
                 value={
                   canViewPrices
-                    ? money(vatValue)
+                    ? money(
+                        vatValue,
+                      )
                     : 'Skriveno'
                 }
               />
@@ -559,11 +758,14 @@ export function WorkOrderDetailsPage() {
             {order.priceNote && (
               <div className="mt-5 rounded-xl bg-slate-800/70 p-4">
                 <p className="text-xs font-semibold uppercase text-slate-500">
-                  Napomena uz cijenu
+                  Napomena uz
+                  cijenu
                 </p>
 
                 <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
-                  {order.priceNote}
+                  {
+                    order.priceNote
+                  }
                 </p>
               </div>
             )}
@@ -571,7 +773,8 @@ export function WorkOrderDetailsPage() {
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
             <h2 className="text-xl font-bold text-white">
-              Potpis investitora
+              Potpis
+              investitora
             </h2>
 
             <p className="mt-2 text-sm text-slate-400">
@@ -582,14 +785,17 @@ export function WorkOrderDetailsPage() {
             {order.investorSignature ? (
               <div className="mt-4 overflow-hidden rounded-xl bg-white">
                 <img
-                  src={order.investorSignature}
+                  src={
+                    order.investorSignature
+                  }
                   alt="Potpis investitora"
                   className="h-40 w-full object-contain"
                 />
               </div>
             ) : (
               <p className="mt-4 text-sm text-slate-500">
-                Potpis nije unesen.
+                Potpis nije
+                unesen.
               </p>
             )}
           </div>
@@ -605,11 +811,16 @@ export function WorkOrderDetailsPage() {
                 value={new Intl.DateTimeFormat(
                   'hr-HR',
                   {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
+                    dateStyle:
+                      'medium',
+
+                    timeStyle:
+                      'short',
                   },
                 ).format(
-                  new Date(order.createdAt),
+                  new Date(
+                    order.createdAt,
+                  ),
                 )}
               />
 
@@ -618,11 +829,16 @@ export function WorkOrderDetailsPage() {
                 value={new Intl.DateTimeFormat(
                   'hr-HR',
                   {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
+                    dateStyle:
+                      'medium',
+
+                    timeStyle:
+                      'short',
                   },
                 ).format(
-                  new Date(order.updatedAt),
+                  new Date(
+                    order.updatedAt,
+                  ),
                 )}
               />
             </div>
@@ -684,6 +900,7 @@ function Row({
       }`}
     >
       <span>{label}</span>
+
       <span className="text-right">
         {value}
       </span>
