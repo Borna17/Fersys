@@ -4,12 +4,14 @@ import {
   Gauge,
   LogOut,
   Plus,
+  ReceiptText,
   RotateCcw,
   Settings,
   UserPlus,
   Users,
   Wrench,
   X,
+  CarFront,
 } from 'lucide-react'
 import {
   useEffect,
@@ -26,6 +28,7 @@ import {
 
 import AiClientActionRunner from '../ai/AiClientActionRunner'
 import { useAuth } from '../auth/AuthProvider'
+import type { PermissionKey } from '../auth/permissions'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import TrialBanner from '../components/subscription/TrialBanner'
@@ -40,48 +43,102 @@ import { useSubscription } from '../subscription/SubscriptionProvider'
 import type { SubscriptionFeature } from '../subscription/plans'
 
 const pageTitles = [
-  { path: '/dashboard', title: 'Početna' },
-  { path: '/customers', title: 'Kupci' },
-  { path: '/work-orders', title: 'Radni nalozi' },
-  { path: '/offers', title: 'Ponude' },
-  { path: '/incoming-invoices', title: 'Ulazni računi' },
-  { path: '/invoices', title: 'Izlazni računi' },
-  { path: '/calendar', title: 'Kalendar' },
-  { path: '/inventory', title: 'Skladište' },
-  { path: '/settings/employees', title: 'Zaposlenici' },
-  { path: '/settings/work-orders', title: 'Postavke radnih naloga' },
-  { path: '/settings', title: 'Postavke' },
-  { path: '/ai', title: 'AI pomoćnik' },
-  { path: '/pricing', title: 'Paketi i pretplata' },
+  {
+    path: '/dashboard',
+    title: 'Početna',
+  },
+  {
+    path: '/customers',
+    title: 'Kupci',
+  },
+  {
+    path: '/work-orders',
+    title: 'Radni nalozi',
+  },
+  {
+    path: '/offers',
+    title: 'Ponude',
+  },
+  {
+    path: '/incoming-invoices',
+    title: 'Ulazni računi',
+  },
+  {
+    path: '/invoices',
+    title: 'Izlazni računi',
+  },
+  {
+    path: '/calendar',
+    title: 'Kalendar',
+  },
+  {
+    path: '/vehicles',
+    title: 'Vozila',
+  },
+  {
+    path: '/inventory',
+    title: 'Skladište',
+  },
+  {
+    path: '/settings/employees',
+    title: 'Zaposlenici',
+  },
+  {
+    path: '/settings/work-orders',
+    title:
+      'Postavke radnih naloga',
+  },
+  {
+    path: '/settings',
+    title: 'Postavke',
+  },
+  {
+    path: '/ai',
+    title: 'AI pomoćnik',
+  },
+  {
+    path: '/pricing',
+    title: 'Paketi i pretplata',
+  },
 ]
 
 const mobileNavigation: Array<{
   name: string
   path: string
   icon: typeof Gauge
+  permission: PermissionKey
   feature?: SubscriptionFeature
 }> = [
   {
     name: 'Početna',
     path: '/dashboard',
     icon: Gauge,
+    permission:
+      'dashboard.view',
   },
   {
     name: 'Kupci',
     path: '/customers',
     icon: Users,
+    permission:
+      'customers.view',
     feature: 'customers',
   },
   {
     name: 'Nalozi',
     path: '/work-orders',
     icon: Wrench,
-    feature: 'work_orders',
+    permission:
+      'workOrders.view',
+    feature:
+      'work_orders',
   },
   {
     name: 'Kalendar',
     path: '/calendar',
     icon: CalendarDays,
+    permission:
+      'calendar.view',
     feature: 'calendar',
   },
 ]
@@ -91,83 +148,184 @@ const quickActions: Array<{
   description: string
   path: string
   icon: typeof Plus
+  permission: PermissionKey
   feature?: SubscriptionFeature
 }> = [
   {
-    title: 'Novi radni nalog',
-    description: 'Dodaj novi posao ili intervenciju',
-    path: '/work-orders/new',
+    title:
+      'Novi radni nalog',
+    description:
+      'Dodaj novi posao ili intervenciju',
+    path:
+      '/work-orders/new',
     icon: Wrench,
-    feature: 'work_orders',
+    permission:
+      'workOrders.manage',
+    feature:
+      'work_orders',
   },
   {
     title: 'Novi kupac',
-    description: 'Dodaj osobu ili tvrtku',
+    description:
+      'Dodaj osobu ili tvrtku',
     path: '/customers',
     icon: UserPlus,
+    permission:
+      'customers.manage',
     feature: 'customers',
   },
   {
     title: 'Nova ponuda',
-    description: 'Izradi ponudu za kupca',
+    description:
+      'Izradi ponudu za kupca',
     path: '/offers/new',
     icon: FileText,
+    permission:
+      'offers.manage',
     feature: 'offers',
   },
   {
-    title: 'Novi termin',
-    description: 'Otvori kalendar i dodaj termin',
-    path: '/calendar',
-    icon: CalendarDays,
-    feature: 'calendar',
+    title: 'Novi račun',
+    description:
+      'Izradi novi račun',
+    path: '/invoices/new',
+    icon: ReceiptText,
+    permission:
+      'invoices.view',
+    feature: 'invoices',
+  },
+  {
+    title: 'Novo vozilo',
+    description:
+      'Dodaj vozilo tvrtke',
+    path: '/vehicles?new=1',
+    icon: CarFront,
+    permission:
+      'vehicles.manage',
   },
 ]
 
-function getInitials(value: string) {
+function getInitials(
+  value: string,
+) {
   const parts = value
     .trim()
     .split(/\s+/)
     .filter(Boolean)
 
-  if (parts.length === 0) {
+  if (
+    parts.length === 0
+  ) {
     return 'K'
   }
 
   return parts
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? '')
+    .map(
+      (part) =>
+        part[0]?.toUpperCase() ??
+        '',
+    )
     .join('')
 }
 
 export default function AppLayout() {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const { user } = useAuth()
-  const { hasFeature } = useSubscription()
+  const location =
+    useLocation()
+
+  const navigate =
+    useNavigate()
+
+  const {
+    user,
+    can,
+  } = useAuth()
+
+  const {
+    hasFeature,
+  } = useSubscription()
 
   const profileMenuRef =
-    useRef<HTMLDivElement | null>(null)
+    useRef<HTMLDivElement | null>(
+      null,
+    )
 
-  const [onboardingProgress, setOnboardingProgress] =
-    useState<OnboardingProgress | null>(null)
-  const [isOnboardingOpen, setIsOnboardingOpen] =
-    useState(false)
-  const [isProfileMenuOpen, setIsProfileMenuOpen] =
-    useState(false)
-  const [isQuickActionsOpen, setIsQuickActionsOpen] =
-    useState(false)
-  const [isSigningOut, setIsSigningOut] =
-    useState(false)
-  const [isResettingTutorial, setIsResettingTutorial] =
-    useState(false)
+  const [
+    onboardingProgress,
+    setOnboardingProgress,
+  ] =
+    useState<OnboardingProgress | null>(
+      null,
+    )
+
+  const [
+    isOnboardingOpen,
+    setIsOnboardingOpen,
+  ] = useState(false)
+
+  const [
+    isProfileMenuOpen,
+    setIsProfileMenuOpen,
+  ] = useState(false)
+
+  const [
+    isQuickActionsOpen,
+    setIsQuickActionsOpen,
+  ] = useState(false)
+
+  const [
+    isSigningOut,
+    setIsSigningOut,
+  ] = useState(false)
+
+  const [
+    isResettingTutorial,
+    setIsResettingTutorial,
+  ] = useState(false)
+
+  const visibleMobileNavigation =
+    useMemo(
+      () =>
+        mobileNavigation.filter(
+          (item) =>
+            can(
+              item.permission,
+            ),
+        ),
+      [can],
+    )
+
+  const visibleQuickActions =
+    useMemo(
+      () =>
+        quickActions.filter(
+          (action) =>
+            can(
+              action.permission,
+            ),
+        ),
+      [can],
+    )
+
+  const canManageSettings =
+    can('settings.manage')
+
+  const canUseAi =
+    can('ai.use')
 
   useEffect(() => {
     let cancelled = false
 
     async function loadOnboarding() {
       if (!user?.id) {
-        setOnboardingProgress(null)
-        setIsOnboardingOpen(false)
+        setOnboardingProgress(
+          null,
+        )
+
+        setIsOnboardingOpen(
+          false,
+        )
+
         return
       }
 
@@ -179,8 +337,13 @@ export default function AppLayout() {
           return
         }
 
-        setOnboardingProgress(progress)
-        setIsOnboardingOpen(!progress.completed)
+        setOnboardingProgress(
+          progress,
+        )
+
+        setIsOnboardingOpen(
+          !progress.completed,
+        )
       } catch (error) {
         console.error(
           'Onboarding nije moguće učitati:',
@@ -197,22 +360,35 @@ export default function AppLayout() {
   }, [user?.id])
 
   useEffect(() => {
-    setIsProfileMenuOpen(false)
-    setIsQuickActionsOpen(false)
+    setIsProfileMenuOpen(
+      false,
+    )
+
+    setIsQuickActionsOpen(
+      false,
+    )
   }, [location.pathname])
 
   useEffect(() => {
     function handlePointerDown(
-      event: MouseEvent | TouchEvent,
+      event:
+        | MouseEvent
+        | TouchEvent,
     ) {
-      const target = event.target
+      const target =
+        event.target
 
       if (
-        target instanceof Node &&
+        target instanceof
+          Node &&
         profileMenuRef.current &&
-        !profileMenuRef.current.contains(target)
+        !profileMenuRef.current.contains(
+          target,
+        )
       ) {
-        setIsProfileMenuOpen(false)
+        setIsProfileMenuOpen(
+          false,
+        )
       }
     }
 
@@ -220,6 +396,7 @@ export default function AppLayout() {
       'mousedown',
       handlePointerDown,
     )
+
     document.addEventListener(
       'touchstart',
       handlePointerDown,
@@ -230,6 +407,7 @@ export default function AppLayout() {
         'mousedown',
         handlePointerDown,
       )
+
       document.removeEventListener(
         'touchstart',
         handlePointerDown,
@@ -239,61 +417,99 @@ export default function AppLayout() {
 
   useEffect(() => {
     document.body.style.overflow =
-      isQuickActionsOpen ? 'hidden' : ''
+      isQuickActionsOpen
+        ? 'hidden'
+        : ''
 
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.overflow =
+        ''
     }
   }, [isQuickActionsOpen])
 
-  const pageTitle = useMemo(() => {
-    const matchingPage = [...pageTitles]
-      .sort(
-        (first, second) =>
-          second.path.length - first.path.length,
+  const pageTitle =
+    useMemo(() => {
+      const matchingPage = [
+        ...pageTitles,
+      ]
+        .sort(
+          (
+            first,
+            second,
+          ) =>
+            second.path.length -
+            first.path.length,
+        )
+        .find((page) =>
+          location.pathname.startsWith(
+            page.path,
+          ),
+        )
+
+      return (
+        matchingPage?.title ??
+        'FERSYS'
       )
-      .find((page) =>
-        location.pathname.startsWith(page.path),
+    }, [location.pathname])
+
+  const displayName =
+    useMemo(() => {
+      const metadataName =
+        typeof user
+          ?.user_metadata
+          ?.full_name ===
+        'string'
+          ? user.user_metadata.full_name.trim()
+          : ''
+
+      const emailName =
+        user?.email
+          ?.split('@')[0]
+          ?.replace(
+            /[._-]+/g,
+            ' ',
+          )
+          ?.trim() ?? ''
+
+      return (
+        metadataName ||
+        emailName ||
+        'Korisnik'
       )
+    }, [
+      user?.email,
+      user?.user_metadata
+        ?.full_name,
+    ])
 
-    return matchingPage?.title ?? 'FERSYS'
-  }, [location.pathname])
+  const displayEmail =
+    user?.email ?? ''
 
-  const displayName = useMemo(() => {
-    const metadataName =
-      typeof user?.user_metadata?.full_name ===
-      'string'
-        ? user.user_metadata.full_name.trim()
-        : ''
-
-    const emailName =
-      user?.email
-        ?.split('@')[0]
-        ?.replace(/[._-]+/g, ' ')
-        ?.trim() ?? ''
-
-    return metadataName || emailName || 'Korisnik'
-  }, [
-    user?.email,
-    user?.user_metadata?.full_name,
-  ])
-
-  const displayEmail = user?.email ?? ''
-  const initials = getInitials(displayName)
+  const initials =
+    getInitials(
+      displayName,
+    )
 
   async function handleSignOut() {
     try {
       setIsSigningOut(true)
 
-      const { error } =
+      const {
+        error,
+      } =
         await supabase.auth.signOut()
 
       if (error) {
         throw error
       }
 
-      setIsProfileMenuOpen(false)
-      navigate('/login', { replace: true })
+      setIsProfileMenuOpen(
+        false,
+      )
+
+      navigate('/login', {
+        replace: true,
+      })
     } catch (error) {
       console.error(
         'Odjava nije uspjela:',
@@ -312,14 +528,24 @@ export default function AppLayout() {
 
   async function handleRestartTutorial() {
     try {
-      setIsResettingTutorial(true)
+      setIsResettingTutorial(
+        true,
+      )
 
       const progress =
         await resetOnboarding()
 
-      setOnboardingProgress(progress)
-      setIsProfileMenuOpen(false)
-      setIsOnboardingOpen(true)
+      setOnboardingProgress(
+        progress,
+      )
+
+      setIsProfileMenuOpen(
+        false,
+      )
+
+      setIsOnboardingOpen(
+        true,
+      )
     } catch (error) {
       console.error(
         'Tutorijal nije moguće ponovno pokrenuti:',
@@ -332,17 +558,25 @@ export default function AppLayout() {
           : 'Tutorijal trenutno nije moguće ponovno pokrenuti.',
       )
     } finally {
-      setIsResettingTutorial(false)
+      setIsResettingTutorial(
+        false,
+      )
     }
   }
 
   function openQuickAction(
     path: string,
-    feature?: SubscriptionFeature,
+    feature?:
+      SubscriptionFeature,
   ) {
-    setIsQuickActionsOpen(false)
+    setIsQuickActionsOpen(
+      false,
+    )
 
-    if (feature && !hasFeature(feature)) {
+    if (
+      feature &&
+      !hasFeature(feature)
+    ) {
       navigate('/pricing')
       return
     }
@@ -352,7 +586,10 @@ export default function AppLayout() {
 
   return (
     <div className="flex min-h-dvh bg-slate-950 text-white">
-      <AiClientActionRunner />
+      {canUseAi && (
+        <AiClientActionRunner />
+      )}
+
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -374,14 +611,17 @@ export default function AppLayout() {
           </div>
 
           <div
-            ref={profileMenuRef}
+            ref={
+              profileMenuRef
+            }
             className="relative"
           >
             <button
               type="button"
               onClick={() =>
                 setIsProfileMenuOpen(
-                  (current) => !current,
+                  (current) =>
+                    !current,
                 )
               }
               className={`grid h-11 w-11 place-items-center rounded-2xl text-xs font-black text-white transition active:scale-95 ${
@@ -389,9 +629,13 @@ export default function AppLayout() {
                   ? 'bg-blue-500 ring-4 ring-blue-500/15'
                   : 'bg-gradient-to-br from-blue-600 to-violet-600'
               }`}
-              title={displayName}
+              title={
+                displayName
+              }
               aria-label="Otvori korisnički izbornik"
-              aria-expanded={isProfileMenuOpen}
+              aria-expanded={
+                isProfileMenuOpen
+              }
             >
               {initials}
             </button>
@@ -401,16 +645,22 @@ export default function AppLayout() {
                 <div className="border-b border-slate-800 px-4 py-4">
                   <div className="flex items-center gap-3">
                     <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-xs font-black text-white">
-                      {initials}
+                      {
+                        initials
+                      }
                     </div>
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-white">
-                        {displayName}
+                        {
+                          displayName
+                        }
                       </p>
 
                       <p className="mt-0.5 truncate text-xs text-slate-500">
-                        {displayEmail}
+                        {
+                          displayEmail
+                        }
                       </p>
                     </div>
                   </div>
@@ -420,21 +670,57 @@ export default function AppLayout() {
                   <button
                     type="button"
                     onClick={() => {
-                      setIsProfileMenuOpen(false)
-                      navigate('/settings')
+                      setIsProfileMenuOpen(
+                        false,
+                      )
+
+                      navigate(
+                        '/profile',
+                      )
                     }}
                     className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
                   >
-                    <Settings
-                      size={18}
+                    <Users
+                      size={
+                        18
+                      }
                       className="text-slate-500"
                     />
-                    Postavke
+
+                    Moj profil
                   </button>
+
+                  {canManageSettings && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileMenuOpen(
+                          false,
+                        )
+
+                        navigate(
+                          '/settings',
+                        )
+                      }}
+                      className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      <Settings
+                        size={
+                          18
+                        }
+                        className="text-slate-500"
+                      />
+
+                      Postavke
+                      tvrtke
+                    </button>
+                  )}
 
                   <button
                     type="button"
-                    disabled={isResettingTutorial}
+                    disabled={
+                      isResettingTutorial
+                    }
                     onClick={() => {
                       void handleRestartTutorial()
                     }}
@@ -454,13 +740,17 @@ export default function AppLayout() {
 
                   <button
                     type="button"
-                    disabled={isSigningOut}
+                    disabled={
+                      isSigningOut
+                    }
                     onClick={() => {
                       void handleSignOut()
                     }}
                     className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-bold text-red-400 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-50"
                   >
-                    <LogOut size={18} />
+                    <LogOut
+                      size={18}
+                    />
 
                     {isSigningOut
                       ? 'Odjava...'
@@ -481,38 +771,66 @@ export default function AppLayout() {
 
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800/90 bg-slate-950/95 px-2 pb-[max(0.45rem,env(safe-area-inset-bottom))] pt-2 shadow-[0_-16px_40px_rgba(2,6,23,0.55)] backdrop-blur-xl md:hidden">
         <div className="relative mx-auto grid max-w-md grid-cols-5 items-end gap-1">
-          {mobileNavigation
+          {visibleMobileNavigation
             .slice(0, 2)
-            .map((item) => (
-              <MobileNavigationItem
-                key={item.path}
-                item={item}
-                hasFeature={hasFeature}
-              />
-            ))}
+            .map(
+              (item) => (
+                <MobileNavigationItem
+                  key={
+                    item.path
+                  }
+                  item={
+                    item
+                  }
+                  hasFeature={
+                    hasFeature
+                  }
+                />
+              ),
+            )}
 
           <div className="flex min-h-14 items-end justify-center">
-            <button
-              type="button"
-              onClick={() =>
-                setIsQuickActionsOpen(true)
-              }
-              className="-mt-7 grid h-16 w-16 place-items-center rounded-[1.35rem] border-[5px] border-slate-950 bg-gradient-to-br from-blue-500 via-blue-600 to-violet-600 text-white shadow-xl shadow-blue-950/60 transition active:scale-95"
-              aria-label="Otvori brze akcije"
-            >
-              <Plus size={30} strokeWidth={2.8} />
-            </button>
+            {visibleQuickActions.length >
+            0 ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setIsQuickActionsOpen(
+                    true,
+                  )
+                }
+                className="-mt-7 grid h-16 w-16 place-items-center rounded-[1.35rem] border-[5px] border-slate-950 bg-gradient-to-br from-blue-500 via-blue-600 to-violet-600 text-white shadow-xl shadow-blue-950/60 transition active:scale-95"
+                aria-label="Otvori brze akcije"
+              >
+                <Plus
+                  size={30}
+                  strokeWidth={
+                    2.8
+                  }
+                />
+              </button>
+            ) : (
+              <div className="h-14 w-14" />
+            )}
           </div>
 
-          {mobileNavigation
-            .slice(2)
-            .map((item) => (
-              <MobileNavigationItem
-                key={item.path}
-                item={item}
-                hasFeature={hasFeature}
-              />
-            ))}
+          {visibleMobileNavigation
+            .slice(2, 4)
+            .map(
+              (item) => (
+                <MobileNavigationItem
+                  key={
+                    item.path
+                  }
+                  item={
+                    item
+                  }
+                  hasFeature={
+                    hasFeature
+                  }
+                />
+              ),
+            )}
         </div>
       </nav>
 
@@ -522,7 +840,9 @@ export default function AppLayout() {
             type="button"
             className="absolute inset-0 bg-black/70 backdrop-blur-sm"
             onClick={() =>
-              setIsQuickActionsOpen(false)
+              setIsQuickActionsOpen(
+                false,
+              )
             }
             aria-label="Zatvori brze akcije"
           />
@@ -535,59 +855,79 @@ export default function AppLayout() {
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">
                   Brze akcije
                 </p>
+
                 <h2 className="mt-1 text-xl font-black text-white">
-                  Što želiš dodati?
+                  Što želiš
+                  dodati?
                 </h2>
               </div>
 
               <button
                 type="button"
                 onClick={() =>
-                  setIsQuickActionsOpen(false)
+                  setIsQuickActionsOpen(
+                    false,
+                  )
                 }
                 className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
                 aria-label="Zatvori"
               >
-                <X size={21} />
+                <X
+                  size={21}
+                />
               </button>
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-              {quickActions.map((action) => {
-                const Icon = action.icon
-                const isLocked =
-                  action.feature
-                    ? !hasFeature(action.feature)
-                    : false
+              {visibleQuickActions.map(
+                (action) => {
+                  const Icon =
+                    action.icon
 
-                return (
-                  <button
-                    key={action.title}
-                    type="button"
-                    onClick={() =>
-                      openQuickAction(
-                        action.path,
-                        action.feature,
-                      )
-                    }
-                    className="min-h-32 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-left transition active:scale-[0.98] active:border-blue-500/50 active:bg-slate-800"
-                  >
-                    <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/15 text-blue-400">
-                      <Icon size={22} />
-                    </div>
+                  const isLocked =
+                    action.feature
+                      ? !hasFeature(
+                          action.feature,
+                        )
+                      : false
 
-                    <p className="mt-4 font-black text-white">
-                      {action.title}
-                    </p>
+                  return (
+                    <button
+                      key={
+                        action.title
+                      }
+                      type="button"
+                      onClick={() =>
+                        openQuickAction(
+                          action.path,
+                          action.feature,
+                        )
+                      }
+                      className="min-h-32 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 text-left transition active:scale-[0.98] active:border-blue-500/50 active:bg-slate-800"
+                    >
+                      <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/15 text-blue-400">
+                        <Icon
+                          size={
+                            22
+                          }
+                        />
+                      </div>
 
-                    <p className="mt-1 text-xs leading-5 text-slate-500">
-                      {isLocked
-                        ? 'Potrebna je nadogradnja paketa'
-                        : action.description}
-                    </p>
-                  </button>
-                )
-              })}
+                      <p className="mt-4 font-black text-white">
+                        {
+                          action.title
+                        }
+                      </p>
+
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {isLocked
+                          ? 'Potrebna je nadogradnja paketa'
+                          : action.description}
+                      </p>
+                    </button>
+                  )
+                },
+              )}
             </div>
           </section>
         </div>
@@ -596,12 +936,16 @@ export default function AppLayout() {
       {isOnboardingOpen &&
         onboardingProgress && (
           <OnboardingTutorial
-            displayName={displayName}
+            displayName={
+              displayName
+            }
             initialStep={
               onboardingProgress.currentStep
             }
             onClose={() => {
-              setIsOnboardingOpen(false)
+              setIsOnboardingOpen(
+                false,
+              )
             }}
           />
         )}
@@ -613,15 +957,22 @@ function MobileNavigationItem({
   item,
   hasFeature,
 }: {
-  item: (typeof mobileNavigation)[number]
+  item:
+    (typeof mobileNavigation)[number]
   hasFeature: (
-    feature: SubscriptionFeature,
+    feature:
+      SubscriptionFeature,
   ) => boolean
 }) {
-  const Icon = item.icon
-  const isLocked = item.feature
-    ? !hasFeature(item.feature)
-    : false
+  const Icon =
+    item.icon
+
+  const isLocked =
+    item.feature
+      ? !hasFeature(
+          item.feature,
+        )
+      : false
 
   return (
     <NavLink
@@ -630,7 +981,9 @@ function MobileNavigationItem({
           ? '/pricing'
           : item.path
       }
-      className={({ isActive }) =>
+      className={({
+        isActive,
+      }) =>
         `flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-bold transition ${
           isActive
             ? 'bg-blue-600/15 text-blue-400'
@@ -639,7 +992,10 @@ function MobileNavigationItem({
       }
     >
       <Icon size={20} />
-      <span>{item.name}</span>
+
+      <span>
+        {item.name}
+      </span>
     </NavLink>
   )
 }

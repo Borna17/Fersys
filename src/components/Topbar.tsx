@@ -8,19 +8,19 @@ import {
   CircleDollarSign,
   Headphones,
   LogOut,
-  Sparkles,
   Plus,
   Search,
   Settings,
+  Sparkles,
   UserRound,
   UsersRound,
 } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
 
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../auth/AuthProvider'
-import CompanyLogo from './CompanyLogo'
 import AIChatPanel from '../ai/AIChatPanel'
+import { useAuth } from '../auth/AuthProvider'
+import type { PermissionKey } from '../auth/permissions'
+import { supabase } from '../lib/supabase'
 import { useCompanyBranding } from '../services/companyBranding.service'
 import {
   getEmployees,
@@ -34,6 +34,7 @@ import {
   type AppNotification,
   type AppNotificationKind,
 } from '../services/notifications.service'
+import CompanyLogo from './CompanyLogo'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -54,26 +55,35 @@ const pageTitles: Record<string, string> = {
     'Postavke radnih naloga',
 }
 
-const quickActions = [
+const quickActions: Array<{
+  label: string
+  route: string
+  permission: PermissionKey
+}> = [
   {
     label: 'Novi radni nalog',
     route: '/work-orders/new',
+    permission: 'workOrders.manage',
   },
   {
     label: 'Novi kupac',
     route: '/customers',
+    permission: 'customers.manage',
   },
   {
     label: 'Nova ponuda',
-    route: '/offers',
+    route: '/offers/new',
+    permission: 'offers.manage',
   },
   {
     label: 'Novi račun',
-    route: '/invoices',
+    route: '/invoices/new',
+    permission: 'invoices.view',
   },
   {
     label: 'Novo vozilo',
     route: '/vehicles?new=1',
+    permission: 'vehicles.manage',
   },
 ]
 
@@ -142,45 +152,60 @@ function getNotificationIconClasses(
 export default function Topbar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user } = useAuth()
-  const { branding } = useCompanyBranding()
+
+  const {
+    user,
+    can,
+  } = useAuth()
+
+  const { branding } =
+    useCompanyBranding()
 
   const [
     isQuickMenuOpen,
     setIsQuickMenuOpen,
   ] = useState(false)
+
   const [
     isProfileOpen,
     setIsProfileOpen,
   ] = useState(false)
+
   const [
     isAiOpen,
     setIsAiOpen,
   ] = useState(false)
+
   const [
     isNotificationsOpen,
     setIsNotificationsOpen,
   ] = useState(false)
+
   const [
     isLoggingOut,
     setIsLoggingOut,
   ] = useState(false)
+
   const [
     isMarkingAllRead,
     setIsMarkingAllRead,
   ] = useState(false)
+
   const [
     notifications,
     setNotifications,
   ] = useState<AppNotification[]>([])
+
   const [
     isNotificationsLoading,
     setIsNotificationsLoading,
   ] = useState(true)
+
   const [
     notificationsError,
     setNotificationsError,
   ] = useState('')
+
   const [
     currentEmployee,
     setCurrentEmployee,
@@ -188,6 +213,30 @@ export default function Topbar() {
     useState<CompanyEmployee | null>(
       null,
     )
+
+  const visibleQuickActions =
+    useMemo(
+      () =>
+        quickActions.filter(
+          (action) =>
+            can(
+              action.permission,
+            ),
+        ),
+      [can],
+    )
+
+  const canUseAi =
+    can('ai.use')
+
+  const canManageSettings =
+    can('settings.manage')
+
+  useEffect(() => {
+    if (!canUseAi) {
+      setIsAiOpen(false)
+    }
+  }, [canUseAi])
 
   useEffect(() => {
     let cancelled = false
@@ -290,6 +339,7 @@ export default function Topbar() {
     return () => {
       cancelled = true
       window.clearInterval(intervalId)
+
       window.removeEventListener(
         'focus',
         handleWindowFocus,
@@ -333,9 +383,10 @@ export default function Topbar() {
 
   const displayRole =
     currentEmployee
-      ? roleLabels[currentEmployee.role]
+      ? roleLabels[
+          currentEmployee.role
+        ]
       : 'Korisnik'
-
 
   const currentTitle =
     pageTitles[location.pathname] ??
@@ -347,7 +398,11 @@ export default function Topbar() {
             '/work-orders/',
           )
         ? 'Radni nalog'
-        : 'FERSYS')
+        : location.pathname.startsWith(
+              '/vehicles/',
+            )
+          ? 'Vozilo'
+          : 'FERSYS')
 
   function handleQuickAction(
     route: string,
@@ -454,9 +509,11 @@ export default function Topbar() {
       localStorage.removeItem(
         'fersys_auth',
       )
+
       localStorage.removeItem(
         'fersys_user_email',
       )
+
       localStorage.removeItem(
         'fersys_remember_me',
       )
@@ -497,7 +554,7 @@ export default function Topbar() {
 
           <input
             type="search"
-            placeholder="Pretraži kupce, naloge, vozila, ponude..."
+            placeholder="Pretraži FERSYS..."
             className="h-12 w-full rounded-2xl border border-slate-800 bg-slate-900/90 pl-12 pr-24 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-blue-500/70 focus:ring-4 focus:ring-blue-500/10"
           />
 
@@ -508,89 +565,129 @@ export default function Topbar() {
       </div>
 
       <div className="ml-7 flex shrink-0 items-center gap-3">
-        <div className="relative">
+        {visibleQuickActions.length >
+          0 && (
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => {
+                setIsQuickMenuOpen(
+                  (value) =>
+                    !value,
+                )
+
+                setIsProfileOpen(
+                  false,
+                )
+
+                setIsNotificationsOpen(
+                  false,
+                )
+
+                setIsAiOpen(false)
+              }}
+              className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
+            >
+              <Plus size={20} />
+              Novo
+
+              <ChevronDown
+                size={17}
+                className={`transition-transform ${
+                  isQuickMenuOpen
+                    ? 'rotate-180'
+                    : ''
+                }`}
+              />
+            </button>
+
+            {isQuickMenuOpen && (
+              <div className="absolute right-0 top-14 w-64 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/40">
+                {visibleQuickActions.map(
+                  (action) => (
+                    <button
+                      key={
+                        action.label
+                      }
+                      type="button"
+                      onClick={() =>
+                        handleQuickAction(
+                          action.route,
+                        )
+                      }
+                      className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                    >
+                      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
+                        <Plus
+                          size={17}
+                        />
+                      </span>
+
+                      {
+                        action.label
+                      }
+                    </button>
+                  ),
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {canUseAi && (
           <button
             type="button"
             onClick={() => {
-              setIsQuickMenuOpen(
-                (value) => !value,
+              setIsAiOpen(
+                (value) =>
+                  !value,
               )
-              setIsProfileOpen(false)
+
+              setIsQuickMenuOpen(
+                false,
+              )
+
               setIsNotificationsOpen(
                 false,
               )
-              setIsAiOpen(false)
+
+              setIsProfileOpen(
+                false,
+              )
             }}
-            className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white shadow-lg shadow-blue-950/30 transition hover:bg-blue-500"
+            className={`relative flex h-12 w-12 items-center justify-center rounded-xl border transition ${
+              isAiOpen
+                ? 'border-violet-500/50 bg-violet-500/15 text-violet-300 ring-4 ring-violet-500/10'
+                : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300'
+            }`}
+            aria-label="FERSYS AI"
+            title="FERSYS AI"
           >
-            <Plus size={20} />
-            Novo
-
-            <ChevronDown
-              size={17}
-              className={`transition-transform ${
-                isQuickMenuOpen
-                  ? 'rotate-180'
-                  : ''
-              }`}
+            <Sparkles
+              size={20}
             />
+
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
           </button>
-
-          {isQuickMenuOpen && (
-            <div className="absolute right-0 top-14 w-64 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/40">
-              {quickActions.map(
-                (action) => (
-                  <button
-                    key={action.label}
-                    type="button"
-                    onClick={() =>
-                      handleQuickAction(
-                        action.route,
-                      )
-                    }
-                    className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
-                  >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-400">
-                      <Plus size={17} />
-                    </span>
-
-                    {action.label}
-                  </button>
-                ),
-              )}
-            </div>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={() => {
-            setIsAiOpen((value) => !value)
-            setIsQuickMenuOpen(false)
-            setIsNotificationsOpen(false)
-            setIsProfileOpen(false)
-          }}
-          className={`relative flex h-12 w-12 items-center justify-center rounded-xl border transition ${
-            isAiOpen
-              ? 'border-violet-500/50 bg-violet-500/15 text-violet-300 ring-4 ring-violet-500/10'
-              : 'border-slate-800 bg-slate-900 text-slate-400 hover:border-violet-500/30 hover:bg-violet-500/10 hover:text-violet-300'
-          }`}
-          aria-label="FERSYS AI"
-          title="FERSYS AI"
-        >
-          <Sparkles size={20} />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-slate-900" />
-        </button>
+        )}
 
         <div className="relative">
           <button
             type="button"
             onClick={() => {
               setIsNotificationsOpen(
-                (value) => !value,
+                (value) =>
+                  !value,
               )
-              setIsQuickMenuOpen(false)
-              setIsProfileOpen(false)
+
+              setIsQuickMenuOpen(
+                false,
+              )
+
+              setIsProfileOpen(
+                false,
+              )
+
               setIsAiOpen(false)
             }}
             className="relative flex h-12 w-12 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-400 transition hover:border-slate-700 hover:bg-slate-800 hover:text-white"
@@ -640,6 +737,7 @@ export default function Topbar() {
                   <CheckCheck
                     size={15}
                   />
+
                   {isMarkingAllRead
                     ? 'Spremanje...'
                     : 'Pročitaj sve'}
@@ -654,7 +752,9 @@ export default function Topbar() {
                   </div>
                 ) : notificationsError ? (
                   <div className="rounded-xl bg-red-500/10 px-4 py-4 text-sm text-red-300">
-                    {notificationsError}
+                    {
+                      notificationsError
+                    }
                   </div>
                 ) : notifications.length ===
                   0 ? (
@@ -671,7 +771,9 @@ export default function Topbar() {
                 ) : (
                   <div className="space-y-1">
                     {notifications.map(
-                      (notification) => {
+                      (
+                        notification,
+                      ) => {
                         const Icon =
                           getNotificationIcon(
                             notification.kind,
@@ -700,7 +802,9 @@ export default function Topbar() {
                               )}`}
                             >
                               <Icon
-                                size={18}
+                                size={
+                                  18
+                                }
                               />
                             </span>
 
@@ -724,6 +828,7 @@ export default function Topbar() {
                                     <span className="mt-1 block truncate text-xs font-semibold text-blue-300">
                                       {notification.companyName ||
                                         'Korisnik'}
+
                                       {notification.senderName
                                         ? ` · ${notification.senderName}`
                                         : ''}
@@ -770,29 +875,42 @@ export default function Topbar() {
             type="button"
             onClick={() => {
               setIsProfileOpen(
-                (value) => !value,
+                (value) =>
+                  !value,
               )
-              setIsQuickMenuOpen(false)
+
+              setIsQuickMenuOpen(
+                false,
+              )
+
               setIsNotificationsOpen(
                 false,
               )
+
               setIsAiOpen(false)
             }}
             className="flex min-w-[235px] items-center gap-3 rounded-2xl px-3 py-2 text-left transition hover:bg-slate-900"
           >
             <CompanyLogo
-              logoUrl={branding?.logoUrl}
-              companyName={branding?.name || 'FERSYS tvrtka'}
+              logoUrl={
+                branding?.logoUrl
+              }
+              companyName={
+                branding?.name ||
+                'FERSYS tvrtka'
+              }
               className="h-11 w-11"
             />
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-bold text-white">
-                {branding?.name || displayName}
+                {branding?.name ||
+                  displayName}
               </p>
 
               <p className="mt-0.5 truncate text-xs text-slate-400">
-                {displayName} · {displayRole}
+                {displayName} ·{' '}
+                {displayRole}
               </p>
             </div>
 
@@ -812,18 +930,25 @@ export default function Topbar() {
             <div className="absolute right-0 top-[60px] w-72 overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-2xl shadow-black/40">
               <div className="mb-2 flex items-center gap-3 rounded-xl bg-slate-950/60 p-3">
                 <CompanyLogo
-                  logoUrl={branding?.logoUrl}
-                  companyName={branding?.name || 'FERSYS tvrtka'}
+                  logoUrl={
+                    branding?.logoUrl
+                  }
+                  companyName={
+                    branding?.name ||
+                    'FERSYS tvrtka'
+                  }
                   className="h-11 w-11"
                 />
 
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold text-white">
-                    {branding?.name || 'Tvrtka'}
+                    {branding?.name ||
+                      'Tvrtka'}
                   </p>
 
                   <p className="truncate text-xs text-slate-400">
-                    {displayName} · {displayRole}
+                    {displayName} ·{' '}
+                    {displayRole}
                   </p>
 
                   <p className="mt-0.5 truncate text-[11px] text-slate-600">
@@ -835,35 +960,63 @@ export default function Topbar() {
 
               <button
                 type="button"
-                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
-              >
-                <UserRound size={18} />
-                Moj profil
-              </button>
-
-              <button
-                type="button"
                 onClick={() => {
-                  setIsProfileOpen(false)
-                  navigate('/settings')
+                  setIsProfileOpen(
+                    false,
+                  )
+
+                  navigate(
+                    '/profile',
+                  )
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
               >
-                <Settings size={18} />
-                Postavke računa
+                <UserRound
+                  size={18}
+                />
+
+                Moj profil
               </button>
+
+              {canManageSettings && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileOpen(
+                      false,
+                    )
+
+                    navigate(
+                      '/settings',
+                    )
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+                >
+                  <Settings
+                    size={18}
+                  />
+
+                  Postavke
+                  tvrtke
+                </button>
+              )}
 
               <div className="my-2 h-px bg-slate-800" />
 
               <button
                 type="button"
-                disabled={isLoggingOut}
+                disabled={
+                  isLoggingOut
+                }
                 onClick={() => {
                   void handleLogout()
                 }}
                 className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-semibold text-red-400 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <LogOut size={18} />
+                <LogOut
+                  size={18}
+                />
+
                 {isLoggingOut
                   ? 'Odjava...'
                   : 'Odjavi se'}
@@ -873,10 +1026,14 @@ export default function Topbar() {
         </div>
       </div>
 
-      <AIChatPanel
-        open={isAiOpen}
-        onClose={() => setIsAiOpen(false)}
-      />
+      {canUseAi && (
+        <AIChatPanel
+          open={isAiOpen}
+          onClose={() =>
+            setIsAiOpen(false)
+          }
+        />
+      )}
     </header>
   )
 }

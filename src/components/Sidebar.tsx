@@ -18,26 +18,39 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
+
 import {
   useEffect,
   useMemo,
   useState,
 } from 'react'
+
 import {
   NavLink,
   useLocation,
 } from 'react-router'
 
 import fersysIcon from '../assets/fersys-icon.svg'
-import CompanyLogo from './CompanyLogo'
-import { useCompanyBranding } from '../services/companyBranding.service'
 
-import { useAuth } from '../auth/AuthProvider'
+import CompanyLogo from './CompanyLogo'
+
+import {
+  useCompanyBranding,
+} from '../services/companyBranding.service'
+
+import {
+  useAuth,
+} from '../auth/AuthProvider'
+
 import {
   roleLabels,
   type PermissionKey,
 } from '../auth/permissions'
-import { useSubscription } from '../subscription/SubscriptionProvider'
+
+import {
+  useSubscription,
+} from '../subscription/SubscriptionProvider'
+
 import {
   featureRequiredPlan,
   plans,
@@ -51,23 +64,123 @@ const navigationItems: Array<{
   permission: PermissionKey
   feature?: SubscriptionFeature
 }> = [
-  { name: 'Dashboard', path: '/dashboard', icon: Gauge, permission: 'dashboard.view' },
-  { name: 'Kupci', path: '/customers', icon: Users, permission: 'customers.view', feature: 'customers' },
-  { name: 'Radni nalozi', path: '/work-orders', icon: Wrench, permission: 'workOrders.view', feature: 'work_orders' },
-  { name: 'Ponude', path: '/offers', icon: FileText, permission: 'offers.view', feature: 'offers' },
-  { name: 'Izlazni računi', path: '/invoices', icon: ReceiptText, permission: 'invoices.view', feature: 'invoices' },
-  { name: 'Ulazni računi', path: '/incoming-invoices', icon: FileInput, permission: 'incomingInvoices.view', feature: 'incoming_invoices' },
-  { name: 'Kalendar', path: '/calendar', icon: CalendarDays, permission: 'calendar.view', feature: 'calendar' },
-  { name: 'Vozila', path: '/vehicles', icon: CarFront, permission: 'dashboard.view' },
-  { name: 'Skladište', path: '/inventory', icon: Package, permission: 'inventory.view', feature: 'inventory' },
-  { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
-  { name: 'Podrška', path: '/support', icon: Headphones, permission: 'dashboard.view' },
-  { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
+  {
+    name: 'Dashboard',
+    path: '/dashboard',
+    icon: Gauge,
+    permission:
+      'dashboard.view',
+  },
+
+  {
+    name: 'Kupci',
+    path: '/customers',
+    icon: Users,
+    permission:
+      'customers.view',
+    feature: 'customers',
+  },
+
+  {
+    name: 'Radni nalozi',
+    path: '/work-orders',
+    icon: Wrench,
+    permission:
+      'workOrders.view',
+    feature:
+      'work_orders',
+  },
+
+  {
+    name: 'Ponude',
+    path: '/offers',
+    icon: FileText,
+    permission:
+      'offers.view',
+    feature: 'offers',
+  },
+
+  {
+    name: 'Izlazni računi',
+    path: '/invoices',
+    icon: ReceiptText,
+    permission:
+      'invoices.view',
+    feature: 'invoices',
+  },
+
+  {
+    name: 'Ulazni računi',
+    path:
+      '/incoming-invoices',
+    icon: FileInput,
+    permission:
+      'incomingInvoices.view',
+    feature:
+      'incoming_invoices',
+  },
+
+  {
+    name: 'Kalendar',
+    path: '/calendar',
+    icon: CalendarDays,
+    permission:
+      'calendar.view',
+    feature: 'calendar',
+  },
+
+  {
+    name: 'Vozila',
+    path: '/vehicles',
+    icon: CarFront,
+    permission:
+      'vehicles.view',
+  },
+
+  {
+    name: 'Skladište',
+    path: '/inventory',
+    icon: Package,
+    permission:
+      'inventory.view',
+    feature: 'inventory',
+  },
+
+  {
+    name: 'Zaposlenici',
+    path:
+      '/settings/employees',
+    icon: UsersRound,
+    permission:
+      'employees.view',
+    feature: 'employees',
+  },
+
+  {
+    name: 'Podrška',
+    path: '/support',
+    icon: Headphones,
+    permission:
+      'dashboard.view',
+  },
+
+  {
+    name: 'AI pomoćnik',
+    path: '/ai',
+    icon: Bot,
+    permission: 'ai.use',
+    feature: 'ai',
+  },
 ]
 
 export default function Sidebar() {
-  const location = useLocation()
-  const { branding } = useCompanyBranding()
+  const location =
+    useLocation()
+
+  const {
+    branding,
+  } = useCompanyBranding()
+
   const {
     user,
     role,
@@ -79,11 +192,15 @@ export default function Sidebar() {
     hasFeature,
   } = useSubscription()
 
-  const [isExpanded, setIsExpanded] =
-    useState(true)
+  const [
+    isExpanded,
+    setIsExpanded,
+  ] = useState(true)
 
-  const [isMobileOpen, setIsMobileOpen] =
-    useState(false)
+  const [
+    isMobileOpen,
+    setIsMobileOpen,
+  ] = useState(false)
 
   useEffect(() => {
     setIsMobileOpen(false)
@@ -91,88 +208,151 @@ export default function Sidebar() {
 
   useEffect(() => {
     document.body.style.overflow =
-      isMobileOpen ? 'hidden' : ''
+      isMobileOpen
+        ? 'hidden'
+        : ''
 
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.overflow =
+        ''
     }
   }, [isMobileOpen])
 
-  const visibleItems = useMemo(
-    () =>
-      navigationItems.filter(
-        (item) => can(item.permission),
-      ),
-    [can],
-  )
+  const visibleItems =
+    useMemo(
+      () =>
+        navigationItems.filter(
+          (item) =>
+            can(
+              item.permission,
+            ),
+        ),
+      [can],
+    )
 
-  const displayName = useMemo(() => {
-    const metadataName =
-      typeof user?.user_metadata?.full_name === 'string'
-        ? user.user_metadata.full_name.trim()
-        : ''
+  const displayName =
+    useMemo(() => {
+      const metadataName =
+        typeof user
+          ?.user_metadata
+          ?.full_name ===
+        'string'
+          ? user.user_metadata.full_name.trim()
+          : ''
 
-    const emailName =
-      user?.email
-        ?.split('@')[0]
-        ?.replace(/[._-]+/g, ' ')
-        ?.trim() ?? ''
+      const emailName =
+        user?.email
+          ?.split('@')[0]
+          ?.replace(
+            /[._-]+/g,
+            ' ',
+          )
+          ?.trim() ?? ''
 
-    return metadataName || emailName || 'Korisnik'
-  }, [
-    user?.email,
-    user?.user_metadata?.full_name,
-  ])
+      return (
+        metadataName ||
+        emailName ||
+        'Korisnik'
+      )
+    }, [
+      user?.email,
+      user?.user_metadata
+        ?.full_name,
+    ])
 
   const displayRole =
-    role ? roleLabels[role] : 'Korisnik'
-
+    role
+      ? roleLabels[role]
+      : 'Korisnik'
 
   return (
     <>
       <aside
         className={`sticky top-0 hidden h-dvh min-h-0 shrink-0 self-start flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${
-          isExpanded ? 'w-72' : 'w-[88px]'
+          isExpanded
+            ? 'w-72'
+            : 'w-[88px]'
         }`}
       >
         <SidebarHeader
-          expanded={isExpanded}
-          onCollapse={() => setIsExpanded(false)}
-          onExpand={() => setIsExpanded(true)}
+          expanded={
+            isExpanded
+          }
+          onCollapse={() =>
+            setIsExpanded(
+              false,
+            )
+          }
+          onExpand={() =>
+            setIsExpanded(
+              true,
+            )
+          }
         />
 
         <Navigation
-          expanded={isExpanded}
-          items={visibleItems}
-          hasFeature={hasFeature}
+          expanded={
+            isExpanded
+          }
+          items={
+            visibleItems
+          }
+          hasFeature={
+            hasFeature
+          }
         />
 
         <SidebarFooter
-          expanded={isExpanded}
-          showSettings={can('settings.manage')}
-          showSuperAdmin={isSuperAdmin}
-          displayName={displayName}
-          displayRole={displayRole}
-          companyName={branding?.name || 'FERSYS tvrtka'}
-          companyLogoUrl={branding?.logoUrl}
+          expanded={
+            isExpanded
+          }
+          showSettings={can(
+            'settings.manage',
+          )}
+          showSuperAdmin={
+            isSuperAdmin
+          }
+          displayName={
+            displayName
+          }
+          displayRole={
+            displayRole
+          }
+          companyName={
+            branding?.name ||
+            'FERSYS tvrtka'
+          }
+          companyLogoUrl={
+            branding?.logoUrl
+          }
         />
       </aside>
 
       {!isMobileOpen && (
         <button
           type="button"
-          onClick={() => setIsMobileOpen(true)}
+          onClick={() =>
+            setIsMobileOpen(
+              true,
+            )
+          }
           className="fixed left-0 top-1/2 z-[70] flex h-16 w-7 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-slate-700 bg-slate-900 text-slate-300 shadow-xl md:hidden"
           aria-label="Otvori izbornik"
         >
-          <ChevronRight size={18} />
+          <ChevronRight
+            size={18}
+          />
         </button>
       )}
 
       {isMobileOpen && (
         <button
           type="button"
-          onClick={() => setIsMobileOpen(false)}
+          onClick={() =>
+            setIsMobileOpen(
+              false,
+            )
+          }
           className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-[2px] md:hidden"
           aria-label="Zatvori izbornik"
         />
@@ -190,7 +370,11 @@ export default function Sidebar() {
 
           <button
             type="button"
-            onClick={() => setIsMobileOpen(false)}
+            onClick={() =>
+              setIsMobileOpen(
+                false,
+              )
+            }
             className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300"
             aria-label="Zatvori izbornik"
           >
@@ -204,18 +388,35 @@ export default function Sidebar() {
 
         <Navigation
           expanded
-          items={visibleItems}
-          hasFeature={hasFeature}
+          items={
+            visibleItems
+          }
+          hasFeature={
+            hasFeature
+          }
         />
 
         <SidebarFooter
           expanded
-          showSettings={can('settings.manage')}
-          showSuperAdmin={isSuperAdmin}
-          displayName={displayName}
-          displayRole={displayRole}
-          companyName={branding?.name || 'FERSYS tvrtka'}
-          companyLogoUrl={branding?.logoUrl}
+          showSettings={can(
+            'settings.manage',
+          )}
+          showSuperAdmin={
+            isSuperAdmin
+          }
+          displayName={
+            displayName
+          }
+          displayRole={
+            displayRole
+          }
+          companyName={
+            branding?.name ||
+            'FERSYS tvrtka'
+          }
+          companyLogoUrl={
+            branding?.logoUrl
+          }
         />
       </aside>
     </>
@@ -240,16 +441,24 @@ function SidebarHeader({
             : 'justify-center'
         }`}
       >
-        <Brand expanded={expanded} />
+        <Brand
+          expanded={
+            expanded
+          }
+        />
 
         {expanded && (
           <button
             type="button"
-            onClick={onCollapse}
+            onClick={
+              onCollapse
+            }
             className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             aria-label="Smanji izbornik"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft
+              size={20}
+            />
           </button>
         )}
       </div>
@@ -261,7 +470,9 @@ function SidebarHeader({
           className="mx-auto mb-4 grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
           aria-label="Proširi izbornik"
         >
-          <ChevronRight size={20} />
+          <ChevronRight
+            size={20}
+          />
         </button>
       )}
 
@@ -280,84 +491,110 @@ function Navigation({
   hasFeature,
 }: {
   expanded: boolean
-  items: typeof navigationItems
+  items:
+    typeof navigationItems
   hasFeature: (
-    feature: SubscriptionFeature,
+    feature:
+      SubscriptionFeature,
   ) => boolean
 }) {
   return (
     <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-5">
-      {items.map((item) => {
-        const Icon = item.icon
+      {items.map(
+        (item) => {
+          const Icon =
+            item.icon
 
-        const isLocked =
-          item.feature
-            ? !hasFeature(
-                item.feature,
-              )
-            : false
+          const isLocked =
+            item.feature
+              ? !hasFeature(
+                  item.feature,
+                )
+              : false
 
-        const requiredPlan =
-          item.feature
-            ? plans[
-                featureRequiredPlan[
-                  item.feature
-                ]
-              ].name
-            : ''
+          const requiredPlan =
+            item.feature
+              ? plans[
+                  featureRequiredPlan[
+                    item
+                      .feature
+                  ]
+                ].name
+              : ''
 
-        return (
-          <NavLink
-            key={item.path}
-            to={
-              isLocked
-                ? '/pricing'
-                : item.path
-            }
-            title={!expanded ? item.name : undefined}
-            className={({ isActive }) =>
-              `relative flex h-12 items-center rounded-xl transition ${
-                expanded
-                  ? 'gap-3 px-4'
-                  : 'justify-center'
-              } ${
-                isActive
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-              }`
-            }
-          >
-            <Icon
-              size={21}
-              className="shrink-0"
-            />
+          return (
+            <NavLink
+              key={
+                item.path
+              }
+              to={
+                isLocked
+                  ? '/pricing'
+                  : item.path
+              }
+              title={
+                !expanded
+                  ? item.name
+                  : undefined
+              }
+              className={({
+                isActive,
+              }) =>
+                `relative flex h-12 items-center rounded-xl transition ${
+                  expanded
+                    ? 'gap-3 px-4'
+                    : 'justify-center'
+                } ${
+                  isActive
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`
+              }
+            >
+              <Icon
+                size={21}
+                className="shrink-0"
+              />
 
-            {expanded && (
-              <>
-                <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                  {item.name}
-                </span>
+              {expanded && (
+                <>
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    {
+                      item.name
+                    }
+                  </span>
 
-                {isLocked && (
-                  <span
-                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300"
-                    title={`Dostupno u ${requiredPlan}`}
-                  >
-                    <LockKeyhole size={10} />
-                    {requiredPlan}
+                  {isLocked && (
+                    <span
+                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300"
+                      title={`Dostupno u ${requiredPlan}`}
+                    >
+                      <LockKeyhole
+                        size={
+                          10
+                        }
+                      />
+
+                      {
+                        requiredPlan
+                      }
+                    </span>
+                  )}
+                </>
+              )}
+
+              {!expanded &&
+                isLocked && (
+                  <span className="absolute ml-7 mt-[-24px] grid h-4 w-4 place-items-center rounded-full bg-violet-600 text-white">
+                    <LockKeyhole
+                      size={9}
+                    />
                   </span>
                 )}
-              </>
-            )}
-
-            {!expanded && isLocked && (
-              <span className="absolute ml-7 mt-[-24px] grid h-4 w-4 place-items-center rounded-full bg-violet-600 text-white">
-                <LockKeyhole size={9} />
-              </span>
-            )}
-          </NavLink>
-        )
-      })}
+            </NavLink>
+          )
+        },
+      )}
     </nav>
   )
 }
@@ -389,7 +626,9 @@ function SidebarFooter({
               ? 'Super Admin'
               : undefined
           }
-          className={({ isActive }) =>
+          className={({
+            isActive,
+          }) =>
             `mb-3 flex h-12 items-center rounded-xl border transition ${
               expanded
                 ? 'gap-3 px-4'
@@ -417,8 +656,14 @@ function SidebarFooter({
       {showSettings && (
         <NavLink
           to="/settings"
-          title={!expanded ? 'Postavke' : undefined}
-          className={({ isActive }) =>
+          title={
+            !expanded
+              ? 'Postavke'
+              : undefined
+          }
+          className={({
+            isActive,
+          }) =>
             `mb-3 flex h-12 items-center rounded-xl transition ${
               expanded
                 ? 'gap-3 px-4'
@@ -444,11 +689,21 @@ function SidebarFooter({
       )}
 
       <UserCard
-        expanded={expanded}
-        displayName={displayName}
-        displayRole={displayRole}
-        companyName={companyName}
-        companyLogoUrl={companyLogoUrl}
+        expanded={
+          expanded
+        }
+        displayName={
+          displayName
+        }
+        displayRole={
+          displayRole
+        }
+        companyName={
+          companyName
+        }
+        companyLogoUrl={
+          companyLogoUrl
+        }
       />
     </div>
   )
@@ -503,8 +758,12 @@ function UserCard({
       }
     >
       <CompanyLogo
-        logoUrl={companyLogoUrl}
-        companyName={companyName}
+        logoUrl={
+          companyLogoUrl
+        }
+        companyName={
+          companyName
+        }
         className="h-10 w-10"
       />
 

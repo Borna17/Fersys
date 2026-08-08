@@ -1,59 +1,178 @@
-import type { ReactNode } from 'react'
+import type {
+  ReactNode,
+} from 'react'
+
 import {
   Navigate,
   Route,
   Routes,
 } from 'react-router'
 
-import { AuthProvider, useAuth } from '../auth/AuthProvider'
+import {
+  AuthProvider,
+  useAuth,
+} from '../auth/AuthProvider'
+
 import AdminGuard from '../admin/AdminGuard'
 import AdminLayout from '../admin/AdminLayout'
-import { AdminDashboardPage } from '../admin/AdminDashboardPage'
-import { AdminCompaniesPage } from '../admin/AdminCompaniesPage'
-import { AdminCompanyDetailsPage } from '../admin/AdminCompanyDetailsPage'
-import { AdminEmailCenterPage } from '../admin/AdminEmailCenterPage'
-import { AdminSupportPage } from '../admin/AdminSupportPage'
-import type { PermissionKey } from '../auth/permissions'
+
+import {
+  AdminDashboardPage,
+} from '../admin/AdminDashboardPage'
+
+import {
+  AdminCompaniesPage,
+} from '../admin/AdminCompaniesPage'
+
+import {
+  AdminCompanyDetailsPage,
+} from '../admin/AdminCompanyDetailsPage'
+
+import {
+  AdminEmailCenterPage,
+} from '../admin/AdminEmailCenterPage'
+
+import {
+  AdminSupportPage,
+} from '../admin/AdminSupportPage'
+
+import type {
+  PermissionKey,
+} from '../auth/permissions'
+
 import FersysLoader from '../components/FersysLoader'
+
 import PlanLock from '../components/subscription/PlanLock'
+
 import AppLayout from '../layouts/AppLayout'
-import { AiAssistantPage } from '../pages/AiAssistantPage'
-import { CalendarPage } from '../pages/CalendarPage'
-import { CustomerProfilePage } from '../pages/CustomerProfilePage'
-import { CustomersPage } from '../pages/CustomersPage'
-import { DashboardPage } from '../pages/DashboardPage'
-import { EmployeesPage } from '../pages/EmployeesPage'
-import { IncomingInvoicesPage } from '../pages/IncomingInvoicesPage'
+
+import {
+  AiAssistantPage,
+} from '../pages/AiAssistantPage'
+
+import {
+  CalendarPage,
+} from '../pages/CalendarPage'
+
+import {
+  CustomerProfilePage,
+} from '../pages/CustomerProfilePage'
+
+import {
+  CustomersPage,
+} from '../pages/CustomersPage'
+
+import {
+  DashboardPage,
+} from '../pages/DashboardPage'
+
+import {
+  EmployeesPage,
+} from '../pages/EmployeesPage'
+
+import {
+  IncomingInvoicesPage,
+} from '../pages/IncomingInvoicesPage'
+
 import InventoryItemDetailsPage from '../pages/InventoryItemDetailsPage'
+
 import InventoryMovementsPage from '../pages/InventoryMovementsPage'
+
 import InventoryPage from '../pages/InventoryPage'
+
 import InventoryQrScannerPage from '../pages/InventoryQrScannerPage'
-import { InvoicesPage } from '../pages/InvoicesPage'
-import { JoinInvitationPage } from '../pages/JoinInvitationPage'
-import { LoginPage } from '../pages/LoginPage'
-import { NewIncomingInvoicePage } from '../pages/NewIncomingInvoicePage'
+
+import {
+  InvoicesPage,
+} from '../pages/InvoicesPage'
+
+import {
+  JoinInvitationPage,
+} from '../pages/JoinInvitationPage'
+
+import {
+  LoginPage,
+} from '../pages/LoginPage'
+
+import {
+  NewIncomingInvoicePage,
+} from '../pages/NewIncomingInvoicePage'
+
 import NewInventoryItemPage from '../pages/NewInventoryItemPage'
-import { NewInvoicePage } from '../pages/NewInvoicePage'
-import { NewOfferPage } from '../pages/NewOfferPage'
-import { NewWorkOrderPage } from '../pages/NewWorkOrderPage'
-import { NotFoundPage } from '../pages/NotFoundPage'
-import { OffersPage } from '../pages/OffersPage'
-import { PricingPage } from '../pages/PricingPage'
-import { ProfilePage } from '../pages/ProfilePage'
-import { RegisterPage } from '../pages/RegisterPage'
-import { ResetPasswordPage } from '../pages/ResetPasswordPage'
-import { SettingsPage } from '../pages/SettingsPage'
-import { SupabaseTestPage } from '../pages/SupabaseTestPage'
-import { WorkOrderDetailsPage } from '../pages/WorkOrderDetailsPage'
-import { WorkOrderSettingsPage } from '../pages/WorkOrderSettingsPage'
-import { WorkOrdersPage } from '../pages/WorkOrdersPage'
-import { VehiclesPage } from '../pages/VehiclesPage'
-import { VehicleDetailsPage } from '../pages/VehicleDetailsPage'
-import { SupportPage } from '../pages/SupportPage'
+
+import {
+  NewInvoicePage,
+} from '../pages/NewInvoicePage'
+
+import {
+  NewOfferPage,
+} from '../pages/NewOfferPage'
+
+import {
+  NewWorkOrderPage,
+} from '../pages/NewWorkOrderPage'
+
+import {
+  NotFoundPage,
+} from '../pages/NotFoundPage'
+
+import {
+  OffersPage,
+} from '../pages/OffersPage'
+
+import {
+  PricingPage,
+} from '../pages/PricingPage'
+
+import {
+  ProfilePage,
+} from '../pages/ProfilePage'
+
+import {
+  RegisterPage,
+} from '../pages/RegisterPage'
+
+import {
+  ResetPasswordPage,
+} from '../pages/ResetPasswordPage'
+
+import {
+  SettingsPage,
+} from '../pages/SettingsPage'
+
+import {
+  SupabaseTestPage,
+} from '../pages/SupabaseTestPage'
+
+import {
+  WorkOrderDetailsPage,
+} from '../pages/WorkOrderDetailsPage'
+
+import {
+  WorkOrderSettingsPage,
+} from '../pages/WorkOrderSettingsPage'
+
+import {
+  WorkOrdersPage,
+} from '../pages/WorkOrdersPage'
+
+import {
+  VehiclesPage,
+} from '../pages/VehiclesPage'
+
+import {
+  VehicleDetailsPage,
+} from '../pages/VehicleDetailsPage'
+
+import {
+  SupportPage,
+} from '../pages/SupportPage'
+
 import {
   SubscriptionProvider,
   useSubscription,
 } from '../subscription/SubscriptionProvider'
+
 import {
   featureRequiredPlan,
   type SubscriptionFeature,
@@ -76,8 +195,10 @@ function ProtectedRoute({
   } = useAuth()
 
   const {
-    isLoading: isSubscriptionLoading,
-    error: subscriptionError,
+    isLoading:
+      isSubscriptionLoading,
+    error:
+      subscriptionError,
   } = useSubscription()
 
   if (
@@ -110,7 +231,8 @@ function ProtectedRoute({
       <div className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
         <div className="w-full max-w-lg rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center">
           <h1 className="text-xl font-black">
-            Tvrtka nije pripremljena
+            Tvrtka nije
+            pripremljena
           </h1>
 
           <p className="mt-3 break-words text-sm leading-6 text-slate-400">
@@ -134,7 +256,8 @@ function ProtectedRoute({
 
   if (
     !membership ||
-    membership.status !== 'active'
+    membership.status !==
+      'active'
   ) {
     return (
       <AccessDeniedPage
@@ -154,9 +277,13 @@ function PermissionRoute({
   permission: PermissionKey
   children: ReactNode
 }) {
-  const { can } = useAuth()
+  const {
+    can,
+  } = useAuth()
 
-  if (!can(permission)) {
+  if (
+    !can(permission)
+  ) {
     return (
       <AccessDeniedPage
         title="Pristup nije dopušten"
@@ -172,17 +299,22 @@ function PlanRoute({
   feature,
   children,
 }: {
-  feature: SubscriptionFeature
+  feature:
+    SubscriptionFeature
   children: ReactNode
 }) {
   const {
     hasFeature,
   } = useSubscription()
 
-  if (!hasFeature(feature)) {
+  if (
+    !hasFeature(feature)
+  ) {
     return (
       <PlanLock
-        feature={feature}
+        feature={
+          feature
+        }
         requiredPlan={
           featureRequiredPlan[
             feature
@@ -208,8 +340,10 @@ function BusinessPlanRoute({
   }
 
   if (
-    subscription?.planId !== 'business' &&
-    subscription?.planId !== 'pro'
+    subscription?.planId !==
+      'business' &&
+    subscription?.planId !==
+      'pro'
   ) {
     return (
       <PlanLock
@@ -248,7 +382,8 @@ function AccessDeniedPage({
           href="/dashboard"
           className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl bg-blue-600 px-5 text-sm font-bold text-white"
         >
-          Povratak na Dashboard
+          Povratak na
+          Dashboard
         </a>
       </div>
     </main>
@@ -272,14 +407,14 @@ function PublicOnlyRoute({
     )
   }
 
-  return session
-    ? (
-      <Navigate
-        to="/dashboard"
-        replace
-      />
-    )
-    : children
+  return session ? (
+    <Navigate
+      to="/dashboard"
+      replace
+    />
+  ) : (
+    children
+  )
 }
 
 function Guard({
@@ -287,13 +422,19 @@ function Guard({
   feature,
   children,
 }: {
-  permission: PermissionKey
-  feature?: SubscriptionFeature
+  permission:
+    PermissionKey
+  feature?:
+    SubscriptionFeature
   children: ReactNode
 }) {
   const content =
     feature ? (
-      <PlanRoute feature={feature}>
+      <PlanRoute
+        feature={
+          feature
+        }
+      >
         {children}
       </PlanRoute>
     ) : (
@@ -301,7 +442,11 @@ function Guard({
     )
 
   return (
-    <PermissionRoute permission={permission}>
+    <PermissionRoute
+      permission={
+        permission
+      }
+    >
       {content}
     </PermissionRoute>
   )
@@ -318,23 +463,21 @@ function RouterContent() {
       <Route
         path="/"
         element={
-          isLoading
-            ? (
-              <FersysLoader
-                fullScreen
-                text="Pokretanje FERSYS-a..."
-              />
-            )
-            : (
-              <Navigate
-                to={
-                  session
-                    ? '/dashboard'
-                    : '/login'
-                }
-                replace
-              />
-            )
+          isLoading ? (
+            <FersysLoader
+              fullScreen
+              text="Pokretanje FERSYS-a..."
+            />
+          ) : (
+            <Navigate
+              to={
+                session
+                  ? '/dashboard'
+                  : '/login'
+              }
+              replace
+            />
+          )
         }
       />
 
@@ -379,14 +522,40 @@ function RouterContent() {
           </ProtectedRoute>
         }
       >
-        <Route path="/admin" element={<AdminDashboardPage />} />
-        <Route path="/admin/companies" element={<AdminCompaniesPage />} />
+        <Route
+          path="/admin"
+          element={
+            <AdminDashboardPage />
+          }
+        />
+
+        <Route
+          path="/admin/companies"
+          element={
+            <AdminCompaniesPage />
+          }
+        />
+
         <Route
           path="/admin/companies/:companyId"
-          element={<AdminCompanyDetailsPage />}
+          element={
+            <AdminCompanyDetailsPage />
+          }
         />
-        <Route path="/admin/email" element={<AdminEmailCenterPage />} />
-        <Route path="/admin/support" element={<AdminSupportPage />} />
+
+        <Route
+          path="/admin/email"
+          element={
+            <AdminEmailCenterPage />
+          }
+        />
+
+        <Route
+          path="/admin/support"
+          element={
+            <AdminSupportPage />
+          }
+        />
       </Route>
 
       <Route
@@ -399,7 +568,9 @@ function RouterContent() {
         <Route
           path="/dashboard"
           element={
-            <Guard permission="dashboard.view">
+            <Guard
+              permission="dashboard.view"
+            >
               <DashboardPage />
             </Guard>
           }
@@ -408,7 +579,9 @@ function RouterContent() {
         <Route
           path="/support"
           element={
-            <Guard permission="dashboard.view">
+            <Guard
+              permission="dashboard.view"
+            >
               <SupportPage />
             </Guard>
           }
@@ -416,7 +589,9 @@ function RouterContent() {
 
         <Route
           path="/pricing"
-          element={<PricingPage />}
+          element={
+            <PricingPage />
+          }
         />
 
         <Route
@@ -638,7 +813,9 @@ function RouterContent() {
         <Route
           path="/vehicles"
           element={
-            <PermissionRoute permission="dashboard.view">
+            <PermissionRoute
+              permission="vehicles.view"
+            >
               <BusinessPlanRoute>
                 <VehiclesPage />
               </BusinessPlanRoute>
@@ -649,7 +826,9 @@ function RouterContent() {
         <Route
           path="/vehicles/:id"
           element={
-            <PermissionRoute permission="dashboard.view">
+            <PermissionRoute
+              permission="vehicles.view"
+            >
               <BusinessPlanRoute>
                 <VehicleDetailsPage />
               </BusinessPlanRoute>
@@ -720,7 +899,9 @@ function RouterContent() {
         <Route
           path="/settings/work-orders"
           element={
-            <Guard permission="settings.manage">
+            <Guard
+              permission="settings.manage"
+            >
               <WorkOrderSettingsPage />
             </Guard>
           }
@@ -728,13 +909,17 @@ function RouterContent() {
 
         <Route
           path="/profile"
-          element={<ProfilePage />}
+          element={
+            <ProfilePage />
+          }
         />
 
         <Route
           path="/settings"
           element={
-            <Guard permission="settings.manage">
+            <Guard
+              permission="settings.manage"
+            >
               <SettingsPage />
             </Guard>
           }
@@ -743,7 +928,9 @@ function RouterContent() {
         <Route
           path="/supabase-test"
           element={
-            <Guard permission="settings.manage">
+            <Guard
+              permission="settings.manage"
+            >
               <SupabaseTestPage />
             </Guard>
           }
@@ -752,7 +939,9 @@ function RouterContent() {
 
       <Route
         path="*"
-        element={<NotFoundPage />}
+        element={
+          <NotFoundPage />
+        }
       />
     </Routes>
   )
