@@ -1,24 +1,18 @@
 import {
   AlertTriangle,
   ArrowLeft,
-  Camera,
-  Check,
   ImagePlus,
-  Info,
   MapPin,
   Package,
   Plus,
   Save,
   Trash2,
-  Upload,
-  X,
 } from 'lucide-react'
 import {
   type ChangeEvent,
   type FormEvent,
   useEffect,
   useMemo,
-  useRef,
   useState,
 } from 'react'
 import {
@@ -26,16 +20,19 @@ import {
   useParams,
 } from 'react-router'
 
+import { useAuth } from '../auth/AuthProvider'
+import FersysLoader from '../components/FersysLoader'
 import {
   createInventoryItem,
+  createInventoryLocation,
   getInventoryItemById,
   getInventoryLocations,
+  updateInventoryItem,
   type InventoryLocation,
-  type InventoryLocationStock,
   type InventoryTrackingType,
   type InventoryUnit,
-  updateInventoryItem,
-} from '../utils/inventoryStorage'
+} from '../services/inventory.service'
+import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
 const DEFAULT_CATEGORIES = [
   'Odvodnja',
@@ -118,13 +115,13 @@ const DEFAULT_SUBCATEGORIES: Record<string, string[]> = {
   ],
 }
 
-interface LocationQuantity {
+type LocationQuantity = {
   locationId: string
   locationName: string
   quantity: string
 }
 
-interface FormState {
+type FormState = {
   name: string
   shortName: string
   alternativeNames: string
@@ -157,7 +154,7 @@ interface FormState {
   vatRate: string
 }
 
-const INITIAL_FORM_STATE: FormState = {
+const INITIAL_FORM: FormState = {
   name: '',
   shortName: '',
   alternativeNames: '',
@@ -190,88 +187,23 @@ const INITIAL_FORM_STATE: FormState = {
   vatRate: '25',
 }
 
+const inputClassName =
+  'h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
+
+const textareaClassName =
+  'min-h-28 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
+
 function parseNumber(value: string): number {
-  const normalizedValue = value
-    .trim()
-    .replace(/\s/g, '')
-    .replace(',', '.')
+  const parsed = Number(
+    value
+      .trim()
+      .replace(/\s/g, '')
+      .replace(',', '.'),
+  )
 
-  const parsedValue = Number(normalizedValue)
-
-  return Number.isFinite(parsedValue) ? parsedValue : 0
-}
-
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat('hr-HR', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  }).format(value)
-}
-
-function resizeImage(
-  file: File,
-  maxWidth = 1400,
-  maxHeight = 1400,
-  quality = 0.82,
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-
-    reader.onerror = () => {
-      reject(new Error('Fotografiju nije moguće učitati.'))
-    }
-
-    reader.onload = () => {
-      const image = new Image()
-
-      image.onerror = () => {
-        reject(new Error('Odabrana datoteka nije ispravna slika.'))
-      }
-
-      image.onload = () => {
-        let width = image.width
-        let height = image.height
-
-        const widthRatio = maxWidth / width
-        const heightRatio = maxHeight / height
-        const scale = Math.min(
-          widthRatio,
-          heightRatio,
-          1,
-        )
-
-        width = Math.round(width * scale)
-        height = Math.round(height * scale)
-
-        const canvas = document.createElement('canvas')
-        canvas.width = width
-        canvas.height = height
-
-        const context = canvas.getContext('2d')
-
-        if (!context) {
-          reject(
-            new Error(
-              'Preglednik ne podržava obradu fotografije.',
-            ),
-          )
-          return
-        }
-
-        context.fillStyle = '#ffffff'
-        context.fillRect(0, 0, width, height)
-        context.drawImage(image, 0, 0, width, height)
-
-        resolve(
-          canvas.toDataURL('image/jpeg', quality),
-        )
-      }
-
-      image.src = String(reader.result)
-    }
-
-    reader.readAsDataURL(file)
-  })
+  return Number.isFinite(parsed)
+    ? parsed
+    : 0
 }
 
 function FormSection({
@@ -284,20 +216,20 @@ function FormSection({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 shadow-sm sm:p-6">
-      <div className="mb-5">
-        <h2 className="text-lg font-semibold text-white">
-          {title}
-        </h2>
+    <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6">
+      <h2 className="text-lg font-semibold text-white">
+        {title}
+      </h2>
 
-        {description && (
-          <p className="mt-1 text-sm leading-6 text-slate-400">
-            {description}
-          </p>
-        )}
+      {description && (
+        <p className="mt-1 text-sm leading-6 text-slate-400">
+          {description}
+        </p>
+      )}
+
+      <div className="mt-5">
+        {children}
       </div>
-
-      {children}
     </section>
   )
 }
@@ -312,255 +244,257 @@ function FieldLabel({
   return (
     <span className="mb-2 block text-sm font-medium text-slate-300">
       {children}
-
       {required && (
-        <span className="ml-1 text-red-400">*</span>
+        <span className="ml-1 text-red-400">
+          *
+        </span>
       )}
     </span>
   )
 }
 
-const inputClassName =
-  'h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
-
-const textareaClassName =
-  'min-h-28 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-600 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
-
 export function NewInventoryItemPage() {
   const navigate = useNavigate()
   const { id } = useParams()
+  const { can } = useAuth()
 
   const isEditMode = Boolean(id)
+  const canViewCosts = can('inventory.viewCosts')
 
-  const mainImageInputRef =
-    useRef<HTMLInputElement>(null)
-  const additionalImagesInputRef =
-    useRef<HTMLInputElement>(null)
-
-  const [form, setForm] =
-    useState<FormState>(INITIAL_FORM_STATE)
-
+  const [form, setForm] = useState<FormState>(INITIAL_FORM)
   const [mainImage, setMainImage] = useState('')
   const [additionalImages, setAdditionalImages] =
     useState<string[]>([])
 
-  const [locations, setLocations] = useState<
-    InventoryLocation[]
-  >([])
+  const [locations, setLocations] =
+    useState<InventoryLocation[]>([])
 
   const [locationQuantities, setLocationQuantities] =
     useState<LocationQuantity[]>([])
 
+  const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [isProcessingImage, setIsProcessingImage] =
     useState(false)
 
+  const [newLocationName, setNewLocationName] = useState('')
+  const [isAddingLocation, setIsAddingLocation] =
+    useState(false)
+
   const [errorMessage, setErrorMessage] = useState('')
-  const [successMessage, setSuccessMessage] =
-    useState('')
 
   useEffect(() => {
-    const savedLocations = getInventoryLocations()
+    let cancelled = false
 
-    setLocations(savedLocations)
+    async function load() {
+      try {
+        setIsLoading(true)
+        setErrorMessage('')
 
-    if (!id) {
-      setLocationQuantities(
-        savedLocations.map((location) => ({
-          locationId: location.id,
-          locationName: location.name,
-          quantity: '',
-        })),
-      )
+        const savedLocations =
+          await getInventoryLocations()
 
-      return
-    }
+        if (cancelled) {
+          return
+        }
 
-    const existingItem = getInventoryItemById(id)
+        setLocations(savedLocations)
 
-    if (!existingItem) {
-      setErrorMessage('Artikl nije pronađen.')
-      return
-    }
-
-    setForm({
-      name: existingItem.name,
-      shortName: existingItem.shortName,
-      alternativeNames:
-        existingItem.alternativeNames.join(', '),
-
-      code: existingItem.code,
-      barcode: existingItem.barcode,
-
-      category: existingItem.category,
-      subcategory: existingItem.subcategory,
-
-      manufacturer: existingItem.manufacturer,
-      supplier: existingItem.supplier,
-
-      description: existingItem.description,
-      usageDescription:
-        existingItem.usageDescription,
-      warningNote: existingItem.warningNote,
-
-      trackingType: existingItem.trackingType,
-      unit: existingItem.unit,
-
-      quantity: String(existingItem.quantity),
-      minimumQuantity: String(
-        existingItem.minimumQuantity,
-      ),
-      pieceLengthMetres: String(
-        existingItem.pieceLengthMetres || '',
-      ),
-
-      diameter: existingItem.diameter,
-      dimension: existingItem.dimension,
-
-      purchasePrice: String(existingItem.purchasePrice),
-      salePrice: String(existingItem.salePrice),
-      vatRate: String(existingItem.vatRate),
-    })
-
-    setMainImage(existingItem.image)
-    setAdditionalImages(existingItem.additionalImages)
-
-    setLocationQuantities(
-      savedLocations.map((location) => {
-        const existingStock =
-          existingItem.locationStocks.find(
-            (stock) =>
-              stock.locationId === location.id,
+        if (!id) {
+          setLocationQuantities(
+            savedLocations.map((location) => ({
+              locationId: location.id,
+              locationName: location.name,
+              quantity: '',
+            })),
           )
 
-        return {
-          locationId: location.id,
-          locationName: location.name,
-          quantity: existingStock
-            ? String(existingStock.quantity)
-            : '',
+          return
         }
-      }),
-    )
+
+        const existingItem =
+          await getInventoryItemById(id)
+
+        if (!existingItem) {
+          setErrorMessage('Artikl nije pronađen.')
+          return
+        }
+
+        setForm({
+          name: existingItem.name,
+          shortName: existingItem.shortName,
+          alternativeNames:
+            existingItem.alternativeNames.join(', '),
+
+          code: existingItem.code,
+          barcode: existingItem.barcode,
+
+          category: existingItem.category,
+          subcategory: existingItem.subcategory,
+
+          manufacturer: existingItem.manufacturer,
+          supplier: existingItem.supplier,
+
+          description: existingItem.description,
+          usageDescription:
+            existingItem.usageDescription,
+          warningNote: existingItem.warningNote,
+
+          trackingType: existingItem.trackingType,
+          unit: existingItem.unit,
+
+          quantity: String(existingItem.quantity),
+          minimumQuantity:
+            String(existingItem.minimumQuantity),
+          pieceLengthMetres:
+            String(existingItem.pieceLengthMetres || ''),
+
+          diameter: existingItem.diameter,
+          dimension: existingItem.dimension,
+
+          purchasePrice:
+            String(existingItem.purchasePrice),
+          salePrice:
+            String(existingItem.salePrice),
+          vatRate:
+            String(existingItem.vatRate),
+        })
+
+        setMainImage(existingItem.image)
+        setAdditionalImages(existingItem.additionalImages)
+
+        setLocationQuantities(
+          savedLocations.map((location) => {
+            const stock =
+              existingItem.locationStocks.find(
+                (itemStock) =>
+                  itemStock.locationId === location.id,
+              )
+
+            return {
+              locationId: location.id,
+              locationName: location.name,
+              quantity: stock
+                ? String(stock.quantity)
+                : '',
+            }
+          }),
+        )
+      } catch (error) {
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : 'Artikl nije moguće učitati.',
+        )
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void load()
+
+    return () => {
+      cancelled = true
+    }
   }, [id])
 
-  const availableSubcategories = useMemo(() => {
-    return DEFAULT_SUBCATEGORIES[form.category] ?? []
-  }, [form.category])
+  const availableSubcategories = useMemo(
+    () =>
+      DEFAULT_SUBCATEGORIES[form.category] ?? [],
+    [form.category],
+  )
 
-  const totalLocationQuantity = useMemo(() => {
-    return locationQuantities.reduce(
-      (total, location) =>
-        total + parseNumber(location.quantity),
-      0,
-    )
-  }, [locationQuantities])
+  const initialQuantity = useMemo(
+    () =>
+      locationQuantities.reduce(
+        (sum, location) =>
+          sum + parseNumber(location.quantity),
+        0,
+      ),
+    [locationQuantities],
+  )
 
-  const calculatedTotalMetres = useMemo(() => {
-    const quantity =
-      totalLocationQuantity > 0
-        ? totalLocationQuantity
-        : parseNumber(form.quantity)
-
-    if (form.trackingType === 'metres') {
-      return quantity
-    }
-
-    if (form.trackingType === 'piece-length') {
-      return (
-        quantity *
-        parseNumber(form.pieceLengthMetres)
-      )
-    }
-
-    return 0
-  }, [
-    form.pieceLengthMetres,
-    form.quantity,
-    form.trackingType,
-    totalLocationQuantity,
-  ])
-
-  function updateField<Key extends keyof FormState>(
-    field: Key,
-    value: FormState[Key],
+  function updateField<K extends keyof FormState>(
+    key: K,
+    value: FormState[K],
   ) {
     setForm((current) => ({
       ...current,
-      [field]: value,
+      [key]: value,
     }))
 
     setErrorMessage('')
-    setSuccessMessage('')
+  }
+
+  function updateLocationQuantity(
+    locationId: string,
+    quantity: string,
+  ) {
+    setLocationQuantities((current) =>
+      current.map((item) =>
+        item.locationId === locationId
+          ? {
+              ...item,
+              quantity,
+            }
+          : item,
+      ),
+    )
   }
 
   function handleTrackingTypeChange(
-    trackingType: InventoryTrackingType,
+    value: InventoryTrackingType,
   ) {
-    let unit: InventoryUnit = 'kom'
-
-    if (trackingType === 'metres') {
-      unit = 'm'
-    }
-
-    updateField('trackingType', trackingType)
-
     setForm((current) => ({
       ...current,
-      trackingType,
-      unit,
+      trackingType: value,
+      unit:
+        value === 'metres'
+          ? 'm'
+          : 'kom',
       pieceLengthMetres:
-        trackingType === 'piece-length'
+        value === 'piece-length'
           ? current.pieceLengthMetres
           : '',
     }))
   }
 
-  function handleCategoryChange(category: string) {
-    setForm((current) => ({
-      ...current,
-      category,
-      subcategory: '',
-    }))
-  }
-
-  async function handleMainImageChange(
+  async function handleMainImage(
     event: ChangeEvent<HTMLInputElement>,
   ) {
     const file = event.target.files?.[0]
-
     event.target.value = ''
 
     if (!file) {
       return
     }
 
-    if (!file.type.startsWith('image/')) {
-      setErrorMessage(
-        'Odabrana datoteka mora biti fotografija.',
-      )
-      return
-    }
-
     try {
       setIsProcessingImage(true)
-      setErrorMessage('')
 
-      const compressedImage = await resizeImage(file)
+      const image =
+        await fileToCompressedDataUrl(
+          file,
+          1400,
+          1400,
+          0.82,
+        )
 
-      setMainImage(compressedImage)
+      setMainImage(image)
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Fotografiju nije moguće obraditi.',
+          : 'Fotografiju nije moguće učitati.',
       )
     } finally {
       setIsProcessingImage(false)
     }
   }
 
-  async function handleAdditionalImagesChange(
+  async function handleAdditionalImages(
     event: ChangeEvent<HTMLInputElement>,
   ) {
     const files = Array.from(
@@ -573,156 +507,124 @@ export function NewInventoryItemPage() {
       return
     }
 
-    const remainingSlots =
-      5 - additionalImages.length
-
-    if (remainingSlots <= 0) {
-      setErrorMessage(
-        'Možeš dodati najviše pet dodatnih fotografija.',
-      )
-      return
-    }
-
     try {
       setIsProcessingImage(true)
-      setErrorMessage('')
 
-      const imagesToProcess = files
-        .filter((file) =>
-          file.type.startsWith('image/'),
+      const remaining =
+        Math.max(
+          0,
+          6 - additionalImages.length,
         )
-        .slice(0, remainingSlots)
 
-      const compressedImages = await Promise.all(
-        imagesToProcess.map((file) =>
-          resizeImage(file, 1200, 1200, 0.78),
-        ),
-      )
+      const images =
+        await Promise.all(
+          files
+            .slice(0, remaining)
+            .map((file) =>
+              fileToCompressedDataUrl(
+                file,
+                1200,
+                1200,
+                0.8,
+              ),
+            ),
+        )
 
       setAdditionalImages((current) => [
         ...current,
-        ...compressedImages,
+        ...images,
       ])
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Fotografije nije moguće obraditi.',
+          : 'Fotografije nije moguće učitati.',
       )
     } finally {
       setIsProcessingImage(false)
     }
   }
 
-  function updateLocationQuantity(
-    locationId: string,
-    quantity: string,
+  async function handleAddLocation() {
+    if (!newLocationName.trim() || isAddingLocation) {
+      return
+    }
+
+    try {
+      setIsAddingLocation(true)
+      setErrorMessage('')
+
+      const location =
+        await createInventoryLocation({
+          name: newLocationName.trim(),
+        })
+
+      setLocations((current) => [
+        ...current,
+        location,
+      ])
+
+      setLocationQuantities((current) => [
+        ...current,
+        {
+          locationId: location.id,
+          locationName: location.name,
+          quantity: '',
+        },
+      ])
+
+      setNewLocationName('')
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : 'Lokaciju nije moguće dodati.',
+      )
+    } finally {
+      setIsAddingLocation(false)
+    }
+  }
+
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
   ) {
-    setLocationQuantities((current) =>
-      current.map((location) =>
-        location.locationId === locationId
-          ? {
-              ...location,
-              quantity,
-            }
-          : location,
-      ),
-    )
-  }
-
-  function removeAdditionalImage(index: number) {
-    setAdditionalImages((current) =>
-      current.filter(
-        (_, imageIndex) => imageIndex !== index,
-      ),
-    )
-  }
-
-  function buildLocationStocks(): InventoryLocationStock[] {
-    return locationQuantities
-      .map((location) => ({
-        id: `${location.locationId}-${Date.now()}`,
-        locationId: location.locationId,
-        locationName: location.locationName,
-        quantity: parseNumber(location.quantity),
-      }))
-      .filter((location) => location.quantity > 0)
-  }
-
-  function validateForm(): string | null {
-    if (!form.name.trim()) {
-      return 'Unesi naziv artikla.'
-    }
-
-    if (!form.category.trim()) {
-      return 'Odaberi kategoriju artikla.'
-    }
-
-    if (
-      form.trackingType === 'piece-length' &&
-      parseNumber(form.pieceLengthMetres) <= 0
-    ) {
-      return 'Unesi dužinu jednog komada cijevi.'
-    }
-
-    if (parseNumber(form.minimumQuantity) < 0) {
-      return 'Minimalna količina ne može biti negativna.'
-    }
-
-    if (parseNumber(form.purchasePrice) < 0) {
-      return 'Nabavna cijena ne može biti negativna.'
-    }
-
-    if (parseNumber(form.salePrice) < 0) {
-      return 'Prodajna cijena ne može biti negativna.'
-    }
-
-    return null
-  }
-
-  function handleSubmit(event: FormEvent) {
     event.preventDefault()
 
-    const validationError = validateForm()
+    if (isSaving) {
+      return
+    }
 
-    if (validationError) {
-      setErrorMessage(validationError)
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
+    if (!form.name.trim()) {
+      setErrorMessage('Naziv artikla je obavezan.')
       return
     }
 
     try {
       setIsSaving(true)
       setErrorMessage('')
-      setSuccessMessage('')
 
-      const locationStocks = buildLocationStocks()
+      const input = {
+        name: form.name.trim(),
+        shortName: form.shortName.trim(),
+        alternativeNames:
+          form.alternativeNames
+            .split(',')
+            .map((value) => value.trim())
+            .filter(Boolean),
 
-      const alternativeNames = form.alternativeNames
-        .split(',')
-        .map((name) => name.trim())
-        .filter(Boolean)
-
-      const itemInput = {
-        name: form.name,
-        shortName: form.shortName,
-        alternativeNames,
-
-        code: form.code,
-        barcode: form.barcode,
+        code: form.code.trim(),
+        barcode: form.barcode.trim(),
 
         category: form.category,
         subcategory: form.subcategory,
 
-        manufacturer: form.manufacturer,
-        supplier: form.supplier,
+        manufacturer: form.manufacturer.trim(),
+        supplier: form.supplier.trim(),
 
-        description: form.description,
-        usageDescription: form.usageDescription,
-        warningNote: form.warningNote,
+        description: form.description.trim(),
+        usageDescription:
+          form.usageDescription.trim(),
+        warningNote: form.warningNote.trim(),
 
         image: mainImage,
         additionalImages,
@@ -730,87 +632,128 @@ export function NewInventoryItemPage() {
         trackingType: form.trackingType,
         unit: form.unit,
 
-        quantity:
-          locationStocks.length > 0
-            ? totalLocationQuantity
-            : parseNumber(form.quantity),
+        minimumQuantity:
+          Math.max(
+            0,
+            parseNumber(form.minimumQuantity),
+          ),
 
-        minimumQuantity: parseNumber(
-          form.minimumQuantity,
-        ),
+        pieceLengthMetres:
+          Math.max(
+            0,
+            parseNumber(form.pieceLengthMetres),
+          ),
 
-        pieceLengthMetres: parseNumber(
-          form.pieceLengthMetres,
-        ),
+        diameter: form.diameter.trim(),
+        dimension: form.dimension.trim(),
 
-        diameter: form.diameter,
-        dimension: form.dimension,
+        purchasePrice:
+          canViewCosts
+            ? Math.max(
+                0,
+                parseNumber(form.purchasePrice),
+              )
+            : 0,
 
-        purchasePrice: parseNumber(
-          form.purchasePrice,
-        ),
-        salePrice: parseNumber(form.salePrice),
-        vatRate: parseNumber(form.vatRate),
+        salePrice:
+          canViewCosts
+            ? Math.max(
+                0,
+                parseNumber(form.salePrice),
+              )
+            : 0,
 
-        locationStocks,
+        vatRate:
+          canViewCosts
+            ? Math.max(
+                0,
+                parseNumber(form.vatRate),
+              )
+            : 25,
       }
 
-      if (id) {
-        const updatedItem = updateInventoryItem(
+      if (isEditMode && id) {
+        await updateInventoryItem(
           id,
-          itemInput,
+          input,
         )
 
-        setSuccessMessage('Artikl je uspješno spremljen.')
+        navigate(
+          `/inventory/items/${id}`,
+        )
 
-        window.setTimeout(() => {
-          navigate(
-            `/inventory/items/${updatedItem.id}`,
-          )
-        }, 500)
-      } else {
-        const createdItem =
-          createInventoryItem(itemInput)
-
-        setSuccessMessage('Artikl je uspješno dodan.')
-
-        window.setTimeout(() => {
-          navigate(
-            `/inventory/items/${createdItem.id}`,
-          )
-        }, 500)
+        return
       }
+
+      const created =
+        await createInventoryItem({
+          ...input,
+
+          quantity:
+            locations.length === 0
+              ? Math.max(
+                  0,
+                  parseNumber(form.quantity),
+                )
+              : undefined,
+
+          locationStocks:
+            locationQuantities
+              .map((location) => ({
+                locationId:
+                  location.locationId,
+                locationName:
+                  location.locationName,
+                quantity:
+                  Math.max(
+                    0,
+                    parseNumber(location.quantity),
+                  ),
+              }))
+              .filter(
+                (location) =>
+                  location.quantity > 0,
+              ),
+        })
+
+      navigate(
+        `/inventory/items/${created.id}`,
+      )
     } catch (error) {
-      const message =
+      setErrorMessage(
         error instanceof Error
           ? error.message
-          : 'Došlo je do greške pri spremanju artikla.'
-
-      if (
-        message.toLocaleLowerCase('hr-HR').includes(
-          'quota',
-        )
-      ) {
-        setErrorMessage(
-          'Fotografije zauzimaju previše prostora. Ukloni neke dodatne fotografije ili koristi manje fotografije.',
-        )
-      } else {
-        setErrorMessage(message)
-      }
+          : 'Artikl nije moguće spremiti.',
+      )
     } finally {
       setIsSaving(false)
     }
   }
 
+  if (isLoading) {
+    return (
+      <FersysLoader text="Učitavanje artikla..." />
+    )
+  }
+
   return (
-    <div className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+    <form
+      onSubmit={handleSubmit}
+      className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8"
+    >
+      <div className="mx-auto max-w-[1300px]">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-4">
             <button
               type="button"
-              onClick={() => navigate('/inventory')}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              onClick={() =>
+                navigate(
+                  isEditMode && id
+                    ? `/inventory/items/${id}`
+                    : '/inventory',
+                )
+              }
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
             >
               <ArrowLeft size={20} />
             </button>
@@ -823,34 +766,31 @@ export function NewInventoryItemPage() {
               </h1>
 
               <p className="mt-1 text-sm text-slate-400">
-                Dodaj fotografiju, podatke, stanje i
-                lokaciju materijala
+                {isEditMode
+                  ? 'Promijeni osnovne podatke artikla. Stanje robe mijenja se kroz ulaz/izlaz robe.'
+                  : 'Dodaj artikl u zajedničko skladište tvrtke.'}
               </p>
             </div>
           </div>
 
           <button
             type="submit"
-            form="inventory-item-form"
-            disabled={isSaving || isProcessingImage}
-            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={
+              isSaving ||
+              isProcessingImage
+            }
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 font-semibold text-white disabled:opacity-50"
           >
-            {isSaving ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Spremanje...
-              </>
-            ) : (
-              <>
-                <Save size={18} />
-                Spremi artikl
-              </>
-            )}
+            <Save size={18} />
+
+            {isSaving
+              ? 'Spremanje...'
+              : 'Spremi artikl'}
           </button>
         </div>
 
         {errorMessage && (
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
             <AlertTriangle
               size={20}
               className="mt-0.5 shrink-0"
@@ -862,203 +802,18 @@ export function NewInventoryItemPage() {
           </div>
         )}
 
-        {successMessage && (
-          <div className="mb-5 flex items-start gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
-            <Check
-              size={20}
-              className="mt-0.5 shrink-0"
-            />
-
-            <p className="text-sm leading-6">
-              {successMessage}
-            </p>
-          </div>
-        )}
-
-        <form
-          id="inventory-item-form"
-          onSubmit={handleSubmit}
-          className="space-y-5"
-        >
-          <FormSection
-            title="Fotografije artikla"
-            description="Glavna fotografija prikazuje se u skladištu i rezultatima pretrage. Preporučuje se fotografirati artikl na svijetloj podlozi."
-          >
-            <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
-              <div>
-                <FieldLabel>
-                  Glavna fotografija
-                </FieldLabel>
-
-                <div className="relative aspect-square overflow-hidden rounded-2xl border border-dashed border-slate-700 bg-slate-950">
-                  {mainImage ? (
-                    <>
-                      <img
-                        src={mainImage}
-                        alt="Glavna fotografija artikla"
-                        className="h-full w-full object-cover"
-                      />
-
-                      <div className="absolute inset-x-0 bottom-0 flex justify-between gap-2 bg-slate-950/80 p-3 backdrop-blur">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            mainImageInputRef.current?.click()
-                          }
-                          className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-slate-800 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-700"
-                        >
-                          <Camera size={15} />
-                          Promijeni
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setMainImage('')}
-                          className="flex h-9 w-9 items-center justify-center rounded-lg bg-red-500/15 text-red-300 transition hover:bg-red-500/25"
-                          aria-label="Ukloni fotografiju"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        mainImageInputRef.current?.click()
-                      }
-                      className="flex h-full w-full flex-col items-center justify-center px-6 text-center transition hover:bg-slate-900"
-                    >
-                      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-sky-400">
-                        <ImagePlus size={29} />
-                      </div>
-
-                      <p className="mt-4 font-semibold text-white">
-                        Dodaj fotografiju
-                      </p>
-
-                      <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Fotografiraj artikl ili odaberi
-                        fotografiju iz galerije
-                      </p>
-                    </button>
-                  )}
-                </div>
-
-                <input
-                  ref={mainImageInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleMainImageChange}
-                  className="hidden"
-                />
-
-                {isProcessingImage && (
-                  <p className="mt-3 text-sm text-sky-400">
-                    Obrada fotografije...
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between gap-4">
-                  <FieldLabel>
-                    Dodatne fotografije
-                  </FieldLabel>
-
-                  <span className="mb-2 text-xs text-slate-500">
-                    {additionalImages.length}/5
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  {additionalImages.map(
-                    (image, index) => (
-                      <div
-                        key={`${image.slice(0, 25)}-${index}`}
-                        className="group relative aspect-square overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
-                      >
-                        <img
-                          src={image}
-                          alt={`Dodatna fotografija ${
-                            index + 1
-                          }`}
-                          className="h-full w-full object-cover"
-                        />
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeAdditionalImage(index)
-                          }
-                          className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-lg bg-slate-950/80 text-red-300 opacity-100 backdrop-blur transition hover:bg-red-500 hover:text-white sm:opacity-0 sm:group-hover:opacity-100"
-                          aria-label="Ukloni fotografiju"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    ),
-                  )}
-
-                  {additionalImages.length < 5 && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        additionalImagesInputRef.current?.click()
-                      }
-                      className="flex aspect-square flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950 text-slate-400 transition hover:border-sky-500 hover:bg-sky-500/5 hover:text-sky-400"
-                    >
-                      <Upload size={24} />
-
-                      <span className="mt-2 text-xs font-semibold">
-                        Dodaj slike
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-                <input
-                  ref={additionalImagesInputRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAdditionalImagesChange}
-                  className="hidden"
-                />
-
-                <div className="mt-5 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-                  <div className="flex gap-3">
-                    <Info
-                      size={18}
-                      className="mt-0.5 shrink-0 text-sky-400"
-                    />
-
-                    <p className="text-sm leading-6 text-slate-300">
-                      Dodaj fotografiju prednje strane,
-                      ambalaže, tvorničke oznake ili police
-                      na kojoj se artikl nalazi. To olakšava
-                      prepoznavanje praktikantima i novim
-                      radnicima.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </FormSection>
-
+        <div className="mt-6 space-y-6">
           <FormSection
             title="Osnovni podaci"
-            description="Naziv i alternativni nazivi koriste se u brzoj pretrazi skladišta."
+            description="Naziv, šifra, kategorija i opis artikla."
           >
             <div className="grid gap-5 md:grid-cols-2">
-              <label className="md:col-span-2">
+              <label>
                 <FieldLabel required>
                   Naziv artikla
                 </FieldLabel>
 
                 <input
-                  type="text"
                   value={form.name}
                   onChange={(event) =>
                     updateField(
@@ -1066,18 +821,17 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: PVC odvodno koljeno Ø50 – 87°"
                   className={inputClassName}
+                  placeholder="Press spojnica 22 mm"
                 />
               </label>
 
               <label>
                 <FieldLabel>
-                  Kraći naziv
+                  Kratki naziv
                 </FieldLabel>
 
                 <input
-                  type="text"
                   value={form.shortName}
                   onChange={(event) =>
                     updateField(
@@ -1085,7 +839,6 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: Koljeno 50"
                   className={inputClassName}
                 />
               </label>
@@ -1096,7 +849,6 @@ export function NewInventoryItemPage() {
                 </FieldLabel>
 
                 <input
-                  type="text"
                   value={form.code}
                   onChange={(event) =>
                     updateField(
@@ -1104,42 +856,17 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
+                  className={inputClassName}
                   placeholder="Automatski ako ostane prazno"
-                  className={inputClassName}
                 />
-              </label>
-
-              <label className="md:col-span-2">
-                <FieldLabel>
-                  Alternativni nazivi
-                </FieldLabel>
-
-                <input
-                  type="text"
-                  value={form.alternativeNames}
-                  onChange={(event) =>
-                    updateField(
-                      'alternativeNames',
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Primjer: koljeno 50, sivo koljeno, HT koljeno, odvodno koljeno"
-                  className={inputClassName}
-                />
-
-                <p className="mt-2 text-xs text-slate-500">
-                  Odvoji nazive zarezom. Pretraga će
-                  pronalaziti artikl po svakom od njih.
-                </p>
               </label>
 
               <label>
                 <FieldLabel>
-                  Barkod proizvođača
+                  Barkod
                 </FieldLabel>
 
                 <input
-                  type="text"
                   value={form.barcode}
                   onChange={(event) =>
                     updateField(
@@ -1147,67 +874,24 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="EAN ili druga oznaka"
                   className={inputClassName}
                 />
               </label>
 
               <label>
                 <FieldLabel>
-                  Proizvođač
-                </FieldLabel>
-
-                <input
-                  type="text"
-                  value={form.manufacturer}
-                  onChange={(event) =>
-                    updateField(
-                      'manufacturer',
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Primjer: Peštan"
-                  className={inputClassName}
-                />
-              </label>
-
-              <label>
-                <FieldLabel>
-                  Dobavljač
-                </FieldLabel>
-
-                <input
-                  type="text"
-                  value={form.supplier}
-                  onChange={(event) =>
-                    updateField(
-                      'supplier',
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Primjer: Petrokov"
-                  className={inputClassName}
-                />
-              </label>
-            </div>
-          </FormSection>
-
-          <FormSection
-            title="Kategorija i dimenzije"
-            description="Pravilno razvrstavanje olakšava pronalazak sličnih artikala."
-          >
-            <div className="grid gap-5 md:grid-cols-2">
-              <label>
-                <FieldLabel required>
                   Kategorija
                 </FieldLabel>
 
                 <select
                   value={form.category}
                   onChange={(event) =>
-                    handleCategoryChange(
-                      event.target.value,
-                    )
+                    setForm((current) => ({
+                      ...current,
+                      category:
+                        event.target.value,
+                      subcategory: '',
+                    }))
                   }
                   className={inputClassName}
                 >
@@ -1233,9 +917,7 @@ export function NewInventoryItemPage() {
                   Podkategorija
                 </FieldLabel>
 
-                <input
-                  type="text"
-                  list="inventory-subcategories"
+                <select
                   value={form.subcategory}
                   onChange={(event) =>
                     updateField(
@@ -1243,165 +925,135 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: Koljena"
                   className={inputClassName}
-                />
+                >
+                  <option value="">
+                    Odaberi podkategoriju
+                  </option>
 
-                <datalist id="inventory-subcategories">
                   {availableSubcategories.map(
                     (subcategory) => (
                       <option
                         key={subcategory}
                         value={subcategory}
-                      />
+                      >
+                        {subcategory}
+                      </option>
                     ),
                   )}
-                </datalist>
+                </select>
               </label>
 
               <label>
                 <FieldLabel>
-                  Promjer
+                  Proizvođač
                 </FieldLabel>
 
                 <input
-                  type="text"
-                  value={form.diameter}
+                  value={form.manufacturer}
                   onChange={(event) =>
                     updateField(
-                      'diameter',
+                      'manufacturer',
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: Ø50"
                   className={inputClassName}
                 />
               </label>
 
               <label>
                 <FieldLabel>
-                  Dimenzija
+                  Dobavljač
                 </FieldLabel>
 
                 <input
-                  type="text"
-                  value={form.dimension}
+                  value={form.supplier}
                   onChange={(event) =>
                     updateField(
-                      'dimension',
+                      'supplier',
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: 50 × 50 mm ili 100 cm"
                   className={inputClassName}
+                />
+              </label>
+
+              <label className="md:col-span-2">
+                <FieldLabel>
+                  Alternativni nazivi
+                </FieldLabel>
+
+                <input
+                  value={form.alternativeNames}
+                  onChange={(event) =>
+                    updateField(
+                      'alternativeNames',
+                      event.target.value,
+                    )
+                  }
+                  className={inputClassName}
+                  placeholder="Odvoji zarezom"
+                />
+              </label>
+
+              <label className="md:col-span-2">
+                <FieldLabel>
+                  Opis
+                </FieldLabel>
+
+                <textarea
+                  value={form.description}
+                  onChange={(event) =>
+                    updateField(
+                      'description',
+                      event.target.value,
+                    )
+                  }
+                  className={textareaClassName}
                 />
               </label>
             </div>
           </FormSection>
 
           <FormSection
-            title="Način praćenja količine"
-            description="Odaberi vodi li se artikl u komadima, metrima ili kao komad cijevi određene dužine."
+            title="Praćenje i količina"
+            description={
+              isEditMode
+                ? 'Vrsta praćenja i minimalno stanje. Trenutnu količinu mijenjaj kroz ulaz ili izlaz robe.'
+                : 'Postavi način praćenja i početno stanje.'
+            }
           >
-            <div className="grid gap-4 md:grid-cols-3">
-              <button
-                type="button"
-                onClick={() =>
-                  handleTrackingTypeChange('pieces')
-                }
-                className={`rounded-2xl border p-4 text-left transition ${
-                  form.trackingType === 'pieces'
-                    ? 'border-sky-500 bg-sky-500/10'
-                    : 'border-slate-700 bg-slate-950 hover:border-slate-600'
-                }`}
-              >
-                <Package
-                  size={23}
-                  className={
-                    form.trackingType === 'pieces'
-                      ? 'text-sky-400'
-                      : 'text-slate-500'
-                  }
-                />
-
-                <p className="mt-3 font-semibold text-white">
-                  Komadi
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Fitingi, ventili, koljena, vijci,
-                  uređaji i drugi komadni artikli.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleTrackingTypeChange('metres')
-                }
-                className={`rounded-2xl border p-4 text-left transition ${
-                  form.trackingType === 'metres'
-                    ? 'border-sky-500 bg-sky-500/10'
-                    : 'border-slate-700 bg-slate-950 hover:border-slate-600'
-                }`}
-              >
-                <Package
-                  size={23}
-                  className={
-                    form.trackingType === 'metres'
-                      ? 'text-sky-400'
-                      : 'text-slate-500'
-                  }
-                />
-
-                <p className="mt-3 font-semibold text-white">
-                  Metri
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Bakrene, PEX, ALU-PEX i druge cijevi
-                  koje se režu prema potrebnoj dužini.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  handleTrackingTypeChange(
-                    'piece-length',
-                  )
-                }
-                className={`rounded-2xl border p-4 text-left transition ${
-                  form.trackingType === 'piece-length'
-                    ? 'border-sky-500 bg-sky-500/10'
-                    : 'border-slate-700 bg-slate-950 hover:border-slate-600'
-                }`}
-              >
-                <Package
-                  size={23}
-                  className={
-                    form.trackingType ===
-                    'piece-length'
-                      ? 'text-sky-400'
-                      : 'text-slate-500'
-                  }
-                />
-
-                <p className="mt-3 font-semibold text-white">
-                  Komadna cijev
-                </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Cijevi od 25, 50, 100 ili 200 cm.
-                  Program broji komade i ukupne metre.
-                </p>
-              </button>
-            </div>
-
-            <div className="mt-5 grid gap-5 md:grid-cols-3">
+            <div className="grid gap-5 md:grid-cols-3">
               <label>
                 <FieldLabel>
-                  Jedinica mjere
+                  Način praćenja
+                </FieldLabel>
+
+                <select
+                  value={form.trackingType}
+                  onChange={(event) =>
+                    handleTrackingTypeChange(
+                      event.target
+                        .value as InventoryTrackingType,
+                    )
+                  }
+                  className={inputClassName}
+                >
+                  <option value="pieces">
+                    Komadi
+                  </option>
+                  <option value="metres">
+                    Metri
+                  </option>
+                  <option value="piece-length">
+                    Komadi određene dužine
+                  </option>
+                </select>
+              </label>
+
+              <label>
+                <FieldLabel>
+                  Jedinica
                 </FieldLabel>
 
                 <select
@@ -1415,47 +1067,24 @@ export function NewInventoryItemPage() {
                   }
                   className={inputClassName}
                 >
-                  <option value="kom">kom</option>
-                  <option value="m">m</option>
-                  <option value="kg">kg</option>
-                  <option value="l">l</option>
-                  <option value="paket">
-                    paket
-                  </option>
-                  <option value="rola">rola</option>
-                  <option value="set">set</option>
+                  {[
+                    'kom',
+                    'm',
+                    'kg',
+                    'l',
+                    'paket',
+                    'rola',
+                    'set',
+                  ].map((unit) => (
+                    <option
+                      key={unit}
+                      value={unit}
+                    >
+                      {unit}
+                    </option>
+                  ))}
                 </select>
               </label>
-
-              {form.trackingType ===
-                'piece-length' && (
-                <label>
-                  <FieldLabel required>
-                    Dužina jednog komada u metrima
-                  </FieldLabel>
-
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={form.pieceLengthMetres}
-                    onChange={(event) =>
-                      updateField(
-                        'pieceLengthMetres',
-                        event.target.value,
-                      )
-                    }
-                    placeholder="Primjer: 0,25 ili 2"
-                    className={inputClassName}
-                  />
-
-                  <p className="mt-2 text-xs text-slate-500">
-                    25 cm = 0,25 m, 50 cm = 0,5 m,
-                    100 cm = 1 m.
-                  </p>
-                </label>
-              )}
 
               <label>
                 <FieldLabel>
@@ -1463,10 +1092,6 @@ export function NewInventoryItemPage() {
                 </FieldLabel>
 
                 <input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  inputMode="decimal"
                   value={form.minimumQuantity}
                   onChange={(event) =>
                     updateField(
@@ -1474,160 +1099,346 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
+                  inputMode="decimal"
                   className={inputClassName}
                 />
               </label>
-            </div>
 
-            {form.trackingType ===
-              'piece-length' && (
-              <div className="mt-5 rounded-xl border border-sky-500/20 bg-sky-500/5 p-4">
-                <p className="text-sm text-slate-300">
-                  Izračunata ukupna metraža:
-                </p>
+              {form.trackingType ===
+                'piece-length' && (
+                <label>
+                  <FieldLabel>
+                    Dužina jednog komada u metrima
+                  </FieldLabel>
 
-                <p className="mt-1 text-2xl font-bold text-sky-300">
-                  {formatNumber(
-                    calculatedTotalMetres,
-                  )}{' '}
-                  m
-                </p>
-              </div>
-            )}
-          </FormSection>
+                  <input
+                    value={
+                      form.pieceLengthMetres
+                    }
+                    onChange={(event) =>
+                      updateField(
+                        'pieceLengthMetres',
+                        event.target.value,
+                      )
+                    }
+                    inputMode="decimal"
+                    className={inputClassName}
+                  />
+                </label>
+              )}
 
-          <FormSection
-            title="Stanje po lokacijama"
-            description="Upiši koliko se artikala nalazi u glavnom skladištu, radionici ili vozilu."
-          >
-            <div className="space-y-3">
-              {locations.map((location) => {
-                const locationQuantity =
-                  locationQuantities.find(
-                    (item) =>
-                      item.locationId === location.id,
-                  )
-
-                return (
-                  <div
-                    key={location.id}
-                    className="grid gap-4 rounded-xl border border-slate-800 bg-slate-950 p-4 sm:grid-cols-[1fr_180px] sm:items-center"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-sky-400">
-                        <MapPin size={19} />
-                      </div>
-
-                      <div>
-                        <p className="font-semibold text-white">
-                          {location.name}
-                        </p>
-
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {location.description ||
-                            'Lokacija skladišta'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="relative">
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.001"
-                        inputMode="decimal"
-                        value={
-                          locationQuantity?.quantity ??
-                          ''
-                        }
-                        onChange={(event) =>
-                          updateLocationQuantity(
-                            location.id,
-                            event.target.value,
-                          )
-                        }
-                        placeholder="0"
-                        className={`${inputClassName} pr-16`}
-                      />
-
-                      <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                        {form.unit}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="mt-5 flex flex-col gap-4 rounded-xl border border-slate-700 bg-slate-800/60 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-slate-400">
-                  Ukupno na svim lokacijama
-                </p>
-
-                <p className="mt-1 text-xl font-bold text-white">
-                  {formatNumber(totalLocationQuantity)}{' '}
-                  {form.unit}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Info size={16} />
-
-                Ukupno stanje računa se automatski
-              </div>
-            </div>
-
-            {locations.length === 0 && (
-              <label className="mt-4 block">
+              <label>
                 <FieldLabel>
-                  Početno stanje
+                  Promjer
                 </FieldLabel>
 
                 <input
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  inputMode="decimal"
-                  value={form.quantity}
+                  value={form.diameter}
                   onChange={(event) =>
                     updateField(
-                      'quantity',
+                      'diameter',
                       event.target.value,
                     )
                   }
                   className={inputClassName}
                 />
               </label>
-            )}
-          </FormSection>
 
-          <FormSection
-            title="Opis i edukacija radnika"
-            description="Ove informacije pomažu praktikantima i novim radnicima prepoznati artikl i pravilno ga koristiti."
-          >
-            <div className="grid gap-5 lg:grid-cols-2">
               <label>
                 <FieldLabel>
-                  Opis artikla
+                  Dimenzija
                 </FieldLabel>
 
-                <textarea
-                  value={form.description}
+                <input
+                  value={form.dimension}
                   onChange={(event) =>
                     updateField(
-                      'description',
+                      'dimension',
                       event.target.value,
                     )
                   }
-                  placeholder="Kratak opis artikla, materijala i osnovnih svojstava..."
-                  className={textareaClassName}
+                  className={inputClassName}
                 />
               </label>
+            </div>
+          </FormSection>
 
+          {!isEditMode && (
+            <FormSection
+              title="Početno stanje i lokacije"
+              description="Količina će se odmah spremiti u zajedničko skladište i evidentirati kao početni ulaz robe."
+            >
+              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <MapPin size={18} />
+                  <span className="font-semibold">
+                    Lokacije skladišta
+                  </span>
+                </div>
+
+                <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    value={newLocationName}
+                    onChange={(event) =>
+                      setNewLocationName(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Npr. Polica A1"
+                    className={inputClassName}
+                  />
+
+                  <button
+                    type="button"
+                    disabled={
+                      isAddingLocation ||
+                      !newLocationName.trim()
+                    }
+                    onClick={() =>
+                      void handleAddLocation()
+                    }
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 font-semibold text-white disabled:opacity-50"
+                  >
+                    <Plus size={17} />
+                    Dodaj lokaciju
+                  </button>
+                </div>
+              </div>
+
+              {locations.length > 0 ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {locationQuantities.map((location) => (
+                    <label
+                      key={location.locationId}
+                      className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                    >
+                      <FieldLabel>
+                        {location.locationName}
+                      </FieldLabel>
+
+                      <input
+                        value={location.quantity}
+                        onChange={(event) =>
+                          updateLocationQuantity(
+                            location.locationId,
+                            event.target.value,
+                          )
+                        }
+                        inputMode="decimal"
+                        placeholder="0"
+                        className={inputClassName}
+                      />
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <label className="mt-4 block">
+                  <FieldLabel>
+                    Početna količina
+                  </FieldLabel>
+
+                  <input
+                    value={form.quantity}
+                    onChange={(event) =>
+                      updateField(
+                        'quantity',
+                        event.target.value,
+                      )
+                    }
+                    inputMode="decimal"
+                    className={inputClassName}
+                  />
+                </label>
+              )}
+
+              {locations.length > 0 && (
+                <p className="mt-4 text-sm text-slate-400">
+                  Ukupno početno stanje:{' '}
+                  <span className="font-bold text-white">
+                    {initialQuantity}{' '}
+                    {form.unit}
+                  </span>
+                </p>
+              )}
+            </FormSection>
+          )}
+
+          {canViewCosts && (
+            <FormSection
+              title="Cijene"
+              description="Cijene nisu vidljive radnicima bez posebne ovlasti."
+            >
+              <div className="grid gap-5 md:grid-cols-3">
+                <label>
+                  <FieldLabel>
+                    Nabavna cijena
+                  </FieldLabel>
+
+                  <input
+                    value={form.purchasePrice}
+                    onChange={(event) =>
+                      updateField(
+                        'purchasePrice',
+                        event.target.value,
+                      )
+                    }
+                    inputMode="decimal"
+                    className={inputClassName}
+                  />
+                </label>
+
+                <label>
+                  <FieldLabel>
+                    Prodajna cijena
+                  </FieldLabel>
+
+                  <input
+                    value={form.salePrice}
+                    onChange={(event) =>
+                      updateField(
+                        'salePrice',
+                        event.target.value,
+                      )
+                    }
+                    inputMode="decimal"
+                    className={inputClassName}
+                  />
+                </label>
+
+                <label>
+                  <FieldLabel>
+                    PDV %
+                  </FieldLabel>
+
+                  <input
+                    value={form.vatRate}
+                    onChange={(event) =>
+                      updateField(
+                        'vatRate',
+                        event.target.value,
+                      )
+                    }
+                    inputMode="decimal"
+                    className={inputClassName}
+                  />
+                </label>
+              </div>
+            </FormSection>
+          )}
+
+          <FormSection
+            title="Fotografije"
+            description="Glavna slika i dodatne fotografije artikla."
+          >
+            <div className="grid gap-5 lg:grid-cols-2">
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-300">
+                  Glavna slika
+                </p>
+
+                <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
+                  <div className="flex aspect-video items-center justify-center">
+                    {mainImage ? (
+                      <img
+                        src={mainImage}
+                        alt="Glavna slika"
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      <Package
+                        size={42}
+                        className="text-slate-700"
+                      />
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 border-t border-slate-800 p-3">
+                    <label className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-white">
+                      <ImagePlus size={17} />
+                      Učitaj
+
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleMainImage}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {mainImage && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMainImage('')
+                        }
+                        className="grid h-11 w-11 place-items-center rounded-xl bg-red-500/10 text-red-400"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-2 text-sm font-medium text-slate-300">
+                  Dodatne slike
+                </p>
+
+                <label className="flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 text-sm font-semibold text-slate-300">
+                  <Plus size={18} />
+                  Dodaj slike
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAdditionalImages}
+                    className="hidden"
+                  />
+                </label>
+
+                <div className="mt-3 grid grid-cols-3 gap-3">
+                  {additionalImages.map(
+                    (image, index) => (
+                      <div
+                        key={`${image.slice(0, 20)}-${index}`}
+                        className="relative overflow-hidden rounded-xl border border-slate-800 bg-slate-950"
+                      >
+                        <img
+                          src={image}
+                          alt=""
+                          className="aspect-square w-full object-cover"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setAdditionalImages(
+                              (current) =>
+                                current.filter(
+                                  (_, imageIndex) =>
+                                    imageIndex !== index,
+                                ),
+                            )
+                          }
+                          className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-lg bg-black/70 text-white"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ),
+                  )}
+                </div>
+              </div>
+            </div>
+          </FormSection>
+
+          <FormSection title="Dodatne napomene">
+            <div className="grid gap-5 md:grid-cols-2">
               <label>
                 <FieldLabel>
-                  Gdje se koristi
+                  Opis korištenja
                 </FieldLabel>
 
                 <textarea
@@ -1638,14 +1449,13 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: Koristi se za promjenu smjera odvodne cijevi Ø50 kod umivaonika, sudopera ili perilice."
                   className={textareaClassName}
                 />
               </label>
 
-              <label className="lg:col-span-2">
+              <label>
                 <FieldLabel>
-                  Važna napomena ili upozorenje
+                  Upozorenje / napomena
                 </FieldLabel>
 
                 <textarea
@@ -1656,139 +1466,57 @@ export function NewInventoryItemPage() {
                       event.target.value,
                     )
                   }
-                  placeholder="Primjer: Prije spajanja provjeriti gumicu, očistiti rub cijevi i koristiti odgovarajuće sredstvo za podmazivanje."
                   className={textareaClassName}
                 />
               </label>
             </div>
           </FormSection>
+        </div>
 
-          <FormSection
-            title="Cijene"
-            description="Cijene nisu obavezne, ali omogućuju izračun vrijednosti zalihe."
+        <div className="flex flex-col-reverse gap-3 py-8 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                isEditMode && id
+                  ? `/inventory/items/${id}`
+                  : '/inventory',
+              )
+            }
+            className="h-12 rounded-xl bg-slate-800 px-5 font-semibold text-white"
           >
-            <div className="grid gap-5 md:grid-cols-3">
-              <label>
-                <FieldLabel>
-                  Nabavna cijena
-                </FieldLabel>
+            Odustani
+          </button>
 
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={form.purchasePrice}
-                    onChange={(event) =>
-                      updateField(
-                        'purchasePrice',
-                        event.target.value,
-                      )
-                    }
-                    className={`${inputClassName} pr-12`}
-                  />
+          <button
+            type="submit"
+            disabled={
+              isSaving ||
+              isProcessingImage
+            }
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 font-semibold text-white disabled:opacity-50"
+          >
+            <Save size={18} />
 
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                    €
-                  </span>
-                </div>
-              </label>
-
-              <label>
-                <FieldLabel>
-                  Prodajna cijena
-                </FieldLabel>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    inputMode="decimal"
-                    value={form.salePrice}
-                    onChange={(event) =>
-                      updateField(
-                        'salePrice',
-                        event.target.value,
-                      )
-                    }
-                    className={`${inputClassName} pr-12`}
-                  />
-
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                    €
-                  </span>
-                </div>
-              </label>
-
-              <label>
-                <FieldLabel>
-                  PDV
-                </FieldLabel>
-
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="1"
-                    inputMode="decimal"
-                    value={form.vatRate}
-                    onChange={(event) =>
-                      updateField(
-                        'vatRate',
-                        event.target.value,
-                      )
-                    }
-                    className={`${inputClassName} pr-12`}
-                  />
-
-                  <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-slate-500">
-                    %
-                  </span>
-                </div>
-              </label>
-            </div>
-          </FormSection>
-
-          <div className="sticky bottom-4 z-20 rounded-2xl border border-slate-700 bg-slate-900/95 p-4 shadow-2xl shadow-black/30 backdrop-blur">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                onClick={() => navigate('/inventory')}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
-              >
-                <X size={18} />
-                Odustani
-              </button>
-
-              <button
-                type="submit"
-                disabled={
-                  isSaving || isProcessingImage
-                }
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-sky-500 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                    Spremanje...
-                  </>
-                ) : (
-                  <>
-                    <Plus size={18} />
-                    {isEditMode
-                      ? 'Spremi promjene'
-                      : 'Dodaj artikl'}
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </form>
+            {isSaving
+              ? 'Spremanje...'
+              : 'Spremi artikl'}
+          </button>
+        </div>
       </div>
-    </div>
+
+      {(isSaving ||
+        isProcessingImage) && (
+        <FersysLoader
+          fullScreen
+          text={
+            isSaving
+              ? 'Spremanje artikla...'
+              : 'Obrada fotografije...'
+          }
+        />
+      )}
+    </form>
   )
 }
 

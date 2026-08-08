@@ -9,12 +9,14 @@ import {
   Package,
   Plus,
   QrCode,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   Warehouse,
   X,
 } from 'lucide-react'
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -22,13 +24,13 @@ import {
 import { useNavigate } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
-
+import FersysLoader from '../components/FersysLoader'
 import {
   getInventoryItems,
   getInventoryLocations,
   type InventoryItem,
   type InventoryLocation,
-} from '../utils/inventoryStorage'
+} from '../services/inventory.service'
 
 type InventoryViewMode = 'cards' | 'table'
 type StockFilter = 'all' | 'available' | 'low' | 'empty'
@@ -119,12 +121,6 @@ function getItemLocationText(item: InventoryItem): string {
   }`
 }
 
-function getTotalInventoryValue(items: InventoryItem[]): number {
-  return items.reduce((total, item) => {
-    return total + item.quantity * item.purchasePrice
-  }, 0)
-}
-
 function InventoryStatCard({
   title,
   value,
@@ -161,192 +157,25 @@ function InventoryStatCard({
   )
 }
 
-function InventoryEmptyState({
-  hasFilters,
-  onClearFilters,
-  onCreateItem,
-  canCreateItem,
-}: {
-  hasFilters: boolean
-  onClearFilters: () => void
-  onCreateItem: () => void
-  canCreateItem: boolean
-}) {
-  return (
-    <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 px-6 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-slate-400">
-        <Package size={30} />
-      </div>
-
-      <h2 className="mt-5 text-xl font-semibold text-white">
-        {hasFilters
-          ? 'Nema pronađenih artikala'
-          : 'Skladište je trenutno prazno'}
-      </h2>
-
-      <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
-        {hasFilters
-          ? 'Pokušaj promijeniti pojam pretrage ili ukloniti odabrane filtre.'
-          : 'Dodaj prvi artikl, fotografiju, stanje, lokaciju i podatke potrebne za praćenje skladišta.'}
-      </p>
-
-      <div className="mt-6 flex flex-wrap justify-center gap-3">
-        {hasFilters && (
-          <button
-            type="button"
-            onClick={onClearFilters}
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
-          >
-            <X size={17} />
-            Očisti filtre
-          </button>
-        )}
-
-        {canCreateItem && (
-          <button
-            type="button"
-            onClick={onCreateItem}
-            className="inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-400"
-          >
-            <Plus size={17} />
-            Dodaj artikl
-          </button>
-        )}
-      </div>
-    </div>
-  )
-}
-
 function InventoryItemImage({
   item,
-  className = '',
 }: {
   item: InventoryItem
-  className?: string
 }) {
   if (item.image) {
     return (
       <img
         src={item.image}
         alt={item.name}
-        className={`h-full w-full object-cover ${className}`}
+        className="h-full w-full object-cover"
       />
     )
   }
 
   return (
-    <div
-      className={`flex h-full w-full items-center justify-center bg-slate-800 text-slate-500 ${className}`}
-    >
+    <div className="flex h-full w-full items-center justify-center bg-slate-800 text-slate-500">
       <Package size={34} />
     </div>
-  )
-}
-
-function InventoryCard({
-  item,
-  onOpen,
-}: {
-  item: InventoryItem
-  onOpen: () => void
-}) {
-  const stockStatus = getStockStatus(item)
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-700 hover:shadow-xl hover:shadow-black/10"
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-slate-800">
-        <InventoryItemImage
-          item={item}
-          className="transition duration-300 group-hover:scale-[1.03]"
-        />
-
-        <div className="absolute left-3 top-3">
-          <span
-            className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold backdrop-blur ${stockStatus.className}`}
-          >
-            {stockStatus.label}
-          </span>
-        </div>
-
-        {item.code && (
-          <div className="absolute bottom-3 right-3 rounded-lg bg-slate-950/80 px-2.5 py-1 text-xs font-medium text-slate-200 backdrop-blur">
-            {item.code}
-          </div>
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="min-h-[52px]">
-          <h3 className="line-clamp-2 text-base font-semibold leading-6 text-white">
-            {item.name}
-          </h3>
-
-          {(item.dimension || item.diameter) && (
-            <p className="mt-1 line-clamp-1 text-sm text-slate-400">
-              {[item.diameter, item.dimension]
-                .filter(Boolean)
-                .join(' • ')}
-            </p>
-          )}
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-slate-800/80 p-3">
-            <p className="text-xs text-slate-500">
-              Trenutno stanje
-            </p>
-
-            <p className="mt-1 text-base font-bold text-white">
-              {getQuantityLabel(item)}
-            </p>
-          </div>
-
-          <div className="rounded-xl bg-slate-800/80 p-3">
-            <p className="text-xs text-slate-500">
-              Minimalno
-            </p>
-
-            <p className="mt-1 text-base font-bold text-white">
-              {formatNumber(item.minimumQuantity)} {item.unit}
-            </p>
-          </div>
-        </div>
-
-        {item.trackingType === 'piece-length' && (
-          <div className="mt-3 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
-            <p className="text-xs text-sky-300">
-              Ukupna metraža
-            </p>
-
-            <p className="mt-0.5 font-semibold text-sky-100">
-              {formatNumber(item.totalMetres)} m
-            </p>
-          </div>
-        )}
-
-        <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
-          <MapPin size={15} className="shrink-0" />
-
-          <span className="truncate">
-            {getItemLocationText(item)}
-          </span>
-        </div>
-
-        <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4">
-          <span className="text-xs text-slate-500">
-            {item.category || 'Bez kategorije'}
-          </span>
-
-          <span className="text-sm font-semibold text-sky-400 transition group-hover:text-sky-300">
-            Otvori artikl
-          </span>
-        </div>
-      </div>
-    </button>
   )
 }
 
@@ -354,84 +183,92 @@ export function InventoryPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
 
-  const canViewCosts =
-    can('inventory.viewCosts')
-
-  const canManageInventory =
-    can('inventory.manage')
+  const canViewCosts = can('inventory.viewCosts')
+  const canManageInventory = can('inventory.manage')
 
   const [items, setItems] = useState<InventoryItem[]>([])
-  const [locations, setLocations] = useState<
-    InventoryLocation[]
-  >([])
+  const [locations, setLocations] = useState<InventoryLocation[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   const [searchTerm, setSearchTerm] = useState('')
-  const [categoryFilter, setCategoryFilter] =
-    useState('all')
-  const [locationFilter, setLocationFilter] =
-    useState('all')
+  const [categoryFilter, setCategoryFilter] = useState('all')
+  const [locationFilter, setLocationFilter] = useState('all')
   const [stockFilter, setStockFilter] =
     useState<StockFilter>('all')
   const [viewMode, setViewMode] =
     useState<InventoryViewMode>('cards')
-  const [showFilters, setShowFilters] =
-    useState(false)
+  const [showFilters, setShowFilters] = useState(false)
 
-  function loadInventoryData() {
-    setItems(getInventoryItems())
-    setLocations(getInventoryLocations())
-  }
+  const loadInventoryData = useCallback(async () => {
+    try {
+      setLoadError('')
+
+      const [savedItems, savedLocations] =
+        await Promise.all([
+          getInventoryItems(),
+          getInventoryLocations(),
+        ])
+
+      setItems(savedItems)
+      setLocations(savedLocations)
+    } catch (error) {
+      console.error(
+        'Skladište nije moguće učitati:',
+        error,
+      )
+
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Skladište nije moguće učitati.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadInventoryData()
+    void loadInventoryData()
+
+    function handleFocus() {
+      void loadInventoryData()
+    }
 
     function handleVisibilityChange() {
       if (document.visibilityState === 'visible') {
-        loadInventoryData()
+        void loadInventoryData()
       }
     }
 
-    function handleStorageChange() {
-      loadInventoryData()
-    }
+    window.addEventListener('focus', handleFocus)
 
-    window.addEventListener('focus', loadInventoryData)
-    window.addEventListener(
-      'storage',
-      handleStorageChange,
-    )
     document.addEventListener(
       'visibilitychange',
       handleVisibilityChange,
     )
 
     return () => {
-      window.removeEventListener(
-        'focus',
-        loadInventoryData,
-      )
-      window.removeEventListener(
-        'storage',
-        handleStorageChange,
-      )
+      window.removeEventListener('focus', handleFocus)
+
       document.removeEventListener(
         'visibilitychange',
         handleVisibilityChange,
       )
     }
-  }, [])
+  }, [loadInventoryData])
 
-  const categories = useMemo(() => {
-    return Array.from(
-      new Set(
-        items
-          .map((item) => item.category.trim())
-          .filter(Boolean),
-      ),
-    ).sort((first, second) =>
-      first.localeCompare(second, 'hr'),
-    )
-  }, [items])
+  const categories = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .map((item) => item.category.trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, 'hr')),
+    [items],
+  )
 
   const filteredItems = useMemo(() => {
     const normalizedSearch = normalizeText(searchTerm)
@@ -501,22 +338,31 @@ export function InventoryPage() {
     stockFilter,
   ])
 
-  const lowStockCount = useMemo(() => {
-    return items.filter(
-      (item) =>
-        item.minimumQuantity > 0 &&
-        item.quantity <= item.minimumQuantity,
-    ).length
-  }, [items])
+  const lowStockCount = useMemo(
+    () =>
+      items.filter(
+        (item) =>
+          item.minimumQuantity > 0 &&
+          item.quantity > 0 &&
+          item.quantity <= item.minimumQuantity,
+      ).length,
+    [items],
+  )
 
-  const emptyStockCount = useMemo(() => {
-    return items.filter((item) => item.quantity <= 0)
-      .length
-  }, [items])
+  const emptyStockCount = useMemo(
+    () => items.filter((item) => item.quantity <= 0).length,
+    [items],
+  )
 
-  const totalValue = useMemo(() => {
-    return getTotalInventoryValue(items)
-  }, [items])
+  const totalValue = useMemo(
+    () =>
+      items.reduce(
+        (total, item) =>
+          total + item.quantity * item.purchasePrice,
+        0,
+      ),
+    [items],
+  )
 
   const hasActiveFilters =
     searchTerm.trim() !== '' ||
@@ -531,40 +377,46 @@ export function InventoryPage() {
     setStockFilter('all')
   }
 
-  function openItem(itemId: string) {
-    navigate(`/inventory/items/${itemId}`)
+  if (isLoading) {
+    return (
+      <FersysLoader text="Učitavanje zajedničkog skladišta..." />
+    )
   }
 
   return (
     <div className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-[1600px]">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400">
-                <Warehouse size={25} />
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-sky-500/10 text-sky-400">
+              <Warehouse size={25} />
+            </div>
 
-              <div>
-                <h1 className="text-2xl font-bold text-white sm:text-3xl">
-                  Skladište
-                </h1>
+            <div>
+              <h1 className="text-2xl font-bold text-white sm:text-3xl">
+                Skladište
+              </h1>
 
-                <p className="mt-1 text-sm text-slate-400">
-                  Artikli, fotografije, QR kodovi i
-                  praćenje stanja materijala
-                </p>
-              </div>
+              <p className="mt-1 text-sm text-slate-400">
+                Zajedničko stanje artikala za cijelu tvrtku
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
-              onClick={() =>
-                navigate('/inventory/scan')
-              }
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+              onClick={() => void loadInventoryData()}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+            >
+              <RefreshCw size={18} />
+              Osvježi
+            </button>
+
+            <button
+              type="button"
+              onClick={() => navigate('/inventory/scan')}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
             >
               <QrCode size={18} />
               Skeniraj QR
@@ -572,10 +424,8 @@ export function InventoryPage() {
 
             <button
               type="button"
-              onClick={() =>
-                navigate('/inventory/movements')
-              }
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+              onClick={() => navigate('/inventory/movements')}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
             >
               <ArrowDownToLine size={18} />
               Prometi robe
@@ -595,6 +445,25 @@ export function InventoryPage() {
             )}
           </div>
         </div>
+
+        {loadError && (
+          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+            <AlertTriangle
+              size={20}
+              className="mt-0.5 shrink-0"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">
+                Skladište nije moguće učitati.
+              </p>
+
+              <p className="mt-1 break-words text-sm">
+                {loadError}
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <InventoryStatCard
@@ -622,13 +491,13 @@ export function InventoryPage() {
             <InventoryStatCard
               title="Vrijednost zalihe"
               value={formatCurrency(totalValue)}
-              description="Prema unesenim nabavnim cijenama"
+              description="Prema nabavnim cijenama"
               icon={<Warehouse size={22} />}
             />
           )}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-sm sm:p-5">
+        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="relative flex-1">
               <Search
@@ -642,16 +511,15 @@ export function InventoryPage() {
                 onChange={(event) =>
                   setSearchTerm(event.target.value)
                 }
-                placeholder="Pretraži naziv, šifru, dimenziju, kategoriju, proizvođača..."
-                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-12 pr-11 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-500"
+                placeholder="Pretraži naziv, šifru, dimenziju, kategoriju..."
+                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-12 pr-11 text-sm text-white outline-none focus:border-sky-500"
               />
 
               {searchTerm && (
                 <button
                   type="button"
                   onClick={() => setSearchTerm('')}
-                  aria-label="Očisti pretragu"
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-800 hover:text-white"
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-800 hover:text-white"
                 >
                   <X size={17} />
                 </button>
@@ -664,38 +532,24 @@ export function InventoryPage() {
                 onClick={() =>
                   setShowFilters((current) => !current)
                 }
-                className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${
+                className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold ${
                   showFilters || hasActiveFilters
                     ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
+                    : 'border-slate-700 bg-slate-950 text-slate-300'
                 }`}
               >
                 <SlidersHorizontal size={18} />
                 Filtri
-
-                {hasActiveFilters && (
-                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1.5 text-[11px] font-bold text-white">
-                    {
-                      [
-                        searchTerm.trim() !== '',
-                        categoryFilter !== 'all',
-                        locationFilter !== 'all',
-                        stockFilter !== 'all',
-                      ].filter(Boolean).length
-                    }
-                  </span>
-                )}
               </button>
 
               <div className="flex h-12 items-center rounded-xl border border-slate-700 bg-slate-950 p-1">
                 <button
                   type="button"
                   onClick={() => setViewMode('cards')}
-                  aria-label="Prikaz kartica"
-                  className={`flex h-9 w-10 items-center justify-center rounded-lg transition ${
+                  className={`flex h-9 w-10 items-center justify-center rounded-lg ${
                     viewMode === 'cards'
                       ? 'bg-slate-800 text-sky-400'
-                      : 'text-slate-500 hover:text-slate-300'
+                      : 'text-slate-500'
                   }`}
                 >
                   <Grid2X2 size={18} />
@@ -704,11 +558,10 @@ export function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
-                  aria-label="Tablični prikaz"
-                  className={`flex h-9 w-10 items-center justify-center rounded-lg transition ${
+                  className={`flex h-9 w-10 items-center justify-center rounded-lg ${
                     viewMode === 'table'
                       ? 'bg-slate-800 text-sky-400'
-                      : 'text-slate-500 hover:text-slate-300'
+                      : 'text-slate-500'
                   }`}
                 >
                   <List size={19} />
@@ -719,291 +572,237 @@ export function InventoryPage() {
 
           {showFilters && (
             <div className="mt-4 grid gap-4 border-t border-slate-800 pt-4 sm:grid-cols-2 xl:grid-cols-4">
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Kategorija
-                </span>
+              <select
+                value={categoryFilter}
+                onChange={(event) =>
+                  setCategoryFilter(event.target.value)
+                }
+                className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+              >
+                <option value="all">
+                  Sve kategorije
+                </option>
 
-                <select
-                  value={categoryFilter}
-                  onChange={(event) =>
-                    setCategoryFilter(
-                      event.target.value,
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                >
-                  <option value="all">
-                    Sve kategorije
+                {categories.map((category) => (
+                  <option
+                    key={category}
+                    value={category}
+                  >
+                    {category}
                   </option>
+                ))}
+              </select>
 
-                  {categories.map((category) => (
-                    <option
-                      key={category}
-                      value={category}
-                    >
-                      {category}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <select
+                value={locationFilter}
+                onChange={(event) =>
+                  setLocationFilter(event.target.value)
+                }
+                className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+              >
+                <option value="all">
+                  Sve lokacije
+                </option>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Lokacija
-                </span>
-
-                <select
-                  value={locationFilter}
-                  onChange={(event) =>
-                    setLocationFilter(
-                      event.target.value,
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                >
-                  <option value="all">
-                    Sve lokacije
+                {locations.map((location) => (
+                  <option
+                    key={location.id}
+                    value={location.id}
+                  >
+                    {location.name}
                   </option>
+                ))}
+              </select>
 
-                  {locations.map((location) => (
-                    <option
-                      key={location.id}
-                      value={location.id}
-                    >
-                      {location.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <select
+                value={stockFilter}
+                onChange={(event) =>
+                  setStockFilter(
+                    event.target.value as StockFilter,
+                  )
+                }
+                className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+              >
+                <option value="all">
+                  Sva stanja
+                </option>
+                <option value="available">
+                  Na stanju
+                </option>
+                <option value="low">
+                  Nisko stanje
+                </option>
+                <option value="empty">
+                  Nema na stanju
+                </option>
+              </select>
 
-              <label className="block">
-                <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Stanje
-                </span>
-
-                <select
-                  value={stockFilter}
-                  onChange={(event) =>
-                    setStockFilter(
-                      event.target
-                        .value as StockFilter,
-                    )
-                  }
-                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                >
-                  <option value="all">
-                    Sva stanja
-                  </option>
-                  <option value="available">
-                    Na stanju
-                  </option>
-                  <option value="low">
-                    Nisko stanje
-                  </option>
-                  <option value="empty">
-                    Nema na stanju
-                  </option>
-                </select>
-              </label>
-
-              <div className="flex items-end">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  disabled={!hasActiveFilters}
-                  className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <X size={17} />
-                  Očisti filtre
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={clearFilters}
+                disabled={!hasActiveFilters}
+                className="h-11 rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                Očisti filtre
+              </button>
             </div>
           )}
         </div>
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-400">
-            Prikazano{' '}
-            <span className="font-semibold text-white">
-              {filteredItems.length}
-            </span>{' '}
-            od{' '}
-            <span className="font-semibold text-white">
-              {items.length}
-            </span>{' '}
-            artikala
-          </p>
-
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex items-center gap-2 self-start text-sm font-semibold text-sky-400 transition hover:text-sky-300 sm:self-auto"
-            >
-              <X size={15} />
-              Ukloni sve filtre
-            </button>
-          )}
+        <div className="mt-5 text-sm text-slate-400">
+          Prikazano{' '}
+          <span className="font-semibold text-white">
+            {filteredItems.length}
+          </span>{' '}
+          od{' '}
+          <span className="font-semibold text-white">
+            {items.length}
+          </span>{' '}
+          artikala
         </div>
 
-        <div className="mt-4">
-          {filteredItems.length === 0 ? (
-            <InventoryEmptyState
-              hasFilters={hasActiveFilters}
-              onClearFilters={clearFilters}
-              canCreateItem={canManageInventory}
-              onCreateItem={() => {
-                if (canManageInventory) {
+        {filteredItems.length === 0 ? (
+          <div className="mt-4 flex min-h-[340px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 px-6 text-center">
+            <Package
+              size={42}
+              className="text-slate-600"
+            />
+
+            <h2 className="mt-4 text-xl font-semibold text-white">
+              {hasActiveFilters
+                ? 'Nema pronađenih artikala'
+                : 'Skladište je prazno'}
+            </h2>
+
+            <p className="mt-2 max-w-md text-sm text-slate-400">
+              {hasActiveFilters
+                ? 'Promijeni filtre ili pretragu.'
+                : 'Dodaj prvi artikl u zajedničko skladište firme.'}
+            </p>
+
+            {canManageInventory && !hasActiveFilters && (
+              <button
+                type="button"
+                onClick={() =>
                   navigate('/inventory/items/new')
                 }
-              }}
-            />
-          ) : viewMode === 'cards' ? (
-            <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-              {filteredItems.map((item) => (
-                <InventoryCard
+                className="mt-5 inline-flex items-center gap-2 rounded-xl bg-sky-500 px-4 py-2.5 font-semibold text-white"
+              >
+                <Plus size={17} />
+                Dodaj artikl
+              </button>
+            )}
+          </div>
+        ) : viewMode === 'cards' ? (
+          <div className="mt-4 grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {filteredItems.map((item) => {
+              const status = getStockStatus(item)
+
+              return (
+                <button
                   key={item.id}
-                  item={item}
-                  onOpen={() => openItem(item.id)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-sm">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-800">
-                  <thead className="bg-slate-900">
-                    <tr>
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Artikl
-                      </th>
+                  type="button"
+                  onClick={() =>
+                    navigate(`/inventory/items/${item.id}`)
+                  }
+                  className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 text-left transition hover:border-slate-700"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-slate-800">
+                    <InventoryItemImage item={item} />
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Šifra
-                      </th>
+                    <span
+                      className={`absolute left-3 top-3 rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}
+                    >
+                      {status.label}
+                    </span>
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Kategorija
-                      </th>
+                    {item.code && (
+                      <span className="absolute bottom-3 right-3 rounded-lg bg-slate-950/80 px-2.5 py-1 text-xs text-slate-200">
+                        {item.code}
+                      </span>
+                    )}
+                  </div>
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Lokacija
-                      </th>
+                  <div className="p-4">
+                    <h3 className="font-semibold text-white">
+                      {item.name}
+                    </h3>
 
-                      <th className="px-5 py-4 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Stanje
-                      </th>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-slate-800/80 p-3">
+                        <p className="text-xs text-slate-500">
+                          Stanje
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {getQuantityLabel(item)}
+                        </p>
+                      </div>
 
-                      <th className="px-5 py-4 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
+                      <div className="rounded-xl bg-slate-800/80 p-3">
+                        <p className="text-xs text-slate-500">
+                          Minimum
+                        </p>
+                        <p className="mt-1 font-bold text-white">
+                          {formatNumber(item.minimumQuantity)}{' '}
+                          {item.unit}
+                        </p>
+                      </div>
+                    </div>
 
-                  <tbody className="divide-y divide-slate-800">
-                    {filteredItems.map((item) => {
-                      const status =
-                        getStockStatus(item)
+                    <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
+                      <MapPin size={15} />
+                      <span className="truncate">
+                        {getItemLocationText(item)}
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="mt-4 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900">
+            <table className="min-w-full divide-y divide-slate-800">
+              <thead>
+                <tr className="text-left text-xs uppercase text-slate-500">
+                  <th className="px-5 py-4">Artikl</th>
+                  <th className="px-5 py-4">Šifra</th>
+                  <th className="px-5 py-4">Lokacija</th>
+                  <th className="px-5 py-4">Stanje</th>
+                  <th className="px-5 py-4">Praćenje</th>
+                </tr>
+              </thead>
 
-                      return (
-                        <tr
-                          key={item.id}
-                          onClick={() =>
-                            openItem(item.id)
-                          }
-                          className="cursor-pointer transition hover:bg-slate-800/60"
-                        >
-                          <td className="px-5 py-4">
-                            <div className="flex min-w-[260px] items-center gap-4">
-                              <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-700 bg-slate-800">
-                                <InventoryItemImage
-                                  item={item}
-                                />
-                              </div>
-
-                              <div>
-                                <p className="font-semibold text-white">
-                                  {item.name}
-                                </p>
-
-                                <p className="mt-1 text-xs text-slate-500">
-                                  {getTrackingTypeLabel(
-                                    item,
-                                  )}
-                                </p>
-
-                                {item.trackingType ===
-                                  'piece-length' && (
-                                  <p className="mt-1 text-xs font-medium text-sky-400">
-                                    Ukupno{' '}
-                                    {formatNumber(
-                                      item.totalMetres,
-                                    )}{' '}
-                                    m
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-300">
-                            {item.code || '—'}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-4 text-sm text-slate-300">
-                            {item.category ||
-                              'Bez kategorije'}
-                          </td>
-
-                          <td className="px-5 py-4 text-sm text-slate-300">
-                            <div className="flex min-w-[180px] items-center gap-2">
-                              <MapPin
-                                size={15}
-                                className="shrink-0 text-slate-500"
-                              />
-
-                              <span className="truncate">
-                                {getItemLocationText(
-                                  item,
-                                )}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-4 text-right">
-                            <p className="font-bold text-white">
-                              {getQuantityLabel(item)}
-                            </p>
-
-                            {item.minimumQuantity >
-                              0 && (
-                              <p className="mt-1 text-xs text-slate-500">
-                                Minimum{' '}
-                                {formatNumber(
-                                  item.minimumQuantity,
-                                )}{' '}
-                                {item.unit}
-                              </p>
-                            )}
-                          </td>
-
-                          <td className="whitespace-nowrap px-5 py-4">
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${status.className}`}
-                            >
-                              {status.label}
-                            </span>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+              <tbody className="divide-y divide-slate-800">
+                {filteredItems.map((item) => (
+                  <tr
+                    key={item.id}
+                    onClick={() =>
+                      navigate(`/inventory/items/${item.id}`)
+                    }
+                    className="cursor-pointer hover:bg-slate-800/50"
+                  >
+                    <td className="px-5 py-4 font-semibold text-white">
+                      {item.name}
+                    </td>
+                    <td className="px-5 py-4 text-slate-300">
+                      {item.code || '—'}
+                    </td>
+                    <td className="px-5 py-4 text-slate-300">
+                      {getItemLocationText(item)}
+                    </td>
+                    <td className="px-5 py-4 font-bold text-white">
+                      {getQuantityLabel(item)}
+                    </td>
+                    <td className="px-5 py-4 text-slate-400">
+                      {getTrackingTypeLabel(item)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
