@@ -113,6 +113,10 @@ import {
 } from '../pages/NewWorkOrderPage'
 
 import {
+  EditWorkOrderPage,
+} from '../pages/EditWorkOrderPage'
+
+import {
   NotFoundPage,
 } from '../pages/NotFoundPage'
 
@@ -880,6 +884,18 @@ function RouterContent() {
               feature="work_orders"
             >
               <NewWorkOrderPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/work-orders/:id/edit"
+          element={
+            <Guard
+              permission="workOrders.manage"
+              feature="work_orders"
+            >
+              <EditWorkOrderPage />
             </Guard>
           }
         />

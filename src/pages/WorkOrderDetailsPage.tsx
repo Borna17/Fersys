@@ -17,6 +17,7 @@ import {
   Euro,
   FileImage,
   MapPin,
+  Pencil,
   UserRound,
 } from 'lucide-react'
 
@@ -162,6 +163,11 @@ export function WorkOrderDetailsPage() {
   const canViewPrices =
     can(
       'workOrders.viewPrices',
+    )
+
+  const canManageWorkOrders =
+    can(
+      'workOrders.manage',
     )
 
   const { id } =
@@ -398,24 +404,44 @@ export function WorkOrderDetailsPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          disabled={
-            isDownloading
-          }
-          onClick={
-            handleDownloadPdf
-          }
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          <Download
-            size={19}
-          />
+        <div className="flex flex-wrap gap-3">
+          {canManageWorkOrders && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/work-orders/${order.id}/edit`,
+                )
+              }
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-6 font-semibold text-white transition hover:bg-slate-700"
+            >
+              <Pencil
+                size={19}
+              />
 
-          {isDownloading
-            ? 'Izrada PDF-a...'
-            : 'Preuzmi PDF'}
-        </button>
+              Uredi nalog
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={
+              isDownloading
+            }
+            onClick={
+              handleDownloadPdf
+            }
+            className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Download
+              size={19}
+            />
+
+            {isDownloading
+              ? 'Izrada PDF-a...'
+              : 'Preuzmi PDF'}
+          </button>
+        </div>
       </div>
 
       <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
@@ -617,20 +643,23 @@ export function WorkOrderDetailsPage() {
                           }{' '}
                           {
                             material.unit
-                          }{' '}
-                          ×{' '}
-                          {money(
-                            material.unitPrice,
-                          )}
+                          }
+                          {canViewPrices
+                            ? ` × ${money(
+                                material.unitPrice,
+                              )}`
+                            : ''}
                         </p>
                       </div>
 
-                      <p className="font-bold text-white">
-                        {money(
-                          material.quantity *
-                            material.unitPrice,
-                        )}
-                      </p>
+                      {canViewPrices && (
+                        <p className="font-bold text-white">
+                          {money(
+                            material.quantity *
+                              material.unitPrice,
+                          )}
+                        </p>
+                      )}
                     </div>
                   ),
                 )}
@@ -755,7 +784,8 @@ export function WorkOrderDetailsPage() {
               </div>
             </div>
 
-            {order.priceNote && (
+            {canViewPrices &&
+              order.priceNote && (
               <div className="mt-5 rounded-xl bg-slate-800/70 p-4">
                 <p className="text-xs font-semibold uppercase text-slate-500">
                   Napomena uz
