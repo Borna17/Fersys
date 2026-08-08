@@ -1,12 +1,17 @@
 import {
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react'
 
 import {
   useAuth,
 } from '../auth/AuthProvider'
+
+import {
+  supabase,
+} from '../lib/supabase'
 
 import {
   askAiAssistant,
@@ -16,23 +21,24 @@ import {
   type AiProposedAction,
 } from '../services/aiAssistant.service'
 
-const STORAGE_VERSION =
-  'v5'
-
-const LEGACY_MESSAGES_KEY =
-  'fersys_ai_messages_v4'
-
-const LEGACY_ACTION_KEY =
-  'fersys_ai_action_v4'
-
-const LEGACY_CLIENT_ACTION_KEY =
-  'fersys_ai_client_action_v4'
-
 const CHANGE_EVENT =
   'fersys:ai-conversation-change'
 
 export const AI_WELCOME_TEXT =
   'Pozdrav! Pitaj me prirodno. Mogu pronaći kupce, ponude i radne naloge, otvoriti spremljene zapise, generirati PDF postojećih dokumenata i raditi s kalendarom.'
+
+type ConversationSnapshot = {
+  userId: string
+  messages: AiAssistantMessage[]
+  action: AiProposedAction | null
+  clientAction: AiClientAction | null
+}
+
+type ConversationRow = {
+  messages: unknown
+  proposed_action: unknown
+  client_action: unknown
+}
 
 function createMessage(
   role: AiAssistantMessage['role'],
@@ -57,163 +63,245 @@ AiAssistantMessage[] {
   ]
 }
 
-function getStorageKeys(
+function isMessage(
+  value: unknown,
+): value is AiAssistantMessage {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    Array.isArray(value)
+  ) {
+    return false
+  }
+
+  const message =
+    value as Record<
+      string,
+      unknown
+    >
+
+  return (
+    typeof message.id === 'string' &&
+    (
+      message.role === 'user' ||
+      message.role === 'assistant'
+    ) &&
+    typeof message.content === 'string' &&
+    typeof message.createdAt === 'string'
+  )
+}
+
+function parseMessages(
+  value: unknown,
+): AiAssistantMessage[] {
+  if (!Array.isArray(value)) {
+    return defaultMessages()
+  }
+
+  const parsed =
+    value.filter(isMessage)
+
+  return parsed.length > 0
+    ? parsed
+    : defaultMessages()
+}
+
+function parseObjectOrNull<T>(
+  value: unknown,
+): T | null {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value)
+  ) {
+    return value as T
+  }
+
+  return null
+}
+
+function clearLegacyAiLocalStorage() {
+  /*
+   * Brišemo sve stare lokalne AI ključeve.
+   * Od ove verzije povijest više uopće
+   * nije spremljena u browseru.
+   */
+  const keysToRemove: string[] = []
+
+  for (
+    let index = 0;
+    index < localStorage.length;
+    index += 1
+  ) {
+    const key =
+      localStorage.key(index)
+
+    if (
+      key &&
+      (
+        key.startsWith(
+          'fersys_ai_messages_',
+        ) ||
+        key.startsWith(
+          'fersys_ai_action_',
+        ) ||
+        key.startsWith(
+          'fersys_ai_client_action_',
+        )
+      )
+    ) {
+      keysToRemove.push(key)
+    }
+  }
+
+  for (
+    const key of
+    keysToRemove
+  ) {
+    localStorage.removeItem(key)
+  }
+}
+
+async function getCurrentCompanyId():
+Promise<string> {
+  const {
+    data,
+    error,
+  } = await supabase.rpc(
+    'current_company_id',
+  )
+
+  if (error) {
+    throw new Error(
+      error.message,
+    )
+  }
+
+  if (!data) {
+    throw new Error(
+      'Korisnik nije povezan s aktivnom tvrtkom.',
+    )
+  }
+
+  return String(data)
+}
+
+async function loadConversation(
   userId: string,
-) {
+): Promise<{
+  messages: AiAssistantMessage[]
+  action: AiProposedAction | null
+  clientAction: AiClientAction | null
+}> {
+  const companyId =
+    await getCurrentCompanyId()
+
+  const {
+    data,
+    error,
+  } = await supabase
+    .from(
+      'ai_user_conversations',
+    )
+    .select(
+      'messages,proposed_action,client_action',
+    )
+    .eq(
+      'company_id',
+      companyId,
+    )
+    .eq(
+      'user_id',
+      userId,
+    )
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(
+      error.message,
+    )
+  }
+
+  if (!data) {
+    return {
+      messages:
+        defaultMessages(),
+
+      action:
+        null,
+
+      clientAction:
+        null,
+    }
+  }
+
+  const row =
+    data as ConversationRow
+
   return {
     messages:
-      `fersys_ai_messages_${STORAGE_VERSION}_${userId}`,
+      parseMessages(
+        row.messages,
+      ),
 
     action:
-      `fersys_ai_action_${STORAGE_VERSION}_${userId}`,
+      parseObjectOrNull<
+        AiProposedAction
+      >(
+        row.proposed_action,
+      ),
 
     clientAction:
-      `fersys_ai_client_action_${STORAGE_VERSION}_${userId}`,
+      parseObjectOrNull<
+        AiClientAction
+      >(
+        row.client_action,
+      ),
   }
 }
 
-function removeLegacySharedConversation() {
-  /*
-   * Stari v4 ključevi bili su zajednički
-   * svim korisnicima istog browsera.
-   *
-   * Ne migriramo ih nijednom korisniku
-   * jer bi time mogli prenijeti tuđu AI
-   * povijest u privatni razgovor.
-   */
-  localStorage.removeItem(
-    LEGACY_MESSAGES_KEY,
-  )
-
-  localStorage.removeItem(
-    LEGACY_ACTION_KEY,
-  )
-
-  localStorage.removeItem(
-    LEGACY_CLIENT_ACTION_KEY,
-  )
-}
-
-function readJson<T>(
-  key: string,
-): T | null {
-  try {
-    const raw =
-      localStorage.getItem(key)
-
-    return raw
-      ? JSON.parse(raw) as T
-      : null
-  } catch {
-    return null
-  }
-}
-
-function readMessages(
-  userId: string | null | undefined,
-): AiAssistantMessage[] {
-  if (!userId) {
-    return defaultMessages()
-  }
-
-  try {
-    const {
-      messages: messagesKey,
-    } =
-      getStorageKeys(userId)
-
-    const raw =
-      localStorage.getItem(
-        messagesKey,
-      )
-
-    if (!raw) {
-      return defaultMessages()
-    }
-
-    const parsed =
-      JSON.parse(raw)
-
-    return (
-      Array.isArray(parsed) &&
-      parsed.length > 0
-    )
-      ? parsed
-      : defaultMessages()
-  } catch {
-    return defaultMessages()
-  }
-}
-
-function readAction(
-  userId: string | null | undefined,
-): AiProposedAction | null {
-  if (!userId) {
-    return null
-  }
-
-  const {
-    action,
-  } =
-    getStorageKeys(userId)
-
-  return readJson<AiProposedAction>(
-    action,
-  )
-}
-
-function readClientAction(
-  userId: string | null | undefined,
-): AiClientAction | null {
-  if (!userId) {
-    return null
-  }
-
-  const {
-    clientAction,
-  } =
-    getStorageKeys(userId)
-
-  return readJson<AiClientAction>(
-    clientAction,
-  )
-}
-
-function saveConversation(
+async function saveConversation(
   userId: string,
   messages: AiAssistantMessage[],
   action:
     AiProposedAction | null,
   clientAction:
     AiClientAction | null,
-) {
-  const keys =
-    getStorageKeys(userId)
+): Promise<void> {
+  const companyId =
+    await getCurrentCompanyId()
 
-  localStorage.setItem(
-    keys.messages,
-    JSON.stringify(messages),
-  )
+  const {
+    error,
+  } = await supabase
+    .from(
+      'ai_user_conversations',
+    )
+    .upsert(
+      {
+        company_id:
+          companyId,
 
-  if (action) {
-    localStorage.setItem(
-      keys.action,
-      JSON.stringify(action),
-    )
-  } else {
-    localStorage.removeItem(
-      keys.action,
-    )
-  }
+        user_id:
+          userId,
 
-  if (clientAction) {
-    localStorage.setItem(
-      keys.clientAction,
-      JSON.stringify(clientAction),
+        messages,
+
+        proposed_action:
+          action,
+
+        client_action:
+          clientAction,
+      },
+      {
+        onConflict:
+          'company_id,user_id',
+      },
     )
-  } else {
-    localStorage.removeItem(
-      keys.clientAction,
+
+  if (error) {
+    throw new Error(
+      error.message,
     )
   }
 
@@ -226,7 +314,7 @@ function saveConversation(
           messages,
           action,
           clientAction,
-        },
+        } satisfies ConversationSnapshot,
       },
     ),
   )
@@ -240,12 +328,18 @@ export function useAiConversation() {
   const userId =
     user?.id ?? null
 
+  const activeUserIdRef =
+    useRef<string | null>(
+      userId,
+    )
+
   const [
     messages,
     setMessages,
   ] =
     useState<AiAssistantMessage[]>(
-      () => defaultMessages(),
+      () =>
+        defaultMessages(),
     )
 
   const [
@@ -274,51 +368,147 @@ export function useAiConversation() {
     setError,
   ] = useState('')
 
-  /*
-   * Kod promjene prijavljenog korisnika
-   * učitava se samo njegova povijest.
-   *
-   * Time se sprječava da radnik vidi
-   * razgovore vlasnika ili drugog radnika
-   * na istom uređaju/browseru.
-   */
+  const [
+    isConversationLoading,
+    setIsConversationLoading,
+  ] = useState(true)
+
+  const loadCurrentConversation =
+    useCallback(
+      async () => {
+        if (!userId) {
+          setMessages(
+            defaultMessages(),
+          )
+
+          setProposedAction(
+            null,
+          )
+
+          setClientAction(
+            null,
+          )
+
+          setIsConversationLoading(
+            false,
+          )
+
+          return
+        }
+
+        const requestedUserId =
+          userId
+
+        try {
+          setIsConversationLoading(
+            true,
+          )
+
+          setError('')
+
+          const conversation =
+            await loadConversation(
+              requestedUserId,
+            )
+
+          /*
+           * Ako se u međuvremenu korisnik
+           * odjavio/prijavio drugim računom,
+           * rezultat starog korisnika se
+           * ne smije prikazati.
+           */
+          if (
+            activeUserIdRef.current !==
+              requestedUserId
+          ) {
+            return
+          }
+
+          setMessages(
+            conversation.messages,
+          )
+
+          setProposedAction(
+            conversation.action,
+          )
+
+          setClientAction(
+            conversation.clientAction,
+          )
+        } catch (value) {
+          if (
+            activeUserIdRef.current !==
+              requestedUserId
+          ) {
+            return
+          }
+
+          setMessages(
+            defaultMessages(),
+          )
+
+          setProposedAction(
+            null,
+          )
+
+          setClientAction(
+            null,
+          )
+
+          setError(
+            value instanceof Error
+              ? value.message
+              : 'AI razgovor nije moguće učitati.',
+          )
+        } finally {
+          if (
+            activeUserIdRef.current ===
+              requestedUserId
+          ) {
+            setIsConversationLoading(
+              false,
+            )
+          }
+        }
+      },
+      [userId],
+    )
+
   useEffect(() => {
-    removeLegacySharedConversation()
+    clearLegacyAiLocalStorage()
+
+    activeUserIdRef.current =
+      userId
+
+    setMessages(
+      defaultMessages(),
+    )
+
+    setProposedAction(
+      null,
+    )
+
+    setClientAction(
+      null,
+    )
 
     setError('')
     setIsSending(false)
 
-    setMessages(
-      readMessages(userId),
-    )
+    void loadCurrentConversation()
+  }, [
+    userId,
+    loadCurrentConversation,
+  ])
 
-    setProposedAction(
-      readAction(userId),
-    )
-
-    setClientAction(
-      readClientAction(userId),
-    )
-  }, [userId])
-
-  /*
-   * Sinkronizira AI panel i glavnu
-   * AI stranicu samo za istog korisnika.
-   */
   useEffect(() => {
     function sync(
       event: Event,
     ) {
       const custom =
-        event as CustomEvent<{
-          userId: string
-          messages:
-            AiAssistantMessage[]
-          action:
-            AiProposedAction | null
-          clientAction:
-            AiClientAction | null
-        }>
+        event as CustomEvent<
+          ConversationSnapshot
+        >
 
       if (
         !custom.detail ||
@@ -342,50 +532,9 @@ export function useAiConversation() {
       )
     }
 
-    function syncStorage(
-      event: StorageEvent,
-    ) {
-      if (!userId) {
-        return
-      }
-
-      const keys =
-        getStorageKeys(userId)
-
-      if (
-        event.key !==
-          keys.messages &&
-        event.key !==
-          keys.action &&
-        event.key !==
-          keys.clientAction
-      ) {
-        return
-      }
-
-      setMessages(
-        readMessages(userId),
-      )
-
-      setProposedAction(
-        readAction(userId),
-      )
-
-      setClientAction(
-        readClientAction(
-          userId,
-        ),
-      )
-    }
-
     window.addEventListener(
       CHANGE_EVENT,
       sync,
-    )
-
-    window.addEventListener(
-      'storage',
-      syncStorage,
     )
 
     return () => {
@@ -393,17 +542,12 @@ export function useAiConversation() {
         CHANGE_EVENT,
         sync,
       )
-
-      window.removeEventListener(
-        'storage',
-        syncStorage,
-      )
     }
   }, [userId])
 
   const replace =
     useCallback(
-      (
+      async (
         nextMessages:
           AiAssistantMessage[],
 
@@ -429,6 +573,9 @@ export function useAiConversation() {
           return
         }
 
+        const requestedUserId =
+          userId
+
         setMessages(
           nextMessages,
         )
@@ -441,12 +588,27 @@ export function useAiConversation() {
           nextClientAction,
         )
 
-        saveConversation(
-          userId,
-          nextMessages,
-          nextAction,
-          nextClientAction,
-        )
+        try {
+          await saveConversation(
+            requestedUserId,
+            nextMessages,
+            nextAction,
+            nextClientAction,
+          )
+        } catch (value) {
+          if (
+            activeUserIdRef.current ===
+              requestedUserId
+          ) {
+            setError(
+              value instanceof Error
+                ? value.message
+                : 'AI razgovor nije moguće spremiti.',
+            )
+          }
+
+          throw value
+        }
       },
       [userId],
     )
@@ -461,7 +623,8 @@ export function useAiConversation() {
 
         if (
           !clean ||
-          isSending
+          isSending ||
+          isConversationLoading
         ) {
           return
         }
@@ -474,10 +637,13 @@ export function useAiConversation() {
           return
         }
 
+        const requestedUserId =
+          userId
+
         setError('')
 
         const before =
-          readMessages(userId)
+          messages
 
         const userMessage =
           createMessage(
@@ -490,20 +656,27 @@ export function useAiConversation() {
           userMessage,
         ]
 
-        replace(
-          next,
-          null,
-          null,
-        )
-
         setIsSending(true)
 
         try {
+          await replace(
+            next,
+            null,
+            null,
+          )
+
           const response =
             await askAiAssistant(
               clean,
               next,
             )
+
+          if (
+            activeUserIdRef.current !==
+              requestedUserId
+          ) {
+            return
+          }
 
           const completed = [
             ...next,
@@ -514,12 +687,19 @@ export function useAiConversation() {
             ),
           ]
 
-          replace(
+          await replace(
             completed,
             response.proposedAction,
             response.clientAction,
           )
         } catch (value) {
+          if (
+            activeUserIdRef.current !==
+              requestedUserId
+          ) {
+            return
+          }
+
           const message =
             value instanceof Error
               ? value.message
@@ -527,24 +707,35 @@ export function useAiConversation() {
 
           setError(message)
 
-          replace(
-            [
-              ...next,
+          try {
+            await replace(
+              [
+                ...next,
 
-              createMessage(
-                'assistant',
-                `Nisam uspio obraditi zahtjev.\n\n${message}`,
-              ),
-            ],
-            null,
-            null,
-          )
+                createMessage(
+                  'assistant',
+                  `Nisam uspio obraditi zahtjev.\n\n${message}`,
+                ),
+              ],
+              null,
+              null,
+            )
+          } catch {
+            // Greška spremanja je već prikazana.
+          }
         } finally {
-          setIsSending(false)
+          if (
+            activeUserIdRef.current ===
+              requestedUserId
+          ) {
+            setIsSending(false)
+          }
         }
       },
       [
+        isConversationLoading,
         isSending,
+        messages,
         replace,
         userId,
       ],
@@ -555,17 +746,18 @@ export function useAiConversation() {
       async () => {
         if (
           !userId ||
-          isSending
+          isSending ||
+          isConversationLoading ||
+          !proposedAction
         ) {
           return
         }
 
-        const action =
-          readAction(userId)
+        const requestedUserId =
+          userId
 
-        if (!action) {
-          return
-        }
+        const action =
+          proposedAction
 
         setError('')
         setIsSending(true)
@@ -576,14 +768,16 @@ export function useAiConversation() {
               action,
             )
 
-          const current =
-            readMessages(
-              userId,
-            )
+          if (
+            activeUserIdRef.current !==
+              requestedUserId
+          ) {
+            return
+          }
 
-          replace(
+          await replace(
             [
-              ...current,
+              ...messages,
 
               createMessage(
                 'assistant',
@@ -594,17 +788,30 @@ export function useAiConversation() {
             response.clientAction,
           )
         } catch (value) {
-          setError(
-            value instanceof Error
-              ? value.message
-              : 'Radnju nije moguće izvršiti.',
-          )
+          if (
+            activeUserIdRef.current ===
+              requestedUserId
+          ) {
+            setError(
+              value instanceof Error
+                ? value.message
+                : 'Radnju nije moguće izvršiti.',
+            )
+          }
         } finally {
-          setIsSending(false)
+          if (
+            activeUserIdRef.current ===
+              requestedUserId
+          ) {
+            setIsSending(false)
+          }
         }
       },
       [
+        isConversationLoading,
         isSending,
+        messages,
+        proposedAction,
         replace,
         userId,
       ],
@@ -612,49 +819,27 @@ export function useAiConversation() {
 
   const cancelAction =
     useCallback(() => {
-      if (!userId) {
-        replace(
-          messages,
-          null,
-          null,
-        )
-
-        return
-      }
-
-      replace(
-        readMessages(userId),
+      void replace(
+        messages,
         null,
         null,
       )
     }, [
       messages,
       replace,
-      userId,
     ])
 
   const clearClientAction =
     useCallback(() => {
-      if (!userId) {
-        replace(
-          messages,
-          proposedAction,
-          null,
-        )
-
-        return
-      }
-
-      replace(
-        readMessages(userId),
-        readAction(userId),
+      void replace(
+        messages,
+        proposedAction,
         null,
       )
     }, [
       messages,
       proposedAction,
       replace,
-      userId,
     ])
 
   const appendAssistantMessage =
@@ -669,34 +854,17 @@ export function useAiConversation() {
           return
         }
 
-        const current =
-          userId
-            ? readMessages(
-                userId,
-              )
-            : messages
-
-        replace(
+        void replace(
           [
-            ...current,
+            ...messages,
 
             createMessage(
               'assistant',
               clean,
             ),
           ],
-
-          userId
-            ? readAction(
-                userId,
-              )
-            : proposedAction,
-
-          userId
-            ? readClientAction(
-                userId,
-              )
-            : clientAction,
+          proposedAction,
+          clientAction,
         )
       },
       [
@@ -704,7 +872,6 @@ export function useAiConversation() {
         messages,
         proposedAction,
         replace,
-        userId,
       ],
     )
 
@@ -712,7 +879,7 @@ export function useAiConversation() {
     useCallback(() => {
       setError('')
 
-      replace(
+      void replace(
         defaultMessages(),
         null,
         null,
@@ -723,7 +890,10 @@ export function useAiConversation() {
     messages,
     proposedAction,
     clientAction,
-    isSending,
+    isSending:
+      isSending ||
+      isConversationLoading,
+    isConversationLoading,
     error,
     setError,
     send,
