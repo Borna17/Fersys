@@ -898,8 +898,9 @@ export function AdminCompanyDetailsPage() {
                     Produži trial
                   </p>
 
-                  <div className="mt-2 grid grid-cols-3 gap-2">
+                  <div className="mt-2 grid grid-cols-2 gap-2">
                     {[
+                      3,
                       7,
                       14,
                       30,
