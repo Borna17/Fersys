@@ -22,34 +22,20 @@ import {
 import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
-
-import {
-  createWorkOrder,
-} from '../services/workOrders.service'
-
-import {
-  getCustomers,
-} from '../services/customers.service'
-
+import { createWorkOrder } from '../services/workOrders.service'
+import { getCustomers } from '../services/customers.service'
 import {
   getEmployees,
   type CompanyEmployee,
 } from '../services/employees.service'
-
-import type {
-  Customer,
-} from '../types/customer'
-
+import type { Customer } from '../types/customer'
 import type {
   WorkOrderImage,
   WorkOrderMaterial,
   WorkOrderPriority,
   WorkOrderStatus,
 } from '../types/workOrder'
-
-import {
-  fileToCompressedDataUrl,
-} from '../utils/imageUtils'
+import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
 function calculateDuration(
   arrival: string,
@@ -99,28 +85,20 @@ function getRoleLabel(
   switch (role) {
     case 'owner':
       return 'Vlasnik'
-
     case 'admin':
       return 'Administrator'
-
     case 'manager':
       return 'Voditelj'
-
     case 'worker':
       return 'Radnik'
-
     case 'assistant':
       return 'Pomoćni radnik'
-
     case 'intern':
       return 'Praktikant'
-
     case 'accounting':
       return 'Računovodstvo'
-
     case 'viewer':
       return 'Samo pregled'
-
     default:
       return 'Korisnik'
   }
@@ -128,7 +106,6 @@ function getRoleLabel(
 
 export function NewWorkOrderPage() {
   const navigate = useNavigate()
-
   const { can } = useAuth()
 
   const canViewPrices =
@@ -234,9 +211,7 @@ export function NewWorkOrderPage() {
   const [
     materials,
     setMaterials,
-  ] = useState<WorkOrderMaterial[]>(
-    [],
-  )
+  ] = useState<WorkOrderMaterial[]>([])
 
   const [
     labourPrice,
@@ -293,9 +268,7 @@ export function NewWorkOrderPage() {
         }
       } finally {
         if (!cancelled) {
-          setIsLoadingCustomers(
-            false,
-          )
+          setIsLoadingCustomers(false)
         }
       }
     }
@@ -326,8 +299,7 @@ export function NewWorkOrderPage() {
           employees
             .filter(
               (employee) =>
-                employee.status ===
-                'active',
+                employee.status === 'active',
             )
             .sort((a, b) => {
               if (
@@ -406,8 +378,7 @@ export function NewWorkOrderPage() {
   const totalPrice =
     subtotal +
     subtotal *
-      ((Number(vatRate) || 0) /
-        100)
+      ((Number(vatRate) || 0) / 100)
 
   function handleCustomerChange(
     value: string,
@@ -416,8 +387,7 @@ export function NewWorkOrderPage() {
 
     const customer =
       customers.find(
-        (item) =>
-          item.id === value,
+        (item) => item.id === value,
       )
 
     if (!customer) {
@@ -431,25 +401,13 @@ export function NewWorkOrderPage() {
       return
     }
 
-    setCustomerName(
-      customer.name,
-    )
-
+    setCustomerName(customer.name)
     setCustomerContactPerson(
       customer.contactPerson ?? '',
     )
-
-    setCustomerPhone(
-      customer.phone,
-    )
-
-    setCustomerEmail(
-      customer.email,
-    )
-
-    setCustomerOib(
-      customer.oib,
-    )
+    setCustomerPhone(customer.phone)
+    setCustomerEmail(customer.email)
+    setCustomerOib(customer.oib)
 
     setAddress(
       [
@@ -535,22 +493,17 @@ export function NewWorkOrderPage() {
   ) {
     const selected =
       Array.from(
-        event.target.files ??
-          [],
+        event.target.files ?? [],
       )
 
-    if (
-      selected.length === 0
-    ) {
+    if (selected.length === 0) {
       return
     }
 
     const remainingSlots =
       12 - images.length
 
-    if (
-      remainingSlots <= 0
-    ) {
+    if (remainingSlots <= 0) {
       alert(
         'Možete dodati najviše 12 fotografija.',
       )
@@ -573,7 +526,6 @@ export function NewWorkOrderPage() {
               async (file) => ({
                 id: crypto.randomUUID(),
                 name: file.name,
-
                 dataUrl:
                   await fileToCompressedDataUrl(
                     file,
@@ -594,7 +546,6 @@ export function NewWorkOrderPage() {
       )
     } finally {
       setIsUploading(false)
-
       event.target.value = ''
     }
   }
@@ -621,10 +572,7 @@ export function NewWorkOrderPage() {
     }
 
     if (!customerId) {
-      alert(
-        'Odaberite kupca.',
-      )
-
+      alert('Odaberite kupca.')
       return
     }
 
@@ -632,15 +580,11 @@ export function NewWorkOrderPage() {
       alert(
         'Unesite naziv radnog naloga.',
       )
-
       return
     }
 
     if (!date) {
-      alert(
-        'Odaberite datum.',
-      )
-
+      alert('Odaberite datum.')
       return
     }
 
@@ -702,10 +646,7 @@ export function NewWorkOrderPage() {
 
           customerOib:
             customerOib
-              .replace(
-                /\D/g,
-                '',
-              )
+              .replace(/\D/g, '')
               .slice(0, 11),
 
           address:
@@ -799,9 +740,7 @@ export function NewWorkOrderPage() {
     }
   }
 
-  if (
-    isLoadingCustomers
-  ) {
+  if (isLoadingCustomers) {
     return (
       <FersysLoader
         text="Učitavanje kupaca..."
@@ -814,8 +753,7 @@ export function NewWorkOrderPage() {
       <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
         <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-8 text-center">
           <h1 className="text-2xl font-bold text-white">
-            Kupce nije moguće
-            učitati
+            Kupce nije moguće učitati
           </h1>
 
           <p className="mt-3 break-words text-sm text-red-300">
@@ -852,12 +790,8 @@ export function NewWorkOrderPage() {
             }
             className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white"
           >
-            <ArrowLeft
-              size={18}
-            />
-
-            Povratak na radne
-            naloge
+            <ArrowLeft size={18} />
+            Povratak na radne naloge
           </button>
 
           <h1 className="text-3xl font-extrabold text-white">
@@ -865,9 +799,7 @@ export function NewWorkOrderPage() {
           </h1>
 
           <p className="mt-2 text-slate-400">
-            Unesi podatke,
-            fotografije i potpis
-            investitora.
+            Unesi podatke, fotografije i potpis investitora.
           </p>
         </div>
 
@@ -875,8 +807,7 @@ export function NewWorkOrderPage() {
           type="submit"
           disabled={
             isSaving ||
-            customers.length ===
-              0
+            customers.length === 0
           }
           className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -888,19 +819,14 @@ export function NewWorkOrderPage() {
         </button>
       </div>
 
-      {customers.length ===
-        0 && (
+      {customers.length === 0 && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
           <p className="font-semibold text-amber-300">
-            Prvo je potrebno
-            dodati kupca.
+            Prvo je potrebno dodati kupca.
           </p>
 
           <p className="mt-1 text-sm text-slate-400">
-            Radni nalog mora
-            biti povezan s
-            kupcem iz vaše
-            tvrtke.
+            Radni nalog mora biti povezan s kupcem iz vaše tvrtke.
           </p>
 
           <button
@@ -931,12 +857,9 @@ export function NewWorkOrderPage() {
             <select
               required
               value={customerId}
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 handleCustomerChange(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
@@ -947,31 +870,17 @@ export function NewWorkOrderPage() {
 
               {customers
                 .filter(
-                  (
-                    customer,
-                  ) =>
+                  (customer) =>
                     customer.status ===
                     'Aktivan',
                 )
                 .map(
-                  (
-                    customer,
-                  ) => (
+                  (customer) => (
                     <option
-                      key={
-                        customer.id
-                      }
-                      value={
-                        customer.id
-                      }
+                      key={customer.id}
+                      value={customer.id}
                     >
-                      {
-                        customer.name
-                      }{' '}
-                      · OIB{' '}
-                      {
-                        customer.oib
-                      }
+                      {customer.name} · OIB {customer.oib}
                     </option>
                   ),
                 )}
@@ -987,12 +896,9 @@ export function NewWorkOrderPage() {
               value={
                 customerContactPerson
               }
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 setCustomerContactPerson(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1005,15 +911,10 @@ export function NewWorkOrderPage() {
             </span>
 
             <input
-              value={
-                customerPhone
-              }
-              onChange={(
-                event,
-              ) =>
+              value={customerPhone}
+              onChange={(event) =>
                 setCustomerPhone(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1027,15 +928,10 @@ export function NewWorkOrderPage() {
 
             <input
               type="email"
-              value={
-                customerEmail
-              }
-              onChange={(
-                event,
-              ) =>
+              value={customerEmail}
+              onChange={(event) =>
                 setCustomerEmail(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1050,22 +946,12 @@ export function NewWorkOrderPage() {
             <input
               inputMode="numeric"
               maxLength={11}
-              value={
-                customerOib
-              }
-              onChange={(
-                event,
-              ) =>
+              value={customerOib}
+              onChange={(event) =>
                 setCustomerOib(
                   event.target.value
-                    .replace(
-                      /\D/g,
-                      '',
-                    )
-                    .slice(
-                      0,
-                      11,
-                    ),
+                    .replace(/\D/g, '')
+                    .slice(0, 11),
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1079,12 +965,9 @@ export function NewWorkOrderPage() {
 
             <input
               value={address}
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 setAddress(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1098,8 +981,7 @@ export function NewWorkOrderPage() {
           <Clock3 className="text-blue-400" />
 
           <h2 className="text-xl font-bold text-white">
-            2. Datum, dolazak i
-            odlazak
+            2. Datum, dolazak i odlazak
           </h2>
         </div>
 
@@ -1112,12 +994,9 @@ export function NewWorkOrderPage() {
             <input
               type="date"
               value={date}
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 setDate(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
@@ -1131,15 +1010,10 @@ export function NewWorkOrderPage() {
 
             <input
               type="time"
-              value={
-                arrivalTime
-              }
-              onChange={(
-                event,
-              ) =>
+              value={arrivalTime}
+              onChange={(event) =>
                 setArrivalTime(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
@@ -1153,15 +1027,10 @@ export function NewWorkOrderPage() {
 
             <input
               type="time"
-              value={
-                departureTime
-              }
-              onChange={(
-                event,
-              ) =>
+              value={departureTime}
+              onChange={(event) =>
                 setDepartureTime(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
@@ -1187,9 +1056,7 @@ export function NewWorkOrderPage() {
 
             <select
               value={status}
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 setStatus(
                   event.target
                     .value as WorkOrderStatus,
@@ -1203,20 +1070,14 @@ export function NewWorkOrderPage() {
                 'U tijeku',
                 'Završen',
                 'Otkazan',
-              ].map(
-                (value) => (
-                  <option
-                    key={
-                      value
-                    }
-                    value={
-                      value
-                    }
-                  >
-                    {value}
-                  </option>
-                ),
-              )}
+              ].map((value) => (
+                <option
+                  key={value}
+                  value={value}
+                >
+                  {value}
+                </option>
+              ))}
             </select>
           </label>
 
@@ -1226,12 +1087,8 @@ export function NewWorkOrderPage() {
             </span>
 
             <select
-              value={
-                priority
-              }
-              onChange={(
-                event,
-              ) =>
+              value={priority}
+              onChange={(event) =>
                 setPriority(
                   event.target
                     .value as WorkOrderPriority,
@@ -1244,20 +1101,14 @@ export function NewWorkOrderPage() {
                 'Normalan',
                 'Visok',
                 'Hitno',
-              ].map(
-                (value) => (
-                  <option
-                    key={
-                      value
-                    }
-                    value={
-                      value
-                    }
-                  >
-                    {value}
-                  </option>
-                ),
-              )}
+              ].map((value) => (
+                <option
+                  key={value}
+                  value={value}
+                >
+                  {value}
+                </option>
+              ))}
             </select>
           </label>
         </div>
@@ -1271,18 +1122,14 @@ export function NewWorkOrderPage() {
         <div className="mt-5 space-y-5">
           <label className="block">
             <span className="text-sm font-semibold text-slate-300">
-              Naziv radnog
-              naloga
+              Naziv radnog naloga
             </span>
 
             <input
               value={title}
-              onChange={(
-                event,
-              ) =>
+              onChange={(event) =>
                 setTitle(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               placeholder="Primjer: Servis klima uređaja"
@@ -1297,15 +1144,10 @@ export function NewWorkOrderPage() {
 
             <textarea
               rows={7}
-              value={
-                description
-              }
-              onChange={(
-                event,
-              ) =>
+              value={description}
+              onChange={(event) =>
                 setDescription(
-                  event.target
-                    .value,
+                  event.target.value,
                 )
               }
               placeholder="Detaljno opiši izvedene ili planirane radove..."
@@ -1319,39 +1161,27 @@ export function NewWorkOrderPage() {
             </span>
 
             <p className="mt-1 text-xs text-slate-500">
-              Prikazuju se
-              aktivni članovi
-              vaše tvrtke.
-              Vlasnik je uvijek
-              prvi.
+              Prikazuju se aktivni članovi vaše tvrtke. Vlasnik je uvijek prvi.
             </p>
 
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {isLoadingWorkers ? (
                 <div className="col-span-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-400">
-                  Učitavanje
-                  radnika...
+                  Učitavanje radnika...
                 </div>
               ) : workersError ? (
                 <div className="col-span-full rounded-xl border border-red-500/30 bg-red-500/10 p-4">
                   <p className="text-sm font-semibold text-red-300">
-                    Radnike nije
-                    moguće
-                    učitati.
+                    Radnike nije moguće učitati.
                   </p>
 
                   <p className="mt-1 break-words text-xs text-red-300/80">
-                    {
-                      workersError
-                    }
+                    {workersError}
                   </p>
                 </div>
-              ) : workers.length ===
-                0 ? (
+              ) : workers.length === 0 ? (
                 <div className="col-span-full rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-500">
-                  Nema aktivnih
-                  članova
-                  tvrtke.
+                  Nema aktivnih članova tvrtke.
                 </div>
               ) : (
                 workers.map(
@@ -1382,9 +1212,7 @@ export function NewWorkOrderPage() {
                         }`}
                       >
                         <UserRound
-                          size={
-                            19
-                          }
+                          size={19}
                           className={
                             isSelected
                               ? 'text-blue-400'
@@ -1394,9 +1222,7 @@ export function NewWorkOrderPage() {
 
                         <div className="min-w-0">
                           <p className="truncate">
-                            {
-                              workerName
-                            }
+                            {workerName}
                           </p>
 
                           <p className="mt-0.5 text-xs font-medium text-slate-500">
@@ -1419,28 +1245,20 @@ export function NewWorkOrderPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h2 className="text-xl font-bold text-white">
-              4. Materijal i
-              cijena
+              4. Materijal i cijena
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
-              Dodaj utrošeni
-              materijal, cijenu
-              rada i PDV.
+              Dodaj utrošeni materijal, cijenu rada i PDV.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={
-              addMaterial
-            }
+            onClick={addMaterial}
             className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 font-semibold text-white"
           >
-            <PackagePlus
-              size={18}
-            />
-
+            <PackagePlus size={18} />
             Dodaj materijal
           </button>
         </div>
@@ -1449,23 +1267,20 @@ export function NewWorkOrderPage() {
           {materials.map(
             (material) => (
               <div
-                key={
-                  material.id
-                }
-                className="grid grid-cols-1 gap-3 rounded-xl bg-slate-800/70 p-4 md:grid-cols-[1fr_120px_120px_150px_44px]"
+                key={material.id}
+                className={`grid grid-cols-1 gap-3 rounded-xl bg-slate-800/70 p-4 ${
+                  canViewPrices
+                    ? 'md:grid-cols-[1fr_120px_120px_150px_44px]'
+                    : 'md:grid-cols-[1fr_120px_120px_44px]'
+                }`}
               >
                 <input
-                  value={
-                    material.name
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={material.name}
+                  onChange={(event) =>
                     updateMaterial(
                       material.id,
                       'name',
-                      event.target
-                        .value,
+                      event.target.value,
                     )
                   }
                   placeholder="Naziv materijala"
@@ -1476,19 +1291,13 @@ export function NewWorkOrderPage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  value={
-                    material.quantity
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={material.quantity}
+                  onChange={(event) =>
                     updateMaterial(
                       material.id,
                       'quantity',
                       Number(
-                        event
-                          .target
-                          .value,
+                        event.target.value,
                       ),
                     )
                   }
@@ -1496,24 +1305,19 @@ export function NewWorkOrderPage() {
                 />
 
                 <input
-                  value={
-                    material.unit
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={material.unit}
+                  onChange={(event) =>
                     updateMaterial(
                       material.id,
                       'unit',
-                      event.target
-                        .value,
+                      event.target.value,
                     )
                   }
                   placeholder="kom"
                   className="h-11 rounded-lg bg-slate-950 px-3 text-white"
                 />
 
-                {canViewPrices ? (
+                {canViewPrices && (
                   <input
                     type="number"
                     min="0"
@@ -1521,27 +1325,18 @@ export function NewWorkOrderPage() {
                     value={
                       material.unitPrice
                     }
-                    onChange={(
-                      event,
-                    ) =>
+                    onChange={(event) =>
                       updateMaterial(
                         material.id,
                         'unitPrice',
                         Number(
-                          event
-                            .target
-                            .value,
+                          event.target.value,
                         ),
                       )
                     }
                     placeholder="Cijena"
                     className="h-11 rounded-lg bg-slate-950 px-3 text-white"
                   />
-                ) : (
-                  <div className="flex h-11 items-center rounded-lg bg-slate-950 px-3 text-xs font-semibold text-slate-500">
-                    Cijena
-                    skrivena
-                  </div>
                 )}
 
                 <button
@@ -1553,19 +1348,15 @@ export function NewWorkOrderPage() {
                   }
                   className="flex h-11 items-center justify-center rounded-lg bg-red-500/10 text-red-400"
                 >
-                  <Trash2
-                    size={18}
-                  />
+                  <Trash2 size={18} />
                 </button>
               </div>
             ),
           )}
 
-          {materials.length ===
-            0 && (
+          {materials.length === 0 && (
             <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-slate-500">
-              Još nema dodanog
-              materijala.
+              Još nema dodanog materijala.
             </p>
           )}
         </div>
@@ -1582,15 +1373,10 @@ export function NewWorkOrderPage() {
                   type="number"
                   min="0"
                   step="0.01"
-                  value={
-                    labourPrice
-                  }
-                  onChange={(
-                    event,
-                  ) =>
+                  value={labourPrice}
+                  onChange={(event) =>
                     setLabourPrice(
-                      event.target
-                        .value,
+                      event.target.value,
                     )
                   }
                   className="h-12 w-full rounded-xl bg-slate-800 px-4 pr-12 text-white"
@@ -1613,12 +1399,9 @@ export function NewWorkOrderPage() {
                 min="0"
                 max="100"
                 value={vatRate}
-                onChange={(
-                  event,
-                ) =>
+                onChange={(event) =>
                   setVatRate(
-                    event.target
-                      .value,
+                    event.target.value,
                   )
                 }
                 className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1627,35 +1410,25 @@ export function NewWorkOrderPage() {
 
             <div className="rounded-xl bg-blue-600 p-4">
               <span className="text-xs font-semibold uppercase text-blue-100">
-                Ukupno s
-                PDV-om
+                Ukupno s PDV-om
               </span>
 
               <p className="mt-2 text-2xl font-bold text-white">
-                {totalPrice.toFixed(
-                  2,
-                )}{' '}
-                €
+                {totalPrice.toFixed(2)} €
               </p>
             </div>
 
             <label className="md:col-span-3">
               <span className="text-sm font-semibold text-slate-300">
-                Napomena uz
-                cijenu
+                Napomena uz cijenu
               </span>
 
               <textarea
                 rows={3}
-                value={
-                  priceNote
-                }
-                onChange={(
-                  event,
-                ) =>
+                value={priceNote}
+                onChange={(event) =>
                   setPriceNote(
-                    event.target
-                      .value,
+                    event.target.value,
                   )
                 }
                 className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white"
@@ -1674,36 +1447,45 @@ export function NewWorkOrderPage() {
           </h2>
         </div>
 
-        <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/50 px-6 py-10 text-center hover:border-blue-500">
-          <ImagePlus
-            size={30}
-            className="text-blue-400"
-          />
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-blue-500 hover:bg-slate-800/80">
+            <Camera
+              size={22}
+              className="text-blue-400"
+            />
 
-          <p className="mt-3 font-semibold text-white">
-            Dodaj fotografije
-            s kamere ili iz
-            galerije
-          </p>
+            Slikaj sada
 
-          <p className="mt-1 text-sm text-slate-500">
-            Najviše 12
-            fotografija. Slike
-            se automatski
-            smanjuju.
-          </p>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleImages}
+              className="hidden"
+            />
+          </label>
 
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            capture="environment"
-            onChange={
-              handleImages
-            }
-            className="hidden"
-          />
-        </label>
+          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-violet-500 hover:bg-slate-800/80">
+            <ImagePlus
+              size={22}
+              className="text-violet-400"
+            />
+
+            Odaberi iz galerije
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleImages}
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        <p className="mt-3 text-center text-sm text-slate-500">
+          Najviše 12 fotografija. Fotografije se automatski smanjuju prije spremanja.
+        </p>
 
         {isUploading && (
           <FersysLoader
@@ -1720,12 +1502,8 @@ export function NewWorkOrderPage() {
                 className="group relative overflow-hidden rounded-xl border border-slate-700 bg-slate-800"
               >
                 <img
-                  src={
-                    image.dataUrl
-                  }
-                  alt={
-                    image.name
-                  }
+                  src={image.dataUrl}
+                  alt={image.name}
                   className="aspect-square w-full object-cover"
                 />
 
@@ -1738,9 +1516,7 @@ export function NewWorkOrderPage() {
                   }
                   className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/70 text-white"
                 >
-                  <Trash2
-                    size={17}
-                  />
+                  <Trash2 size={17} />
                 </button>
               </div>
             ),
@@ -1750,26 +1526,19 @@ export function NewWorkOrderPage() {
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white">
-          6. Potpis
-          investitora
+          6. Potpis investitora
         </h2>
 
         <label className="mt-5 block">
           <span className="text-sm font-semibold text-slate-300">
-            Ime i prezime
-            investitora
+            Ime i prezime investitora
           </span>
 
           <input
-            value={
-              investorName
-            }
-            onChange={(
-              event,
-            ) =>
+            value={investorName}
+            onChange={(event) =>
               setInvestorName(
-                event.target
-                  .value,
+                event.target.value,
               )
             }
             className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
@@ -1778,9 +1547,7 @@ export function NewWorkOrderPage() {
 
         <div className="mt-5">
           <SignaturePad
-            value={
-              investorSignature
-            }
+            value={investorSignature}
             onChange={
               setInvestorSignature
             }
@@ -1806,8 +1573,7 @@ export function NewWorkOrderPage() {
           type="submit"
           disabled={
             isSaving ||
-            customers.length ===
-              0
+            customers.length === 0
           }
           className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -1828,3 +1594,5 @@ export function NewWorkOrderPage() {
     </form>
   )
 }
+
+export default NewWorkOrderPage

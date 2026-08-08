@@ -1659,27 +1659,49 @@ export function EditWorkOrderPage() {
           </h2>
         </div>
 
-        <label className="mt-5 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/50 px-6 py-8 text-center hover:border-blue-500">
-          <ImagePlus
-            size={28}
-            className="text-blue-400"
-          />
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-blue-500 hover:bg-slate-800/80">
+            <Camera
+              size={22}
+              className="text-blue-400"
+            />
 
-          <p className="mt-2 font-semibold text-white">
-            Dodaj nove fotografije
-          </p>
+            Slikaj sada
 
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            capture="environment"
-            onChange={
-              handleImages
-            }
-            className="hidden"
-          />
-        </label>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={
+                handleImages
+              }
+              className="hidden"
+            />
+          </label>
+
+          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-violet-500 hover:bg-slate-800/80">
+            <ImagePlus
+              size={22}
+              className="text-violet-400"
+            />
+
+            Odaberi iz galerije
+
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={
+                handleImages
+              }
+              className="hidden"
+            />
+          </label>
+        </div>
+
+        <p className="mt-3 text-center text-sm text-slate-500">
+          Najviše 12 fotografija. Fotografije se automatski smanjuju prije spremanja.
+        </p>
 
         <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
           {images.map(
