@@ -3,10 +3,12 @@ import {
   CheckCircle2,
   ChevronDown,
   Copy,
+  KeyRound,
   Mail,
   Plus,
   RefreshCw,
   Search,
+  Settings2,
   ShieldCheck,
   Trash2,
   Users,
@@ -19,6 +21,14 @@ import {
   type FormEvent,
 } from 'react'
 
+import {
+  allPermissions,
+  defaultPermissionsByRole,
+  permissionLabels,
+  resolvePermissions,
+  type EmployeePermissions as AuthEmployeePermissions,
+  type PermissionKey,
+} from '../auth/permissions'
 import FersysLoader from '../components/FersysLoader'
 import {
   cancelInvitation,
@@ -31,6 +41,7 @@ import {
   renewInvitation,
   roleLabels,
   statusLabels,
+  updateEmployeePermissions,
   updateEmployeeRole,
   updateEmployeeStatus,
   type CompanyEmployee,
@@ -58,79 +69,179 @@ const invitationRoles: InvitationRole[] = [
   'viewer',
 ]
 
-const editableRoles: InvitationRole[] = [
-  'admin',
-  'manager',
-  'worker',
-  'assistant',
-  'intern',
-  'accounting',
-  'viewer',
+const editableRoles =
+  invitationRoles
+
+const permissionGroups: Array<{
+  title: string
+  description: string
+  permissions: PermissionKey[]
+}> = [
+  {
+    title: 'Osnovno',
+    description:
+      'Početna, kupci i kalendar.',
+    permissions: [
+      'dashboard.view',
+      'customers.view',
+      'customers.manage',
+      'calendar.view',
+    ],
+  },
+  {
+    title: 'Radni nalozi',
+    description:
+      'Pregled, izrada, uređivanje i cijene radnih naloga.',
+    permissions: [
+      'workOrders.view',
+      'workOrders.manage',
+      'workOrders.viewPrices',
+    ],
+  },
+  {
+    title: 'Ponude i računi',
+    description:
+      'Ponude, izlazni i ulazni računi te financije.',
+    permissions: [
+      'offers.view',
+      'offers.manage',
+      'offers.viewPrices',
+      'invoices.view',
+      'incomingInvoices.view',
+      'finance.view',
+    ],
+  },
+  {
+    title: 'Skladište',
+    description:
+      'Pregled skladišta, rad s materijalom i nabavne cijene.',
+    permissions: [
+      'inventory.view',
+      'inventory.manage',
+      'inventory.viewCosts',
+    ],
+  },
+  {
+    title: 'Vozila',
+    description:
+      'Pregled i upravljanje vozilima firme.',
+    permissions: [
+      'vehicles.view',
+      'vehicles.manage',
+    ],
+  },
+  {
+    title: 'Tim i postavke',
+    description:
+      'Zaposlenici, AI pomoćnik i postavke firme.',
+    permissions: [
+      'employees.view',
+      'employees.manage',
+      'ai.use',
+      'settings.manage',
+    ],
+  },
 ]
 
-function formatDateTime(value: string) {
+function formatDateTime(
+  value: string,
+) {
   if (!value) {
     return 'Nema podataka'
   }
 
-  const date = new Date(value)
+  const date =
+    new Date(value)
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return value
   }
 
-  return new Intl.DateTimeFormat('hr-HR', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date)
+  return new Intl.DateTimeFormat(
+    'hr-HR',
+    {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    },
+  ).format(date)
 }
 
-function getInitials(name: string) {
+function getInitials(
+  name: string,
+) {
   const parts = name
     .trim()
     .split(/\s+/)
     .filter(Boolean)
 
-  if (parts.length === 0) {
+  if (
+    parts.length === 0
+  ) {
     return 'K'
   }
 
   return parts
     .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
+    .map(
+      (part) =>
+        part[0]?.toUpperCase() ??
+        '',
+    )
     .join('')
 }
 
-function getRoleClassName(role: CompanyRole) {
-  if (role === 'owner') {
+function getRoleClassName(
+  role: CompanyRole,
+) {
+  if (
+    role === 'owner'
+  ) {
     return 'bg-amber-500/15 text-amber-400'
   }
 
-  if (role === 'admin') {
+  if (
+    role === 'admin'
+  ) {
     return 'bg-violet-500/15 text-violet-400'
   }
 
-  if (role === 'manager') {
+  if (
+    role === 'manager'
+  ) {
     return 'bg-blue-500/15 text-blue-400'
   }
 
-  if (role === 'accounting') {
+  if (
+    role === 'accounting'
+  ) {
     return 'bg-emerald-500/15 text-emerald-400'
   }
 
-  if (role === 'intern') {
+  if (
+    role === 'intern'
+  ) {
     return 'bg-cyan-500/15 text-cyan-400'
   }
 
   return 'bg-slate-700 text-slate-300'
 }
 
-function getStatusClassName(status: MemberStatus) {
-  if (status === 'active') {
+function getStatusClassName(
+  status: MemberStatus,
+) {
+  if (
+    status === 'active'
+  ) {
     return 'bg-emerald-500/15 text-emerald-400'
   }
 
-  if (status === 'blocked') {
+  if (
+    status === 'blocked'
+  ) {
     return 'bg-red-500/15 text-red-400'
   }
 
@@ -138,17 +249,24 @@ function getStatusClassName(status: MemberStatus) {
 }
 
 function getInvitationStatusLabel(
-  status: CompanyInvitation['status'],
+  status:
+    CompanyInvitation['status'],
 ) {
-  if (status === 'pending') {
+  if (
+    status === 'pending'
+  ) {
     return 'Na čekanju'
   }
 
-  if (status === 'accepted') {
+  if (
+    status === 'accepted'
+  ) {
     return 'Prihvaćena'
   }
 
-  if (status === 'cancelled') {
+  if (
+    status === 'cancelled'
+  ) {
     return 'Otkazana'
   }
 
@@ -156,17 +274,24 @@ function getInvitationStatusLabel(
 }
 
 function getInvitationStatusClassName(
-  status: CompanyInvitation['status'],
+  status:
+    CompanyInvitation['status'],
 ) {
-  if (status === 'pending') {
+  if (
+    status === 'pending'
+  ) {
     return 'bg-amber-500/15 text-amber-400'
   }
 
-  if (status === 'accepted') {
+  if (
+    status === 'accepted'
+  ) {
     return 'bg-emerald-500/15 text-emerald-400'
   }
 
-  if (status === 'cancelled') {
+  if (
+    status === 'cancelled'
+  ) {
     return 'bg-slate-700 text-slate-400'
   }
 
@@ -174,37 +299,83 @@ function getInvitationStatusClassName(
 }
 
 export function EmployeesPage() {
-  const [activeTab, setActiveTab] =
-    useState<PageTab>('employees')
+  const [
+    activeTab,
+    setActiveTab,
+  ] =
+    useState<PageTab>(
+      'employees',
+    )
 
-  const [employees, setEmployees] =
-    useState<CompanyEmployee[]>([])
+  const [
+    employees,
+    setEmployees,
+  ] =
+    useState<
+      CompanyEmployee[]
+    >([])
 
-  const [invitations, setInvitations] =
-    useState<CompanyInvitation[]>([])
+  const [
+    invitations,
+    setInvitations,
+  ] =
+    useState<
+      CompanyInvitation[]
+    >([])
 
-  const [search, setSearch] = useState('')
+  const [
+    search,
+    setSearch,
+  ] = useState('')
 
-  const [isLoading, setIsLoading] =
-    useState(true)
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true)
 
-  const [loadError, setLoadError] =
-    useState('')
+  const [
+    loadError,
+    setLoadError,
+  ] = useState('')
 
-  const [actionError, setActionError] =
-    useState('')
+  const [
+    actionError,
+    setActionError,
+  ] = useState('')
 
-  const [actionSuccess, setActionSuccess] =
-    useState('')
+  const [
+    actionSuccess,
+    setActionSuccess,
+  ] = useState('')
 
-  const [isInviteModalOpen, setIsInviteModalOpen] =
-    useState(false)
+  const [
+    isInviteModalOpen,
+    setIsInviteModalOpen,
+  ] = useState(false)
 
-  const [busyId, setBusyId] =
-    useState<string | null>(null)
+  const [
+    permissionEmployee,
+    setPermissionEmployee,
+  ] =
+    useState<
+      CompanyEmployee | null
+    >(null)
 
-  const [copiedCode, setCopiedCode] =
-    useState<string | null>(null)
+  const [
+    busyId,
+    setBusyId,
+  ] =
+    useState<
+      string | null
+    >(null)
+
+  const [
+    copiedCode,
+    setCopiedCode,
+  ] =
+    useState<
+      string | null
+    >(null)
 
   useEffect(() => {
     let cancelled = false
@@ -217,26 +388,41 @@ export function EmployeesPage() {
         const [
           savedEmployees,
           savedInvitations,
-        ] = await Promise.all([
-          getEmployees(),
-          getInvitations(),
-        ])
+        ] =
+          await Promise.all([
+            getEmployees(),
+            getInvitations(),
+          ])
 
-        if (!cancelled) {
-          setEmployees(savedEmployees)
-          setInvitations(savedInvitations)
+        if (
+          !cancelled
+        ) {
+          setEmployees(
+            savedEmployees,
+          )
+
+          setInvitations(
+            savedInvitations,
+          )
         }
       } catch (error) {
-        if (!cancelled) {
+        if (
+          !cancelled
+        ) {
           setLoadError(
-            error instanceof Error
+            error instanceof
+              Error
               ? error.message
               : 'Zaposlenike nije moguće učitati.',
           )
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false)
+        if (
+          !cancelled
+        ) {
+          setIsLoading(
+            false,
+          )
         }
       }
     }
@@ -248,87 +434,120 @@ export function EmployeesPage() {
     }
   }, [])
 
-  const filteredEmployees = useMemo(() => {
-    const needle = search
-      .trim()
-      .toLocaleLowerCase('hr-HR')
+  const filteredEmployees =
+    useMemo(() => {
+      const needle =
+        search
+          .trim()
+          .toLocaleLowerCase(
+            'hr-HR',
+          )
 
-    if (!needle) {
-      return employees
-    }
+      if (!needle) {
+        return employees
+      }
 
-    return employees.filter((employee) => {
-      const text = [
-        employee.fullName,
-        employee.email,
-        employee.phone,
-        roleLabels[employee.role],
-        statusLabels[employee.status],
-      ]
-        .join(' ')
-        .toLocaleLowerCase('hr-HR')
+      return employees.filter(
+        (employee) => {
+          const text = [
+            employee.fullName,
+            employee.email,
+            employee.phone,
+            roleLabels[
+              employee.role
+            ],
+            statusLabels[
+              employee.status
+            ],
+          ]
+            .join(' ')
+            .toLocaleLowerCase(
+              'hr-HR',
+            )
 
-      return text.includes(needle)
-    })
-  }, [
-    employees,
-    search,
-  ])
-
-  const filteredInvitations = useMemo(() => {
-    const needle = search
-      .trim()
-      .toLocaleLowerCase('hr-HR')
-
-    if (!needle) {
-      return invitations
-    }
-
-    return invitations.filter((invitation) => {
-      const text = [
-        invitation.inviteeName,
-        invitation.email,
-        invitation.inviteCode,
-        roleLabels[invitation.role],
-        getInvitationStatusLabel(
-          invitation.status,
-        ),
-      ]
-        .join(' ')
-        .toLocaleLowerCase('hr-HR')
-
-      return text.includes(needle)
-    })
-  }, [
-    invitations,
-    search,
-  ])
-
-  const stats = useMemo(
-    () => ({
-      total: employees.length,
-
-      active: employees.filter(
-        (employee) =>
-          employee.status === 'active',
-      ).length,
-
-      blocked: employees.filter(
-        (employee) =>
-          employee.status === 'blocked',
-      ).length,
-
-      pendingInvitations:
-        invitations.filter(
-          (invitation) =>
-            invitation.status === 'pending',
-        ).length,
-    }),
-    [
+          return text.includes(
+            needle,
+          )
+        },
+      )
+    }, [
       employees,
+      search,
+    ])
+
+  const filteredInvitations =
+    useMemo(() => {
+      const needle =
+        search
+          .trim()
+          .toLocaleLowerCase(
+            'hr-HR',
+          )
+
+      if (!needle) {
+        return invitations
+      }
+
+      return invitations.filter(
+        (invitation) => {
+          const text = [
+            invitation.inviteeName,
+            invitation.email,
+            invitation.inviteCode,
+            roleLabels[
+              invitation.role
+            ],
+            getInvitationStatusLabel(
+              invitation.status,
+            ),
+          ]
+            .join(' ')
+            .toLocaleLowerCase(
+              'hr-HR',
+            )
+
+          return text.includes(
+            needle,
+          )
+        },
+      )
+    }, [
       invitations,
-    ],
-  )
+      search,
+    ])
+
+  const stats =
+    useMemo(
+      () => ({
+        total:
+          employees.length,
+
+        active:
+          employees.filter(
+            (employee) =>
+              employee.status ===
+              'active',
+          ).length,
+
+        blocked:
+          employees.filter(
+            (employee) =>
+              employee.status ===
+              'blocked',
+          ).length,
+
+        pendingInvitations:
+          invitations.filter(
+            (invitation) =>
+              invitation.status ===
+              'pending',
+          ).length,
+      }),
+      [
+        employees,
+        invitations,
+      ],
+    )
 
   async function refreshData() {
     try {
@@ -338,13 +557,19 @@ export function EmployeesPage() {
       const [
         savedEmployees,
         savedInvitations,
-      ] = await Promise.all([
-        getEmployees(),
-        getInvitations(),
-      ])
+      ] =
+        await Promise.all([
+          getEmployees(),
+          getInvitations(),
+        ])
 
-      setEmployees(savedEmployees)
-      setInvitations(savedInvitations)
+      setEmployees(
+        savedEmployees,
+      )
+
+      setInvitations(
+        savedInvitations,
+      )
     } catch (error) {
       setLoadError(
         error instanceof Error
@@ -357,35 +582,49 @@ export function EmployeesPage() {
   }
 
   async function handleRoleChange(
-    employee: CompanyEmployee,
-    role: InvitationRole,
+    employee:
+      CompanyEmployee,
+    role:
+      InvitationRole,
   ) {
     if (
-      employee.role === 'owner' ||
-      employee.role === role
+      employee.role ===
+        'owner' ||
+      employee.role ===
+        role
     ) {
       return
     }
 
     try {
-      setBusyId(employee.membershipId)
+      setBusyId(
+        employee.membershipId,
+      )
+
       setActionError('')
+      setActionSuccess('')
 
       await updateEmployeeRole(
         employee.membershipId,
         role,
       )
 
-      setEmployees((current) =>
-        current.map((item) =>
-          item.membershipId ===
-          employee.membershipId
-            ? {
-                ...item,
-                role,
-              }
-            : item,
-        ),
+      setEmployees(
+        (current) =>
+          current.map(
+            (item) =>
+              item.membershipId ===
+              employee.membershipId
+                ? {
+                    ...item,
+                    role,
+                  }
+                : item,
+          ),
+      )
+
+      setActionSuccess(
+        `Uloga korisnika ${employee.fullName} promijenjena je u ${roleLabels[role]}.`,
       )
     } catch (error) {
       setActionError(
@@ -399,35 +638,49 @@ export function EmployeesPage() {
   }
 
   async function handleStatusChange(
-    employee: CompanyEmployee,
-    status: MemberStatus,
+    employee:
+      CompanyEmployee,
+    status:
+      MemberStatus,
   ) {
     if (
-      employee.role === 'owner' ||
-      employee.status === status
+      employee.role ===
+        'owner' ||
+      employee.status ===
+        status
     ) {
       return
     }
 
     try {
-      setBusyId(employee.membershipId)
+      setBusyId(
+        employee.membershipId,
+      )
+
       setActionError('')
+      setActionSuccess('')
 
       await updateEmployeeStatus(
         employee.membershipId,
         status,
       )
 
-      setEmployees((current) =>
-        current.map((item) =>
-          item.membershipId ===
-          employee.membershipId
-            ? {
-                ...item,
-                status,
-              }
-            : item,
-        ),
+      setEmployees(
+        (current) =>
+          current.map(
+            (item) =>
+              item.membershipId ===
+              employee.membershipId
+                ? {
+                    ...item,
+                    status,
+                  }
+                : item,
+          ),
+      )
+
+      setActionSuccess(
+        `Status korisnika ${employee.fullName} uspješno je promijenjen.`,
       )
     } catch (error) {
       setActionError(
@@ -441,34 +694,48 @@ export function EmployeesPage() {
   }
 
   async function handleRemoveEmployee(
-    employee: CompanyEmployee,
+    employee:
+      CompanyEmployee,
   ) {
-    if (employee.role === 'owner') {
+    if (
+      employee.role ===
+      'owner'
+    ) {
       return
     }
 
-    const confirmed = window.confirm(
-      `Želite li ukloniti korisnika ${employee.fullName} iz tvrtke?`,
-    )
+    const confirmed =
+      window.confirm(
+        `Želite li ukloniti korisnika ${employee.fullName} iz tvrtke?`,
+      )
 
     if (!confirmed) {
       return
     }
 
     try {
-      setBusyId(employee.membershipId)
+      setBusyId(
+        employee.membershipId,
+      )
+
       setActionError('')
+      setActionSuccess('')
 
       await removeEmployee(
         employee.membershipId,
       )
 
-      setEmployees((current) =>
-        current.filter(
-          (item) =>
-            item.membershipId !==
-            employee.membershipId,
-        ),
+      setEmployees(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.membershipId !==
+              employee.membershipId,
+          ),
+      )
+
+      setActionSuccess(
+        `${employee.fullName} uklonjen je iz tvrtke.`,
       )
     } catch (error) {
       setActionError(
@@ -481,11 +748,48 @@ export function EmployeesPage() {
     }
   }
 
+  async function handlePermissionsSaved(
+    employee:
+      CompanyEmployee,
+    permissions:
+      AuthEmployeePermissions,
+  ) {
+    setEmployees(
+      (current) =>
+        current.map(
+          (item) =>
+            item.membershipId ===
+            employee.membershipId
+              ? {
+                  ...item,
+                  permissions: {
+                    ...permissions,
+                  },
+                }
+              : item,
+        ),
+    )
+
+    setPermissionEmployee(
+      null,
+    )
+
+    setActionError('')
+
+    setActionSuccess(
+      `Ovlasti za ${employee.fullName} uspješno su spremljene.`,
+    )
+  }
+
   async function handleCopyInvitation(
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) {
     try {
-      setBusyId(invitation.id)
+      setBusyId(
+        invitation.id,
+      )
+
       setActionError('')
 
       await copyInvitationLink(
@@ -496,9 +800,14 @@ export function EmployeesPage() {
         invitation.inviteCode,
       )
 
-      window.setTimeout(() => {
-        setCopiedCode(null)
-      }, 2500)
+      window.setTimeout(
+        () => {
+          setCopiedCode(
+            null,
+          )
+        },
+        2500,
+      )
     } catch (error) {
       setActionError(
         error instanceof Error
@@ -511,33 +820,42 @@ export function EmployeesPage() {
   }
 
   async function handleCancelInvitation(
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) {
-    const confirmed = window.confirm(
-      `Želite li otkazati pozivnicu za ${invitation.email}?`,
-    )
+    const confirmed =
+      window.confirm(
+        `Želite li otkazati pozivnicu za ${invitation.email}?`,
+      )
 
     if (!confirmed) {
       return
     }
 
     try {
-      setBusyId(invitation.id)
+      setBusyId(
+        invitation.id,
+      )
+
       setActionError('')
 
       await cancelInvitation(
         invitation.id,
       )
 
-      setInvitations((current) =>
-        current.map((item) =>
-          item.id === invitation.id
-            ? {
-                ...item,
-                status: 'cancelled',
-              }
-            : item,
-        ),
+      setInvitations(
+        (current) =>
+          current.map(
+            (item) =>
+              item.id ===
+              invitation.id
+                ? {
+                    ...item,
+                    status:
+                      'cancelled',
+                  }
+                : item,
+          ),
       )
     } catch (error) {
       setActionError(
@@ -550,70 +868,87 @@ export function EmployeesPage() {
     }
   }
 
- async function handleRenewInvitation(
-  invitation: CompanyInvitation,
-) {
-  try {
-    setBusyId(invitation.id)
-    setActionError('')
+  async function handleRenewInvitation(
+    invitation:
+      CompanyInvitation,
+  ) {
+    try {
+      setBusyId(
+        invitation.id,
+      )
 
-    const renewed =
-      await renewInvitation(invitation)
+      setActionError('')
 
-    setInvitations((current) => {
-      const cancelledInvitations =
-        current.map(
-          (
-            item,
-          ): CompanyInvitation =>
-            item.id === invitation.id
-              ? {
-                  ...item,
-                  status: 'cancelled',
-                }
-              : item,
+      const renewed =
+        await renewInvitation(
+          invitation,
         )
 
-      return [
-        renewed,
-        ...cancelledInvitations,
-      ]
-    })
-  } catch (error) {
-    setActionError(
-      error instanceof Error
-        ? error.message
-        : 'Pozivnicu nije moguće obnoviti.',
-    )
-  } finally {
-    setBusyId(null)
+      setInvitations(
+        (current) => {
+          const cancelled =
+            current.map(
+              (
+                item,
+              ): CompanyInvitation =>
+                item.id ===
+                invitation.id
+                  ? {
+                      ...item,
+                      status:
+                        'cancelled',
+                    }
+                  : item,
+            )
+
+          return [
+            renewed,
+            ...cancelled,
+          ]
+        },
+      )
+    } catch (error) {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : 'Pozivnicu nije moguće obnoviti.',
+      )
+    } finally {
+      setBusyId(null)
+    }
   }
-}
 
   async function handleDeleteInvitation(
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) {
-    const confirmed = window.confirm(
-      `Želite li trajno obrisati pozivnicu za ${invitation.email}?`,
-    )
+    const confirmed =
+      window.confirm(
+        `Želite li trajno obrisati pozivnicu za ${invitation.email}?`,
+      )
 
     if (!confirmed) {
       return
     }
 
     try {
-      setBusyId(invitation.id)
+      setBusyId(
+        invitation.id,
+      )
+
       setActionError('')
 
       await deleteInvitation(
         invitation.id,
       )
 
-      setInvitations((current) =>
-        current.filter(
-          (item) =>
-            item.id !== invitation.id,
-        ),
+      setInvitations(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !==
+              invitation.id,
+          ),
       )
     } catch (error) {
       setActionError(
@@ -627,25 +962,36 @@ export function EmployeesPage() {
   }
 
   function handleInvitationCreated(
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) {
-    setInvitations((current) => [
-      invitation,
-      ...current,
-    ])
-
-    setActionError('')
-    setActionSuccess(
-      `Pozivnica za ${invitation.email} uspješno je izrađena. Poveznica je poslana e-mailom ako je e-mail servis konfiguriran.`,
+    setInvitations(
+      (current) => [
+        invitation,
+        ...current,
+      ],
     )
 
-    setIsInviteModalOpen(false)
-    setActiveTab('invitations')
+    setActionError('')
+
+    setActionSuccess(
+      `Pozivnica za ${invitation.email} uspješno je izrađena.`,
+    )
+
+    setIsInviteModalOpen(
+      false,
+    )
+
+    setActiveTab(
+      'invitations',
+    )
   }
 
   if (isLoading) {
     return (
-      <FersysLoader text="Učitavanje zaposlenika..." />
+      <FersysLoader
+        text="Učitavanje zaposlenika..."
+      />
     )
   }
 
@@ -659,7 +1005,8 @@ export function EmployeesPage() {
           />
 
           <h1 className="mt-5 text-2xl font-black text-white">
-            Zaposlenike nije moguće učitati
+            Zaposlenike nije
+            moguće učitati
           </h1>
 
           <p className="mt-3 break-words text-sm leading-6 text-red-300">
@@ -690,8 +1037,11 @@ export function EmployeesPage() {
             </h1>
 
             <p className="mt-2 text-slate-400">
-              Upravljaj korisnicima, ulogama,
-              pristupom i pozivnicama tvrtke.
+              Upravljaj ulogama,
+              statusom i
+              pojedinačnim
+              ovlastima svakog
+              korisnika.
             </p>
           </div>
 
@@ -703,18 +1053,26 @@ export function EmployeesPage() {
               }
               className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 font-bold text-white transition hover:bg-slate-700"
             >
-              <RefreshCw size={18} />
+              <RefreshCw
+                size={18}
+              />
+
               Osvježi
             </button>
 
             <button
               type="button"
               onClick={() =>
-                setIsInviteModalOpen(true)
+                setIsInviteModalOpen(
+                  true,
+                )
               }
               className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white transition hover:bg-blue-500"
             >
-              <Plus size={19} />
+              <Plus
+                size={19}
+              />
+
               Pozovi zaposlenika
             </button>
           </div>
@@ -735,7 +1093,9 @@ export function EmployeesPage() {
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             label="Ukupno korisnika"
-            value={stats.total}
+            value={
+              stats.total
+            }
             icon={
               <Users className="text-blue-400" />
             }
@@ -744,7 +1104,9 @@ export function EmployeesPage() {
 
           <StatCard
             label="Aktivni"
-            value={stats.active}
+            value={
+              stats.active
+            }
             icon={
               <CheckCircle2 className="text-emerald-400" />
             }
@@ -753,7 +1115,9 @@ export function EmployeesPage() {
 
           <StatCard
             label="Blokirani"
-            value={stats.blocked}
+            value={
+              stats.blocked
+            }
             icon={
               <Ban className="text-red-400" />
             }
@@ -762,7 +1126,9 @@ export function EmployeesPage() {
 
           <StatCard
             label="Pozivnice na čekanju"
-            value={stats.pendingInvitations}
+            value={
+              stats.pendingInvitations
+            }
             icon={
               <Mail className="text-amber-400" />
             }
@@ -775,36 +1141,54 @@ export function EmployeesPage() {
             <button
               type="button"
               onClick={() =>
-                setActiveTab('employees')
+                setActiveTab(
+                  'employees',
+                )
               }
               className={`flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${
-                activeTab === 'employees'
+                activeTab ===
+                'employees'
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <Users size={17} />
+              <Users
+                size={17}
+              />
+
               Zaposlenici
+
               <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">
-                {employees.length}
+                {
+                  employees.length
+                }
               </span>
             </button>
 
             <button
               type="button"
               onClick={() =>
-                setActiveTab('invitations')
+                setActiveTab(
+                  'invitations',
+                )
               }
               className={`flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${
-                activeTab === 'invitations'
+                activeTab ===
+                'invitations'
                   ? 'bg-blue-600 text-white'
                   : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <Mail size={17} />
+              <Mail
+                size={17}
+              />
+
               Pozivnice
+
               <span className="rounded-full bg-black/20 px-2 py-0.5 text-xs">
-                {invitations.length}
+                {
+                  invitations.length
+                }
               </span>
             </button>
           </div>
@@ -820,28 +1204,42 @@ export function EmployeesPage() {
             <input
               type="search"
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
+              onChange={(
+                event,
+              ) =>
+                setSearch(
+                  event.target
+                    .value,
+                )
               }
               placeholder={
-                activeTab === 'employees'
-                  ? 'Pretraži zaposlenike po imenu, e-mailu, ulozi ili statusu...'
-                  : 'Pretraži pozivnice po imenu, e-mailu, kodu ili statusu...'
+                activeTab ===
+                'employees'
+                  ? 'Pretraži zaposlenike...'
+                  : 'Pretraži pozivnice...'
               }
               className="h-12 w-full rounded-xl bg-slate-800 pl-12 pr-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
             />
           </div>
         </div>
 
-        {activeTab === 'employees' ? (
+        {activeTab ===
+        'employees' ? (
           <EmployeesList
-            employees={filteredEmployees}
-            busyId={busyId}
+            employees={
+              filteredEmployees
+            }
+            busyId={
+              busyId
+            }
             onRoleChange={
               handleRoleChange
             }
             onStatusChange={
               handleStatusChange
+            }
+            onPermissions={
+              setPermissionEmployee
             }
             onRemove={
               handleRemoveEmployee
@@ -852,8 +1250,12 @@ export function EmployeesPage() {
             invitations={
               filteredInvitations
             }
-            busyId={busyId}
-            copiedCode={copiedCode}
+            busyId={
+              busyId
+            }
+            copiedCode={
+              copiedCode
+            }
             onCopy={
               handleCopyInvitation
             }
@@ -873,10 +1275,28 @@ export function EmployeesPage() {
       {isInviteModalOpen && (
         <InvitationModal
           onClose={() =>
-            setIsInviteModalOpen(false)
+            setIsInviteModalOpen(
+              false,
+            )
           }
           onCreated={
             handleInvitationCreated
+          }
+        />
+      )}
+
+      {permissionEmployee && (
+        <PermissionsModal
+          employee={
+            permissionEmployee
+          }
+          onClose={() =>
+            setPermissionEmployee(
+              null,
+            )
+          }
+          onSaved={
+            handlePermissionsSaved
           }
         />
       )}
@@ -896,115 +1316,143 @@ function EmployeesList({
   busyId,
   onRoleChange,
   onStatusChange,
+  onPermissions,
   onRemove,
 }: {
-  employees: CompanyEmployee[]
-  busyId: string | null
+  employees:
+    CompanyEmployee[]
+  busyId:
+    string | null
   onRoleChange: (
-    employee: CompanyEmployee,
-    role: InvitationRole,
+    employee:
+      CompanyEmployee,
+    role:
+      InvitationRole,
   ) => Promise<void>
   onStatusChange: (
-    employee: CompanyEmployee,
-    status: MemberStatus,
+    employee:
+      CompanyEmployee,
+    status:
+      MemberStatus,
   ) => Promise<void>
+  onPermissions: (
+    employee:
+      CompanyEmployee,
+  ) => void
   onRemove: (
-    employee: CompanyEmployee,
+    employee:
+      CompanyEmployee,
   ) => Promise<void>
 }) {
   return (
-    <div className="mt-6 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-      <div className="hidden overflow-x-auto xl:block">
-        <table className="w-full min-w-[1200px]">
-          <thead className="border-b border-slate-800 bg-slate-800/40">
-            <tr className="text-left text-xs font-bold uppercase tracking-wide text-slate-500">
-              <th className="px-6 py-4">
-                Korisnik
-              </th>
+    <div className="mt-6 space-y-4">
+      {employees.map(
+        (employee) => (
+          <article
+            key={
+              employee.membershipId
+            }
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
+          >
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0 flex-1">
+                <EmployeeIdentity
+                  employee={
+                    employee
+                  }
+                />
 
-              <th className="px-6 py-4">
-                Kontakt
-              </th>
-
-              <th className="px-6 py-4">
-                Uloga
-              </th>
-
-              <th className="px-6 py-4">
-                Status
-              </th>
-
-              <th className="px-6 py-4">
-                Zadnja prijava
-              </th>
-
-              <th className="px-6 py-4">
-                Član od
-              </th>
-
-              <th className="px-6 py-4">
-                Akcije
-              </th>
-            </tr>
-          </thead>
-
-          <tbody className="divide-y divide-slate-800">
-            {employees.map((employee) => (
-              <tr
-                key={employee.membershipId}
-                className="transition hover:bg-slate-800/40"
-              >
-                <td className="px-6 py-5">
-                  <EmployeeIdentity
-                    employee={employee}
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <InfoBox
+                    label="E-mail"
+                    value={
+                      employee.email ||
+                      '—'
+                    }
                   />
-                </td>
 
-                <td className="px-6 py-5">
-                  <p className="text-sm text-slate-300">
-                    {employee.email ||
-                      'E-mail nije unesen'}
-                  </p>
+                  <InfoBox
+                    label="Telefon"
+                    value={
+                      employee.phone ||
+                      '—'
+                    }
+                  />
 
-                  <p className="mt-1 text-xs text-slate-500">
-                    {employee.phone ||
-                      'Telefon nije unesen'}
-                  </p>
-                </td>
+                  <InfoBox
+                    label="Zadnja prijava"
+                    value={formatDateTime(
+                      employee.lastSignInAt,
+                    )}
+                  />
 
-                <td className="px-6 py-5">
-                  {employee.role === 'owner' ? (
+                  <InfoBox
+                    label="Član od"
+                    value={formatDateTime(
+                      employee.joinedAt,
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="grid w-full gap-3 sm:grid-cols-2 xl:w-auto xl:grid-cols-[180px_160px_auto]">
+                {employee.role ===
+                'owner' ? (
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+                      Uloga
+                    </p>
+
                     <span
-                      className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getRoleClassName(
+                      className={`inline-flex h-11 items-center rounded-xl px-4 text-sm font-bold ${getRoleClassName(
                         employee.role,
                       )}`}
                     >
-                      {roleLabels[
-                        employee.role
-                      ]}
+                      {
+                        roleLabels[
+                          employee.role
+                        ]
+                      }
                     </span>
-                  ) : (
+                  </div>
+                ) : (
+                  <label>
+                    <span className="mb-2 block text-xs font-bold uppercase text-slate-500">
+                      Uloga
+                    </span>
+
                     <div className="relative">
                       <select
-                        value={employee.role}
+                        value={
+                          employee.role
+                        }
                         disabled={
                           busyId ===
                           employee.membershipId
                         }
-                        onChange={(event) =>
+                        onChange={(
+                          event,
+                        ) =>
                           void onRoleChange(
                             employee,
-                            event.target
+                            event
+                              .target
                               .value as InvitationRole,
                           )
                         }
-                        className="h-10 min-w-44 appearance-none rounded-xl bg-slate-800 px-3 pr-9 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
+                        className="h-11 w-full appearance-none rounded-xl bg-slate-800 px-3 pr-9 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
                       >
                         {editableRoles.map(
-                          (role) => (
+                          (
+                            role,
+                          ) => (
                             <option
-                              key={role}
-                              value={role}
+                              key={
+                                role
+                              }
+                              value={
+                                role
+                              }
                             >
                               {
                                 roleLabels[
@@ -1017,257 +1465,533 @@ function EmployeesList({
                       </select>
 
                       <ChevronDown
-                        size={16}
+                        size={
+                          16
+                        }
                         className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                       />
                     </div>
-                  )}
-                </td>
+                  </label>
+                )}
 
-                <td className="px-6 py-5">
-                  {employee.role === 'owner' ? (
-                    <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-400">
+                {employee.role ===
+                'owner' ? (
+                  <div>
+                    <p className="mb-2 text-xs font-bold uppercase text-slate-500">
+                      Status
+                    </p>
+
+                    <span className="inline-flex h-11 items-center rounded-xl bg-emerald-500/15 px-4 text-sm font-bold text-emerald-400">
                       Aktivan
                     </span>
-                  ) : (
-                    <div className="relative">
-                      <select
-                        value={employee.status}
-                        disabled={
-                          busyId ===
-                          employee.membershipId
-                        }
-                        onChange={(event) =>
-                          void onStatusChange(
-                            employee,
-                            event.target
-                              .value as MemberStatus,
-                          )
-                        }
-                        className={`h-10 min-w-36 appearance-none rounded-xl border-0 px-3 pr-9 text-sm font-bold outline-none ${getStatusClassName(
-                          employee.status,
-                        )}`}
-                      >
-                        <option value="active">
-                          Aktivan
-                        </option>
+                  </div>
+                ) : (
+                  <label>
+                    <span className="mb-2 block text-xs font-bold uppercase text-slate-500">
+                      Status
+                    </span>
 
-                        <option value="inactive">
-                          Neaktivan
-                        </option>
-
-                        <option value="blocked">
-                          Blokiran
-                        </option>
-                      </select>
-
-                      <ChevronDown
-                        size={16}
-                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2"
-                      />
-                    </div>
-                  )}
-                </td>
-
-                <td className="px-6 py-5 text-sm text-slate-400">
-                  {formatDateTime(
-                    employee.lastSignInAt,
-                  )}
-                </td>
-
-                <td className="px-6 py-5 text-sm text-slate-400">
-                  {formatDateTime(
-                    employee.joinedAt,
-                  )}
-                </td>
-
-                <td className="px-6 py-5">
-                  {employee.role !==
-                    'owner' && (
-                    <button
-                      type="button"
+                    <select
+                      value={
+                        employee.status
+                      }
                       disabled={
                         busyId ===
                         employee.membershipId
                       }
-                      onClick={() =>
-                        void onRemove(
+                      onChange={(
+                        event,
+                      ) =>
+                        void onStatusChange(
                           employee,
+                          event
+                            .target
+                            .value as MemberStatus,
                         )
                       }
-                      className="grid h-10 w-10 place-items-center rounded-xl bg-red-500/10 text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
-                      title="Ukloni zaposlenika"
+                      className={`h-11 w-full rounded-xl px-3 text-sm font-bold outline-none ${getStatusClassName(
+                        employee.status,
+                      )}`}
                     >
-                      <Trash2 size={18} />
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      <option value="active">
+                        Aktivan
+                      </option>
 
-      <div className="divide-y divide-slate-800 xl:hidden">
-        {employees.map((employee) => (
-          <article
-            key={employee.membershipId}
-            className="p-4 sm:p-5"
-          >
-            <EmployeeIdentity
-              employee={employee}
-            />
+                      <option value="inactive">
+                        Neaktivan
+                      </option>
 
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-xl bg-slate-800/70 p-3">
-                <p className="text-xs font-bold uppercase text-slate-500">
-                  E-mail
-                </p>
+                      <option value="blocked">
+                        Blokiran
+                      </option>
+                    </select>
+                  </label>
+                )}
 
-                <p className="mt-1 break-all text-sm text-white">
-                  {employee.email || '—'}
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-slate-800/70 p-3">
-                <p className="text-xs font-bold uppercase text-slate-500">
-                  Zadnja prijava
-                </p>
-
-                <p className="mt-1 text-sm text-white">
-                  {formatDateTime(
-                    employee.lastSignInAt,
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {employee.role === 'owner' ? (
                 <div>
                   <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-                    Uloga
+                    Akcije
                   </p>
 
-                  <span
-                    className={`inline-flex rounded-full px-3 py-1 text-xs font-bold ${getRoleClassName(
-                      employee.role,
-                    )}`}
-                  >
-                    {roleLabels[
-                      employee.role
-                    ]}
-                  </span>
-                </div>
-              ) : (
-                <label>
-                  <span className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                    Uloga
-                  </span>
-
-                  <select
-                    value={employee.role}
-                    disabled={
-                      busyId ===
-                      employee.membershipId
-                    }
-                    onChange={(event) =>
-                      void onRoleChange(
-                        employee,
-                        event.target
-                          .value as InvitationRole,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm font-bold text-white"
-                  >
-                    {editableRoles.map(
-                      (role) => (
-                        <option
-                          key={role}
-                          value={role}
-                        >
-                          {
-                            roleLabels[
-                              role
-                            ]
+                  <div className="flex gap-2">
+                    {employee.role !==
+                      'owner' && (
+                      <button
+                        type="button"
+                        disabled={
+                          busyId ===
+                          employee.membershipId
+                        }
+                        onClick={() =>
+                          onPermissions(
+                            employee,
+                          )
+                        }
+                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-500/10 px-4 text-sm font-bold text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+                        title="Uredi ovlasti"
+                      >
+                        <KeyRound
+                          size={
+                            17
                           }
-                        </option>
-                      ),
+                        />
+
+                        Ovlasti
+                      </button>
                     )}
-                  </select>
-                </label>
-              )}
 
-              {employee.role === 'owner' ? (
-                <div>
-                  <p className="mb-2 text-xs font-bold uppercase text-slate-500">
-                    Status
-                  </p>
+                    {employee.role !==
+                      'owner' && (
+                      <button
+                        type="button"
+                        disabled={
+                          busyId ===
+                          employee.membershipId
+                        }
+                        onClick={() =>
+                          void onRemove(
+                            employee,
+                          )
+                        }
+                        className="grid h-11 w-11 place-items-center rounded-xl bg-red-500/10 text-red-400 transition hover:bg-red-500/20 disabled:opacity-50"
+                        title="Ukloni zaposlenika"
+                      >
+                        <Trash2
+                          size={
+                            18
+                          }
+                        />
+                      </button>
+                    )}
 
-                  <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-bold text-emerald-400">
-                    Aktivan
-                  </span>
+                    {employee.role ===
+                      'owner' && (
+                      <div className="flex h-11 items-center gap-2 rounded-xl bg-amber-500/10 px-4 text-sm font-bold text-amber-300">
+                        <ShieldCheck
+                          size={
+                            17
+                          }
+                        />
+
+                        Puni pristup
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <label>
-                  <span className="mb-2 block text-xs font-bold uppercase text-slate-500">
-                    Status
-                  </span>
-
-                  <select
-                    value={employee.status}
-                    disabled={
-                      busyId ===
-                      employee.membershipId
-                    }
-                    onChange={(event) =>
-                      void onStatusChange(
-                        employee,
-                        event.target
-                          .value as MemberStatus,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm font-bold text-white"
-                  >
-                    <option value="active">
-                      Aktivan
-                    </option>
-
-                    <option value="inactive">
-                      Neaktivan
-                    </option>
-
-                    <option value="blocked">
-                      Blokiran
-                    </option>
-                  </select>
-                </label>
-              )}
+              </div>
             </div>
-
-            {employee.role !== 'owner' && (
-              <button
-                type="button"
-                onClick={() =>
-                  void onRemove(employee)
-                }
-                className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-red-500/10 text-sm font-bold text-red-400"
-              >
-                <Trash2 size={17} />
-                Ukloni iz tvrtke
-              </button>
-            )}
           </article>
-        ))}
-      </div>
+        ),
+      )}
 
-      {employees.length === 0 && (
+      {employees.length ===
+        0 && (
         <EmptyState
-          icon={<Users size={38} />}
+          icon={
+            <Users
+              size={38}
+            />
+          }
           title="Nema pronađenih zaposlenika"
           description="Promijeni pojam pretrage."
         />
       )}
+    </div>
+  )
+}
+
+function PermissionsModal({
+  employee,
+  onClose,
+  onSaved,
+}: {
+  employee:
+    CompanyEmployee
+  onClose: () => void
+  onSaved: (
+    employee:
+      CompanyEmployee,
+    permissions:
+      AuthEmployeePermissions,
+  ) => Promise<void>
+}) {
+  const [
+    overrides,
+    setOverrides,
+  ] =
+    useState<
+      AuthEmployeePermissions
+    >(() => {
+      const clean:
+        AuthEmployeePermissions =
+        {}
+
+      for (
+        const permission of
+        allPermissions
+      ) {
+        const value =
+          employee.permissions[
+            permission
+          ]
+
+        if (
+          typeof value ===
+          'boolean'
+        ) {
+          clean[
+            permission
+          ] = value
+        }
+      }
+
+      return clean
+    })
+
+  const [
+    isSaving,
+    setIsSaving,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState('')
+
+  const resolved =
+    resolvePermissions(
+      employee.role,
+      overrides,
+    )
+
+  const defaultPermissions =
+    defaultPermissionsByRole[
+      employee.role
+    ]
+
+  function toggle(
+    permission:
+      PermissionKey,
+  ) {
+    setOverrides(
+      (current) => ({
+        ...current,
+        [permission]:
+          !resolved[
+            permission
+          ],
+      }),
+    )
+  }
+
+  function resetToRoleDefaults() {
+    setOverrides({})
+    setError('')
+  }
+
+  async function save() {
+    if (isSaving) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      setError('')
+
+      await updateEmployeePermissions(
+        employee.membershipId,
+        overrides,
+      )
+
+      await onSaved(
+        employee,
+        overrides,
+      )
+    } catch (saveError) {
+      setError(
+        saveError instanceof
+          Error
+          ? saveError.message
+          : 'Ovlasti nije moguće spremiti.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-5">
+      <div className="max-h-[94vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-5 sm:px-7">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/10 text-blue-300">
+                <KeyRound
+                  size={21}
+                />
+              </div>
+
+              <div>
+                <h2 className="text-xl font-black text-white sm:text-2xl">
+                  Ovlasti zaposlenika
+                </h2>
+
+                <p className="mt-1 text-sm text-slate-400">
+                  {
+                    employee.fullName
+                  }{' '}
+                  ·{' '}
+                  {
+                    roleLabels[
+                      employee.role
+                    ]
+                  }
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-400">
+              Rank automatski
+              postavlja početne
+              ovlasti. Ovdje možeš
+              pojedinom zaposleniku
+              uključiti ili isključiti
+              dodatne funkcije.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              onClose
+            }
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-400 transition hover:text-white"
+          >
+            <X
+              size={20}
+            />
+          </button>
+        </div>
+
+        <div className="max-h-[calc(94vh-185px)] overflow-y-auto px-5 py-5 sm:px-7">
+          {error && (
+            <div className="mb-5 whitespace-pre-wrap rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {error}
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
+            <p className="font-bold text-blue-300">
+              Kako radi
+            </p>
+
+            <p className="mt-1 text-sm leading-6 text-slate-400">
+              Plava oznaka
+              <b className="text-slate-200">
+                {' '}
+                Prilagođeno
+              </b>{' '}
+              znači da se ova
+              ovlast razlikuje od
+              zadanih prava ranka.
+              Gumb „Vrati zadano“
+              uklanja sve ručne
+              izmjene za ovog
+              zaposlenika.
+            </p>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            {permissionGroups.map(
+              (group) => (
+                <section
+                  key={
+                    group.title
+                  }
+                  className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4 sm:p-5"
+                >
+                  <h3 className="font-black text-white">
+                    {
+                      group.title
+                    }
+                  </h3>
+
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    {
+                      group.description
+                    }
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {group.permissions.map(
+                      (
+                        permission,
+                      ) => {
+                        const checked =
+                          resolved[
+                            permission
+                          ]
+
+                        const isCustom =
+                          Object.prototype.hasOwnProperty.call(
+                            overrides,
+                            permission,
+                          )
+
+                        const defaultValue =
+                          defaultPermissions[
+                            permission
+                          ]
+
+                        return (
+                          <button
+                            key={
+                              permission
+                            }
+                            type="button"
+                            onClick={() =>
+                              toggle(
+                                permission,
+                              )
+                            }
+                            className={`flex min-h-16 items-center justify-between gap-4 rounded-xl border px-4 py-3 text-left transition ${
+                              checked
+                                ? 'border-blue-500/40 bg-blue-500/10'
+                                : 'border-slate-800 bg-slate-900'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-bold text-white">
+                                  {
+                                    permissionLabels[
+                                      permission
+                                    ]
+                                  }
+                                </p>
+
+                                {isCustom && (
+                                  <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-blue-300">
+                                    Prilagođeno
+                                  </span>
+                                )}
+
+                                {!isCustom && (
+                                  <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                                    Rank:{' '}
+                                    {defaultValue
+                                      ? 'uključeno'
+                                      : 'isključeno'}
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                {
+                                  permission
+                                }
+                              </p>
+                            </div>
+
+                            <span
+                              className={`relative h-7 w-12 shrink-0 rounded-full transition ${
+                                checked
+                                  ? 'bg-blue-600'
+                                  : 'bg-slate-700'
+                              }`}
+                            >
+                              <span
+                                className={`absolute top-1 h-5 w-5 rounded-full bg-white transition ${
+                                  checked
+                                    ? 'left-6'
+                                    : 'left-1'
+                                }`}
+                              />
+                            </span>
+                          </button>
+                        )
+                      },
+                    )}
+                  </div>
+                </section>
+              ),
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-slate-800 bg-slate-900 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <button
+            type="button"
+            disabled={
+              isSaving
+            }
+            onClick={
+              resetToRoleDefaults
+            }
+            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 text-sm font-bold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+            />
+
+            Vrati zadano za rank
+          </button>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              disabled={
+                isSaving
+              }
+              onClick={
+                onClose
+              }
+              className="h-11 flex-1 rounded-xl bg-slate-800 px-5 text-sm font-bold text-white sm:flex-none"
+            >
+              Odustani
+            </button>
+
+            <button
+              type="button"
+              disabled={
+                isSaving
+              }
+              onClick={() =>
+                void save()
+              }
+              className="flex h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-bold text-white transition hover:bg-blue-500 disabled:opacity-50 sm:flex-none"
+            >
+              <Settings2
+                size={17}
+              />
+
+              {isSaving
+                ? 'Spremanje...'
+                : 'Spremi ovlasti'}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
@@ -1281,143 +2005,195 @@ function InvitationsList({
   onRenew,
   onDelete,
 }: {
-  invitations: CompanyInvitation[]
-  busyId: string | null
-  copiedCode: string | null
+  invitations:
+    CompanyInvitation[]
+  busyId:
+    string | null
+  copiedCode:
+    string | null
   onCopy: (
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) => Promise<void>
   onCancel: (
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) => Promise<void>
   onRenew: (
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) => Promise<void>
   onDelete: (
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) => Promise<void>
 }) {
   return (
     <div className="mt-6 space-y-4">
-      {invitations.map((invitation) => (
-        <article
-          key={invitation.id}
-          className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
-        >
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3">
-                <h2 className="truncate text-lg font-black text-white">
-                  {invitation.inviteeName ||
-                    invitation.email}
-                </h2>
+      {invitations.map(
+        (invitation) => (
+          <article
+            key={
+              invitation.id
+            }
+            className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
+          >
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-3">
+                  <h2 className="truncate text-lg font-black text-white">
+                    {invitation.inviteeName ||
+                      invitation.email}
+                  </h2>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${getInvitationStatusClassName(
-                    invitation.status,
-                  )}`}
-                >
-                  {getInvitationStatusLabel(
-                    invitation.status,
-                  )}
-                </span>
-
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${getRoleClassName(
-                    invitation.role,
-                  )}`}
-                >
-                  {roleLabels[
-                    invitation.role
-                  ]}
-                </span>
-              </div>
-
-              <p className="mt-2 break-all text-sm text-slate-400">
-                {invitation.email}
-              </p>
-
-              <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
-                <span>
-                  Izrađeno:{' '}
-                  {formatDateTime(
-                    invitation.createdAt,
-                  )}
-                </span>
-
-                <span>
-                  Istječe:{' '}
-                  {formatDateTime(
-                    invitation.expiresAt,
-                  )}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-xl bg-slate-950/60 px-4 py-3">
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Pozivni kod
-                </p>
-
-                <p className="mt-1 font-mono text-sm font-black text-blue-400">
-                  {invitation.inviteCode}
-                </p>
-              </div>
-
-              {invitation.status ===
-                'pending' && (
-                <>
-                  <button
-                    type="button"
-                    disabled={
-                      busyId ===
-                      invitation.id
-                    }
-                    onClick={() =>
-                      void onCopy(
-                        invitation,
-                      )
-                    }
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50"
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${getInvitationStatusClassName(
+                      invitation.status,
+                    )}`}
                   >
-                    {copiedCode ===
-                    invitation.inviteCode ? (
-                      <CheckCircle2
-                        size={17}
-                      />
-                    ) : (
-                      <Copy size={17} />
+                    {getInvitationStatusLabel(
+                      invitation.status,
                     )}
+                  </span>
 
-                    {copiedCode ===
-                    invitation.inviteCode
-                      ? 'Kopirano'
-                      : 'Kopiraj link'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={
-                      busyId ===
-                      invitation.id
-                    }
-                    onClick={() =>
-                      void onCancel(
-                        invitation,
-                      )
-                    }
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 text-sm font-bold text-amber-400 disabled:opacity-50"
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${getRoleClassName(
+                      invitation.role,
+                    )}`}
                   >
-                    <Ban size={17} />
-                    Otkaži
-                  </button>
-                </>
-              )}
+                    {
+                      roleLabels[
+                        invitation.role
+                      ]
+                    }
+                  </span>
+                </div>
 
-              {invitation.status !==
-                'accepted' &&
-                invitation.status !==
+                <p className="mt-2 break-all text-sm text-slate-400">
+                  {
+                    invitation.email
+                  }
+                </p>
+
+                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500">
+                  <span>
+                    Izrađeno:{' '}
+                    {formatDateTime(
+                      invitation.createdAt,
+                    )}
+                  </span>
+
+                  <span>
+                    Istječe:{' '}
+                    {formatDateTime(
+                      invitation.expiresAt,
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="rounded-xl bg-slate-950/60 px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    Pozivni kod
+                  </p>
+
+                  <p className="mt-1 font-mono text-sm font-black text-blue-400">
+                    {
+                      invitation.inviteCode
+                    }
+                  </p>
+                </div>
+
+                {invitation.status ===
+                  'pending' && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={
+                        busyId ===
+                        invitation.id
+                      }
+                      onClick={() =>
+                        void onCopy(
+                          invitation,
+                        )
+                      }
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white disabled:opacity-50"
+                    >
+                      {copiedCode ===
+                      invitation.inviteCode ? (
+                        <CheckCircle2
+                          size={
+                            17
+                          }
+                        />
+                      ) : (
+                        <Copy
+                          size={
+                            17
+                          }
+                        />
+                      )}
+
+                      {copiedCode ===
+                      invitation.inviteCode
+                        ? 'Kopirano'
+                        : 'Kopiraj link'}
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={
+                        busyId ===
+                        invitation.id
+                      }
+                      onClick={() =>
+                        void onCancel(
+                          invitation,
+                        )
+                      }
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-amber-500/10 px-4 text-sm font-bold text-amber-400 disabled:opacity-50"
+                    >
+                      <Ban
+                        size={
+                          17
+                        }
+                      />
+
+                      Otkaži
+                    </button>
+                  </>
+                )}
+
+                {invitation.status !==
+                  'accepted' &&
+                  invitation.status !==
+                    'pending' && (
+                    <button
+                      type="button"
+                      disabled={
+                        busyId ===
+                        invitation.id
+                      }
+                      onClick={() =>
+                        void onRenew(
+                          invitation,
+                        )
+                      }
+                      className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 text-sm font-bold text-emerald-400 disabled:opacity-50"
+                    >
+                      <RefreshCw
+                        size={
+                          17
+                        }
+                      />
+
+                      Obnovi
+                    </button>
+                  )}
+
+                {invitation.status !==
                   'pending' && (
                   <button
                     type="button"
@@ -1426,61 +2202,49 @@ function InvitationsList({
                       invitation.id
                     }
                     onClick={() =>
-                      void onRenew(
+                      void onDelete(
                         invitation,
                       )
                     }
-                    className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-500/10 px-4 text-sm font-bold text-emerald-400 disabled:opacity-50"
+                    className="grid h-11 w-11 place-items-center rounded-xl bg-red-500/10 text-red-400 disabled:opacity-50"
+                    title="Obriši pozivnicu"
                   >
-                    <RefreshCw size={17} />
-                    Obnovi
+                    <Trash2
+                      size={18}
+                    />
                   </button>
                 )}
-
-              {invitation.status !==
-                'pending' && (
-                <button
-                  type="button"
-                  disabled={
-                    busyId ===
-                    invitation.id
-                  }
-                  onClick={() =>
-                    void onDelete(
-                      invitation,
-                    )
-                  }
-                  className="grid h-11 w-11 place-items-center rounded-xl bg-red-500/10 text-red-400 disabled:opacity-50"
-                  title="Obriši pozivnicu"
-                >
-                  <Trash2 size={18} />
-                </button>
-              )}
+              </div>
             </div>
-          </div>
 
-          {invitation.message && (
-            <div className="mt-4 rounded-xl bg-slate-800/60 p-4">
-              <p className="text-xs font-bold uppercase text-slate-500">
-                Poruka
-              </p>
+            {invitation.message && (
+              <div className="mt-4 rounded-xl bg-slate-800/60 p-4">
+                <p className="text-xs font-bold uppercase text-slate-500">
+                  Poruka
+                </p>
 
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
-                {invitation.message}
-              </p>
-            </div>
-          )}
-        </article>
-      ))}
+                <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                  {
+                    invitation.message
+                  }
+                </p>
+              </div>
+            )}
+          </article>
+        ),
+      )}
 
-      {invitations.length === 0 && (
-        <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-          <EmptyState
-            icon={<Mail size={38} />}
-            title="Nema pronađenih pozivnica"
-            description="Izradi novu pozivnicu za zaposlenika."
-          />
-        </div>
+      {invitations.length ===
+        0 && (
+        <EmptyState
+          icon={
+            <Mail
+              size={38}
+            />
+          }
+          title="Nema pronađenih pozivnica"
+          description="Izradi novu pozivnicu za zaposlenika."
+        />
       )}
     </div>
   )
@@ -1492,21 +2256,46 @@ function InvitationModal({
 }: {
   onClose: () => void
   onCreated: (
-    invitation: CompanyInvitation,
+    invitation:
+      CompanyInvitation,
   ) => void
 }) {
-  const [name, setName] = useState('')
-  const [email, setEmail] = useState('')
-  const [role, setRole] =
-    useState<InvitationRole>('worker')
-  const [message, setMessage] =
-    useState('')
-  const [isSubmitting, setIsSubmitting] =
-    useState(false)
-  const [error, setError] = useState('')
+  const [
+    name,
+    setName,
+  ] = useState('')
+
+  const [
+    email,
+    setEmail,
+  ] = useState('')
+
+  const [
+    role,
+    setRole,
+  ] =
+    useState<InvitationRole>(
+      'worker',
+    )
+
+  const [
+    message,
+    setMessage,
+  ] = useState('')
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState('')
 
   async function submit(
-    event: FormEvent<HTMLFormElement>,
+    event:
+      FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
 
@@ -1518,6 +2307,7 @@ function InvitationModal({
       setError(
         'E-mail adresa je obavezna.',
       )
+
       return
     }
 
@@ -1526,17 +2316,22 @@ function InvitationModal({
       setError('')
 
       const invitation =
-        await createInvitation({
-          email,
-          name,
-          role,
-          message,
-        })
+        await createInvitation(
+          {
+            email,
+            name,
+            role,
+            message,
+          },
+        )
 
-      onCreated(invitation)
+      onCreated(
+        invitation,
+      )
     } catch (submitError) {
       setError(
-        submitError instanceof Error
+        submitError instanceof
+          Error
           ? submitError.message
           : 'Pozivnicu nije moguće izraditi.',
       )
@@ -1546,7 +2341,7 @@ function InvitationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-5 py-5 sm:px-6">
           <div>
@@ -1555,142 +2350,153 @@ function InvitationModal({
             </h2>
 
             <p className="mt-1 text-sm text-slate-400">
-              Izradi pozivni kod i poveznicu za
-              pristup tvrtki.
+              Izradi pozivnicu
+              i odaberi početni
+              rank zaposlenika.
             </p>
           </div>
 
           <button
             type="button"
-            disabled={isSubmitting}
-            onClick={onClose}
-            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400 transition hover:text-white disabled:opacity-50"
+            onClick={
+              onClose
+            }
+            className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-400"
           >
-            <X size={20} />
+            <X
+              size={20}
+            />
           </button>
         </div>
 
         <form
-          onSubmit={submit}
-          className="space-y-5 p-5 sm:p-6"
+          onSubmit={
+            submit
+          }
+          className="p-5 sm:p-6"
         >
-          <label className="block">
-            <span className="text-sm font-bold text-slate-300">
-              Ime i prezime
-            </span>
-
-            <input
-              value={name}
-              onChange={(event) =>
-                setName(event.target.value)
-              }
-              placeholder="Primjer: Ivan Horvat"
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-bold text-slate-300">
-              E-mail adresa
-              <span className="ml-1 text-red-400">
-                *
-              </span>
-            </span>
-
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) =>
-                setEmail(event.target.value)
-              }
-              placeholder="radnik@primjer.hr"
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
-            />
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-bold text-slate-300">
-              Početna uloga
-            </span>
-
-            <select
-              value={role}
-              onChange={(event) =>
-                setRole(
-                  event.target
-                    .value as InvitationRole,
-                )
-              }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
-            >
-              {invitationRoles.map(
-                (roleOption) => (
-                  <option
-                    key={roleOption}
-                    value={roleOption}
-                  >
-                    {
-                      roleLabels[
-                        roleOption
-                      ]
-                    }
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
-
-          <label className="block">
-            <span className="text-sm font-bold text-slate-300">
-              Poruka uz poziv
-            </span>
-
-            <textarea
-              rows={4}
-              value={message}
-              onChange={(event) =>
-                setMessage(
-                  event.target.value,
-                )
-              }
-              placeholder="Primjer: Pozivam te u FERSYS aplikaciju naše tvrtke."
-              className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
-            />
-          </label>
-
-          <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4">
-            <div className="flex items-start gap-3">
-              <ShieldCheck
-                size={21}
-                className="mt-0.5 shrink-0 text-blue-400"
-              />
-
-              <div>
-                <p className="font-bold text-blue-300">
-                  Sigurna pozivnica
-                </p>
-
-                <p className="mt-1 text-sm leading-6 text-slate-400">
-                  Pozivnica će vrijediti sedam dana i
-                  bit će vezana uz unesenu e-mail
-                  adresu.
-                </p>
-              </div>
-            </div>
-          </div>
-
           {error && (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div className="mb-5 whitespace-pre-wrap rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
               {error}
             </div>
           )}
 
-          <div className="flex flex-col-reverse gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-end">
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+            <label>
+              <span className="text-sm font-bold text-slate-300">
+                Ime i prezime
+              </span>
+
+              <input
+                value={name}
+                onChange={(
+                  event,
+                ) =>
+                  setName(
+                    event.target
+                      .value,
+                  )
+                }
+                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="Marko Horvat"
+              />
+            </label>
+
+            <label>
+              <span className="text-sm font-bold text-slate-300">
+                E-mail
+              </span>
+
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(
+                  event,
+                ) =>
+                  setEmail(
+                    event.target
+                      .value,
+                  )
+                }
+                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="marko@firma.hr"
+              />
+            </label>
+
+            <label className="md:col-span-2">
+              <span className="text-sm font-bold text-slate-300">
+                Rank
+              </span>
+
+              <select
+                value={role}
+                onChange={(
+                  event,
+                ) =>
+                  setRole(
+                    event.target
+                      .value as InvitationRole,
+                  )
+                }
+                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                {invitationRoles.map(
+                  (
+                    invitationRole,
+                  ) => (
+                    <option
+                      key={
+                        invitationRole
+                      }
+                      value={
+                        invitationRole
+                      }
+                    >
+                      {
+                        roleLabels[
+                          invitationRole
+                        ]
+                      }
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+
+            <label className="md:col-span-2">
+              <span className="text-sm font-bold text-slate-300">
+                Poruka
+              </span>
+
+              <textarea
+                rows={4}
+                value={
+                  message
+                }
+                onChange={(
+                  event,
+                ) =>
+                  setMessage(
+                    event.target
+                      .value,
+                  )
+                }
+                className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                placeholder="Opcionalna poruka zaposleniku..."
+              />
+            </label>
+          </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button
               type="button"
-              disabled={isSubmitting}
-              onClick={onClose}
+              disabled={
+                isSubmitting
+              }
+              onClick={
+                onClose
+              }
               className="h-12 rounded-xl bg-slate-800 px-5 font-bold text-white disabled:opacity-50"
             >
               Odustani
@@ -1698,14 +2504,18 @@ function InvitationModal({
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={
+                isSubmitting
+              }
+              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-bold text-white disabled:opacity-50"
             >
-              <Plus size={18} />
+              <Mail
+                size={18}
+              />
 
               {isSubmitting
-                ? 'Izrada pozivnice...'
-                : 'Izradi pozivnicu'}
+                ? 'Slanje...'
+                : 'Pošalji pozivnicu'}
             </button>
           </div>
         </form>
@@ -1717,18 +2527,23 @@ function InvitationModal({
 function EmployeeIdentity({
   employee,
 }: {
-  employee: CompanyEmployee
+  employee:
+    CompanyEmployee
 }) {
   return (
     <div className="flex items-center gap-3">
       {employee.avatarUrl ? (
         <img
-          src={employee.avatarUrl}
-          alt={employee.fullName}
-          className="h-12 w-12 shrink-0 rounded-full object-cover"
+          src={
+            employee.avatarUrl
+          }
+          alt={
+            employee.fullName
+          }
+          className="h-12 w-12 shrink-0 rounded-2xl object-cover"
         />
       ) : (
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-blue-600 text-sm font-black text-white">
+        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-500/15 text-sm font-black text-blue-300">
           {getInitials(
             employee.fullName,
           )}
@@ -1738,21 +2553,49 @@ function EmployeeIdentity({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-black text-white">
-            {employee.fullName}
+            {
+              employee.fullName
+            }
           </p>
 
-          {employee.role === 'owner' && (
-            <ShieldCheck
-              size={16}
-              className="text-amber-400"
-            />
-          )}
+          <span
+            className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${getRoleClassName(
+              employee.role,
+            )}`}
+          >
+            {
+              roleLabels[
+                employee.role
+              ]
+            }
+          </span>
         </div>
 
-        <p className="mt-1 text-xs text-slate-500">
-          {roleLabels[employee.role]}
+        <p className="mt-1 truncate text-xs text-slate-500">
+          {employee.email ||
+            'E-mail nije unesen'}
         </p>
       </div>
+    </div>
+  )
+}
+
+function InfoBox({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-xl bg-slate-800/60 p-3">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 break-words text-sm font-semibold text-slate-300">
+        {value}
+      </p>
     </div>
   )
 }
@@ -1765,14 +2608,16 @@ function StatCard({
 }: {
   label: string
   value: number
-  icon: React.ReactNode
-  valueClassName: string
+  icon:
+    React.ReactNode
+  valueClassName:
+    string
 }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm text-slate-400">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
             {label}
           </p>
 
@@ -1783,7 +2628,9 @@ function StatCard({
           </p>
         </div>
 
-        {icon}
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-800">
+          {icon}
+        </div>
       </div>
     </div>
   )
@@ -1794,21 +2641,23 @@ function EmptyState({
   title,
   description,
 }: {
-  icon: React.ReactNode
+  icon:
+    React.ReactNode
   title: string
-  description: string
+  description:
+    string
 }) {
   return (
-    <div className="px-6 py-16 text-center">
+    <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900 px-5 py-12 text-center">
       <div className="mx-auto flex justify-center text-slate-600">
         {icon}
       </div>
 
-      <p className="mt-4 font-bold text-white">
+      <h3 className="mt-4 font-black text-white">
         {title}
-      </p>
+      </h3>
 
-      <p className="mt-2 text-sm text-slate-400">
+      <p className="mt-2 text-sm text-slate-500">
         {description}
       </p>
     </div>
