@@ -531,3 +531,51 @@ export async function updateCompanySubscription(
 
   if (error) throw error
 }
+
+
+export type DeleteAdminCompanyResult = {
+  success: boolean
+  companyId: string
+  companyName: string
+  deletedAuthUsers: number
+  keptAuthUsers: number
+  authWarnings: string[]
+}
+
+export async function deleteAdminCompany(
+  input: {
+    companyId: string
+    confirmation: string
+  },
+): Promise<DeleteAdminCompanyResult> {
+  const { data, error } = await supabase.functions.invoke(
+    'admin-delete-company',
+    {
+      body: {
+        companyId: input.companyId,
+        confirmation: input.confirmation,
+      },
+    },
+  )
+
+  if (error) throw error
+
+  if (data?.error) {
+    throw new Error(String(data.error))
+  }
+
+  if (!data?.success) {
+    throw new Error('Tvrtku nije moguće obrisati.')
+  }
+
+  return {
+    success: true,
+    companyId: String(data.companyId ?? ''),
+    companyName: String(data.companyName ?? ''),
+    deletedAuthUsers: Number(data.deletedAuthUsers ?? 0),
+    keptAuthUsers: Number(data.keptAuthUsers ?? 0),
+    authWarnings: Array.isArray(data.authWarnings)
+      ? data.authWarnings.map((value: unknown) => String(value))
+      : [],
+  }
+}
