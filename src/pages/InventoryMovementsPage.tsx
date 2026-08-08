@@ -5,8 +5,6 @@ import {
   ArrowRightLeft,
   ArrowUp,
   CalendarDays,
-  ClipboardList,
-  FileText,
   Filter,
   History,
   MapPin,
@@ -14,29 +12,30 @@ import {
   RefreshCw,
   Search,
   User,
-  Warehouse,
   X,
 } from 'lucide-react'
 import {
+  useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react'
 import { useNavigate } from 'react-router'
 
+import FersysLoader from '../components/FersysLoader'
 import {
   getInventoryItems,
-  getInventoryMovementsByItemId,
+  getInventoryMovements,
   type InventoryItem,
   type InventoryMovement,
-} from '../utils/inventoryStorage'
+} from '../services/inventory.service'
 
 type MovementTypeFilter =
   | 'all'
   | 'entry'
   | 'exit'
   | 'transfer'
-  | 'adjustment'
+  | 'correction'
 
 interface MovementWithItem {
   movement: InventoryMovement
@@ -72,11 +71,13 @@ function formatDateTime(value: string): string {
 
 function formatDateInputValue(date: Date): string {
   const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(
-    2,
-    '0',
-  )
-  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, '0')
+
+  const day = String(
+    date.getDate(),
+  ).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
@@ -167,7 +168,7 @@ function getQuantityTextClass(
   return 'text-amber-300'
 }
 
-function MovementStatCard({
+function StatCard({
   title,
   value,
   description,
@@ -186,7 +187,7 @@ function MovementStatCard({
             {title}
           </p>
 
-          <p className="mt-2 text-2xl font-bold text-white">
+          <p className="mt-2 text-2xl font-black text-white">
             {value}
           </p>
 
@@ -195,7 +196,7 @@ function MovementStatCard({
           </p>
         </div>
 
-        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-sky-400">
+        <div className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-sky-400">
           {icon}
         </div>
       </div>
@@ -206,61 +207,132 @@ function MovementStatCard({
 export function InventoryMovementsPage() {
   const navigate = useNavigate()
 
-  const [items, setItems] = useState<InventoryItem[]>(
-    [],
-  )
+  const [items, setItems] =
+    useState<InventoryItem[]>([])
 
-  const [movements, setMovements] = useState<
-    MovementWithItem[]
-  >([])
+  const [movements, setMovements] =
+    useState<MovementWithItem[]>([])
 
-  const [searchTerm, setSearchTerm] = useState('')
+  const [isLoading, setIsLoading] =
+    useState(true)
+
+  const [loadError, setLoadError] =
+    useState('')
+
+  const [searchTerm, setSearchTerm] =
+    useState('')
+
   const [movementType, setMovementType] =
     useState<MovementTypeFilter>('all')
-  const [itemFilter, setItemFilter] = useState('all')
+
+  const [itemFilter, setItemFilter] =
+    useState('all')
+
   const [employeeFilter, setEmployeeFilter] =
     useState('all')
+
   const [locationFilter, setLocationFilter] =
     useState('all')
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+
+  const [dateFrom, setDateFrom] =
+    useState('')
+
+  const [dateTo, setDateTo] =
+    useState('')
+
   const [showFilters, setShowFilters] =
     useState(false)
 
-  function loadMovements() {
-    const savedItems = getInventoryItems()
+  const loadMovements = useCallback(async () => {
+    try {
+      setLoadError('')
 
-    const allMovements = savedItems.flatMap((item) =>
-      getInventoryMovementsByItemId(item.id).map(
-        (movement) => ({
-          movement,
+      const [
+        savedItems,
+        savedMovements,
+      ] = await Promise.all([
+        getInventoryItems(),
+        getInventoryMovements(),
+      ])
+
+      const itemMap = new Map(
+        savedItems.map((item) => [
+          item.id,
           item,
-        }),
-      ),
-    )
-
-    allMovements.sort((first, second) => {
-      return (
-        new Date(second.movement.createdAt).getTime() -
-        new Date(first.movement.createdAt).getTime()
+        ]),
       )
-    })
 
-    setItems(savedItems)
-    setMovements(allMovements)
-  }
+      const joined = savedMovements
+        .map((movement) => {
+          const item =
+            itemMap.get(
+              movement.itemId,
+            )
+
+          if (!item) {
+            return null
+          }
+
+          return {
+            movement,
+            item,
+          }
+        })
+        .filter(
+          (
+            value,
+          ): value is MovementWithItem =>
+            value !== null,
+        )
+        .sort(
+          (first, second) =>
+            new Date(
+              second.movement.createdAt,
+            ).getTime() -
+            new Date(
+              first.movement.createdAt,
+            ).getTime(),
+        )
+
+      setItems(savedItems)
+      setMovements(joined)
+    } catch (error) {
+      console.error(
+        'Prometi robe nisu učitani:',
+        error,
+      )
+
+      setLoadError(
+        error instanceof Error
+          ? error.message
+          : 'Promete robe nije moguće učitati.',
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
-    loadMovements()
+    void loadMovements()
+
+    function handleFocus() {
+      void loadMovements()
+    }
 
     function handleVisibilityChange() {
-      if (document.visibilityState === 'visible') {
-        loadMovements()
+      if (
+        document.visibilityState ===
+        'visible'
+      ) {
+        void loadMovements()
       }
     }
 
-    window.addEventListener('focus', loadMovements)
-    window.addEventListener('storage', loadMovements)
+    window.addEventListener(
+      'focus',
+      handleFocus,
+    )
+
     document.addEventListener(
       'visibilitychange',
       handleVisibilityChange,
@@ -269,121 +341,152 @@ export function InventoryMovementsPage() {
     return () => {
       window.removeEventListener(
         'focus',
-        loadMovements,
+        handleFocus,
       )
-      window.removeEventListener(
-        'storage',
-        loadMovements,
-      )
+
       document.removeEventListener(
         'visibilitychange',
         handleVisibilityChange,
       )
     }
-  }, [])
+  }, [loadMovements])
 
-  const employees = useMemo(() => {
-    return Array.from(
-      new Set(
-        movements
-          .map(({ movement }) =>
-            movement.employeeName?.trim(),
-          )
-          .filter(
-            (value): value is string => Boolean(value),
-          ),
+  const employees = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          movements
+            .map(
+              ({ movement }) =>
+                movement.employeeName?.trim(),
+            )
+            .filter(
+              (
+                value,
+              ): value is string =>
+                Boolean(value),
+            ),
+        ),
+      ).sort((a, b) =>
+        a.localeCompare(b, 'hr'),
       ),
-    ).sort((first, second) =>
-      first.localeCompare(second, 'hr'),
-    )
-  }, [movements])
+    [movements],
+  )
 
-  const locations = useMemo(() => {
-    return Array.from(
-      new Set(
-        movements
-          .map(({ movement }) =>
-            movement.locationName?.trim(),
-          )
-          .filter(
-            (value): value is string => Boolean(value),
-          ),
+  const locations = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          movements
+            .map(
+              ({ movement }) =>
+                movement.locationName?.trim(),
+            )
+            .filter(
+              (
+                value,
+              ): value is string =>
+                Boolean(value),
+            ),
+        ),
+      ).sort((a, b) =>
+        a.localeCompare(b, 'hr'),
       ),
-    ).sort((first, second) =>
-      first.localeCompare(second, 'hr'),
-    )
-  }, [movements])
+    [movements],
+  )
 
   const filteredMovements = useMemo(() => {
-    const normalizedSearch = normalizeText(searchTerm)
+    const normalizedSearch =
+      normalizeText(searchTerm)
 
     const startDate = dateFrom
-      ? new Date(`${dateFrom}T00:00:00`)
+      ? new Date(
+          `${dateFrom}T00:00:00`,
+        )
       : null
 
     const endDate = dateTo
-      ? new Date(`${dateTo}T23:59:59`)
+      ? new Date(
+          `${dateTo}T23:59:59`,
+        )
       : null
 
-    return movements.filter(({ movement, item }) => {
-      const searchableText = normalizeText(
-        [
-          item.name,
-          item.shortName,
-          item.code,
-          item.barcode,
-          item.category,
-          movement.employeeName,
-          movement.locationName,
-          movement.workOrderNumber,
-          movement.incomingInvoiceNumber,
-          movement.note,
-          getMovementLabel(movement),
-        ]
-          .filter(Boolean)
-          .join(' '),
-      )
+    return movements.filter(
+      ({ movement, item }) => {
+        const searchableText =
+          normalizeText(
+            [
+              item.name,
+              item.shortName,
+              item.code,
+              item.barcode,
+              item.category,
+              item.dimension,
+              movement.employeeName,
+              movement.locationName,
+              movement.destinationLocationName,
+              movement.workOrderNumber,
+              movement.incomingInvoiceNumber,
+              movement.note,
+              getMovementLabel(
+                movement,
+              ),
+            ]
+              .filter(Boolean)
+              .join(' '),
+          )
 
-      const matchesSearch =
-        !normalizedSearch ||
-        searchableText.includes(normalizedSearch)
+        const matchesSearch =
+          !normalizedSearch ||
+          searchableText.includes(
+            normalizedSearch,
+          )
 
-      const matchesType =
-        movementType === 'all' ||
-        movement.type === movementType
+        const matchesType =
+          movementType === 'all' ||
+          movement.type ===
+            movementType
 
-      const matchesItem =
-        itemFilter === 'all' ||
-        item.id === itemFilter
+        const matchesItem =
+          itemFilter === 'all' ||
+          item.id === itemFilter
 
-      const matchesEmployee =
-        employeeFilter === 'all' ||
-        movement.employeeName === employeeFilter
+        const matchesEmployee =
+          employeeFilter === 'all' ||
+          movement.employeeName ===
+            employeeFilter
 
-      const matchesLocation =
-        locationFilter === 'all' ||
-        movement.locationName === locationFilter
+        const matchesLocation =
+          locationFilter === 'all' ||
+          movement.locationName ===
+            locationFilter ||
+          movement.destinationLocationName ===
+            locationFilter
 
-      const movementDate = new Date(
-        movement.createdAt,
-      )
+        const movementDate =
+          new Date(
+            movement.createdAt,
+          )
 
-      const matchesDateFrom =
-        !startDate || movementDate >= startDate
+        const matchesDateFrom =
+          !startDate ||
+          movementDate >= startDate
 
-      const matchesDateTo =
-        !endDate || movementDate <= endDate
+        const matchesDateTo =
+          !endDate ||
+          movementDate <= endDate
 
-      return (
-        matchesSearch &&
-        matchesType &&
-        matchesItem &&
-        matchesEmployee &&
-        matchesLocation &&
-        matchesDateFrom &&
-        matchesDateTo
-      )
-    })
+        return (
+          matchesSearch &&
+          matchesType &&
+          matchesItem &&
+          matchesEmployee &&
+          matchesLocation &&
+          matchesDateFrom &&
+          matchesDateTo
+        )
+      },
+    )
   }, [
     movements,
     searchTerm,
@@ -395,23 +498,38 @@ export function InventoryMovementsPage() {
     dateTo,
   ])
 
-  const entryCount = useMemo(() => {
-    return movements.filter(
-      ({ movement }) => movement.type === 'entry',
-    ).length
-  }, [movements])
+  const entryCount =
+    useMemo(
+      () =>
+        movements.filter(
+          ({ movement }) =>
+            movement.type ===
+            'entry',
+        ).length,
+      [movements],
+    )
 
-  const exitCount = useMemo(() => {
-    return movements.filter(
-      ({ movement }) => movement.type === 'exit',
-    ).length
-  }, [movements])
+  const exitCount =
+    useMemo(
+      () =>
+        movements.filter(
+          ({ movement }) =>
+            movement.type ===
+            'exit',
+        ).length,
+      [movements],
+    )
 
-  const transferCount = useMemo(() => {
-    return movements.filter(
-      ({ movement }) => movement.type === 'transfer',
-    ).length
-  }, [movements])
+  const transferCount =
+    useMemo(
+      () =>
+        movements.filter(
+          ({ movement }) =>
+            movement.type ===
+            'transfer',
+        ).length,
+      [movements],
+    )
 
   const hasActiveFilters =
     searchTerm.trim() !== '' ||
@@ -433,32 +551,67 @@ export function InventoryMovementsPage() {
   }
 
   function setTodayFilter() {
-    const today = formatDateInputValue(new Date())
+    const today =
+      formatDateInputValue(
+        new Date(),
+      )
 
     setDateFrom(today)
     setDateTo(today)
   }
 
   function setLastSevenDaysFilter() {
-    const today = new Date()
-    const sevenDaysAgo = new Date()
+    const today =
+      new Date()
 
-    sevenDaysAgo.setDate(today.getDate() - 6)
+    const sevenDaysAgo =
+      new Date()
 
-    setDateFrom(formatDateInputValue(sevenDaysAgo))
-    setDateTo(formatDateInputValue(today))
+    sevenDaysAgo.setDate(
+      today.getDate() - 6,
+    )
+
+    setDateFrom(
+      formatDateInputValue(
+        sevenDaysAgo,
+      ),
+    )
+
+    setDateTo(
+      formatDateInputValue(
+        today,
+      ),
+    )
   }
 
   function setCurrentMonthFilter() {
-    const today = new Date()
-    const firstDay = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      1,
+    const today =
+      new Date()
+
+    const firstDay =
+      new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        1,
+      )
+
+    setDateFrom(
+      formatDateInputValue(
+        firstDay,
+      ),
     )
 
-    setDateFrom(formatDateInputValue(firstDay))
-    setDateTo(formatDateInputValue(today))
+    setDateTo(
+      formatDateInputValue(
+        today,
+      ),
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <FersysLoader text="Učitavanje prometa robe..." />
+    )
   }
 
   return (
@@ -468,8 +621,10 @@ export function InventoryMovementsPage() {
           <div className="flex items-start gap-4">
             <button
               type="button"
-              onClick={() => navigate('/inventory')}
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              onClick={() =>
+                navigate('/inventory')
+              }
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 transition hover:bg-slate-800 hover:text-white"
               aria-label="Povratak u skladište"
             >
               <ArrowLeft size={20} />
@@ -481,15 +636,17 @@ export function InventoryMovementsPage() {
               </h1>
 
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                Pregled svih ulaza, izlaza, premještaja i
-                promjena stanja skladišta.
+                Zajednička evidencija svih ulaza, izlaza,
+                premještaja i korekcija skladišta.
               </p>
             </div>
           </div>
 
           <button
             type="button"
-            onClick={loadMovements}
+            onClick={() =>
+              void loadMovements()
+            }
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
           >
             <RefreshCw size={18} />
@@ -497,37 +654,74 @@ export function InventoryMovementsPage() {
           </button>
         </div>
 
+        {loadError && (
+          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+            <AlertTriangle
+              size={20}
+              className="mt-0.5 shrink-0"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">
+                Promete robe nije moguće učitati.
+              </p>
+
+              <p className="mt-1 break-words text-sm">
+                {loadError}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <MovementStatCard
+          <StatCard
             title="Ukupno prometa"
-            value={formatNumber(movements.length)}
+            value={formatNumber(
+              movements.length,
+            )}
             description="Sve evidentirane promjene stanja"
-            icon={<History size={22} />}
+            icon={
+              <History size={22} />
+            }
           />
 
-          <MovementStatCard
+          <StatCard
             title="Ulazi robe"
-            value={formatNumber(entryCount)}
+            value={formatNumber(
+              entryCount,
+            )}
             description="Dodavanja materijala na stanje"
-            icon={<ArrowUp size={22} />}
+            icon={
+              <ArrowUp size={22} />
+            }
           />
 
-          <MovementStatCard
+          <StatCard
             title="Izlazi robe"
-            value={formatNumber(exitCount)}
+            value={formatNumber(
+              exitCount,
+            )}
             description="Materijal uzet iz skladišta"
-            icon={<ArrowDown size={22} />}
+            icon={
+              <ArrowDown size={22} />
+            }
           />
 
-          <MovementStatCard
+          <StatCard
             title="Premještaji"
-            value={formatNumber(transferCount)}
-            description="Premještanja između lokacija"
-            icon={<ArrowRightLeft size={22} />}
+            value={formatNumber(
+              transferCount,
+            )}
+            description="Promjene lokacije materijala"
+            icon={
+              <ArrowRightLeft
+                size={22}
+              />
+            }
           />
         </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900/80 p-4 sm:p-5">
+        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center">
             <div className="relative flex-1">
               <Search
@@ -539,18 +733,21 @@ export function InventoryMovementsPage() {
                 type="search"
                 value={searchTerm}
                 onChange={(event) =>
-                  setSearchTerm(event.target.value)
+                  setSearchTerm(
+                    event.target.value,
+                  )
                 }
-                placeholder="Pretraži artikl, šifru, radnika, nalog, račun ili napomenu..."
-                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-12 pr-11 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-sky-500"
+                placeholder="Pretraži artikl, radnika, lokaciju, radni nalog..."
+                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-12 pr-11 text-sm text-white outline-none focus:border-sky-500"
               />
 
               {searchTerm && (
                 <button
                   type="button"
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-800 hover:text-white"
-                  aria-label="Očisti pretragu"
+                  onClick={() =>
+                    setSearchTerm('')
+                  }
+                  className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-500 hover:bg-slate-800 hover:text-white"
                 >
                   <X size={17} />
                 </button>
@@ -560,477 +757,487 @@ export function InventoryMovementsPage() {
             <button
               type="button"
               onClick={() =>
-                setShowFilters((current) => !current)
+                setShowFilters(
+                  (current) =>
+                    !current,
+                )
               }
-              className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${
-                showFilters || hasActiveFilters
+              className={`inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-semibold ${
+                showFilters ||
+                hasActiveFilters
                   ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
-                  : 'border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800'
+                  : 'border-slate-700 bg-slate-950 text-slate-300'
               }`}
             >
               <Filter size={18} />
               Filtri
-
-              {hasActiveFilters && (
-                <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1.5 text-[11px] font-bold text-white">
-                  {
-                    [
-                      searchTerm.trim() !== '',
-                      movementType !== 'all',
-                      itemFilter !== 'all',
-                      employeeFilter !== 'all',
-                      locationFilter !== 'all',
-                      dateFrom !== '',
-                      dateTo !== '',
-                    ].filter(Boolean).length
-                  }
-                </span>
-              )}
             </button>
           </div>
 
           {showFilters && (
             <div className="mt-4 border-t border-slate-800 pt-4">
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Vrsta prometa
-                  </span>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <select
+                  value={
+                    movementType
+                  }
+                  onChange={(event) =>
+                    setMovementType(
+                      event.target
+                        .value as MovementTypeFilter,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                >
+                  <option value="all">
+                    Sve vrste
+                  </option>
+                  <option value="entry">
+                    Ulaz robe
+                  </option>
+                  <option value="exit">
+                    Izlaz robe
+                  </option>
+                  <option value="transfer">
+                    Premještaj
+                  </option>
+                  <option value="correction">
+                    Ispravak stanja
+                  </option>
+                </select>
 
-                  <select
-                    value={movementType}
-                    onChange={(event) =>
-                      setMovementType(
-                        event.target
-                          .value as MovementTypeFilter,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                  >
-                    <option value="all">
-                      Sve vrste
-                    </option>
-                    <option value="entry">
-                      Ulaz robe
-                    </option>
-                    <option value="exit">
-                      Izlaz robe
-                    </option>
-                    <option value="transfer">
-                      Premještaj
-                    </option>
-                    <option value="adjustment">
-                      Ispravak stanja
-                    </option>
-                  </select>
-                </label>
+                <select
+                  value={
+                    itemFilter
+                  }
+                  onChange={(event) =>
+                    setItemFilter(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                >
+                  <option value="all">
+                    Svi artikli
+                  </option>
 
-                <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Artikl
-                  </span>
-
-                  <select
-                    value={itemFilter}
-                    onChange={(event) =>
-                      setItemFilter(event.target.value)
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                  >
-                    <option value="all">
-                      Svi artikli
-                    </option>
-
-                    {items.map((item) => (
+                  {items.map(
+                    (item) => (
                       <option
-                        key={item.id}
-                        value={item.id}
+                        key={
+                          item.id
+                        }
+                        value={
+                          item.id
+                        }
                       >
-                        {item.name}
+                        {
+                          item.name
+                        }
                       </option>
-                    ))}
-                  </select>
-                </label>
+                    ),
+                  )}
+                </select>
 
-                <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Radnik
-                  </span>
+                <select
+                  value={
+                    employeeFilter
+                  }
+                  onChange={(event) =>
+                    setEmployeeFilter(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                >
+                  <option value="all">
+                    Svi zaposlenici
+                  </option>
 
-                  <select
-                    value={employeeFilter}
-                    onChange={(event) =>
-                      setEmployeeFilter(
-                        event.target.value,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                  >
-                    <option value="all">
-                      Svi radnici
-                    </option>
-
-                    {employees.map((employee) => (
+                  {employees.map(
+                    (employee) => (
                       <option
-                        key={employee}
-                        value={employee}
+                        key={
+                          employee
+                        }
+                        value={
+                          employee
+                        }
                       >
-                        {employee}
+                        {
+                          employee
+                        }
                       </option>
-                    ))}
-                  </select>
-                </label>
+                    ),
+                  )}
+                </select>
 
-                <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Lokacija
-                  </span>
+                <select
+                  value={
+                    locationFilter
+                  }
+                  onChange={(event) =>
+                    setLocationFilter(
+                      event.target.value,
+                    )
+                  }
+                  className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white"
+                >
+                  <option value="all">
+                    Sve lokacije
+                  </option>
 
-                  <select
-                    value={locationFilter}
-                    onChange={(event) =>
-                      setLocationFilter(
-                        event.target.value,
-                      )
-                    }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
-                  >
-                    <option value="all">
-                      Sve lokacije
-                    </option>
-
-                    {locations.map((location) => (
+                  {locations.map(
+                    (location) => (
                       <option
-                        key={location}
-                        value={location}
+                        key={
+                          location
+                        }
+                        value={
+                          location
+                        }
                       >
-                        {location}
+                        {
+                          location
+                        }
                       </option>
-                    ))}
-                  </select>
-                </label>
+                    ),
+                  )}
+                </select>
 
+                <button
+                  type="button"
+                  disabled={
+                    !hasActiveFilters
+                  }
+                  onClick={
+                    clearFilters
+                  }
+                  className="h-11 rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  Očisti filtre
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto]">
                 <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
                     Datum od
                   </span>
 
                   <input
                     type="date"
-                    value={dateFrom}
-                    onChange={(event) =>
-                      setDateFrom(event.target.value)
+                    value={
+                      dateFrom
                     }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
+                    onChange={(event) =>
+                      setDateFrom(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white [color-scheme:dark]"
                   />
                 </label>
 
                 <label>
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <span className="mb-2 block text-xs font-bold uppercase tracking-wide text-slate-500">
                     Datum do
                   </span>
 
                   <input
                     type="date"
-                    value={dateTo}
-                    onChange={(event) =>
-                      setDateTo(event.target.value)
+                    value={
+                      dateTo
                     }
-                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none transition focus:border-sky-500"
+                    onChange={(event) =>
+                      setDateTo(
+                        event.target.value,
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white [color-scheme:dark]"
                   />
                 </label>
 
-                <div className="sm:col-span-2">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Brzi odabir datuma
-                  </span>
+                <div className="flex flex-wrap items-end gap-2">
+                  <button
+                    type="button"
+                    onClick={
+                      setTodayFilter
+                    }
+                    className="h-11 rounded-xl bg-slate-800 px-3 text-xs font-bold text-slate-300"
+                  >
+                    Danas
+                  </button>
 
-                  <div className="grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={setTodayFilter}
-                      className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
-                    >
-                      Danas
-                    </button>
+                  <button
+                    type="button"
+                    onClick={
+                      setLastSevenDaysFilter
+                    }
+                    className="h-11 rounded-xl bg-slate-800 px-3 text-xs font-bold text-slate-300"
+                  >
+                    7 dana
+                  </button>
 
-                    <button
-                      type="button"
-                      onClick={setLastSevenDaysFilter}
-                      className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
-                    >
-                      Zadnjih 7 dana
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={setCurrentMonthFilter}
-                      className="h-11 rounded-xl border border-slate-700 bg-slate-950 px-3 text-xs font-semibold text-slate-300 transition hover:bg-slate-800"
-                    >
-                      Ovaj mjesec
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={
+                      setCurrentMonthFilter
+                    }
+                    className="h-11 rounded-xl bg-slate-800 px-3 text-xs font-bold text-slate-300"
+                  >
+                    Ovaj mjesec
+                  </button>
                 </div>
               </div>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  disabled={!hasActiveFilters}
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <X size={17} />
-                  Očisti filtre
-                </button>
-              </div>
             </div>
           )}
         </div>
 
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-5 flex items-center justify-between gap-4">
           <p className="text-sm text-slate-400">
             Prikazano{' '}
-            <span className="font-semibold text-white">
-              {filteredMovements.length}
+            <span className="font-bold text-white">
+              {
+                filteredMovements.length
+              }
             </span>{' '}
             od{' '}
-            <span className="font-semibold text-white">
-              {movements.length}
+            <span className="font-bold text-white">
+              {
+                movements.length
+              }
             </span>{' '}
-            prometa
+            zapisa
           </p>
 
-          {hasActiveFilters && (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex items-center gap-2 self-start text-sm font-semibold text-sky-400 transition hover:text-sky-300 sm:self-auto"
-            >
-              <X size={15} />
-              Ukloni sve filtre
-            </button>
-          )}
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <CalendarDays
+              size={15}
+            />
+            Podaci iz zajedničkog Supabase skladišta
+          </div>
         </div>
 
-        <div className="mt-4">
-          {filteredMovements.length === 0 ? (
-            <div className="flex min-h-[360px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 px-6 text-center">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-slate-500">
-                <ClipboardList size={30} />
-              </div>
+        {filteredMovements.length ===
+        0 ? (
+          <div className="mt-4 flex min-h-[320px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-700 bg-slate-900/50 px-6 text-center">
+            <History
+              size={42}
+              className="text-slate-600"
+            />
 
-              <h2 className="mt-5 text-xl font-semibold text-white">
-                {hasActiveFilters
-                  ? 'Nema prometa prema odabranim filtrima'
-                  : 'Još nema evidentiranih prometa'}
-              </h2>
+            <h2 className="mt-4 text-xl font-bold text-white">
+              Nema prometa robe
+            </h2>
 
-              <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
-                {hasActiveFilters
-                  ? 'Promijeni pojam pretrage, datum ili ukloni filtre.'
-                  : 'Prometi će se pojaviti kada na detaljima artikla dodaš ili skineš materijal sa stanja.'}
-              </p>
-
-              {hasActiveFilters && (
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="mt-5 inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-2.5 text-sm font-semibold text-slate-200 transition hover:bg-slate-700"
+            <p className="mt-2 max-w-md text-sm text-slate-500">
+              Kada radnik doda ili uzme materijal, zapis će se pojaviti ovdje.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {filteredMovements.map(
+              ({
+                movement,
+                item,
+              }) => (
+                <article
+                  key={
+                    movement.id
+                  }
+                  className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
                 >
-                  <X size={17} />
-                  Očisti filtre
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredMovements.map(
-                ({ movement, item }) => (
-                  <button
-                    key={`${item.id}-${movement.id}`}
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        `/inventory/items/${item.id}`,
-                      )
-                    }
-                    className="block w-full rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-left transition hover:border-slate-700 hover:bg-slate-900 sm:p-5"
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex min-w-0 gap-4">
-                        <div
-                          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border ${getMovementStyle(
-                            movement,
-                          )}`}
-                        >
-                          {getMovementIcon(movement)}
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-white">
-                              {item.name}
-                            </h3>
-
-                            <span
-                              className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${getMovementStyle(
-                                movement,
-                              )}`}
-                            >
-                              {getMovementLabel(movement)}
-                            </span>
-                          </div>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
-                            <span className="flex items-center gap-1.5">
-                              <CalendarDays size={14} />
-                              {formatDateTime(
-                                movement.createdAt,
-                              )}
-                            </span>
-
-                            {item.code && (
-                              <span className="flex items-center gap-1.5">
-                                <Package size={14} />
-                                {item.code}
-                              </span>
-                            )}
-
-                            {movement.locationName && (
-                              <span className="flex items-center gap-1.5">
-                                <MapPin size={14} />
-                                {movement.locationName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="flex min-w-0 items-start gap-4">
+                      <div
+                        className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${getMovementStyle(
+                          movement,
+                        )}`}
+                      >
+                        {getMovementIcon(
+                          movement,
+                        )}
                       </div>
 
-                      <div className="border-t border-slate-800 pt-4 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0 lg:text-right">
-                        <p
-                          className={`text-2xl font-bold ${getQuantityTextClass(
-                            movement,
-                          )}`}
-                        >
-                          {getMovementPrefix(movement)}
-                          {formatNumber(
-                            movement.quantity,
-                          )}{' '}
-                          {item.unit}
-                        </p>
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/inventory/items/${item.id}`,
+                              )
+                            }
+                            className="truncate text-left font-black text-white hover:text-sky-300"
+                          >
+                            {
+                              item.name
+                            }
+                          </button>
 
-                        <p className="mt-1 text-xs text-slate-500">
-                          Novo stanje:{' '}
-                          {formatNumber(
-                            movement.newQuantity,
-                          )}{' '}
-                          {item.unit}
-                        </p>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-black ${getMovementStyle(
+                              movement,
+                            )}`}
+                          >
+                            {getMovementLabel(
+                              movement,
+                            )}
+                          </span>
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-500">
+                          <span className="inline-flex items-center gap-1.5">
+                            <Package
+                              size={
+                                14
+                              }
+                            />
+                            {item.code ||
+                              'Bez šifre'}
+                          </span>
+
+                          {movement.employeeName && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <User
+                                size={
+                                  14
+                                }
+                              />
+                              {
+                                movement.employeeName
+                              }
+                            </span>
+                          )}
+
+                          {movement.locationName && (
+                            <span className="inline-flex items-center gap-1.5">
+                              <MapPin
+                                size={
+                                  14
+                                }
+                              />
+                              {
+                                movement.locationName
+                              }
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {(movement.employeeName ||
-                      movement.workOrderNumber ||
-                      movement.incomingInvoiceNumber ||
-                      movement.note) && (
-                      <div className="mt-4 grid gap-3 border-t border-slate-800 pt-4 text-sm text-slate-400 sm:grid-cols-2 xl:grid-cols-4">
-                        {movement.employeeName && (
-                          <div className="flex items-center gap-2">
-                            <User
-                              size={16}
-                              className="shrink-0 text-slate-600"
-                            />
+                    <div className="grid gap-3 sm:grid-cols-3 xl:min-w-[520px]">
+                      <div className="rounded-xl bg-slate-800/60 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Količina
+                        </p>
 
-                            <span className="truncate">
-                              {movement.employeeName}
-                            </span>
-                          </div>
-                        )}
-
-                        {movement.workOrderNumber && (
-                          <div className="flex items-center gap-2">
-                            <ClipboardList
-                              size={16}
-                              className="shrink-0 text-slate-600"
-                            />
-
-                            <span className="truncate">
-                              Radni nalog:{' '}
-                              {movement.workOrderNumber}
-                            </span>
-                          </div>
-                        )}
-
-                        {movement.incomingInvoiceNumber && (
-                          <div className="flex items-center gap-2">
-                            <FileText
-                              size={16}
-                              className="shrink-0 text-slate-600"
-                            />
-
-                            <span className="truncate">
-                              Ulazni račun:{' '}
-                              {
-                                movement.incomingInvoiceNumber
-                              }
-                            </span>
-                          </div>
-                        )}
-
-                        {movement.note && (
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle
-                              size={16}
-                              className="shrink-0 text-slate-600"
-                            />
-
-                            <span className="truncate">
-                              {movement.note}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {item.trackingType ===
-                      'piece-length' && (
-                      <div className="mt-4 rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2.5">
-                        <p className="text-xs text-sky-300">
-                          Promjena metraže:{' '}
-                          <span className="font-semibold">
-                            {getMovementPrefix(movement)}
-                            {formatNumber(
-                              movement.quantity *
-                                item.pieceLengthMetres,
-                            )}{' '}
-                            m
-                          </span>
+                        <p
+                          className={`mt-1 text-lg font-black ${getQuantityTextClass(
+                            movement,
+                          )}`}
+                        >
+                          {getMovementPrefix(
+                            movement,
+                          )}
+                          {formatNumber(
+                            movement.quantity,
+                          )}{' '}
+                          {
+                            item.unit
+                          }
                         </p>
                       </div>
-                    )}
-                  </button>
-                ),
-              )}
-            </div>
-          )}
-        </div>
 
-        <div className="mt-6 rounded-2xl border border-sky-500/20 bg-sky-500/5 p-4">
-          <div className="flex items-start gap-3">
-            <Warehouse
-              size={20}
-              className="mt-0.5 shrink-0 text-sky-400"
-            />
+                      <div className="rounded-xl bg-slate-800/60 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Stanje
+                        </p>
 
-            <p className="text-sm leading-6 text-slate-300">
-              Svaka promjena spremljena na detaljima artikla
-              automatski se prikazuje na ovoj stranici.
-              Klikom na pojedini promet otvara se pripadajući
-              artikl i njegova cjelokupna povijest.
-            </p>
+                        <p className="mt-1 text-sm font-bold text-white">
+                          {formatNumber(
+                            movement.previousQuantity,
+                          )}{' '}
+                          →{' '}
+                          {formatNumber(
+                            movement.newQuantity,
+                          )}{' '}
+                          {
+                            item.unit
+                          }
+                        </p>
+                      </div>
+
+                      <div className="rounded-xl bg-slate-800/60 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                          Vrijeme
+                        </p>
+
+                        <p className="mt-1 text-sm font-bold text-white">
+                          {formatDateTime(
+                            movement.createdAt,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {(movement.destinationLocationName ||
+                    movement.workOrderNumber ||
+                    movement.incomingInvoiceNumber ||
+                    movement.note) && (
+                    <div className="mt-4 grid gap-3 border-t border-slate-800 pt-4 text-xs text-slate-400 md:grid-cols-2 xl:grid-cols-4">
+                      {movement.destinationLocationName && (
+                        <div>
+                          <span className="text-slate-600">
+                            Odredišna lokacija:
+                          </span>{' '}
+                          {
+                            movement.destinationLocationName
+                          }
+                        </div>
+                      )}
+
+                      {movement.workOrderNumber && (
+                        <div>
+                          <span className="text-slate-600">
+                            Radni nalog:
+                          </span>{' '}
+                          {
+                            movement.workOrderNumber
+                          }
+                        </div>
+                      )}
+
+                      {movement.incomingInvoiceNumber && (
+                        <div>
+                          <span className="text-slate-600">
+                            Ulazni račun:
+                          </span>{' '}
+                          {
+                            movement.incomingInvoiceNumber
+                          }
+                        </div>
+                      )}
+
+                      {movement.note && (
+                        <div>
+                          <span className="text-slate-600">
+                            Napomena:
+                          </span>{' '}
+                          {
+                            movement.note
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              ),
+            )}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
