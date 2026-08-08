@@ -5,6 +5,10 @@ import {
 } from 'react'
 
 import {
+  useAuth,
+} from '../auth/AuthProvider'
+
+import {
   askAiAssistant,
   confirmAiAction,
   type AiAssistantMessage,
@@ -12,13 +16,16 @@ import {
   type AiProposedAction,
 } from '../services/aiAssistant.service'
 
-const MESSAGES_KEY =
+const STORAGE_VERSION =
+  'v5'
+
+const LEGACY_MESSAGES_KEY =
   'fersys_ai_messages_v4'
 
-const ACTION_KEY =
+const LEGACY_ACTION_KEY =
   'fersys_ai_action_v4'
 
-const CLIENT_ACTION_KEY =
+const LEGACY_CLIENT_ACTION_KEY =
   'fersys_ai_client_action_v4'
 
 const CHANGE_EVENT =
@@ -40,7 +47,8 @@ function createMessage(
   }
 }
 
-function defaultMessages() {
+function defaultMessages():
+AiAssistantMessage[] {
   return [
     createMessage(
       'assistant',
@@ -49,12 +57,74 @@ function defaultMessages() {
   ]
 }
 
-function readMessages():
-AiAssistantMessage[] {
+function getStorageKeys(
+  userId: string,
+) {
+  return {
+    messages:
+      `fersys_ai_messages_${STORAGE_VERSION}_${userId}`,
+
+    action:
+      `fersys_ai_action_${STORAGE_VERSION}_${userId}`,
+
+    clientAction:
+      `fersys_ai_client_action_${STORAGE_VERSION}_${userId}`,
+  }
+}
+
+function removeLegacySharedConversation() {
+  /*
+   * Stari v4 ključevi bili su zajednički
+   * svim korisnicima istog browsera.
+   *
+   * Ne migriramo ih nijednom korisniku
+   * jer bi time mogli prenijeti tuđu AI
+   * povijest u privatni razgovor.
+   */
+  localStorage.removeItem(
+    LEGACY_MESSAGES_KEY,
+  )
+
+  localStorage.removeItem(
+    LEGACY_ACTION_KEY,
+  )
+
+  localStorage.removeItem(
+    LEGACY_CLIENT_ACTION_KEY,
+  )
+}
+
+function readJson<T>(
+  key: string,
+): T | null {
   try {
     const raw =
+      localStorage.getItem(key)
+
+    return raw
+      ? JSON.parse(raw) as T
+      : null
+  } catch {
+    return null
+  }
+}
+
+function readMessages(
+  userId: string | null | undefined,
+): AiAssistantMessage[] {
+  if (!userId) {
+    return defaultMessages()
+  }
+
+  try {
+    const {
+      messages: messagesKey,
+    } =
+      getStorageKeys(userId)
+
+    const raw =
       localStorage.getItem(
-        MESSAGES_KEY,
+        messagesKey,
       )
 
     if (!raw) {
@@ -75,51 +145,75 @@ AiAssistantMessage[] {
   }
 }
 
-function readJson<T>(
-  key: string,
-): T | null {
-  try {
-    const raw =
-      localStorage.getItem(key)
-
-    return raw
-      ? JSON.parse(raw) as T
-      : null
-  } catch {
+function readAction(
+  userId: string | null | undefined,
+): AiProposedAction | null {
+  if (!userId) {
     return null
   }
+
+  const {
+    action,
+  } =
+    getStorageKeys(userId)
+
+  return readJson<AiProposedAction>(
+    action,
+  )
+}
+
+function readClientAction(
+  userId: string | null | undefined,
+): AiClientAction | null {
+  if (!userId) {
+    return null
+  }
+
+  const {
+    clientAction,
+  } =
+    getStorageKeys(userId)
+
+  return readJson<AiClientAction>(
+    clientAction,
+  )
 }
 
 function saveConversation(
+  userId: string,
   messages: AiAssistantMessage[],
-  action: AiProposedAction | null,
+  action:
+    AiProposedAction | null,
   clientAction:
     AiClientAction | null,
 ) {
+  const keys =
+    getStorageKeys(userId)
+
   localStorage.setItem(
-    MESSAGES_KEY,
+    keys.messages,
     JSON.stringify(messages),
   )
 
   if (action) {
     localStorage.setItem(
-      ACTION_KEY,
+      keys.action,
       JSON.stringify(action),
     )
   } else {
     localStorage.removeItem(
-      ACTION_KEY,
+      keys.action,
     )
   }
 
   if (clientAction) {
     localStorage.setItem(
-      CLIENT_ACTION_KEY,
+      keys.clientAction,
       JSON.stringify(clientAction),
     )
   } else {
     localStorage.removeItem(
-      CLIENT_ACTION_KEY,
+      keys.clientAction,
     )
   }
 
@@ -128,6 +222,7 @@ function saveConversation(
       CHANGE_EVENT,
       {
         detail: {
+          userId,
           messages,
           action,
           clientAction,
@@ -138,12 +233,19 @@ function saveConversation(
 }
 
 export function useAiConversation() {
+  const {
+    user,
+  } = useAuth()
+
+  const userId =
+    user?.id ?? null
+
   const [
     messages,
     setMessages,
   ] =
     useState<AiAssistantMessage[]>(
-      () => readMessages(),
+      () => defaultMessages(),
     )
 
   const [
@@ -151,10 +253,7 @@ export function useAiConversation() {
     setProposedAction,
   ] =
     useState<AiProposedAction | null>(
-      () =>
-        readJson<AiProposedAction>(
-          ACTION_KEY,
-        ),
+      null,
     )
 
   const [
@@ -162,10 +261,7 @@ export function useAiConversation() {
     setClientAction,
   ] =
     useState<AiClientAction | null>(
-      () =>
-        readJson<AiClientAction>(
-          CLIENT_ACTION_KEY,
-        ),
+      null,
     )
 
   const [
@@ -173,15 +269,49 @@ export function useAiConversation() {
     setIsSending,
   ] = useState(false)
 
-  const [error, setError] =
-    useState('')
+  const [
+    error,
+    setError,
+  ] = useState('')
 
+  /*
+   * Kod promjene prijavljenog korisnika
+   * učitava se samo njegova povijest.
+   *
+   * Time se sprječava da radnik vidi
+   * razgovore vlasnika ili drugog radnika
+   * na istom uređaju/browseru.
+   */
+  useEffect(() => {
+    removeLegacySharedConversation()
+
+    setError('')
+    setIsSending(false)
+
+    setMessages(
+      readMessages(userId),
+    )
+
+    setProposedAction(
+      readAction(userId),
+    )
+
+    setClientAction(
+      readClientAction(userId),
+    )
+  }, [userId])
+
+  /*
+   * Sinkronizira AI panel i glavnu
+   * AI stranicu samo za istog korisnika.
+   */
   useEffect(() => {
     function sync(
       event: Event,
     ) {
       const custom =
         event as CustomEvent<{
+          userId: string
           messages:
             AiAssistantMessage[]
           action:
@@ -191,7 +321,10 @@ export function useAiConversation() {
         }>
 
       if (
-        !custom.detail
+        !custom.detail ||
+        !userId ||
+        custom.detail.userId !==
+          userId
       ) {
         return
       }
@@ -209,9 +342,50 @@ export function useAiConversation() {
       )
     }
 
+    function syncStorage(
+      event: StorageEvent,
+    ) {
+      if (!userId) {
+        return
+      }
+
+      const keys =
+        getStorageKeys(userId)
+
+      if (
+        event.key !==
+          keys.messages &&
+        event.key !==
+          keys.action &&
+        event.key !==
+          keys.clientAction
+      ) {
+        return
+      }
+
+      setMessages(
+        readMessages(userId),
+      )
+
+      setProposedAction(
+        readAction(userId),
+      )
+
+      setClientAction(
+        readClientAction(
+          userId,
+        ),
+      )
+    }
+
     window.addEventListener(
       CHANGE_EVENT,
       sync,
+    )
+
+    window.addEventListener(
+      'storage',
+      syncStorage,
     )
 
     return () => {
@@ -219,39 +393,69 @@ export function useAiConversation() {
         CHANGE_EVENT,
         sync,
       )
+
+      window.removeEventListener(
+        'storage',
+        syncStorage,
+      )
     }
-  }, [])
+  }, [userId])
 
   const replace =
     useCallback(
       (
         nextMessages:
           AiAssistantMessage[],
+
         nextAction:
           AiProposedAction | null,
+
         nextClientAction:
           AiClientAction | null,
       ) => {
-        setMessages(nextMessages)
+        if (!userId) {
+          setMessages(
+            nextMessages,
+          )
+
+          setProposedAction(
+            nextAction,
+          )
+
+          setClientAction(
+            nextClientAction,
+          )
+
+          return
+        }
+
+        setMessages(
+          nextMessages,
+        )
+
         setProposedAction(
           nextAction,
         )
+
         setClientAction(
           nextClientAction,
         )
 
         saveConversation(
+          userId,
           nextMessages,
           nextAction,
           nextClientAction,
         )
       },
-      [],
+      [userId],
     )
 
   const send =
     useCallback(
-      async (text: string) => {
+      async (
+        text: string,
+      ) => {
         const clean =
           text.trim()
 
@@ -262,10 +466,18 @@ export function useAiConversation() {
           return
         }
 
+        if (!userId) {
+          setError(
+            'Korisnik nije prijavljen.',
+          )
+
+          return
+        }
+
         setError('')
 
         const before =
-          readMessages()
+          readMessages(userId)
 
         const userMessage =
           createMessage(
@@ -295,6 +507,7 @@ export function useAiConversation() {
 
           const completed = [
             ...next,
+
             createMessage(
               'assistant',
               response.message,
@@ -317,6 +530,7 @@ export function useAiConversation() {
           replace(
             [
               ...next,
+
               createMessage(
                 'assistant',
                 `Nisam uspio obraditi zahtjev.\n\n${message}`,
@@ -332,21 +546,24 @@ export function useAiConversation() {
       [
         isSending,
         replace,
+        userId,
       ],
     )
 
   const confirm =
     useCallback(
       async () => {
-        const action =
-          readJson<AiProposedAction>(
-            ACTION_KEY,
-          )
-
         if (
-          !action ||
+          !userId ||
           isSending
         ) {
+          return
+        }
+
+        const action =
+          readAction(userId)
+
+        if (!action) {
           return
         }
 
@@ -360,11 +577,14 @@ export function useAiConversation() {
             )
 
           const current =
-            readMessages()
+            readMessages(
+              userId,
+            )
 
           replace(
             [
               ...current,
+
               createMessage(
                 'assistant',
                 response.message,
@@ -386,32 +606,62 @@ export function useAiConversation() {
       [
         isSending,
         replace,
+        userId,
       ],
     )
 
   const cancelAction =
     useCallback(() => {
+      if (!userId) {
+        replace(
+          messages,
+          null,
+          null,
+        )
+
+        return
+      }
+
       replace(
-        readMessages(),
+        readMessages(userId),
         null,
         null,
       )
-    }, [replace])
+    }, [
+      messages,
+      replace,
+      userId,
+    ])
 
   const clearClientAction =
     useCallback(() => {
+      if (!userId) {
+        replace(
+          messages,
+          proposedAction,
+          null,
+        )
+
+        return
+      }
+
       replace(
-        readMessages(),
-        readJson<AiProposedAction>(
-          ACTION_KEY,
-        ),
+        readMessages(userId),
+        readAction(userId),
         null,
       )
-    }, [replace])
+    }, [
+      messages,
+      proposedAction,
+      replace,
+      userId,
+    ])
 
   const appendAssistantMessage =
     useCallback(
-      (content: string) => {
+      (
+        content: string,
+      ) => {
         const clean =
           content.trim()
 
@@ -420,25 +670,42 @@ export function useAiConversation() {
         }
 
         const current =
-          readMessages()
+          userId
+            ? readMessages(
+                userId,
+              )
+            : messages
 
         replace(
           [
             ...current,
+
             createMessage(
               'assistant',
               clean,
             ),
           ],
-          readJson<AiProposedAction>(
-            ACTION_KEY,
-          ),
-          readJson<AiClientAction>(
-            CLIENT_ACTION_KEY,
-          ),
+
+          userId
+            ? readAction(
+                userId,
+              )
+            : proposedAction,
+
+          userId
+            ? readClientAction(
+                userId,
+              )
+            : clientAction,
         )
       },
-      [replace],
+      [
+        clientAction,
+        messages,
+        proposedAction,
+        replace,
+        userId,
+      ],
     )
 
   const clear =
