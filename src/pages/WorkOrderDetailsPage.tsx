@@ -38,6 +38,10 @@ import {
 } from '../services/workOrderBranding.service'
 
 import {
+  getWorkOrderEditAccess,
+} from '../services/workOrderAccess.service'
+
+import {
   downloadWorkOrderPdf,
 } from '../utils/workOrderPdf'
 
@@ -196,6 +200,17 @@ export function WorkOrderDetailsPage() {
     setIsDownloading,
   ] = useState(false)
 
+
+  const [
+    canEditThisOrder,
+    setCanEditThisOrder,
+  ] = useState(false)
+
+  const [
+    editAccessReason,
+    setEditAccessReason,
+  ] = useState('')
+
   useEffect(() => {
     let cancelled = false
 
@@ -218,6 +233,49 @@ export function WorkOrderDetailsPage() {
           setOrder(
             savedOrder,
           )
+
+          if (
+            savedOrder &&
+            canManageWorkOrders
+          ) {
+            try {
+              const access =
+                await getWorkOrderEditAccess(
+                  savedOrder,
+                )
+
+              if (!cancelled) {
+                setCanEditThisOrder(
+                  access.allowed,
+                )
+
+                setEditAccessReason(
+                  access.reason,
+                )
+              }
+            } catch (accessError) {
+              console.error(
+                'Pravo uređivanja naloga nije moguće provjeriti:',
+                accessError,
+              )
+
+              if (!cancelled) {
+                setCanEditThisOrder(
+                  false,
+                )
+
+                setEditAccessReason(
+                  'Pravo uređivanja trenutno nije moguće provjeriti.',
+                )
+              }
+            }
+          } else if (
+            !cancelled
+          ) {
+            setCanEditThisOrder(
+              false,
+            )
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -239,7 +297,10 @@ export function WorkOrderDetailsPage() {
     return () => {
       cancelled = true
     }
-  }, [id])
+  }, [
+    id,
+    canManageWorkOrders,
+  ])
 
   async function handleDownloadPdf() {
     if (
@@ -405,7 +466,7 @@ export function WorkOrderDetailsPage() {
         </div>
 
         <div className="flex flex-wrap gap-3">
-          {canManageWorkOrders && (
+          {canManageWorkOrders && canEditThisOrder && (
             <button
               type="button"
               onClick={() =>
@@ -443,6 +504,14 @@ export function WorkOrderDetailsPage() {
           </button>
         </div>
       </div>
+
+      {canManageWorkOrders &&
+        !canEditThisOrder &&
+        editAccessReason && (
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {editAccessReason}
+          </div>
+        )}
 
       <div className="mt-8 grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">

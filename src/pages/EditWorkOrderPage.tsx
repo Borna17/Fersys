@@ -35,6 +35,10 @@ import {
   getWorkOrderById,
   updateWorkOrder,
 } from '../services/workOrders.service'
+
+import {
+  getWorkOrderEditAccess,
+} from '../services/workOrderAccess.service'
 import type { Customer } from '../types/customer'
 import type {
   WorkOrderImage,
@@ -175,6 +179,12 @@ export function EditWorkOrderPage() {
   const [
     workersError,
     setWorkersError,
+  ] = useState('')
+
+
+  const [
+    accessDeniedMessage,
+    setAccessDeniedMessage,
   ] = useState('')
 
   const [
@@ -347,6 +357,20 @@ export function EditWorkOrderPage() {
           )
           return
         }
+
+        const access =
+          await getWorkOrderEditAccess(
+            savedOrder,
+          )
+
+        if (!access.allowed) {
+          setAccessDeniedMessage(
+            access.reason,
+          )
+          return
+        }
+
+        setAccessDeniedMessage('')
 
         setCustomers(
           savedCustomers,
@@ -966,6 +990,34 @@ export function EditWorkOrderPage() {
   if (isLoading) {
     return (
       <FersysLoader text="Učitavanje radnog naloga..." />
+    )
+  }
+
+  if (accessDeniedMessage) {
+    return (
+      <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
+        <div className="w-full rounded-3xl border border-amber-500/20 bg-slate-900 p-8 text-center">
+          <h1 className="text-2xl font-bold text-white">
+            Nemaš pravo uređivati ovaj nalog
+          </h1>
+
+          <p className="mt-3 text-sm leading-6 text-amber-200">
+            {accessDeniedMessage}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              navigate(
+                `/work-orders/${id}`,
+              )
+            }
+            className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white"
+          >
+            Povratak na nalog
+          </button>
+        </div>
+      </section>
     )
   }
 
