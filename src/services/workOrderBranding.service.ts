@@ -370,3 +370,48 @@ Promise<WorkOrderBranding> {
 
   return baseBranding
 }
+
+export async function saveWorkOrderLayout(
+  layout: WorkOrderBranding['layout'],
+): Promise<void> {
+  const companyId =
+    await getCurrentCompanyId()
+
+  const currentProfileSettings =
+    await getRawProfileSettings(
+      companyId,
+    )
+
+  const currentBranding =
+    parseStoredBranding(
+      currentProfileSettings[
+        BRANDING_STORAGE_KEY
+      ],
+    )
+
+  const nextProfileSettings = {
+    ...currentProfileSettings,
+
+    [BRANDING_STORAGE_KEY]: {
+      ...currentBranding,
+      layout:
+        layout === 'minimal'
+          ? 'custom'
+          : layout,
+    },
+  }
+
+  const {
+    error,
+  } = await supabase
+    .from('companies')
+    .update({
+      profile_settings:
+        nextProfileSettings,
+    })
+    .eq('id', companyId)
+
+  if (error) {
+    throw error
+  }
+}

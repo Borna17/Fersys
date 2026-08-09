@@ -1,9 +1,12 @@
 import {
+  Check,
   Download,
   FileText,
   Minus,
   Plus,
   ReceiptText,
+  SlidersHorizontal,
+  Sparkles,
   Wrench,
 } from 'lucide-react'
 
@@ -18,10 +21,13 @@ import type {
 } from '../../services/companySettings.service'
 
 import {
+  getWorkOrderBrandingFromCompanySettings,
   mapCompanySettingsToWorkOrderBranding,
+  saveWorkOrderLayout,
 } from '../../services/workOrderBranding.service'
 
 import type {
+  PdfLayout,
   WorkOrder,
 } from '../../types/workOrder'
 
@@ -64,6 +70,42 @@ const tabs = [
   },
 ]
 
+const layoutOptions: Array<{
+  id: Exclude<PdfLayout, 'minimal'>
+  title: string
+  description: string
+  icon: typeof Wrench
+  previewClassName: string
+}> = [
+  {
+    id: 'classic',
+    title: 'Classic',
+    description:
+      'Službeni servisni izgled s tamnim zaglavljem i jednostavnim rasporedom.',
+    icon: FileText,
+    previewClassName:
+      'from-slate-800 to-slate-950',
+  },
+  {
+    id: 'modern',
+    title: 'Modern',
+    description:
+      'Moderan FERSYS izgled s karticama, tablicom i naglašenom bojom firme.',
+    icon: Sparkles,
+    previewClassName:
+      'from-blue-600 to-violet-600',
+  },
+  {
+    id: 'custom',
+    title: 'Custom',
+    description:
+      'Izgled koji prati boje, logo, pečat i ostale postavke vaše tvrtke.',
+    icon: SlidersHorizontal,
+    previewClassName:
+      'from-violet-600 to-fuchsia-600',
+  },
+]
+
 function isoDate(
   date: Date,
 ) {
@@ -79,34 +121,49 @@ function makeDemoWorkOrder(
     id: 'preview',
     companyId:
       settings.id,
+
     orderNumber:
       `${settings.workOrderPrefix || 'RN'}-${new Date().getFullYear()}-001`,
+
     customerId:
       'preview-customer',
+
     customerName:
       'Ivan Horvat',
+
     customerContactPerson:
       'Ivan Horvat',
+
     customerPhone:
       '091 234 5678',
+
     customerEmail:
       'ivan.horvat@primjer.hr',
+
     customerOib:
       '12345678901',
+
     address:
       'Ulica hrvatskih branitelja 12, 35000 Slavonski Brod',
+
     date:
       isoDate(new Date()),
+
     arrivalTime:
       '09:00',
+
     departureTime:
       '11:30',
+
     durationMinutes:
       150,
+
     title:
       'Servis plinskog bojlera',
+
     description:
-      'Izvršen pregled i servis uređaja. Očišćen izmjenjivač, provjeren tlak sustava i ispitana sigurnost rada.',
+      'Izvršen pregled i servis uređaja. Očišćen izmjenjivač, provjeren tlak sustava i ispitana sigurnost rada. Provjerena nepropusnost spojeva te izvršeno završno testiranje uređaja.',
+
     materials: [
       {
         id: '1',
@@ -149,25 +206,40 @@ function makeDemoWorkOrder(
         unitPrice: 7,
       },
     ],
+
     assignedWorkers: [
       'Borna Ferfolja',
     ],
+
     labourPrice: 80,
     materialPrice: 73,
+
     vatRate:
       settings.defaultVatRate ||
       25,
+
     totalPrice:
       191.25,
+
     priceNote: '',
+
     investorName:
       'Ivan Horvat',
-    investorSignature: '',
+
+    investorSignature:
+      '',
+
     images: [],
-    status: 'Novi',
-    priority: 'Normalan',
+
+    status:
+      'Novi',
+
+    priority:
+      'Normalan',
+
     createdAt:
       new Date().toISOString(),
+
     updatedAt:
       new Date().toISOString(),
   }
@@ -179,11 +251,14 @@ function offerSettings(
   return {
     companyName:
       settings.name,
+
     companySubtitle:
       settings.documentWatermark,
+
     companyAddress:
       [
         settings.address,
+
         [
           settings.postalCode,
           settings.city,
@@ -193,34 +268,51 @@ function offerSettings(
       ]
         .filter(Boolean)
         .join(', '),
+
     companyOib:
       settings.oib,
+
     companyIban:
       settings.iban,
+
     companyEmail:
       settings.email,
+
     companyPhone:
       settings.phone,
+
     companyWebsite:
       settings.website,
+
     logoDataUrl:
       settings.logoUrl ||
       undefined,
+
     stampDataUrl:
       settings.stampUrl ||
       undefined,
+
     signatureDataUrl:
       settings.signatureUrl ||
       undefined,
+
     primaryColor:
       settings.primaryColor,
+
     showStamp:
       Boolean(
         settings.stampUrl,
       ),
-    showSignature: true,
-    showFooter: true,
-    showItemImages: false,
+
+    showSignature:
+      true,
+
+    showFooter:
+      true,
+
+    showItemImages:
+      false,
+
     footerText:
       settings.documentFooter,
   }
@@ -232,11 +324,14 @@ function invoiceSettings(
   return {
     companyName:
       settings.name,
+
     companySubtitle:
       settings.documentWatermark,
+
     companyAddress:
       [
         settings.address,
+
         [
           settings.postalCode,
           settings.city,
@@ -246,29 +341,41 @@ function invoiceSettings(
       ]
         .filter(Boolean)
         .join(', '),
+
     companyOib:
       settings.oib,
+
     companyIban:
       settings.iban,
+
     companyEmail:
       settings.email,
+
     companyPhone:
       settings.phone,
+
     companyWebsite:
       settings.website,
+
     logoDataUrl:
       settings.logoUrl ||
       undefined,
+
     stampDataUrl:
       settings.stampUrl ||
       undefined,
+
     primaryColor:
       settings.primaryColor,
+
     showStamp:
       Boolean(
         settings.stampUrl,
       ),
-    showFooter: true,
+
+    showFooter:
+      true,
+
     footerText:
       settings.documentFooter,
   }
@@ -293,35 +400,51 @@ function demoOffer(
 
   return {
     id: 'preview',
+
     offerNumber:
       `${settings.offerPrefix || 'P'}-${now.getFullYear()}-001`,
+
     customerName:
       'Ivan Horvat',
+
     customerType:
       'Fizička osoba',
+
     oib:
       '12345678901',
+
     email:
       'ivan.horvat@primjer.hr',
+
     phone:
       '091 234 5678',
+
     address:
       'Ulica hrvatskih branitelja 12',
+
     city:
       '35000 Slavonski Brod',
+
     date:
       isoDate(now),
+
     validUntil:
       isoDate(valid),
+
     status:
       'Nacrt',
+
     responsiblePerson:
       'Borna Ferfolja',
+
     description:
       'Ponuda za servis, rad i potreban materijal.',
+
     internalNote: '',
+
     paymentTerms:
       'Plaćanje u roku 7 dana.',
+
     items: [
       {
         id: '1',
@@ -358,11 +481,15 @@ function demoOffer(
         vat: 25,
       },
     ],
+
     createdAt:
       now.toISOString(),
+
     updatedAt:
       now.toISOString(),
-    version: 1,
+
+    version:
+      1,
   }
 }
 
@@ -385,43 +512,63 @@ function demoInvoice(
 
   return {
     id: 'preview',
+
     invoiceNumber:
       `${settings.invoicePrefix || 'R'}-${now.getFullYear()}-001`,
+
     customerName:
       'Ivan Horvat',
+
     customerType:
       'Fizička osoba',
+
     oib:
       '12345678901',
+
     email:
       'ivan.horvat@primjer.hr',
+
     phone:
       '091 234 5678',
+
     address:
       'Ulica hrvatskih branitelja 12',
+
     city:
       '35000 Slavonski Brod',
+
     issueDate:
       isoDate(now),
+
     dueDate:
       isoDate(due),
+
     serviceDate:
       isoDate(now),
+
     status:
       'Nacrt',
+
     responsiblePerson:
       'Borna Ferfolja',
+
     description:
       'Račun za izvršene radove i materijal.',
+
     internalNote: '',
+
     paymentMethod:
       'Transakcijski račun',
+
     paymentModel:
       'HR00',
+
     paymentReference:
       '2026-001',
+
     iban:
       settings.iban,
+
     items: [
       {
         id: '1',
@@ -446,8 +593,10 @@ function demoInvoice(
         vat: 25,
       },
     ],
+
     createdAt:
       now.toISOString(),
+
     updatedAt:
       now.toISOString(),
   }
@@ -466,7 +615,36 @@ export default function DocumentLivePreview({
       'work-order',
     )
 
-  const [zoom, setZoom] =
+  const [
+    selectedLayout,
+    setSelectedLayout,
+  ] =
+    useState<Exclude<PdfLayout, 'minimal'>>(
+      'modern',
+    )
+
+  const [
+    isLoadingLayout,
+    setIsLoadingLayout,
+  ] =
+    useState(true)
+
+  const [
+    isSavingLayout,
+    setIsSavingLayout,
+  ] =
+    useState(false)
+
+  const [
+    layoutMessage,
+    setLayoutMessage,
+  ] =
+    useState('')
+
+  const [
+    zoom,
+    setZoom,
+  ] =
     useState(78)
 
   const [
@@ -474,6 +652,73 @@ export default function DocumentLivePreview({
     setWorkOrderUrl,
   ] =
     useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      try {
+        setIsLoadingLayout(true)
+
+        const branding =
+          await getWorkOrderBrandingFromCompanySettings()
+
+        if (
+          cancelled
+        ) {
+          return
+        }
+
+        const nextLayout =
+          branding.layout ===
+          'classic'
+            ? 'classic'
+            : branding.layout ===
+                'custom' ||
+              branding.layout ===
+                'minimal'
+              ? 'custom'
+              : 'modern'
+
+        setSelectedLayout(
+          nextLayout,
+        )
+      } catch (error) {
+        console.error(
+          'Izgled radnog naloga nije moguće učitati:',
+          error,
+        )
+      } finally {
+        if (
+          !cancelled
+        ) {
+          setIsLoadingLayout(
+            false,
+          )
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [settings.id])
+
+  const workOrderBranding =
+    useMemo(
+      () => ({
+        ...mapCompanySettingsToWorkOrderBranding(
+          settings,
+        ),
+
+        layout:
+          selectedLayout,
+      }),
+      [
+        settings,
+        selectedLayout,
+      ],
+    )
 
   const offerHtml =
     useMemo(
@@ -505,22 +750,19 @@ export default function DocumentLivePreview({
         settings,
       )
 
-    const branding =
-      mapCompanySettingsToWorkOrderBranding(
-        settings,
-      )
-
     let disposed =
       false
 
     let currentUrl = ''
+
+    setWorkOrderUrl('')
 
     void (async () => {
       try {
         const url =
           await getWorkOrderPdfBlobUrl(
             order,
-            branding,
+            workOrderBranding,
           )
 
         currentUrl =
@@ -556,7 +798,70 @@ export default function DocumentLivePreview({
         }
       }
     }
-  }, [settings])
+  }, [
+    settings,
+    workOrderBranding,
+  ])
+
+  async function selectLayout(
+    layout: Exclude<PdfLayout, 'minimal'>,
+  ) {
+    if (
+      isSavingLayout ||
+      selectedLayout === layout
+    ) {
+      return
+    }
+
+    const previous =
+      selectedLayout
+
+    setSelectedLayout(
+      layout,
+    )
+
+    setLayoutMessage('')
+
+    try {
+      setIsSavingLayout(
+        true,
+      )
+
+      await saveWorkOrderLayout(
+        layout,
+      )
+
+      setLayoutMessage(
+        `Izgled ${layoutOptions.find(
+          (item) =>
+            item.id === layout,
+        )?.title ?? layout} je spremljen.`,
+      )
+
+      window.setTimeout(
+        () =>
+          setLayoutMessage(''),
+        2500,
+      )
+    } catch (error) {
+      console.error(
+        'Izgled dokumenta nije moguće spremiti:',
+        error,
+      )
+
+      setSelectedLayout(
+        previous,
+      )
+
+      setLayoutMessage(
+        'Izgled nije moguće spremiti.',
+      )
+    } finally {
+      setIsSavingLayout(
+        false,
+      )
+    }
+  }
 
   function openPreview() {
     if (
@@ -610,9 +915,108 @@ export default function DocumentLivePreview({
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/20">
       <div className="border-b border-slate-800 p-4 sm:p-5">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+            Stil dokumenta
+          </p>
+
+          <h2 className="mt-1 text-xl font-black text-white">
+            Odaberi izgled radnog naloga
+          </h2>
+
+          <p className="mt-1 text-sm leading-6 text-slate-500">
+            Svaka tvrtka može spremiti svoj zadani izgled. Promjena se odmah prikazuje u A4 pregledu ispod.
+          </p>
+        </div>
+
+        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+          {layoutOptions.map(
+            (option) => {
+              const Icon =
+                option.icon
+
+              const active =
+                selectedLayout ===
+                option.id
+
+              return (
+                <button
+                  key={
+                    option.id
+                  }
+                  type="button"
+                  disabled={
+                    isLoadingLayout ||
+                    isSavingLayout
+                  }
+                  onClick={() =>
+                    void selectLayout(
+                      option.id,
+                    )
+                  }
+                  className={`group overflow-hidden rounded-2xl border text-left transition ${
+                    active
+                      ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20'
+                      : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
+                  } disabled:opacity-60`}
+                >
+                  <div
+                    className={`relative h-24 bg-gradient-to-br ${option.previewClassName} p-4`}
+                  >
+                    <div className="absolute inset-x-4 top-4 h-3 rounded bg-white/90" />
+
+                    <div className="absolute left-4 right-14 top-10 space-y-2">
+                      <div className="h-2 rounded bg-white/70" />
+                      <div className="h-2 w-4/5 rounded bg-white/50" />
+                    </div>
+
+                    <div className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-xl bg-black/25 text-white">
+                      {active ? (
+                        <Check size={19} />
+                      ) : (
+                        <Icon size={19} />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-black text-white">
+                        {
+                          option.title
+                        }
+                      </p>
+
+                      {active && (
+                        <span className="rounded-full bg-blue-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-blue-300">
+                          Odabrano
+                        </span>
+                      )}
+                    </div>
+
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      {
+                        option.description
+                      }
+                    </p>
+                  </div>
+                </button>
+              )
+            },
+          )}
+        </div>
+
+        {layoutMessage && (
+          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs font-semibold text-slate-300">
+            {layoutMessage}
+          </div>
+        )}
+      </div>
+
+      <div className="border-b border-slate-800 p-4 sm:p-5">
         <div className="flex flex-col gap-4">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
               Živi pregled
             </p>
 
@@ -653,6 +1057,7 @@ export default function DocumentLivePreview({
                     <Icon
                       size={16}
                     />
+
                     <span className="truncate">
                       {tab.label}
                     </span>
@@ -727,8 +1132,10 @@ export default function DocumentLivePreview({
           style={{
             width: 794,
             height: 1123,
+
             transform:
               `scale(${zoom / 100})`,
+
             marginBottom:
               `${1123 * (zoom / 100 - 1)}px`,
           }}
