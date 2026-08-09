@@ -367,7 +367,7 @@ export function InvoicesPage() {
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Pretraži broj računa, kupca, OIB, stavku..."
+                placeholder="Pretraži broj računa, investitora, OIB, stavku..."
                 className="w-full rounded-2xl border border-white/10 bg-slate-950/80 py-3 pl-11 pr-11 outline-none focus:border-violet-400/50"
               />
               {search && (
@@ -421,7 +421,7 @@ export function InvoicesPage() {
                 <thead className="border-b border-white/10 bg-slate-950/40 text-xs uppercase tracking-wider text-slate-500">
                   <tr>
                     <th className="px-5 py-4">Broj računa</th>
-                    <th className="px-5 py-4">Kupac</th>
+                    <th className="px-5 py-4">Investitor</th>
                     <th className="px-5 py-4">Datum</th>
                     <th className="px-5 py-4">Dospijeće</th>
                     <th className="px-5 py-4">Status</th>
@@ -580,7 +580,7 @@ export function InvoicesPage() {
                   </strong>
                 </div>
                 <div className="flex justify-between gap-4">
-                  <span className="text-slate-500">OIB kupca</span>
+                  <span className="text-slate-500">OIB investitora</span>
                   <strong>{selectedInvoice.oib || '—'}</strong>
                 </div>
                 <div className="flex justify-between gap-4">

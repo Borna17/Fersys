@@ -49,7 +49,7 @@ const pageTitles = [
   },
   {
     path: '/customers',
-    title: 'Kupci',
+    title: 'Investitori',
   },
   {
     path: '/work-orders',
@@ -117,7 +117,7 @@ const mobileNavigation: Array<{
       'dashboard.view',
   },
   {
-    name: 'Kupci',
+    name: 'Investitori',
     path: '/customers',
     icon: Users,
     permission:
@@ -165,7 +165,7 @@ const quickActions: Array<{
       'work_orders',
   },
   {
-    title: 'Novi kupac',
+    title: 'Novi investitor',
     description:
       'Dodaj osobu ili tvrtku',
     path: '/customers',
@@ -177,7 +177,7 @@ const quickActions: Array<{
   {
     title: 'Nova ponuda',
     description:
-      'Izradi ponudu za kupca',
+      'Izradi ponudu za investitora',
     path: '/offers/new',
     icon: FileText,
     permission:

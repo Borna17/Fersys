@@ -73,7 +73,7 @@ const navigationItems: Array<{
   },
 
   {
-    name: 'Kupci',
+    name: 'Investitori',
     path: '/customers',
     icon: Users,
     permission:

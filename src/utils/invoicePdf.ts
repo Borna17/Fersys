@@ -956,7 +956,7 @@ export function buildInvoicePdfHtml(
       </article>
 
       <article class="card">
-        <h3>Kupac</h3>
+        <h3>Investitor</h3>
         <div class="party-name">${escapeHtml(
           invoice.customerName,
         )}</div>
@@ -1076,7 +1076,7 @@ export function buildInvoicePdfHtml(
         <div class="signature-space"></div>
         <div class="signature-line">
           <span>Račun primio</span><br />
-          <strong>Potpis kupca</strong>
+          <strong>Potpis investitora</strong>
         </div>
       </div>
     </section>
@@ -1099,7 +1099,7 @@ export function buildInvoicePdfHtml(
           'Racun',
       )}-${safeFileName(
         invoice.customerName ||
-          'Kupac',
+          'Investitor',
       )}`,
     )};
   </script>

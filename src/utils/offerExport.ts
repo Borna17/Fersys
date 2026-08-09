@@ -110,7 +110,7 @@ function getExportTitle(mode: ExportMode) {
   }
 
   if (mode === 'customer') {
-    return 'Ponude kupca'
+    return 'Ponude investitora'
   }
 
   return 'Filtrirane ponude'
@@ -167,9 +167,9 @@ function getSummaryRows(
       ),
     },
     {
-      Podatak: 'Kupac',
+      Podatak: 'Investitor',
       Vrijednost:
-        options.customerName || 'Svi kupci',
+        options.customerName || 'Svi investitori',
     },
     {
       Podatak: 'Broj ponuda',
@@ -252,8 +252,8 @@ function getOfferRows(offers: Offer[]) {
     Verzija: offer.version,
     Status: offer.status,
 
-    Kupac: offer.customerName,
-    'Vrsta kupca': offer.customerType,
+    Investitor: offer.customerName,
+    'Vrsta investitora': offer.customerType,
     OIB: offer.oib,
     Email: offer.email,
     Telefon: offer.phone,
@@ -267,7 +267,7 @@ function getOfferRows(offers: Offer[]) {
 
     'Odgovorna osoba': offer.responsiblePerson,
     Opis: offer.description,
-    'Napomena kupcu':
+    'Napomena investitoru':
       offer.customerNote ?? '',
     'Interna napomena': offer.internalNote,
     'Uvjeti plaćanja': offer.paymentTerms,
@@ -331,7 +331,7 @@ function getOfferItemRows(offers: Offer[]) {
   return offers.flatMap((offer) =>
     offer.items.map((item, itemIndex) => ({
       'Broj ponude': offer.offerNumber,
-      Kupac: offer.customerName,
+      Investitor: offer.customerName,
       Status: offer.status,
 
       'Redni broj': itemIndex + 1,
@@ -489,7 +489,7 @@ function getCustomerRows(offers: Offer[]) {
       rejectedOffers.length
 
     return {
-      Kupac: customer.name,
+      Investitor: customer.name,
       OIB: customer.oib,
       Email: customer.email,
       'Broj ponuda': customer.offerCount,
@@ -522,7 +522,7 @@ function getHistoryRows(offers: Offer[]) {
   return offers.flatMap((offer) =>
     offer.history.map((historyItem) => ({
       'Broj ponude': offer.offerNumber,
-      Kupac: offer.customerName,
+      Investitor: offer.customerName,
       Status: offer.status,
       Datum: formatDateTime(
         historyItem.date,
@@ -538,7 +538,7 @@ function getAttachmentRows(offers: Offer[]) {
     (offer.attachments ?? []).map(
       (attachment) => ({
         'Broj ponude': offer.offerNumber,
-        Kupac: offer.customerName,
+        Investitor: offer.customerName,
         'Naziv datoteke': attachment.name,
         'Vrsta datoteke': attachment.type,
         'Veličina u bajtovima':
@@ -819,7 +819,7 @@ export function exportOffersToExcel(
   XLSX.utils.book_append_sheet(
     workbook,
     createCustomersWorksheet(offers),
-    'Kupci',
+    'Investitori',
   )
 
   appendWorksheetIfNotEmpty(
@@ -913,7 +913,7 @@ export function exportCustomerOffersToExcel(
 
   if (customerOffers.length === 0) {
     throw new Error(
-      `Nema ponuda za kupca „${customerName}”.`,
+      `Nema ponuda za investitora „${customerName}”.`,
     )
   }
 

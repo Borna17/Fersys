@@ -494,13 +494,13 @@ export function DashboardPage() {
         'from-blue-500/20 to-transparent',
     },
     {
-      title: 'Ukupno kupaca',
+      title: 'Ukupno investitora',
       value: String(
         data.customers.length,
       ),
       description:
         data.customers.length === 0
-          ? 'Još nema unesenih kupaca'
+          ? 'Još nema unesenih investitora'
           : `${dashboard.activeEmployees} aktivnih korisnika`,
       icon: Users,
       iconClass:
@@ -552,14 +552,14 @@ export function DashboardPage() {
       route: '/work-orders/new',
     },
     {
-      title: 'Novi kupac',
+      title: 'Novi investitor',
       description: 'Dodaj osobu ili tvrtku',
       icon: Users,
       route: '/customers',
     },
     {
       title: 'Nova ponuda',
-      description: 'Izradi ponudu kupcu',
+      description: 'Izradi ponudu investitoru',
       icon: FileText,
       route: '/offers/new',
     },
@@ -634,7 +634,7 @@ export function DashboardPage() {
               className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
             >
               <Users size={18} />
-              Novi kupac
+              Novi investitor
             </button>
           )}
 
@@ -662,8 +662,8 @@ export function DashboardPage() {
           </h2>
 
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Trenutačno nema kupaca, radnih naloga ni ponuda.
-            Dodaj prvog kupca i kreni s radom.
+            Trenutačno nema investitora, radnih naloga ni ponuda.
+            Dodaj prvog investitora i kreni s radom.
           </p>
         </div>
       )}

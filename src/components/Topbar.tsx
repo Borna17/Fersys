@@ -38,7 +38,7 @@ import CompanyLogo from './CompanyLogo'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
-  '/customers': 'Kupci',
+  '/customers': 'Investitori',
   '/work-orders': 'Radni nalozi',
   '/work-orders/new': 'Novi radni nalog',
   '/calendar': 'Kalendar',
@@ -66,7 +66,7 @@ const quickActions: Array<{
     permission: 'workOrders.manage',
   },
   {
-    label: 'Novi kupac',
+    label: 'Novi investitor',
     route: '/customers',
     permission: 'customers.manage',
   },
@@ -393,7 +393,7 @@ export default function Topbar() {
     (location.pathname.startsWith(
       '/customers/',
     )
-      ? 'Profil kupca'
+      ? 'Profil investitora'
       : location.pathname.startsWith(
             '/work-orders/',
           )

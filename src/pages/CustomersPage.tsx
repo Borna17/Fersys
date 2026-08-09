@@ -265,7 +265,7 @@ export function CustomersPage() {
     const cleanName = name.trim()
 
     if (!cleanName) {
-      alert('Unesite naziv kupca.')
+      alert('Unesite naziv investitora.')
       return
     }
 
@@ -309,7 +309,7 @@ export function CustomersPage() {
       alert(
         error instanceof Error
           ? error.message
-          : 'Kupca nije moguće spremiti.',
+          : 'Investitora nije moguće spremiti.',
       )
     } finally {
       setIsSaving(false)
@@ -328,7 +328,7 @@ export function CustomersPage() {
 
   if (isLoading) {
     return (
-      <FersysLoader text="Učitavanje kupaca..." />
+      <FersysLoader text="Učitavanje investitora..." />
     )
   }
 
@@ -360,7 +360,7 @@ export function CustomersPage() {
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-3xl font-extrabold tracking-tight text-white">
-              Kupci
+              Investitori
             </h2>
 
             <p className="mt-2 text-slate-400">
@@ -375,13 +375,13 @@ export function CustomersPage() {
             className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500"
           >
             <Plus size={20} />
-            Novi kupac
+            Novi investitor
           </button>
         </div>
 
         <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <p className="text-sm text-slate-400">Ukupno kupaca</p>
+            <p className="text-sm text-slate-400">Ukupno investitora</p>
             <p className="mt-2 text-3xl font-bold text-white">
               {customers.length}
             </p>
@@ -453,7 +453,7 @@ export function CustomersPage() {
               }
               className="h-12 min-w-52 appearance-none rounded-xl bg-slate-800 px-4 pr-11 text-sm font-medium text-white outline-none focus:ring-2 focus:ring-blue-600"
             >
-              <option value="all">Sve vrste kupaca</option>
+              <option value="all">Sve vrste investitora</option>
               <option value="person">Fizičke osobe</option>
               <option value="company">Tvrtke i obrti</option>
               <option value="building">Zgrade</option>
@@ -471,7 +471,7 @@ export function CustomersPage() {
             <table className="w-full min-w-[1100px]">
               <thead className="border-b border-slate-800 bg-slate-800/40">
                 <tr className="text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="px-6 py-4">Kupac</th>
+                  <th className="px-6 py-4">Investitor</th>
                   <th className="px-6 py-4">OIB</th>
                   <th className="px-6 py-4">Kontakt</th>
                   <th className="px-6 py-4">Grad</th>
@@ -565,7 +565,7 @@ export function CustomersPage() {
                         type="button"
                         onClick={handleOptionsClick}
                         className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-700 hover:text-white"
-                        aria-label={`Opcije za kupca ${customer.name}`}
+                        aria-label={`Opcije za investitora ${customer.name}`}
                       >
                         <MoreHorizontal size={20} />
                       </button>
@@ -579,7 +579,7 @@ export function CustomersPage() {
           {filteredCustomers.length === 0 && (
             <div className="px-6 py-16 text-center">
               <p className="font-semibold text-white">
-                Nema pronađenih kupaca
+                Nema pronađenih investitora
               </p>
 
               <p className="mt-2 text-sm text-slate-400">
@@ -595,7 +595,7 @@ export function CustomersPage() {
               {customers.length}
             </span>
 
-            <span>Kliknite na kupca za detaljan pregled</span>
+            <span>Kliknite na investitora za detaljan pregled</span>
           </div>
         </div>
       </section>
@@ -606,11 +606,11 @@ export function CustomersPage() {
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-5">
               <div>
                 <h3 className="text-2xl font-bold text-white">
-                  Novi kupac
+                  Novi investitor
                 </h3>
 
                 <p className="mt-1 text-sm text-slate-400">
-                  Unesite podatke novog kupca.
+                  Unesite podatke novog investitora.
                 </p>
               </div>
 
@@ -627,7 +627,7 @@ export function CustomersPage() {
             <form onSubmit={handleAddCustomer} className="p-6">
               <div>
                 <label className="text-sm font-semibold text-slate-300">
-                  Vrsta kupca
+                  Vrsta investitora
                 </label>
 
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -937,7 +937,7 @@ export function CustomersPage() {
                     onChange={(event) =>
                       setNotes(event.target.value)
                     }
-                    placeholder="Dodatne informacije o kupcu..."
+                    placeholder="Dodatne informacije o investitoru..."
                     className="mt-2 w-full resize-none rounded-xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
@@ -957,7 +957,7 @@ export function CustomersPage() {
                   className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500"
                 >
                   <Plus size={19} />
-                  {isSaving ? 'Spremanje...' : 'Spremi kupca'}
+                  {isSaving ? 'Spremanje...' : 'Spremi investitora'}
                 </button>
               </div>
             </form>

@@ -228,7 +228,7 @@ export async function createCustomer(
       error.code === '23505'
     ) {
       throw new Error(
-        'Kupac s ovim OIB-om već postoji u vašoj tvrtki.',
+        'Investitor s ovim OIB-om već postoji u vašoj tvrtki.',
       )
     }
 
@@ -311,7 +311,7 @@ export async function updateCustomer(
       error.code === '23505'
     ) {
       throw new Error(
-        'Drugi kupac s ovim OIB-om već postoji.',
+        'Drugi investitor s ovim OIB-om već postoji.',
       )
     }
 

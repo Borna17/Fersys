@@ -484,7 +484,7 @@ function CompanyRow({
             value={company.usersCount}
           />
           <UsageLine
-            label="Kupci"
+            label="Investitori"
             value={company.customersCount}
           />
           <UsageLine

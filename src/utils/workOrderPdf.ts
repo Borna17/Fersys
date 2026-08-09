@@ -1111,7 +1111,7 @@ function infoHtml(
     <section class="info-grid">
       <article class="info-card classic-customer">
         <div class="eyebrow">
-          Kupac / investitor
+          Investitor / investitor
         </div>
 
         <div class="customer-name">

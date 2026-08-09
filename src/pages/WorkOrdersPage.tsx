@@ -383,7 +383,7 @@ export function WorkOrdersPage() {
             onChange={(event) =>
               setSearch(event.target.value)
             }
-            placeholder="Pretraži broj naloga, kupca, radove, adresu ili radnika..."
+            placeholder="Pretraži broj naloga, investitora, radove, adresu ili radnika..."
             className="h-12 w-full rounded-xl bg-slate-800 pl-12 pr-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
           />
         </div>
@@ -429,7 +429,7 @@ export function WorkOrdersPage() {
                   Broj
                 </th>
                 <th className="px-6 py-4">
-                  Kupac i radovi
+                  Investitor i radovi
                 </th>
                 <th className="px-6 py-4">
                   Termin

@@ -170,7 +170,7 @@ export const plans: Record<
 
     highlights: [
       '1 korisnik',
-      '10 kupaca',
+      '10 investitora',
       '50 radnih naloga mjesečno',
       '50 ponuda mjesečno',
       'Kalendar',
@@ -205,7 +205,7 @@ export const plans: Record<
 
     highlights: [
       'Do 5 korisnika',
-      '250 kupaca',
+      '250 investitora',
       '500 radnih naloga mjesečno',
       '250 ponuda mjesečno',
       'Računi i ulazni računi',
@@ -241,7 +241,7 @@ export const plans: Record<
 
     highlights: [
       'Neograničeno korisnika',
-      'Neograničeno kupaca',
+      'Neograničeno investitora',
       'Neograničeni nalozi i ponude',
       'Skladište i vozni park',
       'Sve FERSYS funkcije',
@@ -290,7 +290,7 @@ export const featureLabels: Record<
   SubscriptionFeature,
   string
 > = {
-  customers: 'Kupci',
+  customers: 'Investitori',
   work_orders: 'Radni nalozi',
   offers: 'Ponude',
   calendar: 'Kalendar',
@@ -321,7 +321,7 @@ export const resourceLabels: Record<
   string
 > = {
   users: 'korisnika',
-  customers: 'kupaca',
+  customers: 'investitora',
   work_orders_monthly:
     'radnih naloga ovaj mjesec',
   offers_monthly:

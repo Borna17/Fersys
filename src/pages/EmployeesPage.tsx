@@ -80,7 +80,7 @@ const permissionGroups: Array<{
   {
     title: 'Osnovno',
     description:
-      'Početna, kupci i kalendar.',
+      'Početna, investitori i kalendar.',
     permissions: [
       'dashboard.view',
       'customers.view',

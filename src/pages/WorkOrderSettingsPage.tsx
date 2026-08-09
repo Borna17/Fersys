@@ -1059,10 +1059,10 @@ export function WorkOrderSettingsPage() {
                 <div className="space-y-2">
                   <p>
                     <b>
-                      Kupac:
+                      Investitor:
                     </b>
                     <br />
-                    Primjer kupca
+                    Primjer investitora
                     d.o.o.
                   </p>
 

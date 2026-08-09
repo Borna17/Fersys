@@ -591,7 +591,7 @@ export async function createOffer(
 
   if (!input.customer.name.trim()) {
     throw new Error(
-      'Naziv kupca je obavezan.',
+      'Naziv investitora je obavezan.',
     )
   }
 

@@ -297,7 +297,7 @@ export async function executeAiClientAction(
       const customerId =
         requiredString(
           action.payload.customerId,
-          'ID kupca',
+          'ID investitora',
         )
 
       navigate(
@@ -306,7 +306,7 @@ export async function executeAiClientAction(
 
       return {
         message:
-          'Otvorio sam profil kupca.',
+          'Otvorio sam profil investitora.',
       }
     }
 
@@ -348,13 +348,13 @@ export async function executeAiClientAction(
       const customerId =
         requiredString(
           action.payload.customerId,
-          'ID kupca',
+          'ID investitora',
         )
 
       const customerName =
         requiredString(
           action.payload.customerName,
-          'ime kupca',
+          'ime investitora',
         )
 
       const materials =
@@ -550,13 +550,13 @@ export async function executeAiClientAction(
       const customerId =
         requiredString(
           action.payload.customerId,
-          'ID kupca',
+          'ID investitora',
         )
 
       const customerName =
         requiredString(
           action.payload.customerName,
-          'ime kupca',
+          'ime investitora',
         )
 
       let items =

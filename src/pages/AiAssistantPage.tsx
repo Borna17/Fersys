@@ -238,7 +238,7 @@ export function AiAssistantPage() {
                 }
               }}
               rows={3}
-              placeholder="Pitaj što želiš o kupcima, ponuda, radnim nalozima ili kalendaru..."
+              placeholder="Pitaj što želiš o investitorima, ponuda, radnim nalozima ili kalendaru..."
               className="w-full resize-none bg-transparent px-3 py-3 text-sm text-white outline-none placeholder:text-slate-600"
             />
 

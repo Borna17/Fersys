@@ -773,8 +773,8 @@ export function OffersPage() {
     const offerRows = exportOffersList.map((offer) => ({
       'Broj ponude': offer.offerNumber,
       Verzija: offer.version,
-      Kupac: offer.customerName,
-      'Vrsta kupca': offer.customerType,
+      Investitor: offer.customerName,
+      'Vrsta investitora': offer.customerType,
       OIB: offer.oib,
       Email: offer.email,
       Telefon: offer.phone,
@@ -807,7 +807,7 @@ export function OffersPage() {
     const itemRows = exportOffersList.flatMap((offer) =>
       offer.items.map((item, itemIndex) => ({
         'Broj ponude': offer.offerNumber,
-        Kupac: offer.customerName,
+        Investitor: offer.customerName,
         OIB: offer.oib,
         'Redni broj stavke': itemIndex + 1,
         Stavka: item.name,
@@ -1232,7 +1232,7 @@ export function OffersPage() {
           </div>
 
           <p className="mt-4 text-xs font-semibold text-blue-400">
-            Čeka odgovor kupca
+            Čeka odgovor investitora
           </p>
         </button>
 
@@ -1557,7 +1557,7 @@ export function OffersPage() {
                 onChange={(event) =>
                   setSearchQuery(event.target.value)
                 }
-                placeholder="Pretraži broj ponude, kupca, OIB, adresu, e-mail ili stavku..."
+                placeholder="Pretraži broj ponude, investitora, OIB, adresu, e-mail ili stavku..."
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-12 pr-4 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-blue-500"
               />
             </div>
@@ -1838,7 +1838,7 @@ export function OffersPage() {
 
                   {[
                     'Broj ponude',
-                    'Kupac',
+                    'Investitor',
                     'Datum',
                     'Vrijedi do',
                     'Vrijednost',
@@ -2263,14 +2263,14 @@ export function OffersPage() {
                   />
 
                   <h3 className="font-black text-white">
-                    Podaci kupca
+                    Podaci investitora
                   </h3>
                 </div>
 
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <div>
                     <p className="text-xs text-slate-600">
-                      Naziv kupca
+                      Naziv investitora
                     </p>
 
                     <p className="mt-1 font-bold text-slate-200">
@@ -2280,7 +2280,7 @@ export function OffersPage() {
 
                   <div>
                     <p className="text-xs text-slate-600">
-                      Vrsta kupca
+                      Vrsta investitora
                     </p>
 
                     <p className="mt-1 font-bold text-slate-200">
@@ -2513,7 +2513,7 @@ export function OffersPage() {
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-bold text-slate-300 transition hover:bg-slate-800 hover:text-white"
                 >
                   <FileSpreadsheet size={17} />
-                  Excel za ovog kupca
+                  Excel za ovog investitora
                 </button>
 
                 <button

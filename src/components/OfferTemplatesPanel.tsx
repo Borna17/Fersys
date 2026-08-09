@@ -504,7 +504,7 @@ export default function OfferTemplatesPanel({
             </label>
 
             <p className="mt-4 text-sm leading-6 text-slate-500">
-              Spremit će se opis, uvjeti plaćanja te sve stavke s količinama, cijenama, popustom i PDV-om. Kupac, broj ponude i datumi se ne spremaju.
+              Spremit će se opis, uvjeti plaćanja te sve stavke s količinama, cijenama, popustom i PDV-om. Investitor, broj ponude i datumi se ne spremaju.
             </p>
 
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">

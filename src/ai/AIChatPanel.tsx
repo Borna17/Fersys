@@ -33,8 +33,8 @@ type Props = {
 }
 
 const quickPrompts = [
-  'Pronađi kupca Ivan Horvat',
-  'Pronađi kupca i pokaži sve njegove ponude: ',
+  'Pronađi investitora Ivan Horvat',
+  'Pronađi investitora i pokaži sve njegove ponude: ',
   'Pronađi zadnji radni nalog',
   'Što imam danas u kalendaru?',
 ]

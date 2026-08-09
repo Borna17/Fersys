@@ -204,7 +204,7 @@ export function CustomerProfilePage() {
           setLoadError(
             error instanceof Error
               ? error.message
-              : 'Kupca nije moguće učitati.',
+              : 'Investitora nije moguće učitati.',
           )
         }
       } finally {
@@ -338,7 +338,7 @@ export function CustomerProfilePage() {
     const cleanOib = editOib.replace(/\D/g, '')
 
     if (!cleanName) {
-      alert('Unesite naziv kupca.')
+      alert('Unesite naziv investitora.')
       return
     }
 
@@ -390,7 +390,7 @@ export function CustomerProfilePage() {
 
   if (isLoading) {
     return (
-      <FersysLoader text="Učitavanje kupca..." />
+      <FersysLoader text="Učitavanje investitora..." />
     )
   }
 
@@ -399,7 +399,7 @@ export function CustomerProfilePage() {
       <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
         <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-8 text-center">
           <h1 className="text-xl font-bold text-white">
-            Kupca nije moguće učitati
+            Investitora nije moguće učitati
           </h1>
           <p className="mt-3 text-sm text-red-300">
             {loadError}
@@ -425,11 +425,11 @@ export function CustomerProfilePage() {
           </div>
 
           <h1 className="mt-5 text-2xl font-bold text-white">
-            Kupac nije pronađen
+            Investitor nije pronađen
           </h1>
 
           <p className="mt-2 text-slate-400">
-            Ovaj kupac ne postoji ili je uklonjen iz sustava.
+            Ovaj investitor ne postoji ili je uklonjen iz sustava.
           </p>
 
           <button
@@ -516,7 +516,7 @@ export function CustomerProfilePage() {
                   className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 font-semibold text-white transition hover:bg-slate-700"
                 >
                   <Edit3 size={18} />
-                  Uredi kupca
+                  Uredi investitora
                 </button>
 
                 <button
@@ -687,7 +687,7 @@ export function CustomerProfilePage() {
                   <div className="flex items-center justify-between gap-4">
                     <div>
                       <h2 className="text-xl font-bold text-white">
-                        Podaci o kupcu
+                        Podaci o investitoru
                       </h2>
 
                       <p className="mt-1 text-sm text-slate-400">
@@ -708,7 +708,7 @@ export function CustomerProfilePage() {
                   <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="rounded-xl bg-slate-800/60 p-4">
                       <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Vrsta kupca
+                        Vrsta investitora
                       </p>
 
                       <p className="mt-2 font-medium text-white">
@@ -766,7 +766,7 @@ export function CustomerProfilePage() {
                     </h2>
 
                     <p className="mt-1 text-sm text-slate-400">
-                      Zadnje promjene i aktivnosti za ovog kupca.
+                      Zadnje promjene i aktivnosti za ovog investitora.
                     </p>
                   </div>
 
@@ -778,7 +778,7 @@ export function CustomerProfilePage() {
 
                       <div className="min-w-0 flex-1">
                         <p className="font-medium text-white">
-                          Kupac je dodan u CRM
+                          Investitor je dodan u CRM
                         </p>
 
                         <p className="mt-1 text-sm text-slate-500">
@@ -804,7 +804,7 @@ export function CustomerProfilePage() {
                           </p>
 
                           <p className="mt-1 text-sm text-slate-500">
-                            Kupac trenutačno ima{' '}
+                            Investitor trenutačno ima{' '}
                             {customer.workOrders} evidentiranih
                             naloga.
                           </p>
@@ -875,7 +875,7 @@ export function CustomerProfilePage() {
 
                   <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-400">
                     {customer.notes ||
-                      'Za ovog kupca još nema spremljenih napomena.'}
+                      'Za ovog investitora još nema spremljenih napomena.'}
                   </p>
                 </div>
 
@@ -931,7 +931,7 @@ export function CustomerProfilePage() {
             <EmptySection
               icon={<ClipboardList size={25} />}
               title="Nema povezanih radnih naloga"
-              description="Ovdje će se prikazivati svi radni nalozi povezani s ovim kupcem."
+              description="Ovdje će se prikazivati svi radni nalozi povezani s ovim investitorom."
               buttonLabel="Novi radni nalog"
             />
           )}
@@ -940,7 +940,7 @@ export function CustomerProfilePage() {
             <EmptySection
               icon={<FileText size={25} />}
               title="Nema ponuda"
-              description="Izradite prvu ponudu za ovog kupca. Podaci kupca automatski će se preuzeti u ponudu."
+              description="Izradite prvu ponudu za ovog investitora. Podaci investitora automatski će se preuzeti u ponudu."
               buttonLabel="Nova ponuda"
             />
           )}
@@ -958,7 +958,7 @@ export function CustomerProfilePage() {
             <EmptySection
               icon={<FileText size={25} />}
               title="Nema dokumenata"
-              description={`Za ovog kupca trenutačno nema spremljenih dokumenata. Ukupno: ${documentsCount}.`}
+              description={`Za ovog investitora trenutačno nema spremljenih dokumenata. Ukupno: ${documentsCount}.`}
               buttonLabel="Dodaj dokument"
             />
           )}
@@ -982,7 +982,7 @@ export function CustomerProfilePage() {
 
                 <div>
                   <h2 className="text-xl font-bold text-white">
-                    Napomene o kupcu
+                    Napomene o investitoru
                   </h2>
 
                   <p className="mt-1 text-sm text-slate-400">
@@ -995,7 +995,7 @@ export function CustomerProfilePage() {
               <div className="mt-6 rounded-2xl bg-slate-800/60 p-5">
                 <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
                   {customer.notes ||
-                    'Za ovog kupca još nema spremljenih napomena.'}
+                    'Za ovog investitora još nema spremljenih napomena.'}
                 </p>
               </div>
 
@@ -1018,11 +1018,11 @@ export function CustomerProfilePage() {
             <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-5">
               <div>
                 <h2 className="text-2xl font-bold text-white">
-                  Uredi kupca
+                  Uredi investitora
                 </h2>
 
                 <p className="mt-1 text-sm text-slate-400">
-                  Promijenite podatke kupca i spremite izmjene.
+                  Promijenite podatke investitora i spremite izmjene.
                 </p>
               </div>
 
@@ -1043,7 +1043,7 @@ export function CustomerProfilePage() {
             >
               <div>
                 <label className="text-sm font-semibold text-slate-300">
-                  Vrsta kupca
+                  Vrsta investitora
                 </label>
 
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -1244,7 +1244,7 @@ export function CustomerProfilePage() {
 
                 <div>
                   <label className="text-sm font-semibold text-slate-300">
-                    Status kupca
+                    Status investitora
                   </label>
 
                   <select
@@ -1371,7 +1371,7 @@ export function CustomerProfilePage() {
                     onChange={(event) =>
                       setEditNotes(event.target.value)
                     }
-                    placeholder="Dodatne informacije o kupcu..."
+                    placeholder="Dodatne informacije o investitoru..."
                     className="mt-2 w-full resize-none rounded-xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
                   />
                 </div>

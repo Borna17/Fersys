@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import {
   ArrowLeft,
@@ -17,6 +17,8 @@ import {
   X,
 } from 'lucide-react'
 import { openInvoicePdf } from '../utils/invoicePdf'
+import { getCustomers } from '../services/customers.service'
+import type { Customer as CompanyCustomer } from '../types/customer'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -222,6 +224,20 @@ function formatCurrency(value: number) {
   }).format(value)
 }
 
+function mapCompanyCustomerType(
+  type: CompanyCustomer['type'],
+): CustomerType {
+  if (type === 'company') {
+    return 'Tvrtka'
+  }
+
+  if (type === 'building') {
+    return 'Zgrada'
+  }
+
+  return 'Fizička osoba'
+}
+
 function customerIcon(type: CustomerType) {
   if (type === 'Tvrtka') return Building2
   if (type === 'Zgrada') return UsersRound
@@ -335,6 +351,58 @@ export function NewInvoicePage() {
   )
   const [showCustomers, setShowCustomers] = useState(false)
 
+  const [
+    companyCustomers,
+    setCompanyCustomers,
+  ] = useState<CompanyCustomer[]>([])
+
+  const [
+    customerLoadError,
+    setCustomerLoadError,
+  ] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCompanyCustomers() {
+      try {
+        setCustomerLoadError('')
+
+        const savedCustomers =
+          await getCustomers()
+
+        if (!cancelled) {
+          setCompanyCustomers(
+            savedCustomers.filter(
+              (customer) =>
+                customer.status ===
+                'Aktivan',
+            ),
+          )
+        }
+      } catch (error) {
+        console.error(
+          'Investitore nije moguće učitati:',
+          error,
+        )
+
+        if (!cancelled) {
+          setCustomerLoadError(
+            error instanceof Error
+              ? error.message
+              : 'Investitore nije moguće učitati.',
+          )
+        }
+      }
+    }
+
+    void loadCompanyCustomers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const customerSuggestions = useMemo(() => {
     const map = new Map<string, CustomerSuggestion>()
 
@@ -346,6 +414,32 @@ export function NewInvoicePage() {
         )}|${customer.email.trim().toLocaleLowerCase('hr-HR')}`
       if (key && !map.has(key)) map.set(key, customer)
     }
+
+    companyCustomers.forEach(
+      (customer) =>
+        addCustomer({
+          name: customer.name,
+          type:
+            mapCompanyCustomerType(
+              customer.type,
+            ),
+          oib: customer.oib,
+          email: customer.email,
+          phone: customer.phone,
+          address: [
+            customer.street,
+            [
+              customer.postalCode,
+              customer.city,
+            ]
+              .filter(Boolean)
+              .join(' '),
+          ]
+            .filter(Boolean)
+            .join(', '),
+          city: customer.city,
+        }),
+    )
 
     storedInvoices.forEach((invoice) =>
       addCustomer({
@@ -374,7 +468,7 @@ export function NewInvoicePage() {
     return Array.from(map.values()).sort((a, b) =>
       a.name.localeCompare(b.name, 'hr'),
     )
-  }, [storedInvoices, storedOffers])
+  }, [companyCustomers, storedInvoices, storedOffers])
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch
@@ -475,7 +569,7 @@ export function NewInvoicePage() {
     if (!serviceDate) nextErrors.serviceDate = 'Odaberi datum usluge.'
     if (!dueDate) nextErrors.dueDate = 'Odaberi datum dospijeća.'
     if (!customerName.trim()) {
-      nextErrors.customerName = 'Unesi ili odaberi kupca.'
+      nextErrors.customerName = 'Unesi ili odaberi investitora.'
     }
 
     if (!items.some((item) => item.name.trim())) {
@@ -643,7 +737,7 @@ export function NewInvoicePage() {
                       : 'Novi račun'}
               </h1>
               <p className="mt-1 text-sm text-slate-400">
-                Unesi kupca, datume, način plaćanja i stavke računa.
+                Unesi investitora, datume, način plaćanja i stavke računa.
               </p>
             </div>
           </div>
@@ -772,9 +866,9 @@ export function NewInvoicePage() {
                   <UserRound size={19} />
                 </div>
                 <div>
-                  <h2 className="font-black">Kupac</h2>
+                  <h2 className="font-black">Investitor</h2>
                   <p className="text-sm text-slate-400">
-                    Odaberi postojećeg ili unesi novog kupca.
+                    Odaberi postojećeg ili unesi novog investitora.
                   </p>
                 </div>
               </div>
@@ -789,7 +883,7 @@ export function NewInvoicePage() {
                     setCustomerName(event.target.value)
                     setShowCustomers(true)
                   }}
-                  placeholder="Pretraži kupca po nazivu, OIB-u ili e-mailu"
+                  placeholder="Pretraži investitora po nazivu, OIB-u ili e-mailu"
                   className="w-full rounded-2xl border border-white/10 bg-slate-950/80 py-3 pl-11 pr-11 outline-none transition focus:border-violet-400/50"
                 />
 
@@ -837,6 +931,12 @@ export function NewInvoicePage() {
                 )}
               </div>
 
+              {customerLoadError && (
+                <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
+                  {customerLoadError}
+                </div>
+              )}
+
               {errors.customerName && (
                 <div className="mb-4 text-xs font-bold text-red-300">
                   {errors.customerName}
@@ -846,7 +946,7 @@ export function NewInvoicePage() {
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 <label className="space-y-2">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Vrsta kupca
+                    Vrsta investitora
                   </span>
                   <select
                     value={customerType}
@@ -863,7 +963,7 @@ export function NewInvoicePage() {
 
                 <label className="space-y-2">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Naziv / ime kupca
+                    Naziv / ime investitora
                   </span>
                   <input
                     value={customerName}

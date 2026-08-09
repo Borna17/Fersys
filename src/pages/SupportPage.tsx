@@ -39,7 +39,7 @@ const categories = [
 
 const modules = [
   'Dashboard',
-  'Kupci',
+  'Investitori',
   'Radni nalozi',
   'Ponude',
   'Računi',

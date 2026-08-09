@@ -958,7 +958,7 @@ export function buildOfferPdfHtml(
 
     <section class="party-grid">
       <article class="card">
-        <h3>Kupac / naručitelj</h3>
+        <h3>Investitor / naručitelj</h3>
         <div class="party-name">${escapeHtml(
           offer.customerName,
         )}</div>
@@ -1069,7 +1069,7 @@ export function buildOfferPdfHtml(
             <div>
               <div class="signature-space"></div>
               <div class="signature-line">
-                <span>Kupac / naručitelj</span><br />
+                <span>Investitor / naručitelj</span><br />
                 <strong>Potpis</strong>
               </div>
             </div>
@@ -1096,7 +1096,7 @@ export function buildOfferPdfHtml(
           'Ponuda',
       )}-${safeFileName(
         offer.customerName ||
-          'Kupac',
+          'Investitor',
       )}`,
     )};
   </script>

@@ -358,7 +358,7 @@ export function PricingPage() {
               />
 
               <LimitRow
-                label="Kupci"
+                label="Investitori"
                 resource="customers"
               />
 

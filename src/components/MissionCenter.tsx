@@ -92,14 +92,14 @@ export default function MissionCenter() {
 
   const tasks = useMemo<Task[]>(() => [
     {
-      id: 'customer', title: 'Dodaj prvog kupca',
+      id: 'customer', title: 'Dodaj prvog investitora',
       description: 'Unesi osobu, tvrtku ili zgradu.',
       icon: UserPlus, completed: data.customers > 0,
-      route: '/customers', action: 'Dodaj kupca', animation: 'customer',
+      route: '/customers', action: 'Dodaj investitora', animation: 'customer',
     },
     {
       id: 'order', title: 'Napravi prvi radni nalog',
-      description: 'Poveži kupca, opis posla i radnike.',
+      description: 'Poveži investitora, opis posla i radnike.',
       icon: ClipboardList, completed: data.orders > 0,
       route: '/work-orders/new', action: 'Novi nalog', animation: 'order',
     },

@@ -156,7 +156,7 @@ export function LoginPage() {
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-8 text-slate-400">
-              Upravljaj kupcima, radnim nalozima,
+              Upravljaj investitorima, radnim nalozima,
               ponudama, računima, skladištem i radnicima
               kroz jedan sustav.
             </p>

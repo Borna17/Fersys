@@ -506,11 +506,11 @@ export function AdminCompanyDetailsPage() {
 
         <TopStat
           icon={<Building2 />}
-          label="Kupci"
+          label="Investitori"
           value={
             insights.customersCount
           }
-          note="Spremljeni kupci"
+          note="Spremljeni investitori"
           accent="green"
         />
 
@@ -608,7 +608,7 @@ export function AdminCompanyDetailsPage() {
                 icon={
                   <Building2 />
                 }
-                label="Kupci"
+                label="Investitori"
                 value={
                   insights.customersCount
                 }

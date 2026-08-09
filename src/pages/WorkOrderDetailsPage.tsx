@@ -527,7 +527,7 @@ export function WorkOrderDetailsPage() {
                     size={18}
                   />
                 }
-                label="Kupac"
+                label="Investitor"
                 value={
                   order.customerName
                 }
@@ -609,7 +609,7 @@ export function WorkOrderDetailsPage() {
           <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
             <h2 className="text-xl font-bold text-white">
               Kontaktni podaci
-              kupca
+              investitora
             </h2>
 
             <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">

@@ -67,16 +67,16 @@ const steps: TutorialStep[] = [
     ],
   },
   {
-    title: 'Kupci',
+    title: 'Investitori',
     description:
-      'U modulu Kupci vodiš fizičke osobe, tvrtke i zgrade te pratiš njihove kontakte i povijest poslova.',
+      'U modulu Investitori vodiš fizičke osobe, tvrtke i zgrade te pratiš njihove kontakte i povijest poslova.',
     icon: UsersRound,
     route: '/customers',
     actionLabel: 'Otvori Kupce',
     tips: [
       'Pretražuj po imenu, OIB-u i kontaktu.',
-      'Svaki kupac ima vlastiti profil.',
-      'S profila kupca otvaraš naloge i dokumente.',
+      'Svaki investitor ima vlastiti profil.',
+      'S profila investitora otvaraš naloge i dokumente.',
     ],
   },
   {
@@ -102,7 +102,7 @@ const steps: TutorialStep[] = [
     tips: [
       'Ponudu možeš spremiti kao nacrt.',
       'Status pokazuje je li ponuda poslana ili prihvaćena.',
-      'Dokumenti se povezuju s kupcima i poslovima.',
+      'Dokumenti se povezuju s investitorima i poslovima.',
     ],
   },
   {
@@ -147,7 +147,7 @@ const steps: TutorialStep[] = [
   {
     title: 'Spreman si za rad',
     description:
-      'Osnovne funkcije su ti sada poznate. Možeš krenuti s dodavanjem prvog kupca i prvog radnog naloga.',
+      'Osnovne funkcije su ti sada poznate. Možeš krenuti s dodavanjem prvog investitora i prvog radnog naloga.',
     icon: CheckCircle2,
     tips: [
       'Počni s unosom stvarnih podataka svoje tvrtke.',

@@ -199,7 +199,7 @@ Record<
    * Radnik po zadanom:
    * - vidi dashboard
    * - vidi kupce
-   * - može raditi s kupcima
+   * - može raditi s investitorima
    * - vidi i radi radne naloge
    * - NE vidi cijene naloga
    * - vidi skladište
@@ -360,10 +360,10 @@ Record<
     'Dashboard',
 
   'customers.view':
-    'Pregled kupaca',
+    'Pregled investitora',
 
   'customers.manage':
-    'Dodavanje i uređivanje kupaca',
+    'Dodavanje i uređivanje investitora',
 
   'workOrders.view':
     'Pregled radnih naloga',

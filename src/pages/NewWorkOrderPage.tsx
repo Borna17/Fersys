@@ -921,7 +921,7 @@ export function NewWorkOrderPage() {
     }
 
     if (!customerId) {
-      alert('Odaberite kupca.')
+      alert('Odaberite investitora.')
       return
     }
 
@@ -1092,7 +1092,7 @@ export function NewWorkOrderPage() {
   if (isLoadingCustomers) {
     return (
       <FersysLoader
-        text="Učitavanje kupaca..."
+        text="Učitavanje investitora..."
       />
     )
   }
@@ -1171,11 +1171,11 @@ export function NewWorkOrderPage() {
       {customers.length === 0 && (
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
           <p className="font-semibold text-amber-300">
-            Prvo je potrebno dodati kupca.
+            Prvo je potrebno dodati investitora.
           </p>
 
           <p className="mt-1 text-sm text-slate-400">
-            Radni nalog mora biti povezan s kupcem iz vaše tvrtke.
+            Radni nalog mora biti povezan s investitorom iz vaše tvrtke.
           </p>
 
           <button
@@ -1194,13 +1194,13 @@ export function NewWorkOrderPage() {
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white">
-          1. Kupac i lokacija
+          1. Investitor i lokacija
         </h2>
 
         <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <label className="md:col-span-2">
             <span className="text-sm font-semibold text-slate-300">
-              Kupac
+              Investitor
             </span>
 
             <select
@@ -1214,7 +1214,7 @@ export function NewWorkOrderPage() {
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
             >
               <option value="">
-                Odaberi kupca
+                Odaberi investitora
               </option>
 
               {customers
@@ -2114,7 +2114,7 @@ export function NewWorkOrderPage() {
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Spremit će se naziv radnog naloga, opis, prioritet i popis materijala. Kupac, datum, radnici, potpis i fotografije se ne spremaju.
+              Spremit će se naziv radnog naloga, opis, prioritet i popis materijala. Investitor, datum, radnici, potpis i fotografije se ne spremaju.
             </p>
 
             <label className="mt-5 block">

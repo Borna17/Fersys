@@ -262,7 +262,7 @@ async function openOfferEmailDraft(
 
   if (!recipient) {
     window.alert(
-      'Ponuda je spremljena, ali kupac nema unesenu e-mail adresu.',
+      'Ponuda je spremljena, ali investitor nema unesenu e-mail adresu.',
     )
     return
   }
@@ -748,7 +748,7 @@ export function NewOfferPage() {
     }
 
     if (!customerName.trim()) {
-      nextErrors.customerName = 'Unesi ili odaberi kupca.'
+      nextErrors.customerName = 'Unesi ili odaberi investitora.'
     }
 
     if (
@@ -1165,15 +1165,15 @@ export function NewOfferPage() {
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-xl shadow-black/5 lg:p-6">
             <div className="border-b border-slate-800 pb-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-violet-400">
-                Kupac
+                Investitor
               </p>
 
               <h2 className="mt-1 text-xl font-black text-white">
-                Podaci kupca
+                Podaci investitora
               </h2>
 
               <p className="mt-2 text-sm text-slate-500">
-                Pretraži postojećeg kupca ili ručno unesi novog.
+                Pretraži postojećeg investitora ili ručno unesi novog.
               </p>
             </div>
 
@@ -1191,7 +1191,7 @@ export function NewOfferPage() {
                   setCustomerSearch(event.target.value)
                   setShowCustomerResults(true)
                 }}
-                placeholder="Pretraži kupca po nazivu, OIB-u, e-mailu ili adresi..."
+                placeholder="Pretraži investitora po nazivu, OIB-u, e-mailu ili adresi..."
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3.5 pl-12 pr-12 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
               />
 
@@ -1257,7 +1257,7 @@ export function NewOfferPage() {
             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Vrsta kupca
+                  Vrsta investitora
                 </label>
 
                 <select
@@ -1288,7 +1288,7 @@ export function NewOfferPage() {
                   onChange={(event) =>
                     setCustomerName(event.target.value)
                   }
-                  placeholder="Unesi naziv kupca"
+                  placeholder="Unesi naziv investitora"
                   className={`w-full rounded-xl border bg-slate-950 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 ${
                     errors.customerName
                       ? 'border-red-500'
@@ -1344,7 +1344,7 @@ export function NewOfferPage() {
                   onChange={(event) =>
                     setEmail(event.target.value)
                   }
-                  placeholder="kupac@email.hr"
+                  placeholder="investitor@email.hr"
                   className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500"
                 />
               </div>
@@ -1923,7 +1923,7 @@ export function NewOfferPage() {
             <dl className="mt-5 space-y-4 text-sm">
               <div>
                 <dt className="text-xs font-bold uppercase tracking-wider text-slate-600">
-                  Kupac
+                  Investitor
                 </dt>
                 <dd className="mt-1 font-bold text-slate-200">
                   {customerName || 'Nije odabran'}

@@ -1214,7 +1214,7 @@ export default function DocumentLivePreview({
                 />
 
                 <CustomSelectField
-                  label="Prikaz podataka kupca"
+                  label="Prikaz podataka investitora"
                   value={customDraft.customInfoStyle}
                   options={[
                     ['cards', 'Kartice'],

@@ -935,7 +935,7 @@ export function CalendarPage() {
                 calendarEvent.location,
               description: [
                 calendarEvent.customer
-                  ? `Kupac: ${calendarEvent.customer}`
+                  ? `Investitor: ${calendarEvent.customer}`
                   : '',
                 calendarEvent.workers
                   ? `Radnici: ${calendarEvent.workers}`
@@ -1562,7 +1562,7 @@ export function CalendarPage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <label>
                   <span className="mb-2 block text-sm font-semibold text-slate-300">
-                    Kupac
+                    Investitor
                   </span>
 
                   <input
@@ -1580,7 +1580,7 @@ export function CalendarPage() {
                         }),
                       )
                     }
-                    placeholder="Ime kupca ili tvrtke"
+                    placeholder="Ime investitora ili tvrtke"
                     className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
                   />
                 </label>

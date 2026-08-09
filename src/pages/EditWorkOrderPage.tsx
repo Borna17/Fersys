@@ -798,7 +798,7 @@ export function EditWorkOrderPage() {
 
     if (!customerId) {
       alert(
-        'Odaberite kupca.',
+        'Odaberite investitora.',
       )
       return
     }
@@ -1097,13 +1097,13 @@ export function EditWorkOrderPage() {
 
       <section className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
         <h2 className="text-xl font-bold text-white">
-          1. Kupac i lokacija
+          1. Investitor i lokacija
         </h2>
 
         <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
           <label className="md:col-span-2">
             <span className="text-sm font-semibold text-slate-300">
-              Kupac
+              Investitor
             </span>
 
             <select
@@ -1119,7 +1119,7 @@ export function EditWorkOrderPage() {
               className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
             >
               <option value="">
-                Odaberi kupca
+                Odaberi investitora
               </option>
 
               {customers.map(
