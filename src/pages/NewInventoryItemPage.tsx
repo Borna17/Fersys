@@ -34,6 +34,16 @@ import {
 } from '../services/inventory.service'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
+
 const DEFAULT_CATEGORIES = [
   'Odvodnja',
   'Voda',
@@ -254,6 +264,22 @@ function FieldLabel({
 }
 
 export function NewInventoryItemPage() {
+
+  const [
+    autosaveState,
+    setAutosaveState,
+  ] = useState<DraftAutosaveState>('idle')
+
+  const [
+    autosaveText,
+    setAutosaveText,
+  ] = useState('')
+
+  const [
+    draftReady,
+    setDraftReady,
+  ] = useState(false)
+
   const navigate = useNavigate()
   const { id } = useParams()
   const { can } = useAuth()
@@ -400,6 +426,160 @@ export function NewInventoryItemPage() {
     }
   }, [id])
 
+
+
+  useEffect(() => {
+    if (id) {
+      setDraftReady(true)
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const draft =
+          await loadUserDraft<any>(
+            'inventory-item',
+            'new',
+          )
+
+        if (
+          cancelled ||
+          !draft
+        ) {
+          return
+        }
+
+        const value =
+          draft.payload ?? {}
+
+        setForm({
+          ...INITIAL_FORM,
+          ...(value.form ?? {}),
+        })
+
+        setMainImage(value.mainImage ?? '')
+
+        setAdditionalImages(
+          Array.isArray(value.additionalImages)
+            ? value.additionalImages
+            : [],
+        )
+
+        if (
+          Array.isArray(
+            value.locationQuantities,
+          )
+        ) {
+          setLocationQuantities(
+            value.locationQuantities,
+          )
+        }
+
+        setAutosaveState('restored')
+        setAutosaveText(
+          `Nastavljen nedovršeni artikl · ${formatDraftSavedAt(
+            draft.updatedAt,
+          )}`,
+        )
+      } finally {
+        if (!cancelled) {
+          setDraftReady(true)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
+  useEffect(() => {
+    if (
+      !draftReady ||
+      id
+    ) {
+      return
+    }
+
+    const hasContent =
+      Boolean(
+        form.name.trim() ||
+        form.shortName.trim() ||
+        form.barcode.trim() ||
+        form.description.trim() ||
+        mainImage ||
+        additionalImages.length ||
+        locationQuantities.some(
+          (location) =>
+            location.quantity.trim(),
+        ),
+      )
+
+    if (!hasContent) {
+      return
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        void (async () => {
+          setAutosaveState('saving')
+
+          const savedAt =
+            await saveUserDraft(
+              'inventory-item',
+              'new',
+              {
+                form,
+                mainImage,
+                additionalImages,
+                locationQuantities,
+              },
+            )
+
+          setAutosaveState(
+            navigator.onLine
+              ? 'saved'
+              : 'offline',
+          )
+
+          setAutosaveText(
+            formatDraftSavedAt(
+              savedAt,
+            ),
+          )
+        })()
+      }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    draftReady,
+    id,
+    form,
+    mainImage,
+    additionalImages,
+    locationQuantities,
+  ])
+
+  async function discardInventoryDraft() {
+    if (
+      !window.confirm(
+        'Odbaciti nedovršeni artikl?',
+      )
+    ) {
+      return
+    }
+
+    await deleteUserDraft(
+      'inventory-item',
+      'new',
+    )
+
+    window.location.reload()
+  }
   const availableSubcategories = useMemo(
     () =>
       DEFAULT_SUBCATEGORIES[form.category] ?? [],
@@ -741,6 +921,17 @@ export function NewInventoryItemPage() {
       onSubmit={handleSubmit}
       className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8"
     >
+      <DraftAutosaveBadge
+        state={autosaveState}
+        text={autosaveText}
+        onDiscard={
+          !id &&
+          autosaveState !== 'idle'
+            ? () =>
+                void discardInventoryDraft()
+            : undefined
+        }
+      />
       <div className="mx-auto max-w-[1300px]">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">

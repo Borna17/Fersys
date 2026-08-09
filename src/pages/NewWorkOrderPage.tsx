@@ -47,6 +47,16 @@ import type {
 } from '../types/workOrder'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
+
 function calculateDuration(
   arrival: string,
   departure: string,
@@ -296,6 +306,22 @@ export function NewWorkOrderPage() {
     setIsSavingTemplate,
   ] = useState(false)
 
+  const [
+    autosaveState,
+    setAutosaveState,
+  ] = useState<DraftAutosaveState>('idle')
+
+  const [
+    autosaveText,
+    setAutosaveText,
+  ] = useState('')
+
+  const [
+    draftReady,
+    setDraftReady,
+  ] = useState(false)
+
+
   useEffect(() => {
     let cancelled = false
 
@@ -473,6 +499,220 @@ export function NewWorkOrderPage() {
       templateSearch,
     ])
 
+
+
+  useEffect(() => {
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const draft =
+          await loadUserDraft<any>(
+            'work-order',
+            'new',
+          )
+
+        if (
+          cancelled ||
+          !draft
+        ) {
+          return
+        }
+
+        const value =
+          draft.payload ?? {}
+
+        setCustomerId(value.customerId ?? '')
+        setCustomerName(value.customerName ?? '')
+        setCustomerContactPerson(
+          value.customerContactPerson ?? '',
+        )
+        setCustomerPhone(value.customerPhone ?? '')
+        setCustomerEmail(value.customerEmail ?? '')
+        setCustomerOib(value.customerOib ?? '')
+        setAddress(value.address ?? '')
+        setDate(value.date ?? date)
+        setArrivalTime(value.arrivalTime ?? '')
+        setDepartureTime(value.departureTime ?? '')
+        setStatus(value.status ?? 'Novi')
+        setPriority(value.priority ?? 'Normalan')
+        setTitle(value.title ?? '')
+        setDescription(value.description ?? '')
+        setAssignedWorkers(
+          Array.isArray(value.assignedWorkers)
+            ? value.assignedWorkers
+            : [],
+        )
+        setMaterials(
+          Array.isArray(value.materials)
+            ? value.materials
+            : [],
+        )
+        setLabourPrice(value.labourPrice ?? '0')
+        setVatRate(value.vatRate ?? '25')
+        setPriceNote(value.priceNote ?? '')
+        setInvestorName(value.investorName ?? '')
+        setInvestorSignature(
+          value.investorSignature ?? '',
+        )
+        setImages(
+          Array.isArray(value.images)
+            ? value.images
+            : [],
+        )
+        setSelectedTemplateId(
+          value.selectedTemplateId ?? '',
+        )
+
+        setAutosaveState('restored')
+        setAutosaveText(
+          `Nastavljen nedovršeni radni nalog · ${formatDraftSavedAt(
+            draft.updatedAt,
+          )}`,
+        )
+      } catch (error) {
+        console.error(
+          'Nacrt radnog naloga nije moguće učitati:',
+          error,
+        )
+      } finally {
+        if (!cancelled) {
+          setDraftReady(true)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!draftReady) {
+      return
+    }
+
+    const hasContent =
+      Boolean(
+        customerId ||
+        title.trim() ||
+        description.trim() ||
+        materials.length ||
+        images.length ||
+        investorSignature,
+      )
+
+    if (!hasContent) {
+      return
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        void (async () => {
+          try {
+            setAutosaveState('saving')
+
+            const savedAt =
+              await saveUserDraft(
+                'work-order',
+                'new',
+                {
+                  customerId,
+                  customerName,
+                  customerContactPerson,
+                  customerPhone,
+                  customerEmail,
+                  customerOib,
+                  address,
+                  date,
+                  arrivalTime,
+                  departureTime,
+                  status,
+                  priority,
+                  title,
+                  description,
+                  assignedWorkers,
+                  materials,
+                  labourPrice,
+                  vatRate,
+                  priceNote,
+                  investorName,
+                  investorSignature,
+                  images,
+                  selectedTemplateId,
+                },
+              )
+
+            setAutosaveState(
+              navigator.onLine
+                ? 'saved'
+                : 'offline',
+            )
+
+            setAutosaveText(
+              formatDraftSavedAt(
+                savedAt,
+              ),
+            )
+          } catch (error) {
+            console.error(
+              'Autosave radnog naloga nije uspio:',
+              error,
+            )
+            setAutosaveState('offline')
+            setAutosaveText(
+              'Nacrt je spremljen lokalno.',
+            )
+          }
+        })()
+      }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    draftReady,
+    customerId,
+    customerName,
+    customerContactPerson,
+    customerPhone,
+    customerEmail,
+    customerOib,
+    address,
+    date,
+    arrivalTime,
+    departureTime,
+    status,
+    priority,
+    title,
+    description,
+    assignedWorkers,
+    materials,
+    labourPrice,
+    vatRate,
+    priceNote,
+    investorName,
+    investorSignature,
+    images,
+    selectedTemplateId,
+  ])
+
+  async function discardWorkOrderDraft() {
+    if (
+      !window.confirm(
+        'Odbaciti nedovršeni radni nalog?',
+      )
+    ) {
+      return
+    }
+
+    await deleteUserDraft(
+      'work-order',
+      'new',
+    )
+
+    window.location.reload()
+  }
   const durationMinutes =
     useMemo(
       () =>
@@ -1128,6 +1368,16 @@ export function NewWorkOrderPage() {
       onSubmit={submit}
       className="mx-auto w-full max-w-[1500px] space-y-6"
     >
+      <DraftAutosaveBadge
+        state={autosaveState}
+        text={autosaveText}
+        onDiscard={
+          autosaveState !== 'idle'
+            ? () =>
+                void discardWorkOrderDraft()
+            : undefined
+        }
+      />
       <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
         <div>
           <button

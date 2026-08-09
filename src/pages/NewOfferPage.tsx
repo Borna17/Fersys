@@ -29,6 +29,16 @@ import {
 } from 'lucide-react'
 
 import FersysLoader from '../components/FersysLoader'
+
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
 import OfferTemplatesPanel from '../components/OfferTemplatesPanel'
 import {
   createOffer,
@@ -325,6 +335,22 @@ async function openOfferEmailDraft(
 }
 
 export function NewOfferPage() {
+
+  const [
+    autosaveState,
+    setAutosaveState,
+  ] = useState<DraftAutosaveState>('idle')
+
+  const [
+    autosaveText,
+    setAutosaveText,
+  ] = useState('')
+
+  const [
+    draftReady,
+    setDraftReady,
+  ] = useState(false)
+
   const navigate = useNavigate()
   const { offerId } = useParams<{ offerId: string }>()
   const [searchParams] = useSearchParams()
@@ -375,6 +401,197 @@ export function NewOfferPage() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saveMessage, setSaveMessage] = useState('')
 
+
+
+  useEffect(() => {
+    if (
+      offerId ||
+      duplicateId
+    ) {
+      setDraftReady(true)
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const draft =
+          await loadUserDraft<any>(
+            'offer',
+            'new',
+          )
+
+        if (
+          cancelled ||
+          !draft
+        ) {
+          return
+        }
+
+        const value =
+          draft.payload ?? {}
+
+        setDate(value.date ?? date)
+        setValidUntil(value.validUntil ?? validUntil)
+        setCustomerId(value.customerId ?? '')
+        setCustomerType(value.customerType ?? 'Fizička osoba')
+        setCustomerName(value.customerName ?? '')
+        setOib(value.oib ?? '')
+        setEmail(value.email ?? '')
+        setPhone(value.phone ?? '')
+        setAddress(value.address ?? '')
+        setPostalCode(value.postalCode ?? '')
+        setCity(value.city ?? 'Slavonski Brod')
+        setDescription(value.description ?? '')
+        setInternalNote(value.internalNote ?? '')
+        setPaymentTerms(
+          value.paymentTerms ??
+            'Plaćanje po završetku radova.',
+        )
+        setResponsiblePerson(
+          value.responsiblePerson ??
+            responsiblePerson,
+        )
+        setItems(
+          Array.isArray(value.items) &&
+          value.items.length
+            ? value.items
+            : [createEmptyItem()],
+        )
+        setCustomerSearch(
+          value.customerSearch ??
+            value.customerName ??
+            '',
+        )
+
+        setAutosaveState('restored')
+        setAutosaveText(
+          `Nastavljena nedovršena ponuda · ${formatDraftSavedAt(
+            draft.updatedAt,
+          )}`,
+        )
+      } finally {
+        if (!cancelled) {
+          setDraftReady(true)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [offerId, duplicateId])
+
+  useEffect(() => {
+    if (
+      !draftReady ||
+      offerId ||
+      duplicateId
+    ) {
+      return
+    }
+
+    const hasContent =
+      Boolean(
+        customerName.trim() ||
+        description.trim() ||
+        items.some(
+          (item) =>
+            item.name.trim(),
+        ),
+      )
+
+    if (!hasContent) {
+      return
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        void (async () => {
+          setAutosaveState('saving')
+
+          const savedAt =
+            await saveUserDraft(
+              'offer',
+              'new',
+              {
+                date,
+                validUntil,
+                customerId,
+                customerType,
+                customerName,
+                oib,
+                email,
+                phone,
+                address,
+                postalCode,
+                city,
+                description,
+                internalNote,
+                paymentTerms,
+                responsiblePerson,
+                items,
+                customerSearch,
+              },
+            )
+
+          setAutosaveState(
+            navigator.onLine
+              ? 'saved'
+              : 'offline',
+          )
+
+          setAutosaveText(
+            formatDraftSavedAt(
+              savedAt,
+            ),
+          )
+        })()
+      }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    draftReady,
+    offerId,
+    duplicateId,
+    date,
+    validUntil,
+    customerId,
+    customerType,
+    customerName,
+    oib,
+    email,
+    phone,
+    address,
+    postalCode,
+    city,
+    description,
+    internalNote,
+    paymentTerms,
+    responsiblePerson,
+    items,
+    customerSearch,
+  ])
+
+  async function discardOfferDraft() {
+    if (
+      !window.confirm(
+        'Odbaciti nedovršenu ponudu?',
+      )
+    ) {
+      return
+    }
+
+    await deleteUserDraft(
+      'offer',
+      'new',
+    )
+
+    window.location.reload()
+  }
   const isEditing = Boolean(editingOffer)
   const isDuplicating = Boolean(duplicateSource)
 
@@ -918,7 +1135,17 @@ export function NewOfferPage() {
         ? await updateOffer(editingOffer.id, payload)
         : await createOffer(payload)
 
-      setOfferNumber(savedOffer.offerNumber)
+            if (
+        !isEditing &&
+        !isDuplicating
+      ) {
+        await deleteUserDraft(
+          'offer',
+          'new',
+        )
+      }
+
+setOfferNumber(savedOffer.offerNumber)
       setSaveMessage(
         isEditing
           ? 'Promjene ponude su spremljene.'
@@ -977,6 +1204,18 @@ export function NewOfferPage() {
   }
   return (
     <section className="mx-auto w-full max-w-[1800px] pb-12">
+      <DraftAutosaveBadge
+        state={autosaveState}
+        text={autosaveText}
+        onDiscard={
+          !isEditing &&
+          !isDuplicating &&
+          autosaveState !== 'idle'
+            ? () =>
+                void discardOfferDraft()
+            : undefined
+        }
+      />
       <div className="sticky top-0 z-30 -mx-3 border-b border-slate-800 bg-slate-950/90 px-3 py-3 backdrop-blur-xl sm:-mx-5 sm:px-5 lg:-mx-8 lg:px-8">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">

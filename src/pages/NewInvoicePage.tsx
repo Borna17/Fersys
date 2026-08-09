@@ -20,6 +20,16 @@ import { openInvoicePdf } from '../utils/invoicePdf'
 import { getCustomers } from '../services/customers.service'
 import type { Customer as CompanyCustomer } from '../types/customer'
 
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
+
 type InvoiceStatus =
   | 'Nacrt'
   | 'Izdano'
@@ -245,6 +255,22 @@ function customerIcon(type: CustomerType) {
 }
 
 export function NewInvoicePage() {
+
+  const [
+    autosaveState,
+    setAutosaveState,
+  ] = useState<DraftAutosaveState>('idle')
+
+  const [
+    autosaveText,
+    setAutosaveText,
+  ] = useState('')
+
+  const [
+    draftReady,
+    setDraftReady,
+  ] = useState(false)
+
   const navigate = useNavigate()
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const [searchParams] = useSearchParams()
@@ -403,6 +429,212 @@ export function NewInvoicePage() {
     }
   }, [])
 
+
+
+  useEffect(() => {
+    if (
+      isEditing ||
+      isDuplicating ||
+      sourceOffer
+    ) {
+      setDraftReady(true)
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const draft =
+          await loadUserDraft<any>(
+            'invoice',
+            'new',
+          )
+
+        if (
+          cancelled ||
+          !draft
+        ) {
+          return
+        }
+
+        const value =
+          draft.payload ?? {}
+
+        setInvoiceNumber(value.invoiceNumber ?? invoiceNumber)
+        setIssueDate(value.issueDate ?? issueDate)
+        setServiceDate(value.serviceDate ?? serviceDate)
+        setDueDate(value.dueDate ?? dueDate)
+        setCustomerType(value.customerType ?? 'Fizička osoba')
+        setCustomerName(value.customerName ?? '')
+        setOib(value.oib ?? '')
+        setEmail(value.email ?? '')
+        setPhone(value.phone ?? '')
+        setAddress(value.address ?? '')
+        setCity(value.city ?? 'Slavonski Brod')
+        setResponsiblePerson(
+          value.responsiblePerson ??
+            responsiblePerson,
+        )
+        setDescription(value.description ?? '')
+        setInternalNote(value.internalNote ?? '')
+        setPaymentMethod(
+          value.paymentMethod ??
+            'Transakcijski račun',
+        )
+        setPaymentModel(value.paymentModel ?? 'HR00')
+        setPaymentReference(
+          value.paymentReference ??
+            paymentReference,
+        )
+        setIban(value.iban ?? '')
+        setItems(
+          Array.isArray(value.items) &&
+          value.items.length
+            ? value.items
+            : [createEmptyItem()],
+        )
+        setCustomerSearch(
+          value.customerSearch ??
+            value.customerName ??
+            '',
+        )
+
+        setAutosaveState('restored')
+        setAutosaveText(
+          `Nastavljen nedovršeni račun · ${formatDraftSavedAt(
+            draft.updatedAt,
+          )}`,
+        )
+      } finally {
+        if (!cancelled) {
+          setDraftReady(true)
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (
+      !draftReady ||
+      isEditing ||
+      isDuplicating ||
+      sourceOffer
+    ) {
+      return
+    }
+
+    const hasContent =
+      Boolean(
+        customerName.trim() ||
+        description.trim() ||
+        items.some(
+          (item) =>
+            item.name.trim(),
+        ),
+      )
+
+    if (!hasContent) {
+      return
+    }
+
+    const timer =
+      window.setTimeout(() => {
+        void (async () => {
+          setAutosaveState('saving')
+
+          const savedAt =
+            await saveUserDraft(
+              'invoice',
+              'new',
+              {
+                invoiceNumber,
+                issueDate,
+                serviceDate,
+                dueDate,
+                customerType,
+                customerName,
+                oib,
+                email,
+                phone,
+                address,
+                city,
+                responsiblePerson,
+                description,
+                internalNote,
+                paymentMethod,
+                paymentModel,
+                paymentReference,
+                iban,
+                items,
+                customerSearch,
+              },
+            )
+
+          setAutosaveState(
+            navigator.onLine
+              ? 'saved'
+              : 'offline',
+          )
+
+          setAutosaveText(
+            formatDraftSavedAt(
+              savedAt,
+            ),
+          )
+        })()
+      }, 1200)
+
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [
+    draftReady,
+    isEditing,
+    isDuplicating,
+    sourceOffer,
+    invoiceNumber,
+    issueDate,
+    serviceDate,
+    dueDate,
+    customerType,
+    customerName,
+    oib,
+    email,
+    phone,
+    address,
+    city,
+    responsiblePerson,
+    description,
+    internalNote,
+    paymentMethod,
+    paymentModel,
+    paymentReference,
+    iban,
+    items,
+    customerSearch,
+  ])
+
+  async function discardInvoiceDraft() {
+    if (
+      !window.confirm(
+        'Odbaciti nedovršeni račun?',
+      )
+    ) {
+      return
+    }
+
+    await deleteUserDraft(
+      'invoice',
+      'new',
+    )
+
+    window.location.reload()
+  }
   const customerSuggestions = useMemo(() => {
     const map = new Map<string, CustomerSuggestion>()
 
@@ -697,6 +929,17 @@ export function NewInvoicePage() {
       : [savedInvoice, ...current]
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+
+    if (
+      !isEditing &&
+      !isDuplicating &&
+      !sourceOffer
+    ) {
+      void deleteUserDraft(
+        'invoice',
+        'new',
+      )
+    }
     setSaveMessage(
       isEditing
         ? 'Promjene računa su spremljene.'
@@ -710,6 +953,19 @@ export function NewInvoicePage() {
 
   return (
     <section className="min-h-screen bg-slate-950 px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
+      <DraftAutosaveBadge
+        state={autosaveState}
+        text={autosaveText}
+        onDiscard={
+          !isEditing &&
+          !isDuplicating &&
+          !sourceOffer &&
+          autosaveState !== 'idle'
+            ? () =>
+                void discardInvoiceDraft()
+            : undefined
+        }
+      />
       <div className="mx-auto max-w-[1500px]">
         <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
