@@ -23,15 +23,18 @@ import type {
 import {
   getWorkOrderBrandingFromCompanySettings,
   mapCompanySettingsToWorkOrderBranding,
+  saveWorkOrderBranding,
   saveWorkOrderLayout,
 } from '../../services/workOrderBranding.service'
 
 import type {
   PdfLayout,
   WorkOrder,
+  WorkOrderBranding,
 } from '../../types/workOrder'
 
 import {
+  buildWorkOrderPdfHtml,
   getWorkOrderPdfBlobUrl,
 } from '../../utils/workOrderPdf'
 
@@ -648,10 +651,26 @@ export default function DocumentLivePreview({
     useState(78)
 
   const [
-    workOrderUrl,
-    setWorkOrderUrl,
+    savedBranding,
+    setSavedBranding,
   ] =
-    useState('')
+    useState<WorkOrderBranding | null>(
+      null,
+    )
+
+  const [
+    customDraft,
+    setCustomDraft,
+  ] =
+    useState<WorkOrderBranding | null>(
+      null,
+    )
+
+  const [
+    isSavingCustom,
+    setIsSavingCustom,
+  ] =
+    useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -683,6 +702,14 @@ export default function DocumentLivePreview({
         setSelectedLayout(
           nextLayout,
         )
+
+        setSavedBranding(
+          branding,
+        )
+
+        setCustomDraft(
+          branding,
+        )
       } catch (error) {
         console.error(
           'Izgled radnog naloga nije moguće učitati:',
@@ -706,17 +733,50 @@ export default function DocumentLivePreview({
 
   const workOrderBranding =
     useMemo(
-      () => ({
-        ...mapCompanySettingsToWorkOrderBranding(
-          settings,
-        ),
+      () => {
+        const base =
+          mapCompanySettingsToWorkOrderBranding(
+            settings,
+          )
 
-        layout:
-          selectedLayout,
-      }),
+        if (
+          selectedLayout === 'custom' &&
+          customDraft
+        ) {
+          return {
+            ...base,
+            ...customDraft,
+            layout: 'custom' as const,
+          }
+        }
+
+        return {
+          ...base,
+          ...(savedBranding ?? {}),
+          layout:
+            selectedLayout,
+        }
+      },
       [
         settings,
         selectedLayout,
+        customDraft,
+        savedBranding,
+      ],
+    )
+
+  const workOrderHtml =
+    useMemo(
+      () =>
+        buildWorkOrderPdfHtml(
+          makeDemoWorkOrder(
+            settings,
+          ),
+          workOrderBranding,
+        ),
+      [
+        settings,
+        workOrderBranding,
       ],
     )
 
@@ -744,64 +804,6 @@ export default function DocumentLivePreview({
       [settings],
     )
 
-  useEffect(() => {
-    const order =
-      makeDemoWorkOrder(
-        settings,
-      )
-
-    let disposed =
-      false
-
-    let currentUrl = ''
-
-    setWorkOrderUrl('')
-
-    void (async () => {
-      try {
-        const url =
-          await getWorkOrderPdfBlobUrl(
-            order,
-            workOrderBranding,
-          )
-
-        currentUrl =
-          String(url)
-
-        if (!disposed) {
-          setWorkOrderUrl(
-            currentUrl,
-          )
-        }
-      } catch (error) {
-        console.error(
-          'Preview radnog naloga nije moguće generirati:',
-          error,
-        )
-
-        if (!disposed) {
-          setWorkOrderUrl('')
-        }
-      }
-    })()
-
-    return () => {
-      disposed = true
-
-      if (currentUrl) {
-        try {
-          URL.revokeObjectURL(
-            currentUrl,
-          )
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, [
-    settings,
-    workOrderBranding,
-  ])
 
   async function selectLayout(
     layout: Exclude<PdfLayout, 'minimal'>,
@@ -830,6 +832,23 @@ export default function DocumentLivePreview({
       await saveWorkOrderLayout(
         layout,
       )
+
+      const nextBranding = {
+        ...workOrderBranding,
+        layout,
+      }
+
+      setSavedBranding(
+        nextBranding,
+      )
+
+      if (
+        layout === 'custom'
+      ) {
+        setCustomDraft(
+          nextBranding,
+        )
+      }
 
       setLayoutMessage(
         `Izgled ${layoutOptions.find(
@@ -863,17 +882,95 @@ export default function DocumentLivePreview({
     }
   }
 
+  function updateCustom<
+    Key extends keyof WorkOrderBranding,
+  >(
+    key: Key,
+    value: WorkOrderBranding[Key],
+  ) {
+    setCustomDraft(
+      (current) => ({
+        ...(current ??
+          workOrderBranding),
+        [key]: value,
+        layout: 'custom',
+      }),
+    )
+  }
+
+  async function saveCustomSettings() {
+    if (
+      !customDraft ||
+      isSavingCustom
+    ) {
+      return
+    }
+
+    try {
+      setIsSavingCustom(true)
+      setLayoutMessage('')
+
+      const saved =
+        await saveWorkOrderBranding({
+          ...customDraft,
+          layout: 'custom',
+        })
+
+      setSavedBranding(saved)
+      setCustomDraft(saved)
+      setSelectedLayout('custom')
+
+      setLayoutMessage(
+        'Custom izgled je spremljen za ovu tvrtku.',
+      )
+    } catch (error) {
+      console.error(
+        'Custom izgled nije moguće spremiti:',
+        error,
+      )
+
+      setLayoutMessage(
+        'Custom izgled nije moguće spremiti.',
+      )
+    } finally {
+      setIsSavingCustom(false)
+    }
+  }
+
   function openPreview() {
     if (
       activeType ===
       'work-order'
     ) {
-      if (workOrderUrl) {
-        window.open(
-          workOrderUrl,
-          '_blank',
-        )
-      }
+      void (async () => {
+        try {
+          const url =
+            await getWorkOrderPdfBlobUrl(
+              makeDemoWorkOrder(
+                settings,
+              ),
+              workOrderBranding,
+            )
+
+          window.open(
+            url,
+            '_blank',
+          )
+
+          window.setTimeout(
+            () =>
+              URL.revokeObjectURL(
+                url,
+              ),
+            60_000,
+          )
+        } catch (error) {
+          console.error(
+            'Probni PDF nije moguće otvoriti:',
+            error,
+          )
+        }
+      })()
 
       return
     }
@@ -1011,6 +1108,250 @@ export default function DocumentLivePreview({
             {layoutMessage}
           </div>
         )}
+
+        {selectedLayout === 'custom' &&
+          customDraft && (
+            <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-300">
+                    Custom editor
+                  </p>
+
+                  <h3 className="mt-1 text-lg font-black text-white">
+                    Napravi izgled samo za ovu firmu
+                  </h3>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Promjene se odmah vide u pregledu. Klikni Spremi custom izgled kada završiš.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={isSavingCustom}
+                  onClick={() =>
+                    void saveCustomSettings()
+                  }
+                  className="h-11 rounded-xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-500 disabled:opacity-50"
+                >
+                  {isSavingCustom
+                    ? 'Spremanje...'
+                    : 'Spremi custom izgled'}
+                </button>
+              </div>
+
+              <div className="mt-5 grid gap-4 md:grid-cols-2">
+                <CustomTextField
+                  label="Naziv dokumenta"
+                  value={customDraft.customDocumentTitle}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customDocumentTitle',
+                      value,
+                    )
+                  }
+                />
+
+                <CustomSelectField
+                  label="Poravnanje zaglavlja"
+                  value={customDraft.headerAlignment}
+                  options={[
+                    ['left', 'Lijevo'],
+                    ['center', 'Sredina'],
+                    ['right', 'Desno'],
+                  ]}
+                  onChange={(value) =>
+                    updateCustom(
+                      'headerAlignment',
+                      value as WorkOrderBranding['headerAlignment'],
+                    )
+                  }
+                />
+
+                <CustomTextField
+                  label="Naziv sekcije opisa"
+                  value={customDraft.customDescriptionLabel}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customDescriptionLabel',
+                      value,
+                    )
+                  }
+                />
+
+                <CustomTextField
+                  label="Naziv sekcije materijala"
+                  value={customDraft.customMaterialsLabel}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customMaterialsLabel',
+                      value,
+                    )
+                  }
+                />
+
+                <CustomTextField
+                  label="Naziv sekcije fotografija"
+                  value={customDraft.customPhotosLabel}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customPhotosLabel',
+                      value,
+                    )
+                  }
+                />
+
+                <CustomTextField
+                  label="Naziv potpisa i ovjere"
+                  value={customDraft.customSignatureLabel}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customSignatureLabel',
+                      value,
+                    )
+                  }
+                />
+
+                <CustomSelectField
+                  label="Prikaz podataka kupca"
+                  value={customDraft.customInfoStyle}
+                  options={[
+                    ['cards', 'Kartice'],
+                    ['compact', 'Kompaktno'],
+                  ]}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customInfoStyle',
+                      value as WorkOrderBranding['customInfoStyle'],
+                    )
+                  }
+                />
+
+                <CustomSelectField
+                  label="Prikaz materijala"
+                  value={customDraft.customMaterialStyle}
+                  options={[
+                    ['table', 'Tablica'],
+                    ['list', 'Popis / kartice'],
+                  ]}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customMaterialStyle',
+                      value as WorkOrderBranding['customMaterialStyle'],
+                    )
+                  }
+                />
+
+                <CustomSelectField
+                  label="Redoslijed sekcija"
+                  value={customDraft.customSectionOrder}
+                  options={[
+                    ['description-first', 'Opis pa materijal'],
+                    ['materials-first', 'Materijal pa opis'],
+                  ]}
+                  onChange={(value) =>
+                    updateCustom(
+                      'customSectionOrder',
+                      value as WorkOrderBranding['customSectionOrder'],
+                    )
+                  }
+                />
+
+                <div className="grid grid-cols-2 gap-3">
+                  <CustomColorField
+                    label="Glavna boja"
+                    value={customDraft.primaryColor}
+                    onChange={(value) =>
+                      updateCustom(
+                        'primaryColor',
+                        value,
+                      )
+                    }
+                  />
+
+                  <CustomColorField
+                    label="Sekundarna boja"
+                    value={customDraft.secondaryColor}
+                    onChange={(value) =>
+                      updateCustom(
+                        'secondaryColor',
+                        value,
+                      )
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <CustomToggle
+                  label="Prikaži logo"
+                  checked={customDraft.showLogo}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showLogo',
+                      checked,
+                    )
+                  }
+                />
+
+                <CustomToggle
+                  label="Prikaži pečat"
+                  checked={customDraft.showStamp}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showStamp',
+                      checked,
+                    )
+                  }
+                />
+
+                <CustomToggle
+                  label="Prikaži OIB"
+                  checked={customDraft.showCompanyOib}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showCompanyOib',
+                      checked,
+                    )
+                  }
+                />
+
+                <CustomToggle
+                  label="Prikaži IBAN"
+                  checked={customDraft.showCompanyIban}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showCompanyIban',
+                      checked,
+                    )
+                  }
+                />
+
+                <CustomToggle
+                  label="Prikaži telefon"
+                  checked={customDraft.showCompanyPhone}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showCompanyPhone',
+                      checked,
+                    )
+                  }
+                />
+
+                <CustomToggle
+                  label="Prikaži e-mail"
+                  checked={customDraft.showCompanyEmail}
+                  onChange={(checked) =>
+                    updateCustom(
+                      'showCompanyEmail',
+                      checked,
+                    )
+                  }
+                />
+              </div>
+            </div>
+          )}
       </div>
 
       <div className="border-b border-slate-800 p-4 sm:p-5">
@@ -1142,19 +1483,11 @@ export default function DocumentLivePreview({
         >
           {activeType ===
           'work-order' ? (
-            workOrderUrl ? (
-              <iframe
-                title="Preview radnog naloga"
-                src={
-                  workOrderUrl
-                }
-                className="h-[1123px] w-[794px] border-0 bg-white shadow-2xl"
-              />
-            ) : (
-              <div className="grid h-[1123px] w-[794px] place-items-center bg-white text-slate-500">
-                Učitavanje pregleda...
-              </div>
-            )
+            <iframe
+              title="Preview radnog naloga"
+              srcDoc={workOrderHtml}
+              className="h-[1123px] w-[794px] border-0 bg-white shadow-2xl"
+            />
           ) : (
             <iframe
               title={
@@ -1175,5 +1508,129 @@ export default function DocumentLivePreview({
         </div>
       </div>
     </section>
+  )
+}
+
+
+function CustomTextField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      <input
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-semibold text-white outline-none focus:border-violet-500"
+      />
+    </label>
+  )
+}
+
+function CustomSelectField({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: string
+  options: Array<[string, string]>
+  onChange: (value: string) => void
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      <select
+        value={value}
+        onChange={(event) =>
+          onChange(event.target.value)
+        }
+        className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-semibold text-white outline-none focus:border-violet-500"
+      >
+        {options.map(([optionValue, optionLabel]) => (
+          <option
+            key={optionValue}
+            value={optionValue}
+          >
+            {optionLabel}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function CustomColorField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </span>
+
+      <div className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-2">
+        <input
+          type="color"
+          value={value}
+          onChange={(event) =>
+            onChange(event.target.value)
+          }
+          className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
+        />
+
+        <span className="truncate text-xs font-bold text-slate-300">
+          {value}
+        </span>
+      </div>
+    </label>
+  )
+}
+
+function CustomToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3">
+      <span className="text-xs font-bold text-slate-300">
+        {label}
+      </span>
+
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) =>
+          onChange(event.target.checked)
+        }
+        className="h-5 w-5 accent-violet-600"
+      />
+    </label>
   )
 }

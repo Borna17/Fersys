@@ -107,6 +107,18 @@ export type PdfLayout =
   | 'custom'
   | 'minimal'
 
+export type WorkOrderCustomInfoStyle =
+  | 'cards'
+  | 'compact'
+
+export type WorkOrderCustomMaterialStyle =
+  | 'table'
+  | 'list'
+
+export type WorkOrderCustomSectionOrder =
+  | 'description-first'
+  | 'materials-first'
+
 export type WorkOrderBranding = {
   companyName: string
   companyOib: string
@@ -142,6 +154,22 @@ export type WorkOrderBranding = {
     | 'right'
 
   layout: PdfLayout
+
+  customDocumentTitle: string
+  customDescriptionLabel: string
+  customMaterialsLabel: string
+  customPhotosLabel: string
+  customSignatureLabel: string
+
+  customInfoStyle:
+    WorkOrderCustomInfoStyle
+
+  customMaterialStyle:
+    WorkOrderCustomMaterialStyle
+
+  customSectionOrder:
+    WorkOrderCustomSectionOrder
+
   watermarkText: string
   footerText: string
 }
@@ -177,6 +205,31 @@ export const defaultWorkOrderBranding: WorkOrderBranding = {
 
   headerAlignment: 'left',
   layout: 'modern',
+
+  customDocumentTitle:
+    'RADNI NALOG',
+
+  customDescriptionLabel:
+    'Opis radova',
+
+  customMaterialsLabel:
+    'Utrošeni materijal',
+
+  customPhotosLabel:
+    'Fotografije',
+
+  customSignatureLabel:
+    'Potpis i ovjera',
+
+  customInfoStyle:
+    'cards',
+
+  customMaterialStyle:
+    'table',
+
+  customSectionOrder:
+    'description-first',
+
   watermarkText: 'RADNI NALOG',
   footerText: 'Hvala na povjerenju.',
 }

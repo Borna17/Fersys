@@ -64,6 +64,11 @@ function parseStoredBranding(
     'backgroundImage',
     'watermarkText',
     'footerText',
+    'customDocumentTitle',
+    'customDescriptionLabel',
+    'customMaterialsLabel',
+    'customPhotosLabel',
+    'customSignatureLabel',
   ] as const
 
   for (const field of stringFields) {
@@ -108,6 +113,30 @@ function parseStoredBranding(
       value.layout === 'minimal'
         ? 'custom'
         : value.layout
+  }
+
+  if (
+    value.customInfoStyle === 'cards' ||
+    value.customInfoStyle === 'compact'
+  ) {
+    result.customInfoStyle =
+      value.customInfoStyle
+  }
+
+  if (
+    value.customMaterialStyle === 'table' ||
+    value.customMaterialStyle === 'list'
+  ) {
+    result.customMaterialStyle =
+      value.customMaterialStyle
+  }
+
+  if (
+    value.customSectionOrder === 'description-first' ||
+    value.customSectionOrder === 'materials-first'
+  ) {
+    result.customSectionOrder =
+      value.customSectionOrder
   }
 
   return result

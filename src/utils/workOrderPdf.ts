@@ -667,11 +667,7 @@ function commonCss(
       margin-top: 3px;
       border-radius: 9px;
       padding: 10px 12px;
-      background: color-mix(
-        in srgb,
-        ${primary} 9%,
-        white
-      );
+      background: #eff6ff;
       color: ${primary};
       font-size: 15px;
       font-weight: 900;
@@ -887,6 +883,72 @@ function commonCss(
       height: 3px;
     }
 
+    .layout-custom.header-center .header {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .layout-custom.header-center .company-wrap {
+      justify-content: center;
+    }
+
+    .layout-custom.header-center .document-heading {
+      text-align: center;
+    }
+
+    .layout-custom.header-right .company-wrap {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .layout-custom.info-compact .info-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .layout-custom.info-compact .info-card {
+      min-height: 0;
+      padding: 12px 14px;
+    }
+
+    .layout-custom.material-list .table-wrap {
+      border: 0;
+    }
+
+    .layout-custom.material-list table,
+    .layout-custom.material-list thead,
+    .layout-custom.material-list tbody,
+    .layout-custom.material-list tr,
+    .layout-custom.material-list th,
+    .layout-custom.material-list td {
+      display: block;
+      width: 100%;
+    }
+
+    .layout-custom.material-list thead {
+      display: none;
+    }
+
+    .layout-custom.material-list tr {
+      margin-bottom: 8px;
+      border: 1px solid ${border};
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .layout-custom.material-list td {
+      border: 0;
+      padding: 7px 10px;
+      text-align: left !important;
+      white-space: normal;
+    }
+
+    .layout-custom.material-list td:first-child {
+      font-weight: 800;
+      color: ${secondary};
+      background: #f8fafc;
+    }
+
     ${
       branding.showBackgroundImage &&
       branding.backgroundImage
@@ -1011,7 +1073,14 @@ function headerHtml(
 
       <div class="document-heading">
         <div class="document-kicker">
-          RADNI NALOG
+          ${escapeHtml(
+            branding.layout === 'custom'
+              ? (
+                  branding.customDocumentTitle ||
+                  'RADNI NALOG'
+                )
+              : 'RADNI NALOG',
+          )}
         </div>
 
         <div class="document-number">
@@ -1136,6 +1205,7 @@ function infoHtml(
 
 function descriptionHtml(
   page: LogicalPage,
+  branding: WorkOrderBranding,
 ) {
   if (
     page.description === undefined
@@ -1149,8 +1219,16 @@ function descriptionHtml(
         ${
           page.descriptionTitle ===
           'Opis radova – nastavak'
-            ? 'Opis radova – nastavak'
-            : 'Opis radova'
+            ? `${escapeHtml(
+                branding.layout === 'custom'
+                  ? `${branding.customDescriptionLabel || 'Opis radova'} – nastavak`
+                  : 'Opis radova – nastavak',
+              )}`
+            : `${escapeHtml(
+                branding.layout === 'custom'
+                  ? branding.customDescriptionLabel || 'Opis radova'
+                  : 'Opis radova',
+              )}`
         }
       </h2>
 
@@ -1185,6 +1263,7 @@ function descriptionHtml(
 
 function materialsHtml(
   page: LogicalPage,
+  branding: WorkOrderBranding,
 ) {
   if (
     page.materials.length === 0
@@ -1235,7 +1314,11 @@ function materialsHtml(
   return `
     <section class="section">
       <h2 class="section-title">
-        Utrošeni materijal
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customMaterialsLabel || 'Utrošeni materijal'
+            : 'Utrošeni materijal',
+        )}
       </h2>
 
       <div class="table-wrap">
@@ -1348,6 +1431,7 @@ function totalsHtml(
 
 function photosHtml(
   page: LogicalPage,
+  branding: WorkOrderBranding,
 ) {
   if (
     page.photos.length === 0
@@ -1380,7 +1464,11 @@ function photosHtml(
   return `
     <section class="section">
       <h2 class="section-title">
-        Fotografije
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customPhotosLabel || 'Fotografije'
+            : 'Fotografije',
+        )}
       </h2>
 
       <div class="photo-grid">
@@ -1402,7 +1490,11 @@ function signatureHtml(
   return `
     <section class="signature-section">
       <div class="signature-title">
-        Potpis i ovjera
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customSignatureLabel || 'Potpis i ovjera'
+            : 'Potpis i ovjera',
+        )}
       </div>
 
       <div class="signature-grid">
@@ -1500,7 +1592,25 @@ function pageHtml(
     <article
       class="pdf-page ${layoutClass(
         branding,
-      )}"
+      )} ${
+        branding.layout === 'custom'
+          ? branding.headerAlignment === 'center'
+            ? 'header-center'
+            : branding.headerAlignment === 'right'
+              ? 'header-right'
+              : ''
+          : ''
+      } ${
+        branding.layout === 'custom' &&
+        branding.customInfoStyle === 'compact'
+          ? 'info-compact'
+          : ''
+      } ${
+        branding.layout === 'custom' &&
+        branding.customMaterialStyle === 'list'
+          ? 'material-list'
+          : ''
+      }"
       data-pdf-page
     >
       <div class="page-body">
@@ -1521,13 +1631,32 @@ function pageHtml(
               `
           }
 
-          ${descriptionHtml(
-            page,
-          )}
+          ${
+            branding.layout === 'custom' &&
+            branding.customSectionOrder === 'materials-first'
+              ? `
+                ${materialsHtml(
+                  page,
+                  branding,
+                )}
 
-          ${materialsHtml(
-            page,
-          )}
+                ${descriptionHtml(
+                  page,
+                  branding,
+                )}
+              `
+              : `
+                ${descriptionHtml(
+                  page,
+                  branding,
+                )}
+
+                ${materialsHtml(
+                  page,
+                  branding,
+                )}
+              `
+          }
 
           ${totalsHtml(
             order,
@@ -1536,6 +1665,7 @@ function pageHtml(
 
           ${photosHtml(
             page,
+            branding,
           )}
         </main>
 
