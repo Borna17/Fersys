@@ -29,11 +29,13 @@ import {
 import AiClientActionRunner from '../ai/AiClientActionRunner'
 import { useAuth } from '../auth/AuthProvider'
 import type { PermissionKey } from '../auth/permissions'
+import CompanyLogo from '../components/CompanyLogo'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import TrialBanner from '../components/subscription/TrialBanner'
 import Topbar from '../components/Topbar'
 import { supabase } from '../lib/supabase'
+import { useCompanyBranding } from '../services/companyBranding.service'
 import {
   getOnboardingProgress,
   resetOnboarding,
@@ -205,30 +207,6 @@ const quickActions: Array<{
   },
 ]
 
-function getInitials(
-  value: string,
-) {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-
-  if (
-    parts.length === 0
-  ) {
-    return 'K'
-  }
-
-  return parts
-    .slice(0, 2)
-    .map(
-      (part) =>
-        part[0]?.toUpperCase() ??
-        '',
-    )
-    .join('')
-}
-
 export default function AppLayout() {
   const location =
     useLocation()
@@ -240,6 +218,9 @@ export default function AppLayout() {
     user,
     can,
   } = useAuth()
+
+  const { branding } =
+    useCompanyBranding()
 
   const {
     hasFeature,
@@ -485,10 +466,6 @@ export default function AppLayout() {
   const displayEmail =
     user?.email ?? ''
 
-  const initials =
-    getInitials(
-      displayName,
-    )
 
   async function handleSignOut() {
     try {
@@ -624,12 +601,13 @@ export default function AppLayout() {
                     !current,
                 )
               }
-              className={`grid h-11 w-11 place-items-center rounded-2xl text-xs font-black text-white transition active:scale-95 ${
+              className={`flex h-11 w-11 items-center justify-center rounded-2xl transition active:scale-95 ${
                 isProfileMenuOpen
-                  ? 'bg-blue-500 ring-4 ring-blue-500/15'
-                  : 'bg-gradient-to-br from-blue-600 to-violet-600'
+                  ? 'ring-4 ring-blue-500/20'
+                  : ''
               }`}
               title={
+                branding?.name ||
                 displayName
               }
               aria-label="Otvori korisnički izbornik"
@@ -637,25 +615,44 @@ export default function AppLayout() {
                 isProfileMenuOpen
               }
             >
-              {initials}
+              <CompanyLogo
+                logoUrl={
+                  branding?.logoUrl
+                }
+                companyName={
+                  branding?.name ||
+                  displayName
+                }
+                className="h-11 w-11"
+              />
             </button>
 
             {isProfileMenuOpen && (
               <div className="absolute right-0 top-[calc(100%+0.65rem)] z-50 w-[min(19rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60">
                 <div className="border-b border-slate-800 px-4 py-4">
                   <div className="flex items-center gap-3">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-xs font-black text-white">
-                      {
-                        initials
+                    <CompanyLogo
+                      logoUrl={
+                        branding?.logoUrl
                       }
-                    </div>
+                      companyName={
+                        branding?.name ||
+                        displayName
+                      }
+                      className="h-11 w-11"
+                    />
 
                     <div className="min-w-0">
                       <p className="truncate text-sm font-black text-white">
-                        {
-                          displayName
-                        }
+                        {branding?.name ||
+                          displayName}
                       </p>
+
+                      {branding?.name && (
+                        <p className="mt-0.5 truncate text-xs font-semibold text-slate-300">
+                          {displayName}
+                        </p>
+                      )}
 
                       <p className="mt-0.5 truncate text-xs text-slate-500">
                         {

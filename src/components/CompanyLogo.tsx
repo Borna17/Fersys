@@ -1,10 +1,17 @@
+import {
+  useEffect,
+  useState,
+} from 'react'
+
 type CompanyLogoProps = {
   logoUrl?: string | null
   companyName: string
   className?: string
 }
 
-function getInitials(value: string) {
+function getInitials(
+  value: string,
+) {
   const parts = value
     .trim()
     .split(/\s+/)
@@ -28,15 +35,31 @@ export default function CompanyLogo({
   companyName,
   className = 'h-11 w-11',
 }: CompanyLogoProps) {
-  if (logoUrl) {
+  const [
+    imageFailed,
+    setImageFailed,
+  ] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [logoUrl])
+
+  if (
+    logoUrl &&
+    !imageFailed
+  ) {
     return (
       <span
-        className={`grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white ${className}`}
+        className={`grid shrink-0 place-items-center overflow-hidden rounded-2xl border border-white/10 bg-white shadow-lg shadow-black/15 ${className}`}
+        title={companyName}
       >
         <img
           src={logoUrl}
           alt={`Logo tvrtke ${companyName}`}
           className="h-full w-full object-contain p-1.5"
+          onError={() =>
+            setImageFailed(true)
+          }
         />
       </span>
     )
