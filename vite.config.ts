@@ -16,7 +16,12 @@ export default defineConfig({
 
       includeAssets: [
         'favicon.ico',
+        'favicon-32x32.png',
+        'favicon-64x64.png',
         'apple-touch-icon.png',
+        'pwa-192x192.png',
+        'pwa-512x512.png',
+        'pwa-maskable-512x512.png',
       ],
 
       manifest: {
@@ -24,18 +29,91 @@ export default defineConfig({
         short_name: 'FERSYS',
 
         description:
-          'Poslovna aplikacija za upravljanje kupcima, radnim nalozima, ponudama i kalendarom.',
+          'Poslovna aplikacija za upravljanje investitorima, radnim nalozima, ponudama, računima, skladištem, zaposlenicima i kalendarom.',
 
-        theme_color: '#0f172a',
-        background_color: '#0f172a',
-
-        display: 'standalone',
-        orientation: 'portrait-primary',
-
+        id: '/',
         start_url: '/',
         scope: '/',
 
         lang: 'hr',
+
+        theme_color: '#020617',
+        background_color: '#020617',
+
+        display: 'standalone',
+        display_override: [
+          'window-controls-overlay',
+          'standalone',
+          'minimal-ui',
+        ],
+
+        orientation: 'any',
+
+        categories: [
+          'business',
+          'productivity',
+          'utilities',
+        ],
+
+        icons: [
+          {
+            src: '/pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: '/pwa-maskable-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
+
+        shortcuts: [
+          {
+            name: 'Novi radni nalog',
+            short_name: 'Novi nalog',
+            url: '/work-orders/new',
+            icons: [
+              {
+                src: '/pwa-192x192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+          {
+            name: 'Nova ponuda',
+            short_name: 'Ponuda',
+            url: '/offers/new',
+            icons: [
+              {
+                src: '/pwa-192x192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+          {
+            name: 'Novi račun',
+            short_name: 'Račun',
+            url: '/invoices/new',
+            icons: [
+              {
+                src: '/pwa-192x192.png',
+                sizes: '192x192',
+                type: 'image/png',
+              },
+            ],
+          },
+        ],
       },
 
       workbox: {

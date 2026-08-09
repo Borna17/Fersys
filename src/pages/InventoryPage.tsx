@@ -465,6 +465,112 @@ export function InventoryPage() {
           </div>
         )}
 
+        <div className="mt-6 rounded-2xl border border-sky-500/20 bg-slate-900/90 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-bold text-white">
+                Brza pretraga materijala
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Upiši naziv, šifru, barkod, dimenziju ili proizvođača i odmah vidi stanje.
+              </p>
+            </div>
+
+            <div className="relative w-full lg:max-w-2xl">
+              <Search
+                size={20}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-sky-400"
+              />
+
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) =>
+                  setSearchTerm(event.target.value)
+                }
+                placeholder="Npr. spojnica 22, bakrena cijev, ART-00001..."
+                className="h-14 w-full rounded-2xl border border-slate-700 bg-slate-950 pl-12 pr-12 text-base font-semibold text-white outline-none transition placeholder:font-normal placeholder:text-slate-600 focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10"
+              />
+
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-slate-500 transition hover:bg-slate-800 hover:text-white"
+                  aria-label="Očisti pretragu"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {searchTerm.trim() && (
+            <div className="mt-4 border-t border-slate-800 pt-4">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                  Rezultati
+                </p>
+
+                <p className="text-xs text-slate-500">
+                  Pronađeno: <span className="font-bold text-white">{filteredItems.length}</span>
+                </p>
+              </div>
+
+              {filteredItems.length === 0 ? (
+                <div className="rounded-xl bg-slate-950/70 p-4 text-sm text-slate-500">
+                  Nema materijala koji odgovara pretrazi.
+                </div>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                  {filteredItems.slice(0, 6).map((item) => {
+                    const status = getStockStatus(item)
+
+                    return (
+                      <button
+                        key={`quick-${item.id}`}
+                        type="button"
+                        onClick={() =>
+                          navigate(`/inventory/items/${item.id}`)
+                        }
+                        className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-left transition hover:border-sky-500/40 hover:bg-slate-800/80"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate font-bold text-white">
+                            {item.name}
+                          </p>
+
+                          <p className="mt-1 truncate text-xs text-slate-500">
+                            {item.code || 'Bez šifre'}
+                            {item.dimension ? ` · ${item.dimension}` : ''}
+                          </p>
+                        </div>
+
+                        <div className="shrink-0 text-right">
+                          <p className="text-lg font-black text-white">
+                            {getQuantityLabel(item)}
+                          </p>
+
+                          <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${status.className}`}>
+                            {status.label}
+                          </span>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+
+              {filteredItems.length > 6 && (
+                <p className="mt-3 text-center text-xs text-slate-500">
+                  Prikazano prvih 6 rezultata. Svi rezultati su prikazani niže na stranici.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <InventoryStatCard
             title="Ukupno artikala"
@@ -511,7 +617,7 @@ export function InventoryPage() {
                 onChange={(event) =>
                   setSearchTerm(event.target.value)
                 }
-                placeholder="Pretraži naziv, šifru, dimenziju, kategoriju..."
+                placeholder="Filtriraj prikaz artikala..."
                 className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-12 pr-11 text-sm text-white outline-none focus:border-sky-500"
               />
 
