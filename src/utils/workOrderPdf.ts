@@ -1,35 +1,35 @@
+import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import type {
   WorkOrder,
   WorkOrderBranding,
   WorkOrderImage,
+  WorkOrderMaterial,
 } from '../types/workOrder'
 
-type PdfContext = {
-  doc: jsPDF
-  order: WorkOrder
-  branding: WorkOrderBranding
-  primary: string
-  secondary: string
-  pageWidth: number
-  pageHeight: number
-  marginX: number
-  topMargin: number
-  bottomMargin: number
-  contentWidth: number
-  y: number
-  pageNumber: number
+type LogicalPage = {
+  descriptionTitle?: string
+  description?: string
+  materials: WorkOrderMaterial[]
+  photos: WorkOrderImage[]
+  showInfo: boolean
+  showTotals: boolean
+  showSignature: boolean
 }
 
-const A4_WIDTH = 210
-const A4_HEIGHT = 297
+function escapeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
 
-function safeFileName(value: string) {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, '-')
+function multilineHtml(value: string) {
+  return escapeHtml(value)
+    .replace(/\r?\n/g, '<br>')
 }
 
 function formatDate(value: string) {
@@ -37,30 +37,45 @@ function formatDate(value: string) {
     return '—'
   }
 
-  const date = new Date(`${value}T00:00:00`)
+  const date =
+    new Date(`${value}T00:00:00`)
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
     return value
   }
 
-  return new Intl.DateTimeFormat('hr-HR').format(date)
+  return new Intl.DateTimeFormat(
+    'hr-HR',
+  ).format(date)
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(value)
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+    },
+  ).format(value)
 }
 
-function durationLabel(minutes: number) {
+function durationLabel(
+  minutes: number,
+) {
   if (!minutes) {
     return '—'
   }
 
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
+  const hours =
+    Math.floor(minutes / 60)
+
+  const rest =
+    minutes % 60
 
   if (hours && rest) {
     return `${hours} h ${rest} min`
@@ -73,2061 +88,1669 @@ function durationLabel(minutes: number) {
   return `${rest} min`
 }
 
-function hexToRgb(hex: string) {
-  const clean = hex.replace('#', '').trim()
-
-  if (clean.length !== 6) {
-    return {
-      r: 37,
-      g: 99,
-      b: 235,
-    }
-  }
-
-  return {
-    r: parseInt(clean.slice(0, 2), 16),
-    g: parseInt(clean.slice(2, 4), 16),
-    b: parseInt(clean.slice(4, 6), 16),
-  }
-}
-
-function setTextColor(
-  doc: jsPDF,
-  color: string,
+function splitDescription(
+  text: string,
+  firstSize = 850,
+  nextSize = 1500,
 ) {
-  const rgb = hexToRgb(color)
+  const clean =
+    text.trim()
 
-  doc.setTextColor(
-    rgb.r,
-    rgb.g,
-    rgb.b,
-  )
-}
-
-function setFillColor(
-  doc: jsPDF,
-  color: string,
-) {
-  const rgb = hexToRgb(color)
-
-  doc.setFillColor(
-    rgb.r,
-    rgb.g,
-    rgb.b,
-  )
-}
-
-function setDrawColor(
-  doc: jsPDF,
-  color: string,
-) {
-  const rgb = hexToRgb(color)
-
-  doc.setDrawColor(
-    rgb.r,
-    rgb.g,
-    rgb.b,
-  )
-}
-
-async function imageSourceToDataUrl(
-  source: string,
-): Promise<string | null> {
-  if (!source) {
-    return null
+  if (!clean) {
+    return ['']
   }
 
-  if (
-    source.startsWith('data:image/')
-  ) {
-    return source
-  }
-
-  try {
-    const response = await fetch(source)
-
-    if (!response.ok) {
-      return null
-    }
-
-    const blob = await response.blob()
-
-    return await new Promise<string | null>(
-      (resolve) => {
-        const reader = new FileReader()
-
-        reader.onload = () => {
-          resolve(
-            typeof reader.result === 'string'
-              ? reader.result
-              : null,
-          )
-        }
-
-        reader.onerror = () => resolve(null)
-        reader.readAsDataURL(blob)
-      },
-    )
-  } catch {
-    return null
-  }
-}
-
-function getImageFormat(
-  dataUrl: string,
-): 'PNG' | 'JPEG' {
-  return dataUrl
-    .toLowerCase()
-    .startsWith('data:image/png')
-    ? 'PNG'
-    : 'JPEG'
-}
-
-async function getImageDimensions(
-  dataUrl: string,
-): Promise<{
-  width: number
-  height: number
-}> {
-  return await new Promise(
-    (resolve) => {
-      const image = new Image()
-
-      image.onload = () => {
-        resolve({
-          width:
-            image.naturalWidth ||
-            image.width ||
-            1,
-          height:
-            image.naturalHeight ||
-            image.height ||
-            1,
-        })
-      }
-
-      image.onerror = () => {
-        resolve({
-          width: 1,
-          height: 1,
-        })
-      }
-
-      image.src = dataUrl
-    },
-  )
-}
-
-function fitImage(
-  width: number,
-  height: number,
-  maxWidth: number,
-  maxHeight: number,
-) {
-  const ratio = Math.min(
-    maxWidth / width,
-    maxHeight / height,
-  )
-
-  return {
-    width: width * ratio,
-    height: height * ratio,
-  }
-}
-
-function drawPageHeader(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-) {
-  const {
-    doc,
-    branding,
-    order,
-    primary,
-    marginX,
-    contentWidth,
-  } = ctx
-
-  setFillColor(doc, primary)
-  doc.rect(
-    0,
-    0,
-    A4_WIDTH,
-    3,
-    'F',
-  )
-
-  const headerY = 10
-
-  if (
-    branding.showLogo &&
-    logoDataUrl
-  ) {
-    try {
-      doc.addImage(
-        logoDataUrl,
-        getImageFormat(logoDataUrl),
-        marginX,
-        headerY,
-        24,
-        24,
-        undefined,
-        'FAST',
-      )
-    } catch {
-      // Ako se logo ne može prikazati,
-      // ostatak dokumenta se i dalje generira.
-    }
-  } else {
-    setFillColor(doc, primary)
-    doc.roundedRect(
-      marginX,
-      headerY,
-      24,
-      24,
-      3,
-      3,
-      'F',
-    )
-
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
-    doc.setFontSize(15)
-    doc.setTextColor(
-      255,
-      255,
-      255,
-    )
-
-    const initials =
-      (
-        branding.companyName ||
-        'FERSYS'
-      )
-        .trim()
-        .slice(0, 2)
-        .toUpperCase()
-
-    doc.text(
-      initials,
-      marginX + 12,
-      headerY + 15,
-      {
-        align: 'center',
-      },
-    )
-  }
-
-  const companyX =
-    marginX + 30
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(13)
-  doc.setTextColor(
-    15,
-    23,
-    42,
-  )
-
-  doc.text(
-    branding.companyName ||
-      'Naziv tvrtke',
-    companyX,
-    headerY + 5,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setFontSize(7.5)
-  doc.setTextColor(
-    100,
-    116,
-    139,
-  )
-
-  const companyLines: string[] = []
-
-  if (
-    branding.companyAddress
-  ) {
-    companyLines.push(
-      branding.companyAddress,
-    )
-  }
-
-  const contactLine = [
-    branding.showCompanyPhone
-      ? branding.companyPhone
-      : '',
-    branding.showCompanyEmail
-      ? branding.companyEmail
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' • ')
-
-  if (contactLine) {
-    companyLines.push(contactLine)
-  }
-
-  const idsLine = [
-    branding.showCompanyOib &&
-    branding.companyOib
-      ? `OIB: ${branding.companyOib}`
-      : '',
-    branding.showCompanyIban &&
-    branding.companyIban
-      ? `IBAN: ${branding.companyIban}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' • ')
-
-  if (idsLine) {
-    companyLines.push(idsLine)
-  }
-
-  companyLines
-    .slice(0, 3)
-    .forEach(
-      (line, index) => {
-        doc.text(
-          line,
-          companyX,
-          headerY +
-            10 +
-            index * 4,
-        )
-      },
-    )
-
-  const rightX =
-    marginX + contentWidth
-
-  setTextColor(
-    doc,
-    primary,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(8)
-  doc.text(
-    'RADNI NALOG',
-    rightX,
-    headerY + 3,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.setTextColor(
-    15,
-    23,
-    42,
-  )
-  doc.setFontSize(14)
-
-  doc.text(
-    order.orderNumber,
-    rightX,
-    headerY + 10,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setFontSize(7.5)
-  doc.setTextColor(
-    100,
-    116,
-    139,
-  )
-
-  doc.text(
-    `Datum: ${formatDate(
-      order.date,
-    )}`,
-    rightX,
-    headerY + 16,
-    {
-      align: 'right',
-    },
-  )
-
-  doc.text(
-    `Stranica ${ctx.pageNumber}`,
-    rightX,
-    headerY + 21,
-    {
-      align: 'right',
-    },
-  )
-
-  setDrawColor(
-    doc,
-    '#E2E8F0',
-  )
-
-  doc.line(
-    marginX,
-    38,
-    rightX,
-    38,
-  )
-
-  ctx.y = 44
-}
-
-function drawFooter(
-  ctx: PdfContext,
-) {
-  const {
-    doc,
-    branding,
-    order,
-    marginX,
-    contentWidth,
-    pageHeight,
-  } = ctx
-
-  const y =
-    pageHeight - 9
-
-  setDrawColor(
-    doc,
-    '#E2E8F0',
-  )
-
-  doc.line(
-    marginX,
-    y - 4,
-    marginX +
-      contentWidth,
-    y - 4,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setFontSize(6.5)
-  doc.setTextColor(
-    148,
-    163,
-    184,
-  )
-
-  doc.text(
-    branding.footerText ||
-      '',
-    marginX,
-    y,
-  )
-
-  doc.text(
-    order.orderNumber,
-    marginX +
-      contentWidth,
-    y,
-    {
-      align: 'right',
-    },
-  )
-}
-
-function addPage(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-) {
-  if (
-    ctx.pageNumber > 0
-  ) {
-    ctx.doc.addPage()
-  }
-
-  ctx.pageNumber += 1
-
-  drawPageHeader(
-    ctx,
-    logoDataUrl,
-  )
-
-  drawFooter(ctx)
-}
-
-function ensureSpace(
-  ctx: PdfContext,
-  requiredHeight: number,
-  logoDataUrl: string | null,
-) {
-  const maxY =
-    ctx.pageHeight -
-    ctx.bottomMargin
-
-  if (
-    ctx.y + requiredHeight >
-    maxY
-  ) {
-    addPage(
-      ctx,
-      logoDataUrl,
-    )
-  }
-}
-
-function sectionTitle(
-  ctx: PdfContext,
-  title: string,
-  logoDataUrl: string | null,
-) {
-  ensureSpace(
-    ctx,
-    10,
-    logoDataUrl,
-  )
-
-  setFillColor(
-    ctx.doc,
-    ctx.primary,
-  )
-
-  ctx.doc.roundedRect(
-    ctx.marginX,
-    ctx.y,
-    2.2,
-    6,
-    1,
-    1,
-    'F',
-  )
-
-  ctx.doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  ctx.doc.setFontSize(10)
-  ctx.doc.setTextColor(
-    15,
-    23,
-    42,
-  )
-
-  ctx.doc.text(
-    title,
-    ctx.marginX + 5,
-    ctx.y + 4.7,
-  )
-
-  ctx.y += 9
-}
-
-function drawInfoCards(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-) {
-  ensureSpace(
-    ctx,
-    44,
-    logoDataUrl,
-  )
-
-  const {
-    doc,
-    order,
-    marginX,
-    contentWidth,
-  } = ctx
-
-  const gap = 5
-  const cardWidth =
-    (contentWidth - gap) / 2
-  const cardHeight = 38
-
-  const drawCard = (
-    x: number,
-    title: string,
-    lines: Array<{
-      label?: string
-      value: string
-      strong?: boolean
-    }>,
-    muted = false,
-  ) => {
-    setFillColor(
-      doc,
-      muted
-        ? '#F8FAFC'
-        : '#FFFFFF',
-    )
-
-    setDrawColor(
-      doc,
-      '#E2E8F0',
-    )
-
-    doc.roundedRect(
-      x,
-      ctx.y,
-      cardWidth,
-      cardHeight,
-      3,
-      3,
-      'FD',
-    )
-
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
-    doc.setFontSize(6.5)
-    doc.setTextColor(
-      148,
-      163,
-      184,
-    )
-
-    doc.text(
-      title.toUpperCase(),
-      x + 4,
-      ctx.y + 6,
-    )
-
-    let lineY =
-      ctx.y + 12
-
-    for (const line of lines) {
-      if (
-        lineY >
-        ctx.y +
-          cardHeight -
-          4
-      ) {
-        break
-      }
-
-      if (line.label) {
-        doc.setFont(
-          'helvetica',
-          'normal',
-        )
-        doc.setFontSize(7)
-        doc.setTextColor(
-          100,
-          116,
-          139,
-        )
-
-        doc.text(
-          line.label,
-          x + 4,
-          lineY,
-        )
-
-        doc.setFont(
-          'helvetica',
-          line.strong
-            ? 'bold'
-            : 'normal',
-        )
-        doc.setTextColor(
-          15,
-          23,
-          42,
-        )
-
-        const available =
-          cardWidth - 31
-
-        const wrapped =
-          doc.splitTextToSize(
-            line.value || '—',
-            available,
-          )
-
-        doc.text(
-          wrapped[0] || '—',
-          x +
-            cardWidth -
-            4,
-          lineY,
-          {
-            align: 'right',
-          },
-        )
-      } else {
-        doc.setFont(
-          'helvetica',
-          line.strong
-            ? 'bold'
-            : 'normal',
-        )
-        doc.setFontSize(
-          line.strong
-            ? 9
-            : 7.3,
-        )
-        doc.setTextColor(
-          line.strong
-            ? 15
-            : 71,
-          line.strong
-            ? 23
-            : 85,
-          line.strong
-            ? 42
-            : 105,
-        )
-
-        const wrapped =
-          doc.splitTextToSize(
-            line.value || '—',
-            cardWidth - 8,
-          )
-
-        doc.text(
-          wrapped.slice(
-            0,
-            line.strong
-              ? 1
-              : 2,
-          ),
-          x + 4,
-          lineY,
-        )
-
-        lineY +=
-          wrapped.length > 1
-            ? 3
-            : 0
-      }
-
-      lineY += 5
-    }
-  }
-
-  drawCard(
-    marginX,
-    'Kupac / investitor',
-    [
-      {
-        value:
-          order.customerName ||
-          '—',
-        strong: true,
-      },
-      {
-        value:
-          order.address ||
-          '—',
-      },
-      {
-        value:
-          order.customerOib
-            ? `OIB: ${order.customerOib}`
-            : 'OIB: —',
-      },
-      {
-        value: [
-          order.customerPhone,
-          order.customerEmail,
-        ]
-          .filter(Boolean)
-          .join(' • ') || '—',
-      },
-    ],
-  )
-
-  drawCard(
-    marginX +
-      cardWidth +
-      gap,
-    'Podaci dokumenta',
-    [
-      {
-        label: 'Vrijeme',
-        value:
-          `${order.arrivalTime || '—'} – ${order.departureTime || '—'}`,
-        strong: true,
-      },
-      {
-        label: 'Trajanje',
-        value:
-          durationLabel(
-            order.durationMinutes,
-          ),
-        strong: true,
-      },
-      {
-        label: 'Status',
-        value:
-          order.status ||
-          '—',
-        strong: true,
-      },
-      {
-        label: 'Radnici',
-        value:
-          order.assignedWorkers.join(
-            ', ',
-          ) || '—',
-        strong: true,
-      },
-    ],
-    true,
-  )
-
-  ctx.y +=
-    cardHeight + 7
-}
-
-function drawDescription(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-) {
-  sectionTitle(
-    ctx,
-    'Opis radova',
-    logoDataUrl,
-  )
-
-  const {
-    doc,
-    order,
-    marginX,
-    contentWidth,
-  } = ctx
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-  doc.setFontSize(8.5)
-
-  const titleLines =
-    order.title
-      ? doc.splitTextToSize(
-          order.title,
-          contentWidth - 10,
-        )
-      : []
-
-  doc.setFont(
-    'helvetica',
-    'normal',
-  )
-  doc.setFontSize(8)
-
-  const descriptionLines =
-    doc.splitTextToSize(
-      order.description ||
-        'Nema dodatnog opisa.',
-      contentWidth - 10,
-    )
-
-  const allLines = [
-    ...titleLines.map(
-      (value: string) => ({
-        value,
-        bold: true,
-      }),
-    ),
-    ...descriptionLines.map(
-      (value: string) => ({
-        value,
-        bold: false,
-      }),
-    ),
-  ]
-
-  let index = 0
+  const chunks: string[] = []
+  let remaining = clean
+  let limit = firstSize
 
   while (
-    index <
-    allLines.length
+    remaining.length > limit
   ) {
-    const available =
-      ctx.pageHeight -
-      ctx.bottomMargin -
-      ctx.y
-
-    const maxLines =
-      Math.max(
-        1,
-        Math.floor(
-          (available - 8) / 4.2,
-        ),
+    let cut =
+      remaining.lastIndexOf(
+        ' ',
+        limit,
       )
-
-    const chunk =
-      allLines.slice(
-        index,
-        index +
-          maxLines,
-      )
-
-    const boxHeight =
-      8 +
-      chunk.length *
-        4.2
-
-    ensureSpace(
-      ctx,
-      boxHeight,
-      logoDataUrl,
-    )
-
-    setFillColor(
-      doc,
-      '#F8FAFC',
-    )
-
-    setDrawColor(
-      doc,
-      '#E2E8F0',
-    )
-
-    doc.roundedRect(
-      marginX,
-      ctx.y,
-      contentWidth,
-      boxHeight,
-      3,
-      3,
-      'FD',
-    )
-
-    let textY =
-      ctx.y + 6
-
-    for (
-      const line of
-      chunk
-    ) {
-      doc.setFont(
-        'helvetica',
-        line.bold
-          ? 'bold'
-          : 'normal',
-      )
-
-      doc.setFontSize(
-        line.bold
-          ? 8.5
-          : 8,
-      )
-
-      doc.setTextColor(
-        line.bold
-          ? 15
-          : 51,
-        line.bold
-          ? 23
-          : 65,
-        line.bold
-          ? 42
-          : 85,
-      )
-
-      doc.text(
-        line.value,
-        marginX + 5,
-        textY,
-      )
-
-      textY += 4.2
-    }
-
-    ctx.y +=
-      boxHeight + 4
-
-    index +=
-      chunk.length
 
     if (
-      index <
-      allLines.length
+      cut <
+      limit * 0.65
     ) {
-      addPage(
-        ctx,
-        logoDataUrl,
-      )
-
-      sectionTitle(
-        ctx,
-        'Opis radova – nastavak',
-        logoDataUrl,
-      )
+      cut = limit
     }
-  }
-}
 
-function drawMaterialHeader(
-  ctx: PdfContext,
-) {
-  const {
-    doc,
-    marginX,
-    contentWidth,
-  } = ctx
+    chunks.push(
+      remaining
+        .slice(0, cut)
+        .trim(),
+    )
 
-  const cols = {
-    name: 0.52,
-    qty: 0.15,
-    price: 0.16,
-    total: 0.17,
+    remaining =
+      remaining
+        .slice(cut)
+        .trim()
+
+    limit = nextSize
   }
 
-  setFillColor(
-    doc,
-    ctx.primary,
-  )
+  if (remaining) {
+    chunks.push(remaining)
+  }
 
-  doc.rect(
-    marginX,
-    ctx.y,
-    contentWidth,
-    8,
-    'F',
-  )
-
-  doc.setTextColor(
-    255,
-    255,
-    255,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setFontSize(7)
-
-  doc.text(
-    'Materijal',
-    marginX + 3,
-    ctx.y + 5.3,
-  )
-
-  let x =
-    marginX +
-    contentWidth *
-      cols.name
-
-  doc.text(
-    'Količina',
-    x +
-      contentWidth *
-        cols.qty /
-        2,
-    ctx.y + 5.3,
-    {
-      align: 'center',
-    },
-  )
-
-  x +=
-    contentWidth *
-    cols.qty
-
-  doc.text(
-    'Cijena',
-    x +
-      contentWidth *
-        cols.price -
-      3,
-    ctx.y + 5.3,
-    {
-      align: 'right',
-    },
-  )
-
-  x +=
-    contentWidth *
-    cols.price
-
-  doc.text(
-    'Ukupno',
-    x +
-      contentWidth *
-        cols.total -
-      3,
-    ctx.y + 5.3,
-    {
-      align: 'right',
-    },
-  )
-
-  ctx.y += 8
+  return chunks
 }
 
-function drawMaterials(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-) {
-  sectionTitle(
-    ctx,
-    'Utrošeni materijal',
-    logoDataUrl,
-  )
+function paginateOrder(
+  order: WorkOrder,
+): LogicalPage[] {
+  const descriptionChunks =
+    splitDescription(
+      order.description,
+    )
+
+  const pages:
+    LogicalPage[] = []
+
+  const firstDescription =
+    descriptionChunks.shift() ??
+    ''
+
+  const firstMaterials =
+    order.materials.slice(0, 7)
+
+  pages.push({
+    descriptionTitle:
+      order.title,
+    description:
+      firstDescription,
+    materials:
+      firstMaterials,
+    photos: [],
+    showInfo: true,
+    showTotals:
+      order.materials.length <=
+        firstMaterials.length &&
+      descriptionChunks.length === 0,
+    showSignature: false,
+  })
+
+  let materialIndex =
+    firstMaterials.length
+
+  while (
+    descriptionChunks.length > 0 ||
+    materialIndex <
+      order.materials.length
+  ) {
+    const description =
+      descriptionChunks.shift() ??
+      ''
+
+    const materialLimit =
+      description
+        ? 8
+        : 13
+
+    const materials =
+      order.materials.slice(
+        materialIndex,
+        materialIndex +
+          materialLimit,
+      )
+
+    materialIndex +=
+      materials.length
+
+    pages.push({
+      descriptionTitle:
+        description
+          ? 'Opis radova – nastavak'
+          : undefined,
+      description,
+      materials,
+      photos: [],
+      showInfo: false,
+      showTotals:
+        materialIndex >=
+          order.materials.length &&
+        descriptionChunks.length ===
+          0,
+      showSignature: false,
+    })
+  }
 
   if (
-    ctx.order.materials.length ===
-    0
+    order.images.length > 0
   ) {
-    ensureSpace(
-      ctx,
-      12,
-      logoDataUrl,
-    )
-
-    setFillColor(
-      ctx.doc,
-      '#F8FAFC',
-    )
-
-    setDrawColor(
-      ctx.doc,
-      '#E2E8F0',
-    )
-
-    ctx.doc.roundedRect(
-      ctx.marginX,
-      ctx.y,
-      ctx.contentWidth,
-      11,
-      2,
-      2,
-      'FD',
-    )
-
-    ctx.doc.setFont(
-      'helvetica',
-      'normal',
-    )
-    ctx.doc.setFontSize(7.5)
-    ctx.doc.setTextColor(
-      100,
-      116,
-      139,
-    )
-
-    ctx.doc.text(
-      'Nema evidentiranog materijala.',
-      ctx.marginX + 4,
-      ctx.y + 7,
-    )
-
-    ctx.y += 15
-    return
+    for (
+      let index = 0;
+      index <
+      order.images.length;
+      index += 4
+    ) {
+      pages.push({
+        materials: [],
+        photos:
+          order.images.slice(
+            index,
+            index + 4,
+          ),
+        showInfo: false,
+        showTotals: false,
+        showSignature: false,
+      })
+    }
   }
 
-  drawMaterialHeader(ctx)
+  const lastPage =
+    pages[
+      pages.length - 1
+    ]
 
-  const {
-    doc,
-    marginX,
-    contentWidth,
-  } = ctx
-
-  const nameWidth =
-    contentWidth * 0.52
-
-  const qtyX =
-    marginX +
-    contentWidth * 0.52
-
-  const priceX =
-    qtyX +
-    contentWidth * 0.15
-
-  const totalX =
-    priceX +
-    contentWidth * 0.16
-
-  for (
-    let index = 0;
-    index <
-    ctx.order.materials.length;
-    index += 1
+  if (
+    order.images.length === 0
   ) {
-    const material =
-      ctx.order.materials[index]
-
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-    doc.setFontSize(7.4)
-
-    const nameLines =
-      doc.splitTextToSize(
-        material.name ||
-          'Materijal',
-        nameWidth - 6,
-      )
-
-    const rowHeight =
-      Math.max(
-        8,
-        nameLines.length *
-          3.8 +
-          4,
-      )
-
+    lastPage.showSignature =
+      true
+  } else {
+    /*
+     * Fotografije na zadnjoj stranici
+     * mogu zauzeti previše prostora.
+     * Ako su 3 ili 4, potpis dobiva
+     * svoju završnu stranicu.
+     */
     if (
-      ctx.y + rowHeight >
-      ctx.pageHeight -
-        ctx.bottomMargin
+      lastPage.photos.length <= 2
     ) {
-      addPage(
-        ctx,
-        logoDataUrl,
-      )
-
-      sectionTitle(
-        ctx,
-        'Utrošeni materijal – nastavak',
-        logoDataUrl,
-      )
-
-      drawMaterialHeader(ctx)
+      lastPage.showSignature =
+        true
+    } else {
+      pages.push({
+        materials: [],
+        photos: [],
+        showInfo: false,
+        showTotals: false,
+        showSignature: true,
+      })
     }
-
-    if (
-      index % 2 === 1
-    ) {
-      setFillColor(
-        doc,
-        '#F8FAFC',
-      )
-
-      doc.rect(
-        marginX,
-        ctx.y,
-        contentWidth,
-        rowHeight,
-        'F',
-      )
-    }
-
-    setDrawColor(
-      doc,
-      '#E2E8F0',
-    )
-
-    doc.line(
-      marginX,
-      ctx.y +
-        rowHeight,
-      marginX +
-        contentWidth,
-      ctx.y +
-        rowHeight,
-    )
-
-    doc.setTextColor(
-      30,
-      41,
-      59,
-    )
-
-    doc.text(
-      nameLines,
-      marginX + 3,
-      ctx.y + 5,
-    )
-
-    doc.text(
-      `${material.quantity} ${material.unit}`,
-      qtyX +
-        contentWidth *
-          0.15 /
-          2,
-      ctx.y + 5,
-      {
-        align: 'center',
-      },
-    )
-
-    doc.text(
-      formatMoney(
-        material.unitPrice,
-      ),
-      priceX +
-        contentWidth *
-          0.16 -
-        3,
-      ctx.y + 5,
-      {
-        align: 'right',
-      },
-    )
-
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
-
-    doc.text(
-      formatMoney(
-        material.quantity *
-          material.unitPrice,
-      ),
-      totalX +
-        contentWidth *
-          0.17 -
-        3,
-      ctx.y + 5,
-      {
-        align: 'right',
-      },
-    )
-
-    ctx.y +=
-      rowHeight
   }
 
-  ctx.y += 5
+  /*
+   * Ukupni iznos treba biti prije
+   * fotografija/potpisa, na posljednjoj
+   * stranici koja sadrži materijal.
+   */
+  const materialPage =
+    [...pages]
+      .reverse()
+      .find(
+        (page) =>
+          page.materials.length >
+            0 ||
+          page.description !==
+            undefined,
+      )
+
+  if (materialPage) {
+    for (
+      const page of pages
+    ) {
+      page.showTotals = false
+    }
+
+    materialPage.showTotals =
+      true
+  }
+
+  return pages
 }
 
-function drawTotals(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
+function layoutClass(
+  branding: WorkOrderBranding,
 ) {
-  const height =
-    ctx.order.priceNote
-      ? 38
-      : 30
+  if (
+    branding.layout === 'classic'
+  ) {
+    return 'layout-classic'
+  }
 
-  ensureSpace(
-    ctx,
-    height,
-    logoDataUrl,
-  )
+  if (
+    branding.layout === 'custom' ||
+    branding.layout === 'minimal'
+  ) {
+    return 'layout-custom'
+  }
 
-  const {
-    doc,
-    order,
-    contentWidth,
-    marginX,
-  } = ctx
+  return 'layout-modern'
+}
 
-  const boxWidth = 72
-  const boxX =
-    marginX +
-    contentWidth -
-    boxWidth
+function commonCss(
+  branding: WorkOrderBranding,
+) {
+  const primary =
+    branding.primaryColor ||
+    '#2563EB'
+
+  const secondary =
+    branding.secondaryColor ||
+    '#0F172A'
+
+  const text =
+    branding.textColor ||
+    '#0F172A'
+
+  const border =
+    branding.borderColor ||
+    '#CBD5E1'
+
+  const background =
+    branding.backgroundColor ||
+    '#FFFFFF'
+
+  return `
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #dfe5ec;
+      color: ${text};
+      font-family:
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+      font-kerning: normal;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .pdf-page {
+      position: relative;
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      background: ${background};
+      page-break-after: always;
+    }
+
+    .page-body {
+      display: flex;
+      height: 100%;
+      flex-direction: column;
+    }
+
+    .page-content {
+      flex: 1 1 auto;
+      padding: 0 58px;
+    }
+
+    .top-line {
+      height: 7px;
+      background: ${primary};
+    }
+
+    .header {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+      gap: 24px;
+      align-items: start;
+      padding: 32px 58px 24px;
+    }
+
+    .company-wrap {
+      display: flex;
+      gap: 17px;
+      min-width: 0;
+    }
+
+    .logo {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      flex: 0 0 72px;
+    }
+
+    .logo-fallback {
+      display: grid;
+      width: 72px;
+      height: 72px;
+      place-items: center;
+      flex: 0 0 72px;
+      border-radius: 15px;
+      background: ${primary};
+      color: #fff;
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .company-name {
+      margin: 2px 0 0;
+      color: ${secondary};
+      font-size: 25px;
+      line-height: 1.1;
+      font-weight: 800;
+    }
+
+    .company-details {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .document-heading {
+      min-width: 190px;
+      text-align: right;
+    }
+
+    .document-kicker {
+      color: ${primary};
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .document-number {
+      margin-top: 7px;
+      color: ${secondary};
+      font-size: 23px;
+      font-weight: 900;
+    }
+
+    .document-meta {
+      margin-top: 7px;
+      color: #64748b;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .divider {
+      height: 1px;
+      margin: 0 58px 22px;
+      background: #e2e8f0;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns:
+        1fr 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .info-card {
+      min-height: 124px;
+      padding: 17px 18px;
+      border: 1px solid ${border};
+      border-radius: 13px;
+      background: #fff;
+    }
+
+    .info-card.muted {
+      background: #f8fafc;
+    }
+
+    .eyebrow {
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .customer-name {
+      margin-top: 10px;
+      color: ${secondary};
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .info-line {
+      margin-top: 6px;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      margin-top: 7px;
+      color: #64748b;
+      font-size: 11.5px;
+    }
+
+    .meta-row strong {
+      max-width: 65%;
+      color: ${secondary};
+      text-align: right;
+    }
+
+    .section {
+      margin-top: 21px;
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: 0 0 11px;
+      color: ${secondary};
+      font-size: 15px;
+      font-weight: 850;
+    }
+
+    .section-title::before {
+      width: 4px;
+      height: 25px;
+      border-radius: 3px;
+      background: ${primary};
+      content: "";
+    }
+
+    .description-box {
+      padding: 14px 17px;
+      border: 1px solid ${border};
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .work-title {
+      display: block;
+      margin-bottom: 6px;
+      color: ${secondary};
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .normal-text {
+      color: #334155;
+      font-size: 12.5px;
+      line-height: 1.55;
+      white-space: normal;
+      overflow-wrap: anywhere;
+      word-break: normal;
+      letter-spacing: 0;
+      word-spacing: 0;
+    }
+
+    .table-wrap {
+      overflow: hidden;
+      border: 1px solid ${border};
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      font-size: 11.5px;
+    }
+
+    th {
+      padding: 9px 10px;
+      background: ${primary};
+      color: #fff;
+      font-size: 10px;
+      font-weight: 800;
+      text-align: left;
+    }
+
+    th:nth-child(1) { width: 55%; }
+    th:nth-child(2) { width: 15%; }
+    th:nth-child(3) { width: 15%; }
+    th:nth-child(4) { width: 15%; }
+
+    td {
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+      letter-spacing: 0;
+      word-spacing: 0;
+    }
+
+    tbody tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .center {
+      text-align: center;
+    }
+
+    .right {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .totals-wrap {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 15px;
+    }
+
+    .totals {
+      width: 280px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      padding: 4px 2px;
+      color: #64748b;
+      font-size: 11px;
+    }
+
+    .total-row strong {
+      color: ${secondary};
+    }
+
+    .grand-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+      margin-top: 3px;
+      border-radius: 9px;
+      padding: 10px 12px;
+      background: color-mix(
+        in srgb,
+        ${primary} 9%,
+        white
+      );
+      color: ${primary};
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    .price-note {
+      margin-top: 8px;
+      color: #64748b;
+      font-size: 10px;
+      line-height: 1.4;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns:
+        1fr 1fr;
+      gap: 13px;
+    }
+
+    .photo-card {
+      overflow: hidden;
+      border: 1px solid ${border};
+      border-radius: 11px;
+      background: #f8fafc;
+    }
+
+    .photo-card img {
+      display: block;
+      width: 100%;
+      height: 230px;
+      object-fit: contain;
+      background: #fff;
+    }
+
+    .photo-name {
+      overflow: hidden;
+      padding: 7px 9px;
+      color: #64748b;
+      font-size: 9px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .signature-section {
+      margin-top: auto;
+      padding: 20px 58px 24px;
+    }
+
+    .signature-title {
+      margin-bottom: 18px;
+      color: ${secondary};
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns:
+        1fr 1fr;
+      gap: 72px;
+    }
+
+    .signature-space {
+      display: flex;
+      height: 73px;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .signature-space img {
+      max-width: 165px;
+      max-height: 68px;
+      object-fit: contain;
+    }
+
+    .signature-line {
+      border-top: 1px solid #94a3b8;
+      padding-top: 7px;
+      text-align: center;
+    }
+
+    .signature-line strong {
+      display: block;
+      color: ${secondary};
+      font-size: 10.5px;
+    }
+
+    .signature-line span {
+      display: block;
+      margin-top: 3px;
+      color: #94a3b8;
+      font-size: 9px;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 58px 14px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 7px;
+      color: #94a3b8;
+      font-size: 8px;
+    }
+
+    .continuation-note {
+      margin-bottom: 16px;
+      color: #94a3b8;
+      font-size: 10px;
+    }
+
+    /* CLASSIC */
+    .layout-classic .top-line {
+      display: none;
+    }
+
+    .layout-classic .header {
+      margin-bottom: 24px;
+      padding-top: 27px;
+      padding-bottom: 27px;
+      background: ${secondary};
+    }
+
+    .layout-classic .company-name,
+    .layout-classic .document-number {
+      color: #fff;
+    }
+
+    .layout-classic .company-details,
+    .layout-classic .document-meta {
+      color: #cbd5e1;
+    }
+
+    .layout-classic .document-kicker {
+      color: #fff;
+      opacity: .78;
+    }
+
+    .layout-classic .divider {
+      display: none;
+    }
+
+    .layout-classic .page-content {
+      padding-top: 0;
+    }
+
+    .layout-classic .info-grid {
+      grid-template-columns:
+        repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .layout-classic .info-card {
+      min-height: 83px;
+      padding: 12px;
+      border: 0;
+      background: #f5f7fb;
+    }
+
+    .layout-classic .classic-customer {
+      grid-column: span 2;
+    }
+
+    .layout-classic .classic-document {
+      grid-column: span 2;
+    }
+
+    .layout-classic .section-title {
+      margin-bottom: 8px;
+    }
+
+    .layout-classic .section-title::before {
+      display: none;
+    }
+
+    .layout-classic .description-box {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .layout-classic .table-wrap {
+      border: 0;
+      border-radius: 0;
+    }
+
+    .layout-classic th {
+      background: ${secondary};
+    }
+
+    .layout-classic .grand-total {
+      color: ${secondary};
+      background: #f1f5f9;
+    }
+
+    /* CUSTOM */
+    .layout-custom .header {
+      border-bottom: 2px solid ${primary};
+    }
+
+    .layout-custom .info-card {
+      border-radius: 4px;
+    }
+
+    .layout-custom .description-box,
+    .layout-custom .table-wrap,
+    .layout-custom .photo-card {
+      border-radius: 4px;
+    }
+
+    .layout-custom .section-title::before {
+      width: 28px;
+      height: 3px;
+    }
+
+    ${
+      branding.showBackgroundImage &&
+      branding.backgroundImage
+        ? `
+          .pdf-page::before {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            background:
+              url("${branding.backgroundImage}")
+              center / cover no-repeat;
+            opacity: .08;
+            content: "";
+          }
+
+          .page-body {
+            position: relative;
+            z-index: 1;
+          }
+        `
+        : ''
+    }
+
+    @media print {
+      html, body {
+        background: #fff;
+      }
+    }
+  `
+}
+
+function companyLogoHtml(
+  branding: WorkOrderBranding,
+) {
+  if (
+    branding.showLogo &&
+    branding.logo
+  ) {
+    return `
+      <img
+        class="logo"
+        src="${escapeHtml(
+          branding.logo,
+        )}"
+        alt=""
+      />
+    `
+  }
+
+  return `
+    <div class="logo-fallback">
+      ${escapeHtml(
+        (
+          branding.companyName ||
+          'FY'
+        )
+          .slice(0, 2)
+          .toUpperCase(),
+      )}
+    </div>
+  `
+}
+
+function headerHtml(
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+  pageNumber: number,
+) {
+  const companyLines = [
+    branding.companyAddress,
+    [
+      branding.showCompanyPhone
+        ? branding.companyPhone
+        : '',
+      branding.showCompanyEmail
+        ? branding.companyEmail
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' • '),
+    [
+      branding.showCompanyOib &&
+      branding.companyOib
+        ? `OIB: ${branding.companyOib}`
+        : '',
+      branding.showCompanyIban &&
+      branding.companyIban
+        ? `IBAN: ${branding.companyIban}`
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' • '),
+  ]
+    .filter(Boolean)
+    .map(
+      (line) =>
+        `<div>${escapeHtml(line)}</div>`,
+    )
+    .join('')
+
+  return `
+    <div class="top-line"></div>
+
+    <header class="header">
+      <div class="company-wrap">
+        ${companyLogoHtml(
+          branding,
+        )}
+
+        <div>
+          <div class="company-name">
+            ${escapeHtml(
+              branding.companyName,
+            )}
+          </div>
+
+          <div class="company-details">
+            ${companyLines}
+          </div>
+        </div>
+      </div>
+
+      <div class="document-heading">
+        <div class="document-kicker">
+          RADNI NALOG
+        </div>
+
+        <div class="document-number">
+          ${escapeHtml(
+            order.orderNumber,
+          )}
+        </div>
+
+        <div class="document-meta">
+          Datum:
+          ${escapeHtml(
+            formatDate(order.date),
+          )}
+          <br>
+          Stranica ${pageNumber}
+        </div>
+      </div>
+    </header>
+
+    <div class="divider"></div>
+  `
+}
+
+function infoHtml(
+  order: WorkOrder,
+) {
+  return `
+    <section class="info-grid">
+      <article class="info-card classic-customer">
+        <div class="eyebrow">
+          Kupac / investitor
+        </div>
+
+        <div class="customer-name">
+          ${escapeHtml(
+            order.customerName ||
+            '—',
+          )}
+        </div>
+
+        <div class="info-line">
+          ${escapeHtml(
+            order.address || '—',
+          )}
+        </div>
+
+        <div class="info-line">
+          OIB:
+          ${escapeHtml(
+            order.customerOib ||
+            '—',
+          )}
+        </div>
+
+        ${
+          order.customerPhone ||
+          order.customerEmail
+            ? `
+              <div class="info-line">
+                ${escapeHtml(
+                  [
+                    order.customerPhone,
+                    order.customerEmail,
+                  ]
+                    .filter(Boolean)
+                    .join(' • '),
+                )}
+              </div>
+            `
+            : ''
+        }
+      </article>
+
+      <article class="info-card muted classic-document">
+        <div class="eyebrow">
+          Podaci dokumenta
+        </div>
+
+        <div class="meta-row">
+          <span>Vrijeme</span>
+          <strong>
+            ${escapeHtml(
+              `${order.arrivalTime || '—'} – ${order.departureTime || '—'}`,
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Trajanje</span>
+          <strong>
+            ${escapeHtml(
+              durationLabel(
+                order.durationMinutes,
+              ),
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Status</span>
+          <strong>
+            ${escapeHtml(
+              order.status,
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Radnici</span>
+          <strong>
+            ${escapeHtml(
+              order.assignedWorkers.join(
+                ', ',
+              ) || '—',
+            )}
+          </strong>
+        </div>
+      </article>
+    </section>
+  `
+}
+
+function descriptionHtml(
+  page: LogicalPage,
+) {
+  if (
+    page.description === undefined
+  ) {
+    return ''
+  }
+
+  return `
+    <section class="section">
+      <h2 class="section-title">
+        ${
+          page.descriptionTitle ===
+          'Opis radova – nastavak'
+            ? 'Opis radova – nastavak'
+            : 'Opis radova'
+        }
+      </h2>
+
+      <div class="description-box">
+        ${
+          page.descriptionTitle &&
+          page.descriptionTitle !==
+            'Opis radova – nastavak'
+            ? `
+              <strong class="work-title">
+                ${escapeHtml(
+                  page.descriptionTitle,
+                )}
+              </strong>
+            `
+            : ''
+        }
+
+        <div class="normal-text">
+          ${
+            page.description
+              ? multilineHtml(
+                  page.description,
+                )
+              : 'Nema dodatnog opisa.'
+          }
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function materialsHtml(
+  page: LogicalPage,
+) {
+  if (
+    page.materials.length === 0
+  ) {
+    return ''
+  }
+
+  const rows =
+    page.materials
+      .map(
+        (material) => `
+          <tr>
+            <td>
+              ${escapeHtml(
+                material.name,
+              )}
+            </td>
+
+            <td class="center">
+              ${escapeHtml(
+                `${material.quantity} ${material.unit}`,
+              )}
+            </td>
+
+            <td class="right">
+              ${escapeHtml(
+                formatMoney(
+                  material.unitPrice,
+                ),
+              )}
+            </td>
+
+            <td class="right">
+              <strong>
+                ${escapeHtml(
+                  formatMoney(
+                    material.quantity *
+                      material.unitPrice,
+                  ),
+                )}
+              </strong>
+            </td>
+          </tr>
+        `,
+      )
+      .join('')
+
+  return `
+    <section class="section">
+      <h2 class="section-title">
+        Utrošeni materijal
+      </h2>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Materijal</th>
+              <th class="center">
+                Količina
+              </th>
+              <th class="right">
+                Cijena
+              </th>
+              <th class="right">
+                Ukupno
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `
+}
+
+function totalsHtml(
+  order: WorkOrder,
+  show: boolean,
+) {
+  if (!show) {
+    return ''
+  }
 
   const vatValue =
     order.totalPrice -
     order.materialPrice -
     order.labourPrice
 
-  const rows = [
-    [
-      'Materijal',
-      formatMoney(
-        order.materialPrice,
-      ),
-    ],
-    [
-      'Rad',
-      formatMoney(
-        order.labourPrice,
-      ),
-    ],
-    [
-      `PDV ${order.vatRate}%`,
-      formatMoney(
-        vatValue,
-      ),
-    ],
-  ]
+  return `
+    <div class="totals-wrap">
+      <div class="totals">
+        <div class="total-row">
+          <span>Materijal</span>
+          <strong>
+            ${escapeHtml(
+              formatMoney(
+                order.materialPrice,
+              ),
+            )}
+          </strong>
+        </div>
 
-  doc.setFontSize(7.5)
+        <div class="total-row">
+          <span>Rad</span>
+          <strong>
+            ${escapeHtml(
+              formatMoney(
+                order.labourPrice,
+              ),
+            )}
+          </strong>
+        </div>
 
-  let rowY = ctx.y
+        <div class="total-row">
+          <span>
+            PDV
+            ${escapeHtml(
+              order.vatRate,
+            )}%
+          </span>
 
-  for (
-    const [
-      label,
-      value,
-    ] of rows
-  ) {
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-    doc.setTextColor(
-      100,
-      116,
-      139,
-    )
+          <strong>
+            ${escapeHtml(
+              formatMoney(vatValue),
+            )}
+          </strong>
+        </div>
 
-    doc.text(
-      label,
-      boxX,
-      rowY + 4,
-    )
+        <div class="grand-total">
+          <span>UKUPNO</span>
 
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
+          <strong>
+            ${escapeHtml(
+              formatMoney(
+                order.totalPrice,
+              ),
+            )}
+          </strong>
+        </div>
 
-    doc.setTextColor(
-      30,
-      41,
-      59,
-    )
-
-    doc.text(
-      value,
-      boxX +
-        boxWidth,
-      rowY + 4,
-      {
-        align: 'right',
-      },
-    )
-
-    rowY += 5.5
-  }
-
-  setFillColor(
-    doc,
-    '#EFF6FF',
-  )
-
-  setDrawColor(
-    doc,
-    '#DBEAFE',
-  )
-
-  doc.roundedRect(
-    boxX,
-    rowY,
-    boxWidth,
-    9,
-    2,
-    2,
-    'FD',
-  )
-
-  setTextColor(
-    doc,
-    ctx.primary,
-  )
-
-  doc.setFont(
-    'helvetica',
-    'bold',
-  )
-
-  doc.setFontSize(9)
-
-  doc.text(
-    'UKUPNO',
-    boxX + 3,
-    rowY + 5.8,
-  )
-
-  doc.text(
-    formatMoney(
-      order.totalPrice,
-    ),
-    boxX +
-      boxWidth -
-      3,
-    rowY + 5.8,
-    {
-      align: 'right',
-    },
-  )
-
-  rowY += 13
-
-  if (
-    order.priceNote
-  ) {
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-
-    doc.setFontSize(6.8)
-    doc.setTextColor(
-      100,
-      116,
-      139,
-    )
-
-    const note =
-      doc.splitTextToSize(
-        `Napomena: ${order.priceNote}`,
-        contentWidth,
-      )
-
-    doc.text(
-      note.slice(0, 4),
-      marginX,
-      rowY,
-    )
-
-    rowY +=
-      Math.min(
-        4,
-        note.length,
-      ) * 3.5
-  }
-
-  ctx.y =
-    rowY + 4
+        ${
+          order.priceNote
+            ? `
+              <div class="price-note">
+                <strong>Napomena:</strong>
+                ${multilineHtml(
+                  order.priceNote,
+                )}
+              </div>
+            `
+            : ''
+        }
+      </div>
+    </div>
+  `
 }
 
-async function drawPhotoGrid(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
+function photosHtml(
+  page: LogicalPage,
 ) {
   if (
-    ctx.order.images.length ===
-    0
+    page.photos.length === 0
   ) {
-    return
+    return ''
   }
 
-  sectionTitle(
-    ctx,
-    `Fotografije (${ctx.order.images.length})`,
-    logoDataUrl,
-  )
+  const items =
+    page.photos
+      .map(
+        (image) => `
+          <figure class="photo-card">
+            <img
+              src="${escapeHtml(
+                image.dataUrl,
+              )}"
+              alt=""
+            />
 
-  const images: Array<{
-    image: WorkOrderImage
-    dataUrl: string
-    width: number
-    height: number
-  }> = []
-
-  for (
-    const image of
-    ctx.order.images
-  ) {
-    const dataUrl =
-      await imageSourceToDataUrl(
-        image.dataUrl,
+            <figcaption class="photo-name">
+              ${escapeHtml(
+                image.name,
+              )}
+            </figcaption>
+          </figure>
+        `,
       )
+      .join('')
 
-    if (!dataUrl) {
-      continue
-    }
+  return `
+    <section class="section">
+      <h2 class="section-title">
+        Fotografije
+      </h2>
 
-    const dimensions =
-      await getImageDimensions(
-        dataUrl,
-      )
-
-    images.push({
-      image,
-      dataUrl,
-      width:
-        dimensions.width,
-      height:
-        dimensions.height,
-    })
-  }
-
-  if (
-    images.length === 0
-  ) {
-    ctx.doc.setFont(
-      'helvetica',
-      'normal',
-    )
-    ctx.doc.setFontSize(7.5)
-    ctx.doc.setTextColor(
-      100,
-      116,
-      139,
-    )
-
-    ctx.doc.text(
-      'Fotografije nisu dostupne za prikaz u PDF-u.',
-      ctx.marginX,
-      ctx.y + 4,
-    )
-
-    ctx.y += 10
-    return
-  }
-
-  const gap = 5
-  const cellWidth =
-    (ctx.contentWidth - gap) / 2
-  const cellHeight = 55
-
-  for (
-    let index = 0;
-    index < images.length;
-    index += 2
-  ) {
-    if (
-      ctx.y +
-        cellHeight >
-      ctx.pageHeight -
-        ctx.bottomMargin
-    ) {
-      addPage(
-        ctx,
-        logoDataUrl,
-      )
-
-      sectionTitle(
-        ctx,
-        'Fotografije – nastavak',
-        logoDataUrl,
-      )
-    }
-
-    for (
-      let column = 0;
-      column < 2;
-      column += 1
-    ) {
-      const current =
-        images[
-          index + column
-        ]
-
-      if (!current) {
-        continue
-      }
-
-      const x =
-        ctx.marginX +
-        column *
-          (cellWidth + gap)
-
-      setFillColor(
-        ctx.doc,
-        '#F8FAFC',
-      )
-
-      setDrawColor(
-        ctx.doc,
-        '#E2E8F0',
-      )
-
-      ctx.doc.roundedRect(
-        x,
-        ctx.y,
-        cellWidth,
-        cellHeight,
-        2.5,
-        2.5,
-        'FD',
-      )
-
-      const fitted =
-        fitImage(
-          current.width,
-          current.height,
-          cellWidth - 6,
-          cellHeight - 11,
-        )
-
-      const imageX =
-        x +
-        (cellWidth -
-          fitted.width) /
-          2
-
-      const imageY =
-        ctx.y + 3
-
-      try {
-        ctx.doc.addImage(
-          current.dataUrl,
-          getImageFormat(
-            current.dataUrl,
-          ),
-          imageX,
-          imageY,
-          fitted.width,
-          fitted.height,
-          undefined,
-          'FAST',
-        )
-      } catch {
-        // pojedinačna problematična
-        // slika ne prekida PDF
-      }
-
-      ctx.doc.setFont(
-        'helvetica',
-        'normal',
-      )
-
-      ctx.doc.setFontSize(6.2)
-      ctx.doc.setTextColor(
-        100,
-        116,
-        139,
-      )
-
-      ctx.doc.text(
-        current.image.name ||
-          `Fotografija ${index + column + 1}`,
-        x + 3,
-        ctx.y +
-          cellHeight -
-          3,
-      )
-    }
-
-    ctx.y +=
-      cellHeight + 5
-  }
+      <div class="photo-grid">
+        ${items}
+      </div>
+    </section>
+  `
 }
 
-async function drawSignatureBlock(
-  ctx: PdfContext,
-  logoDataUrl: string | null,
-  stampDataUrl: string | null,
-) {
-  /*
-   * Potpis i pečat se uvijek drže zajedno.
-   * Ako nema dovoljno mjesta na trenutnoj
-   * stranici, cijeli blok ide na novu
-   * zadnju stranicu.
-   */
-  const requiredHeight = 55
-
-  ensureSpace(
-    ctx,
-    requiredHeight,
-    logoDataUrl,
-  )
-
-  sectionTitle(
-    ctx,
-    'Potpis i ovjera',
-    logoDataUrl,
-  )
-
-  const {
-    doc,
-    marginX,
-    contentWidth,
-    order,
-  } = ctx
-
-  const gap = 18
-  const width =
-    (contentWidth - gap) / 2
-  const startY = ctx.y
-  const imageAreaHeight = 28
-
-  const leftX =
-    marginX
-  const rightX =
-    marginX +
-    width +
-    gap
-
-  const drawSignatureCard = (
-    x: number,
-    label: string,
-    subLabel: string,
-  ) => {
-    setDrawColor(
-      doc,
-      '#CBD5E1',
-    )
-
-    doc.line(
-      x,
-      startY +
-        imageAreaHeight,
-      x + width,
-      startY +
-        imageAreaHeight,
-    )
-
-    doc.setFont(
-      'helvetica',
-      'bold',
-    )
-
-    doc.setFontSize(7.5)
-    doc.setTextColor(
-      30,
-      41,
-      59,
-    )
-
-    doc.text(
-      label,
-      x + width / 2,
-      startY +
-        imageAreaHeight +
-        5,
-      {
-        align: 'center',
-      },
-    )
-
-    doc.setFont(
-      'helvetica',
-      'normal',
-    )
-
-    doc.setFontSize(6.5)
-    doc.setTextColor(
-      148,
-      163,
-      184,
-    )
-
-    doc.text(
-      subLabel,
-      x + width / 2,
-      startY +
-        imageAreaHeight +
-        9,
-      {
-        align: 'center',
-      },
-    )
-  }
-
-  drawSignatureCard(
-    leftX,
-    'Izvođač radova',
-    'Pečat / potpis',
-  )
-
-  drawSignatureCard(
-    rightX,
-    order.investorName ||
-      'Investitor',
-    'Potpis investitora',
-  )
-
-  if (
-    ctx.branding.showStamp &&
-    stampDataUrl
-  ) {
-    try {
-      const dimensions =
-        await getImageDimensions(
-          stampDataUrl,
-        )
-
-      const fitted =
-        fitImage(
-          dimensions.width,
-          dimensions.height,
-          width - 12,
-          imageAreaHeight - 3,
-        )
-
-      doc.addImage(
-        stampDataUrl,
-        getImageFormat(
-          stampDataUrl,
-        ),
-        leftX +
-          (width -
-            fitted.width) /
-            2,
-        startY +
-          imageAreaHeight -
-          fitted.height -
-          1,
-        fitted.width,
-        fitted.height,
-        undefined,
-        'FAST',
-      )
-    } catch {
-      // pečat nije kritičan za generiranje PDF-a
-    }
-  }
-
-  if (
-    order.investorSignature
-  ) {
-    const signature =
-      await imageSourceToDataUrl(
-        order.investorSignature,
-      )
-
-    if (signature) {
-      try {
-        const dimensions =
-          await getImageDimensions(
-            signature,
-          )
-
-        const fitted =
-          fitImage(
-            dimensions.width,
-            dimensions.height,
-            width - 12,
-            imageAreaHeight - 3,
-          )
-
-        doc.addImage(
-          signature,
-          getImageFormat(
-            signature,
-          ),
-          rightX +
-            (width -
-              fitted.width) /
-              2,
-          startY +
-            imageAreaHeight -
-            fitted.height -
-            1,
-          fitted.width,
-          fitted.height,
-          undefined,
-          'FAST',
-        )
-      } catch {
-        // potpis nije kritičan za generiranje PDF-a
-      }
-    }
-  }
-
-  ctx.y +=
-    requiredHeight
-}
-
-async function buildWorkOrderPdf(
+function signatureHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
+  show: boolean,
 ) {
-  const doc =
-    new jsPDF({
-      orientation:
-        'portrait',
-      unit: 'mm',
-      format: 'a4',
-      compress: true,
-      putOnlyUsedFonts: true,
-    })
-
-  const logoDataUrl =
-    branding.showLogo
-      ? await imageSourceToDataUrl(
-          branding.logo,
-        )
-      : null
-
-  const stampDataUrl =
-    branding.showStamp
-      ? await imageSourceToDataUrl(
-          branding.stamp,
-        )
-      : null
-
-  const ctx: PdfContext = {
-    doc,
-    order,
-    branding,
-    primary:
-      branding.primaryColor ||
-      '#2563EB',
-    secondary:
-      branding.secondaryColor ||
-      '#0F172A',
-    pageWidth:
-      A4_WIDTH,
-    pageHeight:
-      A4_HEIGHT,
-    marginX: 14,
-    topMargin: 44,
-    bottomMargin: 18,
-    contentWidth:
-      A4_WIDTH - 28,
-    y: 44,
-    pageNumber: 0,
+  if (!show) {
+    return ''
   }
 
-  addPage(
-    ctx,
-    logoDataUrl,
-  )
+  return `
+    <section class="signature-section">
+      <div class="signature-title">
+        Potpis i ovjera
+      </div>
 
-  drawInfoCards(
-    ctx,
-    logoDataUrl,
-  )
+      <div class="signature-grid">
+        <div>
+          <div class="signature-space">
+            ${
+              branding.showStamp &&
+              branding.stamp
+                ? `
+                  <img
+                    src="${escapeHtml(
+                      branding.stamp,
+                    )}"
+                    alt=""
+                  />
+                `
+                : ''
+            }
+          </div>
 
-  drawDescription(
-    ctx,
-    logoDataUrl,
-  )
+          <div class="signature-line">
+            <strong>
+              Izvođač radova
+            </strong>
 
-  drawMaterials(
-    ctx,
-    logoDataUrl,
-  )
+            <span>
+              Pečat / potpis
+            </span>
+          </div>
+        </div>
 
-  drawTotals(
-    ctx,
-    logoDataUrl,
-  )
+        <div>
+          <div class="signature-space">
+            ${
+              order.investorSignature
+                ? `
+                  <img
+                    src="${escapeHtml(
+                      order.investorSignature,
+                    )}"
+                    alt=""
+                  />
+                `
+                : ''
+            }
+          </div>
 
-  await drawPhotoGrid(
-    ctx,
-    logoDataUrl,
-  )
+          <div class="signature-line">
+            <strong>
+              ${escapeHtml(
+                order.investorName ||
+                'Investitor',
+              )}
+            </strong>
 
-  await drawSignatureBlock(
-    ctx,
-    logoDataUrl,
-    stampDataUrl,
-  )
-
-  return doc
+            <span>
+              Potpis investitora
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+  `
 }
 
-/*
- * Ovaj export ostaje radi kompatibilnosti
- * s postojećim importima, ali novi PDF se
- * više ne generira kao jedna velika HTML
- * slika koja se naslijepo reže na A4.
- */
-export function buildWorkOrderPdfHtml(
+function footerHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
   return `
-    <div>
-      <strong>${branding.companyName}</strong>
-      <div>${order.orderNumber}</div>
-      <div>${order.title}</div>
+    <footer class="footer">
+      <span>
+        ${escapeHtml(
+          branding.footerText ||
+          '',
+        )}
+      </span>
+
+      <span>
+        ${escapeHtml(
+          order.orderNumber,
+        )}
+      </span>
+    </footer>
+  `
+}
+
+function pageHtml(
+  page: LogicalPage,
+  index: number,
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+) {
+  return `
+    <article
+      class="pdf-page ${layoutClass(
+        branding,
+      )}"
+      data-pdf-page
+    >
+      <div class="page-body">
+        ${headerHtml(
+          order,
+          branding,
+          index + 1,
+        )}
+
+        <main class="page-content">
+          ${
+            page.showInfo
+              ? infoHtml(order)
+              : `
+                <div class="continuation-note">
+                  Nastavak dokumenta
+                </div>
+              `
+          }
+
+          ${descriptionHtml(
+            page,
+          )}
+
+          ${materialsHtml(
+            page,
+          )}
+
+          ${totalsHtml(
+            order,
+            page.showTotals,
+          )}
+
+          ${photosHtml(
+            page,
+          )}
+        </main>
+
+        ${signatureHtml(
+          order,
+          branding,
+          page.showSignature,
+        )}
+
+        ${footerHtml(
+          order,
+          branding,
+        )}
+      </div>
+    </article>
+  `
+}
+
+function buildDocument(
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+) {
+  const pages =
+    paginateOrder(order)
+
+  return `
+    <div
+      data-fersys-work-order
+      style="
+        position: fixed;
+        left: -100000px;
+        top: 0;
+        width: 794px;
+        background: #fff;
+        z-index: -1;
+      "
+    >
+      <style>
+        ${commonCss(
+          branding,
+        )}
+      </style>
+
+      ${pages
+        .map(
+          (page, index) =>
+            pageHtml(
+              page,
+              index,
+              order,
+              branding,
+            ),
+        )
+        .join('')}
     </div>
   `
+}
+
+async function waitForImages(
+  target: HTMLElement,
+) {
+  const images =
+    Array.from(
+      target.querySelectorAll(
+        'img',
+      ),
+    )
+
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>(
+          (resolve) => {
+            if (
+              image.complete
+            ) {
+              resolve()
+              return
+            }
+
+            image.onload =
+              () => resolve()
+
+            image.onerror =
+              () => resolve()
+          },
+        ),
+    ),
+  )
+}
+
+async function buildPdfDocument(
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+) {
+  const wrapper =
+    document.createElement(
+      'div',
+    )
+
+  wrapper.innerHTML =
+    buildDocument(
+      order,
+      branding,
+    )
+
+  const target =
+    wrapper.firstElementChild as
+      | HTMLElement
+      | null
+
+  if (!target) {
+    throw new Error(
+      'PDF dokument nije moguće pripremiti.',
+    )
+  }
+
+  document.body.appendChild(
+    target,
+  )
+
+  try {
+    await document.fonts?.ready
+    await waitForImages(target)
+
+    const pageElements =
+      Array.from(
+        target.querySelectorAll(
+          '[data-pdf-page]',
+        ),
+      ) as HTMLElement[]
+
+    if (
+      pageElements.length === 0
+    ) {
+      throw new Error(
+        'PDF nema stranica za prikaz.',
+      )
+    }
+
+    const doc =
+      new jsPDF({
+        orientation:
+          'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      })
+
+    for (
+      let index = 0;
+      index <
+      pageElements.length;
+      index += 1
+    ) {
+      const canvas =
+        await html2canvas(
+          pageElements[index],
+          {
+            scale: 2,
+            backgroundColor:
+              '#ffffff',
+            useCORS: true,
+            logging: false,
+          },
+        )
+
+      const image =
+        canvas.toDataURL(
+          'image/jpeg',
+          0.94,
+        )
+
+      if (index > 0) {
+        doc.addPage()
+      }
+
+      doc.addImage(
+        image,
+        'JPEG',
+        0,
+        0,
+        210,
+        297,
+        undefined,
+        'FAST',
+      )
+    }
+
+    return doc
+  } finally {
+    target.remove()
+  }
+}
+
+function safeFileName(
+  value: string,
+) {
+  return value
+    .trim()
+    .replace(
+      /[\\/:*?"<>|]+/g,
+      '-',
+    )
+    .replace(/\s+/g, '-')
+}
+
+export function buildWorkOrderPdfHtml(
+  order: WorkOrder,
+  branding: WorkOrderBranding,
+) {
+  return buildDocument(
+    order,
+    branding,
+  )
 }
 
 export async function downloadWorkOrderPdf(
@@ -2135,19 +1758,16 @@ export async function downloadWorkOrderPdf(
   branding: WorkOrderBranding,
 ) {
   const doc =
-    await buildWorkOrderPdf(
+    await buildPdfDocument(
       order,
       branding,
     )
 
-  const name =
-    safeFileName(
-      order.orderNumber ||
-        'radni-nalog',
-    )
-
   doc.save(
-    `${name}.pdf`,
+    `${safeFileName(
+      order.orderNumber ||
+      'radni-nalog',
+    )}.pdf`,
   )
 }
 
@@ -2156,14 +1776,12 @@ export async function getWorkOrderPdfBlob(
   branding: WorkOrderBranding,
 ) {
   const doc =
-    await buildWorkOrderPdf(
+    await buildPdfDocument(
       order,
       branding,
     )
 
-  return doc.output(
-    'blob',
-  )
+  return doc.output('blob')
 }
 
 export async function getWorkOrderPdfBlobUrl(

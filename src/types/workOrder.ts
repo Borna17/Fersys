@@ -104,6 +104,7 @@ export type WorkOrder = {
 export type PdfLayout =
   | 'classic'
   | 'modern'
+  | 'custom'
   | 'minimal'
 
 export type WorkOrderBranding = {

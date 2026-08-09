@@ -45,240 +45,69 @@ function parseStoredBranding(
   const result:
     Partial<WorkOrderBranding> = {}
 
-  if (isString(value.companyName)) {
-    result.companyName =
-      value.companyName
+  const stringFields = [
+    'companyName',
+    'companyOib',
+    'companyAddress',
+    'companyPhone',
+    'companyEmail',
+    'companyIban',
+    'companyWebsite',
+    'primaryColor',
+    'secondaryColor',
+    'accentColor',
+    'textColor',
+    'borderColor',
+    'backgroundColor',
+    'logo',
+    'stamp',
+    'backgroundImage',
+    'watermarkText',
+    'footerText',
+  ] as const
+
+  for (const field of stringFields) {
+    if (isString(value[field])) {
+      result[field] = value[field]
+    }
   }
 
-  if (isString(value.companyOib)) {
-    result.companyOib =
-      value.companyOib
-  }
+  const booleanFields = [
+    'showBackgroundImage',
+    'showLogo',
+    'showStamp',
+    'showCompanyPhone',
+    'showCompanyEmail',
+    'showCompanyIban',
+    'showCompanyOib',
+    'showCompanyWebsite',
+  ] as const
 
-  if (
-    isString(
-      value.companyAddress,
-    )
-  ) {
-    result.companyAddress =
-      value.companyAddress
-  }
-
-  if (
-    isString(
-      value.companyPhone,
-    )
-  ) {
-    result.companyPhone =
-      value.companyPhone
-  }
-
-  if (
-    isString(
-      value.companyEmail,
-    )
-  ) {
-    result.companyEmail =
-      value.companyEmail
-  }
-
-  if (
-    isString(
-      value.companyIban,
-    )
-  ) {
-    result.companyIban =
-      value.companyIban
-  }
-
-  if (
-    isString(
-      value.companyWebsite,
-    )
-  ) {
-    result.companyWebsite =
-      value.companyWebsite
+  for (const field of booleanFields) {
+    if (isBoolean(value[field])) {
+      result[field] = value[field]
+    }
   }
 
   if (
-    isString(
-      value.primaryColor,
-    )
-  ) {
-    result.primaryColor =
-      value.primaryColor
-  }
-
-  if (
-    isString(
-      value.secondaryColor,
-    )
-  ) {
-    result.secondaryColor =
-      value.secondaryColor
-  }
-
-  if (
-    isString(
-      value.accentColor,
-    )
-  ) {
-    result.accentColor =
-      value.accentColor
-  }
-
-  if (
-    isString(
-      value.textColor,
-    )
-  ) {
-    result.textColor =
-      value.textColor
-  }
-
-  if (
-    isString(
-      value.borderColor,
-    )
-  ) {
-    result.borderColor =
-      value.borderColor
-  }
-
-  if (
-    isString(
-      value.backgroundColor,
-    )
-  ) {
-    result.backgroundColor =
-      value.backgroundColor
-  }
-
-  if (isString(value.logo)) {
-    result.logo = value.logo
-  }
-
-  if (isString(value.stamp)) {
-    result.stamp = value.stamp
-  }
-
-  if (
-    isString(
-      value.backgroundImage,
-    )
-  ) {
-    result.backgroundImage =
-      value.backgroundImage
-  }
-
-  if (
-    isBoolean(
-      value.showBackgroundImage,
-    )
-  ) {
-    result.showBackgroundImage =
-      value.showBackgroundImage
-  }
-
-  if (
-    isBoolean(value.showLogo)
-  ) {
-    result.showLogo =
-      value.showLogo
-  }
-
-  if (
-    isBoolean(value.showStamp)
-  ) {
-    result.showStamp =
-      value.showStamp
-  }
-
-  if (
-    isBoolean(
-      value.showCompanyPhone,
-    )
-  ) {
-    result.showCompanyPhone =
-      value.showCompanyPhone
-  }
-
-  if (
-    isBoolean(
-      value.showCompanyEmail,
-    )
-  ) {
-    result.showCompanyEmail =
-      value.showCompanyEmail
-  }
-
-  if (
-    isBoolean(
-      value.showCompanyIban,
-    )
-  ) {
-    result.showCompanyIban =
-      value.showCompanyIban
-  }
-
-  if (
-    isBoolean(
-      value.showCompanyOib,
-    )
-  ) {
-    result.showCompanyOib =
-      value.showCompanyOib
-  }
-
-  if (
-    isBoolean(
-      value.showCompanyWebsite,
-    )
-  ) {
-    result.showCompanyWebsite =
-      value.showCompanyWebsite
-  }
-
-  if (
-    value.headerAlignment ===
-      'left' ||
-    value.headerAlignment ===
-      'center' ||
-    value.headerAlignment ===
-      'right'
+    value.headerAlignment === 'left' ||
+    value.headerAlignment === 'center' ||
+    value.headerAlignment === 'right'
   ) {
     result.headerAlignment =
       value.headerAlignment
   }
 
   if (
-    value.layout ===
-      'classic' ||
-    value.layout ===
-      'modern' ||
-    value.layout ===
-      'minimal'
+    value.layout === 'classic' ||
+    value.layout === 'modern' ||
+    value.layout === 'custom' ||
+    value.layout === 'minimal'
   ) {
     result.layout =
-      value.layout
-  }
-
-  if (
-    isString(
-      value.watermarkText,
-    )
-  ) {
-    result.watermarkText =
-      value.watermarkText
-  }
-
-  if (
-    isString(
-      value.footerText,
-    )
-  ) {
-    result.footerText =
-      value.footerText
+      value.layout === 'minimal'
+        ? 'custom'
+        : value.layout
   }
 
   return result
@@ -329,7 +158,6 @@ export function mapCompanySettingsToWorkOrderBranding(
       defaultWorkOrderBranding.primaryColor,
 
     secondaryColor:
-      settings.secondaryColor ||
       defaultWorkOrderBranding.secondaryColor,
 
     accentColor:
@@ -352,53 +180,26 @@ export function mapCompanySettingsToWorkOrderBranding(
 
     backgroundImage: '',
 
-    showBackgroundImage:
-      false,
-
+    showBackgroundImage: false,
     showLogo:
-      Boolean(
-        settings.logoUrl,
-      ),
-
+      Boolean(settings.logoUrl),
     showStamp:
-      Boolean(
-        settings.stampUrl,
-      ),
-
+      Boolean(settings.stampUrl),
     showCompanyPhone:
-      Boolean(
-        settings.phone,
-      ),
-
+      Boolean(settings.phone),
     showCompanyEmail:
-      Boolean(
-        settings.email,
-      ),
-
+      Boolean(settings.email),
     showCompanyIban:
-      Boolean(
-        settings.iban,
-      ),
-
+      Boolean(settings.iban),
     showCompanyOib:
-      Boolean(
-        settings.oib,
-      ),
-
+      Boolean(settings.oib),
     showCompanyWebsite:
-      Boolean(
-        settings.website,
-      ),
+      Boolean(settings.website),
 
-    headerAlignment:
-      'left',
-
-    layout:
-      'modern',
-
+    headerAlignment: 'left',
+    layout: 'modern',
     watermarkText:
       settings.documentWatermark,
-
     footerText:
       settings.documentFooter,
   }
@@ -428,22 +229,14 @@ Promise<string> {
 
 async function getRawProfileSettings(
   companyId: string,
-): Promise<Record<
-  string,
-  unknown
->> {
+): Promise<Record<string, unknown>> {
   const {
     data,
     error,
   } = await supabase
     .from('companies')
-    .select(
-      'profile_settings',
-    )
-    .eq(
-      'id',
-      companyId,
-    )
+    .select('profile_settings')
+    .eq('id', companyId)
     .single()
 
   if (error) {
@@ -514,7 +307,6 @@ export async function saveWorkOrderBranding(
 
   const nextProfileSettings = {
     ...currentProfileSettings,
-
     [BRANDING_STORAGE_KEY]:
       branding,
   }
@@ -527,10 +319,7 @@ export async function saveWorkOrderBranding(
       profile_settings:
         nextProfileSettings,
     })
-    .eq(
-      'id',
-      companyId,
-    )
+    .eq('id', companyId)
 
   if (error) {
     throw error
@@ -573,10 +362,7 @@ Promise<WorkOrderBranding> {
       profile_settings:
         nextProfileSettings,
     })
-    .eq(
-      'id',
-      companyId,
-    )
+    .eq('id', companyId)
 
   if (error) {
     throw error
