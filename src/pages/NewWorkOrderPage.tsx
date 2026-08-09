@@ -8,12 +8,15 @@ import {
 import { useNavigate } from 'react-router'
 import {
   ArrowLeft,
+  BookmarkPlus,
   Camera,
+  Check,
   Clock3,
   Euro,
   ImagePlus,
   PackagePlus,
   Plus,
+  Search,
   Save,
   Trash2,
   UserRound,
@@ -23,6 +26,13 @@ import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
 import { createWorkOrder } from '../services/workOrders.service'
+import {
+  createWorkOrderTemplate,
+  deleteWorkOrderTemplate,
+  getWorkOrderTemplates,
+  updateWorkOrderTemplate,
+  type WorkOrderTemplate,
+} from '../services/workOrderTemplates.service'
 import { getCustomers } from '../services/customers.service'
 import {
   getEmployees,
@@ -244,6 +254,48 @@ export function NewWorkOrderPage() {
     setIsUploading,
   ] = useState(false)
 
+
+  const [
+    templates,
+    setTemplates,
+  ] =
+    useState<WorkOrderTemplate[]>([])
+
+  const [
+    isLoadingTemplates,
+    setIsLoadingTemplates,
+  ] = useState(true)
+
+  const [
+    templatesError,
+    setTemplatesError,
+  ] = useState('')
+
+  const [
+    templateSearch,
+    setTemplateSearch,
+  ] = useState('')
+
+  const [
+    selectedTemplateId,
+    setSelectedTemplateId,
+  ] = useState('')
+
+  const [
+    showTemplateModal,
+    setShowTemplateModal,
+  ] = useState(false)
+
+  const [
+    templateName,
+    setTemplateName,
+  ] = useState('')
+
+  const [
+    isSavingTemplate,
+    setIsSavingTemplate,
+  ] = useState(false)
+
   useEffect(() => {
     let cancelled = false
 
@@ -345,6 +397,82 @@ export function NewWorkOrderPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadTemplates() {
+      try {
+        setIsLoadingTemplates(
+          true,
+        )
+
+        setTemplatesError('')
+
+        const saved =
+          await getWorkOrderTemplates()
+
+        if (!cancelled) {
+          setTemplates(saved)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setTemplatesError(
+            error instanceof Error
+              ? error.message
+              : 'Predloške nije moguće učitati.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTemplates(
+            false,
+          )
+        }
+      }
+    }
+
+    void loadTemplates()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const filteredTemplates =
+    useMemo(() => {
+      const search =
+        templateSearch
+          .trim()
+          .toLocaleLowerCase(
+            'hr-HR',
+          )
+
+      if (!search) {
+        return templates
+      }
+
+      return templates.filter(
+        (template) =>
+          [
+            template.name,
+            template.title,
+            template.description,
+            ...template.materials.map(
+              (material) =>
+                material.name,
+            ),
+          ]
+            .join(' ')
+            .toLocaleLowerCase(
+              'hr-HR',
+            )
+            .includes(search),
+      )
+    }, [
+      templates,
+      templateSearch,
+    ])
+
   const durationMinutes =
     useMemo(
       () =>
@@ -379,6 +507,227 @@ export function NewWorkOrderPage() {
     subtotal +
     subtotal *
       ((Number(vatRate) || 0) / 100)
+
+  function applyTemplate(
+    template: WorkOrderTemplate,
+  ) {
+    setSelectedTemplateId(
+      template.id,
+    )
+
+    setTitle(
+      template.title,
+    )
+
+    setDescription(
+      template.description,
+    )
+
+    setPriority(
+      template.priority,
+    )
+
+    setMaterials(
+      template.materials.map(
+        (material) => ({
+          id:
+            crypto.randomUUID(),
+
+          name:
+            material.name,
+
+          quantity:
+            material.quantity,
+
+          unit:
+            material.unit,
+
+          unitPrice:
+            0,
+        }),
+      ),
+    )
+  }
+
+  function openSaveTemplate() {
+    if (
+      !title.trim() &&
+      !description.trim() &&
+      materials.length === 0
+    ) {
+      alert(
+        'Prvo unesite naziv, opis ili materijal koji želite spremiti kao predložak.',
+      )
+
+      return
+    }
+
+    const selected =
+      templates.find(
+        (template) =>
+          template.id ===
+          selectedTemplateId,
+      )
+
+    setTemplateName(
+      selected?.name ||
+      title.trim() ||
+      '',
+    )
+
+    setShowTemplateModal(
+      true,
+    )
+  }
+
+  async function saveTemplate(
+    replaceExisting = false,
+  ) {
+    const name =
+      templateName.trim()
+
+    if (!name) {
+      alert(
+        'Unesite naziv predloška.',
+      )
+      return
+    }
+
+    try {
+      setIsSavingTemplate(
+        true,
+      )
+
+      const input = {
+        name,
+        title,
+        description,
+        materials,
+        priority,
+      }
+
+      const selected =
+        templates.find(
+          (template) =>
+            template.id ===
+            selectedTemplateId,
+        )
+
+      const saved =
+        replaceExisting &&
+        selected
+          ? await updateWorkOrderTemplate(
+              selected.id,
+              input,
+            )
+          : await createWorkOrderTemplate(
+              input,
+            )
+
+      setTemplates(
+        (current) => {
+          const exists =
+            current.some(
+              (template) =>
+                template.id ===
+                saved.id,
+            )
+
+          const next =
+            exists
+              ? current.map(
+                  (template) =>
+                    template.id ===
+                    saved.id
+                      ? saved
+                      : template,
+                )
+              : [
+                  ...current,
+                  saved,
+                ]
+
+          return next.sort(
+            (first, second) =>
+              first.name.localeCompare(
+                second.name,
+                'hr',
+              ),
+          )
+        },
+      )
+
+      setSelectedTemplateId(
+        saved.id,
+      )
+
+      setShowTemplateModal(
+        false,
+      )
+
+      setTemplateName('')
+
+      alert(
+        replaceExisting &&
+        selected
+          ? 'Predložak je ažuriran.'
+          : 'Predložak je spremljen.',
+      )
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Predložak nije moguće spremiti.',
+      )
+    } finally {
+      setIsSavingTemplate(
+        false,
+      )
+    }
+  }
+
+  async function removeTemplate(
+    template: WorkOrderTemplate,
+  ) {
+    const confirmed =
+      window.confirm(
+        `Obrisati predložak "${template.name}"?`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      await deleteWorkOrderTemplate(
+        template.id,
+      )
+
+      setTemplates(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !==
+              template.id,
+          ),
+      )
+
+      if (
+        selectedTemplateId ===
+        template.id
+      ) {
+        setSelectedTemplateId(
+          '',
+        )
+      }
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Predložak nije moguće obrisati.',
+      )
+    }
+  }
 
   function handleCustomerChange(
     value: string,
@@ -1115,9 +1464,177 @@ export function NewWorkOrderPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <h2 className="text-xl font-bold text-white">
-          3. Radovi i radnici
-        </h2>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              3. Radovi i radnici
+            </h2>
+
+            <p className="mt-1 text-sm text-slate-400">
+              Odaberi spremljeni predložak ili unesi novi opis radova.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={
+              openSaveTemplate
+            }
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 text-sm font-bold text-violet-300 transition hover:bg-violet-500/15"
+          >
+            <BookmarkPlus
+              size={18}
+            />
+            Spremi kao predložak
+          </button>
+        </div>
+
+        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="font-bold text-white">
+                Predlošci radova
+              </p>
+
+              <p className="mt-1 text-xs text-slate-500">
+                Jednim klikom ubaci naziv, opis i materijal. Nakon toga sve možeš normalno izmijeniti.
+              </p>
+            </div>
+
+            <div className="relative w-full md:max-w-sm">
+              <Search
+                size={17}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+              />
+
+              <input
+                type="search"
+                value={
+                  templateSearch
+                }
+                onChange={(event) =>
+                  setTemplateSearch(
+                    event.target.value,
+                  )
+                }
+                placeholder="Pretraži predloške..."
+                className="h-10 w-full rounded-xl border border-slate-700 bg-slate-900 pl-10 pr-3 text-sm text-white outline-none focus:border-violet-500"
+              />
+            </div>
+          </div>
+
+          {isLoadingTemplates ? (
+            <p className="mt-4 text-sm text-slate-500">
+              Učitavanje predložaka...
+            </p>
+          ) : templatesError ? (
+            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+              {templatesError}
+            </div>
+          ) : filteredTemplates.length === 0 ? (
+            <div className="mt-4 rounded-xl border border-dashed border-slate-700 p-5 text-center">
+              <p className="font-semibold text-slate-300">
+                {templates.length === 0
+                  ? 'Još nema spremljenih predložaka.'
+                  : 'Nema predložaka za ovu pretragu.'}
+              </p>
+
+              {templates.length === 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  Unesi prvi rad, opis i materijal pa klikni „Spremi kao predložak”.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {filteredTemplates.map(
+                (template) => {
+                  const active =
+                    selectedTemplateId ===
+                    template.id
+
+                  return (
+                    <div
+                      key={
+                        template.id
+                      }
+                      className={`rounded-xl border p-3 transition ${
+                        active
+                          ? 'border-violet-500/50 bg-violet-500/10'
+                          : 'border-slate-800 bg-slate-900'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          applyTemplate(
+                            template,
+                          )
+                        }
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
+                              active
+                                ? 'bg-violet-500 text-white'
+                                : 'bg-slate-800 text-violet-300'
+                            }`}
+                          >
+                            {active ? (
+                              <Check
+                                size={17}
+                              />
+                            ) : (
+                              <BookmarkPlus
+                                size={17}
+                              />
+                            )}
+                          </div>
+
+                          <div className="min-w-0">
+                            <p className="truncate font-bold text-white">
+                              {
+                                template.name
+                              }
+                            </p>
+
+                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                              {template.title ||
+                                template.description ||
+                                'Predložak radnog naloga'}
+                            </p>
+
+                            <p className="mt-2 text-[11px] font-semibold text-slate-600">
+                              {
+                                template.materials.length
+                              }{' '}
+                              stavki materijala
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+
+                      <div className="mt-3 flex justify-end border-t border-slate-800 pt-2">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void removeTemplate(
+                              template,
+                            )
+                          }
+                          className="rounded-lg px-2 py-1 text-xs font-bold text-red-400 hover:bg-red-500/10"
+                        >
+                          Obriši
+                        </button>
+                      </div>
+                    </div>
+                  )
+                },
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="mt-5 space-y-5">
           <label className="block">
@@ -1584,6 +2101,125 @@ export function NewWorkOrderPage() {
             : 'Spremi radni nalog'}
         </button>
       </div>
+
+      {showTemplateModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-400">
+              Predložak radnog naloga
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black text-white">
+              Spremi ovaj rad za ubuduće
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Spremit će se naziv radnog naloga, opis, prioritet i popis materijala. Kupac, datum, radnici, potpis i fotografije se ne spremaju.
+            </p>
+
+            <label className="mt-5 block">
+              <span className="text-sm font-bold text-slate-300">
+                Naziv predloška
+              </span>
+
+              <input
+                autoFocus
+                value={
+                  templateName
+                }
+                onChange={(event) =>
+                  setTemplateName(
+                    event.target.value,
+                  )
+                }
+                placeholder="Npr. Izmjena kotlića"
+                className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 text-white outline-none focus:border-violet-500"
+              />
+            </label>
+
+            <div className="mt-5 rounded-xl bg-slate-950/60 p-4">
+              <p className="text-xs font-black uppercase text-slate-600">
+                Sprema se
+              </p>
+
+              <p className="mt-2 font-bold text-white">
+                {title.trim() ||
+                  'Bez naziva radnog naloga'}
+              </p>
+
+              <p className="mt-1 line-clamp-3 text-sm leading-6 text-slate-500">
+                {description.trim() ||
+                  'Bez opisa'}
+              </p>
+
+              <p className="mt-2 text-xs font-semibold text-slate-600">
+                {materials.filter(
+                  (material) =>
+                    material.name.trim(),
+                ).length}{' '}
+                stavki materijala
+              </p>
+            </div>
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                disabled={
+                  isSavingTemplate
+                }
+                onClick={() => {
+                  setShowTemplateModal(
+                    false,
+                  )
+                  setTemplateName('')
+                }}
+                className="h-11 rounded-xl bg-slate-800 px-4 font-bold text-white"
+              >
+                Odustani
+              </button>
+
+              {selectedTemplateId &&
+                templates.some(
+                  (template) =>
+                    template.id ===
+                    selectedTemplateId,
+                ) && (
+                  <button
+                    type="button"
+                    disabled={
+                      isSavingTemplate
+                    }
+                    onClick={() =>
+                      void saveTemplate(
+                        true,
+                      )
+                    }
+                    className="h-11 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 font-bold text-blue-300 disabled:opacity-50"
+                  >
+                    Ažuriraj postojeći
+                  </button>
+                )}
+
+              <button
+                type="button"
+                disabled={
+                  isSavingTemplate
+                }
+                onClick={() =>
+                  void saveTemplate(
+                    false,
+                  )
+                }
+                className="h-11 rounded-xl bg-violet-600 px-4 font-bold text-white hover:bg-violet-500 disabled:opacity-50"
+              >
+                {isSavingTemplate
+                  ? 'Spremanje...'
+                  : 'Spremi novi predložak'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isSaving && (
         <FersysLoader
