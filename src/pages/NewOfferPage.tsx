@@ -29,6 +29,7 @@ import {
 } from 'lucide-react'
 
 import FersysLoader from '../components/FersysLoader'
+import OfferTemplatesPanel from '../components/OfferTemplatesPanel'
 import {
   createOffer,
   getOfferById,
@@ -47,6 +48,7 @@ import type {
   OfferItem,
 } from '../types/offers'
 import { openOfferPdf } from '../utils/offerPdf'
+import type { OfferTemplate } from '../services/offerTemplates.service'
 
 type CustomerSuggestion = {
   id: string
@@ -403,6 +405,40 @@ export function NewOfferPage() {
             id: duplicate ? createId('item') : item.id,
           }))
         : [createEmptyItem()],
+    )
+  }
+
+  function applyOfferTemplate(
+    template: OfferTemplate,
+  ) {
+    setDescription(
+      template.description,
+    )
+
+    setPaymentTerms(
+      template.paymentTerms,
+    )
+
+    setItems(
+      template.items.length > 0
+        ? template.items.map(
+            (item) => ({
+              ...item,
+              id: createId('item'),
+              imageDataUrl:
+                undefined,
+              imageName:
+                undefined,
+            }),
+          )
+        : [createEmptyItem()],
+    )
+
+    setErrors(
+      (current) => ({
+        ...current,
+        items: '',
+      }),
     )
   }
 
@@ -1346,6 +1382,19 @@ export function NewOfferPage() {
               </div>
             </div>
           </section>
+
+          <OfferTemplatesPanel
+            description={
+              description
+            }
+            paymentTerms={
+              paymentTerms
+            }
+            items={items}
+            onApply={
+              applyOfferTemplate
+            }
+          />
 
           <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-xl shadow-black/5">
             <div className="flex flex-col gap-4 border-b border-slate-800 p-5 sm:flex-row sm:items-center sm:justify-between lg:p-6">
