@@ -53,59 +53,10 @@ function supportsWebPush() {
   )
 }
 
-async function getContext() {
-  const [
-    userResult,
-    companyResult,
-  ] = await Promise.all([
-    supabase.auth.getUser(),
-    supabase.rpc(
-      'current_company_id',
-    ),
-  ])
-
-  if (userResult.error) {
-    throw userResult.error
-  }
-
-  if (companyResult.error) {
-    throw companyResult.error
-  }
-
-  if (
-    !userResult.data.user
-  ) {
-    throw new Error(
-      'Korisnik nije prijavljen.',
-    )
-  }
-
-  if (!companyResult.data) {
-    throw new Error(
-      'Aktivna tvrtka nije pronađena.',
-    )
-  }
-
-  return {
-    userId:
-      userResult.data.user.id,
-    companyId:
-      String(
-        companyResult.data,
-      ),
-  }
-}
-
 async function saveSubscription(
   subscription:
     PushSubscription,
 ) {
-  const {
-    userId,
-    companyId,
-  } =
-    await getContext()
-
   const json =
     subscription.toJSON()
 
@@ -131,37 +82,22 @@ async function saveSubscription(
   const {
     error,
   } =
-    await supabase
-      .from(
-        'push_subscriptions',
-      )
-      .upsert(
-        {
-          user_id:
-            userId,
-          company_id:
-            companyId,
+    await supabase.rpc(
+      'register_my_push_subscription',
+      {
+        requested_endpoint:
           endpoint,
+        requested_p256dh:
           p256dh,
+        requested_auth:
           auth,
-          user_agent:
-            navigator.userAgent,
-          platform:
-            navigator.platform ??
-            '',
-          active: true,
-          last_seen_at:
-            new Date()
-              .toISOString(),
-          updated_at:
-            new Date()
-              .toISOString(),
-        },
-        {
-          onConflict:
-            'endpoint',
-        },
-      )
+        requested_user_agent:
+          navigator.userAgent,
+        requested_platform:
+          navigator.platform ??
+          '',
+      },
+    )
 
   if (error) {
     throw error
@@ -198,22 +134,15 @@ Promise<PushRegistrationState> {
       .pushManager
       .getSubscription()
 
-  if (subscription) {
-    try {
-      await saveSubscription(
-        subscription,
-      )
-    } catch (error) {
-      console.error(
-        'Postojeći push subscription nije sinkroniziran:',
-        error,
-      )
-    }
-
-    return 'subscribed'
+  if (!subscription) {
+    return 'available'
   }
 
-  return 'available'
+  await saveSubscription(
+    subscription,
+  )
+
+  return 'subscribed'
 }
 
 export async function
@@ -303,31 +232,21 @@ disablePushNotifications() {
   const endpoint =
     subscription.endpoint
 
-  try {
-    await subscription
-      .unsubscribe()
-  } finally {
-    const {
-      error,
-    } =
-      await supabase
-        .from(
-          'push_subscriptions',
-        )
-        .update({
-          active: false,
-          updated_at:
-            new Date()
-              .toISOString(),
-        })
-        .eq(
-          'endpoint',
+  const {
+    error,
+  } =
+    await supabase.rpc(
+      'disable_my_push_subscription',
+      {
+        requested_endpoint:
           endpoint,
-        )
+      },
+    )
 
-    if (error) {
-      throw error
-    }
+  if (error) {
+    throw error
   }
-}
 
+  await subscription
+    .unsubscribe()
+}
