@@ -22,6 +22,7 @@ export default defineConfig({
         'pwa-192x192.png',
         'pwa-512x512.png',
         'pwa-maskable-512x512.png',
+        'push-sw.js',
       ],
 
       manifest: {
@@ -123,6 +124,14 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
+
+        /*
+         * Workbox i dalje generira postojeći service worker,
+         * a ovaj dodatni script dodaje samo push/click handlere.
+         */
+        importScripts: [
+          '/push-sw.js',
+        ],
 
         navigateFallback: '/index.html',
 

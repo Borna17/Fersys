@@ -27,9 +27,11 @@ import {
 } from '../services/notifications.service'
 
 import { supabase } from '../lib/supabase'
-
-const SEEN_STORAGE_KEY =
-  'fersys-mobile-os-notifications-seen-v1'
+import {
+  enablePushNotifications,
+  getPushRegistrationState,
+  type PushRegistrationState,
+} from '../services/pushNotifications.service'
 
 const publicPaths = [
   '/login',
@@ -72,108 +74,6 @@ function formatDate(
       minute: '2-digit',
     },
   )
-}
-
-function readSeenIds() {
-  try {
-    const value =
-      JSON.parse(
-        localStorage.getItem(
-          SEEN_STORAGE_KEY,
-        ) ?? '[]',
-      )
-
-    return new Set<string>(
-      Array.isArray(value)
-        ? value.map(String)
-        : [],
-    )
-  } catch {
-    return new Set<string>()
-  }
-}
-
-function saveSeenIds(
-  ids: Set<string>,
-) {
-  try {
-    localStorage.setItem(
-      SEEN_STORAGE_KEY,
-      JSON.stringify(
-        Array.from(ids)
-          .slice(-250),
-      ),
-    )
-  } catch {
-    // Local storage nije kritičan.
-  }
-}
-
-async function showSystemNotification(
-  item: AppNotification,
-) {
-  if (
-    typeof Notification ===
-      'undefined' ||
-    Notification.permission !==
-      'granted' ||
-    item.isSilent
-  ) {
-    return
-  }
-
-  try {
-    if (
-      'serviceWorker' in
-      navigator
-    ) {
-      const registration =
-        await navigator
-          .serviceWorker
-          .ready
-
-      await registration
-        .showNotification(
-          item.title,
-          {
-            body:
-              item.description ||
-              'Nova FERSYS obavijest',
-            icon:
-              '/pwa-192x192.png',
-            badge:
-              '/favicon-64x64.png',
-            tag:
-              `fersys-${item.id}`,
-            data: {
-              route:
-                item.route ||
-                '/dashboard',
-            },
-          },
-        )
-
-      return
-    }
-
-    new Notification(
-      item.title,
-      {
-        body:
-          item.description ||
-          'Nova FERSYS obavijest',
-        icon:
-          '/pwa-192x192.png',
-        tag:
-          `fersys-${item.id}`,
-      },
-    )
-  } catch (error) {
-    console.error(
-      'Sistemska obavijest nije prikazana:',
-      error,
-    )
-  }
 }
 
 export default function
@@ -228,6 +128,13 @@ MobileNotificationBell() {
       : Notification.permission,
   )
 
+  const [
+    pushState,
+    setPushState,
+  ] = useState<
+    PushRegistrationState
+  >('available')
+
   const visible =
     isAuthenticated &&
     !isPublicPath(
@@ -246,9 +153,7 @@ MobileNotificationBell() {
 
   const load =
     useCallback(
-      async (
-        notifySystem = true,
-      ) => {
+      async () => {
         if (
           !isAuthenticated
         ) {
@@ -261,55 +166,6 @@ MobileNotificationBell() {
 
           const next =
             await getNotifications()
-
-          const seen =
-            readSeenIds()
-
-          /*
-           * Prvo učitavanje samo pamti postojeće obavijesti
-           * da mobitel ne izbaci 20 starih obavijesti odjednom.
-           */
-          if (
-            seen.size === 0
-          ) {
-            next.forEach(
-              (item) =>
-                seen.add(item.id),
-            )
-
-            saveSeenIds(seen)
-          } else if (
-            notifySystem &&
-            permission ===
-              'granted'
-          ) {
-            for (
-              const item
-              of [...next].reverse()
-            ) {
-              if (
-                seen.has(
-                  item.id,
-                )
-              ) {
-                continue
-              }
-
-              seen.add(
-                item.id,
-              )
-
-              if (
-                !item.isRead
-              ) {
-                await showSystemNotification(
-                  item,
-                )
-              }
-            }
-
-            saveSeenIds(seen)
-          }
 
           setNotifications(
             next,
@@ -331,7 +187,6 @@ MobileNotificationBell() {
       },
       [
         isAuthenticated,
-        permission,
       ],
     )
 
@@ -381,6 +236,43 @@ MobileNotificationBell() {
   }, [])
 
   useEffect(() => {
+    if (!visible) {
+      return
+    }
+
+    let cancelled = false
+
+    void (async () => {
+      try {
+        const state =
+          await getPushRegistrationState()
+
+        if (!cancelled) {
+          setPushState(state)
+
+          if (
+            typeof Notification !==
+              'undefined'
+          ) {
+            setPermission(
+              Notification.permission,
+            )
+          }
+        }
+      } catch (nextError) {
+        console.error(
+          'Push status nije moguće učitati:',
+          nextError,
+        )
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [visible])
+
+  useEffect(() => {
     if (
       !visible
     ) {
@@ -388,18 +280,18 @@ MobileNotificationBell() {
       return
     }
 
-    void load(false)
+    void load()
 
     const intervalId =
       window.setInterval(
         () => {
-          void load(true)
+          void load()
         },
         30_000,
       )
 
     function refresh() {
-      void load(true)
+      void load()
     }
 
     window.addEventListener(
@@ -478,62 +370,75 @@ MobileNotificationBell() {
 
   async function
   enableSystemNotifications() {
-    if (
-      typeof Notification ===
-      'undefined'
-    ) {
-      setPermission(
-        'unsupported',
-      )
-      return
-    }
-
     try {
-      const result =
-        await Notification
-          .requestPermission()
+      setError('')
 
-      setPermission(result)
+      const state =
+        await enablePushNotifications()
+
+      setPushState(state)
 
       if (
-        result ===
-        'granted'
+        typeof Notification !==
+          'undefined'
       ) {
-        const seen =
-          readSeenIds()
-
-        notifications.forEach(
-          (item) =>
-            seen.add(item.id),
+        setPermission(
+          Notification.permission,
         )
+      }
 
-        saveSeenIds(seen)
+      if (
+        state ===
+        'subscribed'
+      ) {
+        const registration =
+          await navigator
+            .serviceWorker
+            .ready
 
-        await showSystemNotification({
-          id:
-            'permission-enabled',
-          title:
-            'FERSYS obavijesti uključene',
-          description:
-            'Od sada ćeš dobivati nove važne obavijesti na ovom uređaju dok je FERSYS aplikacija aktivna.',
-          route:
-            '/dashboard',
-          createdAt:
-            new Date()
-              .toISOString(),
-          isRead: true,
-          isSilent: false,
-          kind:
-            'system',
-          senderName: '',
-          companyName: '',
-          fersysCode: '',
-        })
+        await registration
+          .showNotification(
+            'FERSYS push je uključen',
+            {
+              body:
+                'Ovaj uređaj je registriran za obavijesti i kada FERSYS nije otvoren.',
+              icon:
+                '/pwa-192x192.png',
+              badge:
+                '/favicon-64x64.png',
+              tag:
+                'fersys-push-enabled',
+              data: {
+                route:
+                  '/dashboard',
+              },
+            },
+          )
+      } else if (
+        state ===
+        'missing-key'
+      ) {
+        setError(
+          'Nedostaje VITE_VAPID_PUBLIC_KEY. Dodaj javni VAPID ključ u Vercel Environment Variables.',
+        )
+      } else if (
+        state ===
+        'unsupported'
+      ) {
+        setError(
+          'Ovaj preglednik ili uređaj ne podržava Web Push.',
+        )
       }
     } catch (nextError) {
       console.error(
-        'Dozvola za obavijesti nije dostupna:',
+        'Push obavijesti nije moguće uključiti:',
         nextError,
+      )
+
+      setError(
+        nextError instanceof Error
+          ? nextError.message
+          : 'Push obavijesti trenutno nije moguće uključiti.',
       )
     }
   }
@@ -704,9 +609,9 @@ MobileNotificationBell() {
             </div>
           </div>
 
-          {permission !==
-            'granted' &&
-            permission !==
+          {pushState !==
+            'subscribed' &&
+            pushState !==
               'unsupported' && (
               <div className="border-b border-slate-800 bg-blue-500/5 p-3">
                 <button
@@ -728,10 +633,17 @@ MobileNotificationBell() {
                     </p>
 
                     <p className="mt-1 text-[11px] leading-4 text-blue-200/60">
-                      Dopusti FERSYS-u prikaz novih važnih obavijesti na ovom uređaju.
+                      Registriraj ovaj telefon za pravi Web Push i obavijesti kada FERSYS nije otvoren.
                     </p>
                   </div>
                 </button>
+              </div>
+            )}
+
+          {pushState ===
+            'subscribed' && (
+              <div className="border-b border-slate-800 bg-emerald-500/5 px-4 py-3 text-[11px] font-semibold leading-4 text-emerald-200/80">
+                ✓ Pravi push je uključen na ovom uređaju.
               </div>
             )}
 
@@ -852,7 +764,7 @@ MobileNotificationBell() {
             <button
               type="button"
               onClick={() =>
-                void load(false)
+                void load()
               }
               className="min-h-10 rounded-xl px-3 text-xs font-black text-blue-300 transition hover:bg-blue-500/10"
             >
@@ -864,4 +776,3 @@ MobileNotificationBell() {
     </div>
   )
 }
-
