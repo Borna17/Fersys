@@ -5,6 +5,7 @@ import {
   Check,
   FileInput,
   FileText,
+  Info,
   Package,
   ReceiptText,
   Users,
@@ -32,8 +33,7 @@ const icons: Record<
   customers: Users,
   offers: FileText,
   invoices: ReceiptText,
-  incoming_invoices:
-    FileInput,
+  incoming_invoices: FileInput,
   calendar: CalendarDays,
   inventory: Package,
   vehicles: CarFront,
@@ -41,8 +41,7 @@ const icons: Record<
   ai: Bot,
 }
 
-export default function
-ModulesSettingsTab() {
+export default function ModulesSettingsTab() {
   const {
     enabledModules,
     isLoading,
@@ -51,27 +50,17 @@ ModulesSettingsTab() {
     save,
   } = useCompanyModules()
 
-  const [
-    selected,
-    setSelected,
-  ] = useState<
-    CompanyModuleKey[]
-  >(enabledModules)
-
-  const [
-    isSaving,
-    setIsSaving,
-  ] = useState(false)
-
-  const [
-    message,
-    setMessage,
-  ] = useState('')
-
-  useEffect(() => {
-    setSelected(
+  const [selected, setSelected] =
+    useState<CompanyModuleKey[]>(
       enabledModules,
     )
+  const [isSaving, setIsSaving] =
+    useState(false)
+  const [message, setMessage] =
+    useState('')
+
+  useEffect(() => {
+    setSelected(enabledModules)
   }, [enabledModules])
 
   const selectedSet =
@@ -85,41 +74,28 @@ ModulesSettingsTab() {
     role === 'owner'
 
   function toggle(
-    key:
-      CompanyModuleKey,
+    key: CompanyModuleKey,
   ) {
-    if (!canEdit) {
-      return
-    }
-
+    if (!canEdit) return
     setMessage('')
 
-    setSelected(
-      (current) =>
-        current.includes(key)
-          ? current.filter(
-              (item) =>
-                item !== key,
-            )
-          : [
-              ...current,
-              key,
-            ],
+    setSelected((current) =>
+      current.includes(key)
+        ? current.filter(
+            (item) =>
+              item !== key,
+          )
+        : [...current, key],
     )
   }
 
-  async function
-  saveChanges() {
+  async function saveChanges() {
     if (
       !canEdit ||
       isSaving
-    ) {
-      return
-    }
+    ) return
 
-    if (
-      selected.length === 0
-    ) {
+    if (!selected.length) {
       setMessage(
         'Odaberi barem jedan poslovni modul.',
       )
@@ -129,21 +105,16 @@ ModulesSettingsTab() {
     try {
       setIsSaving(true)
       setMessage('')
-
       await save(
         selected,
         true,
       )
-
       setMessage(
-        'Moduli su spremljeni. Navigacija je ažurirana.',
+        'Moduli su spremljeni. Navigacija je odmah ažurirana.',
       )
-    } catch (
-      nextError
-    ) {
+    } catch (nextError) {
       setMessage(
-        nextError instanceof
-          Error
+        nextError instanceof Error
           ? nextError.message
           : 'Module nije moguće spremiti.',
       )
@@ -162,38 +133,34 @@ ModulesSettingsTab() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5 sm:p-6">
+      <section className="rounded-3xl border border-slate-700 bg-slate-900 p-5 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
-              Prikaz aplikacije
+              POSTAVKE → MODULI
             </p>
-
             <h2 className="mt-2 text-2xl font-black text-white">
-              Uključeni moduli
+              Prilagodi FERSYS svojoj tvrtki
             </h2>
-
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Isključeni moduli nestaju iz sidebara,
-              mobilne navigacije i brzih akcija.
-              Možete ih vratiti u bilo kojem trenutku.
+              Uključi ili isključi module kad god želiš.
+              Isključeni moduli nestaju iz navigacije i brzih akcija,
+              ali postojeći podaci se ne brišu.
             </p>
           </div>
 
           {canEdit ? (
             <button
               type="button"
-              disabled={
-                isSaving
-              }
+              disabled={isSaving}
               onClick={() =>
                 void saveChanges()
               }
-              className="min-h-11 shrink-0 rounded-xl bg-blue-600 px-5 font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
+              className="min-h-12 shrink-0 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
             >
               {isSaving
                 ? 'Spremanje...'
-                : 'Spremi module'}
+                : 'Spremi promjene'}
             </button>
           ) : (
             <span className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-300">
@@ -202,27 +169,38 @@ ModulesSettingsTab() {
           )}
         </div>
 
-        {(error ||
-          message) && (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+          <Info
+            size={18}
+            className="mt-0.5 shrink-0 text-blue-400"
+          />
+          <p className="text-xs leading-5 text-slate-400 sm:text-sm">
+            Promjena modula ne briše radne naloge, investitore,
+            ponude, račune ni druge spremljene podatke.
+          </p>
+        </div>
+
+        {(error || message) && (
           <div
             className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-              error
+              error ||
+              message.startsWith(
+                'Odaberi',
+              )
                 ? 'border-red-500/20 bg-red-500/10 text-red-300'
                 : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
             }`}
           >
-            {error ||
-              message}
+            {error || message}
           </div>
         )}
-      </div>
+      </section>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {companyModules.map(
           (module) => {
             const Icon =
               icons[module.key]
-
             const active =
               selectedSet.has(
                 module.key,
@@ -230,25 +208,19 @@ ModulesSettingsTab() {
 
             return (
               <button
-                key={
-                  module.key
-                }
+                key={module.key}
                 type="button"
-                disabled={
-                  !canEdit
-                }
+                disabled={!canEdit}
                 onClick={() =>
-                  toggle(
-                    module.key,
-                  )
+                  toggle(module.key)
                 }
-                className={`relative min-h-[145px] rounded-2xl border p-5 text-left transition ${
+                className={`relative min-h-[132px] rounded-2xl border p-4 text-left transition sm:min-h-[145px] sm:p-5 ${
                   active
                     ? 'border-blue-400/50 bg-blue-500/12'
                     : 'border-slate-700 bg-slate-900'
                 } ${
                   canEdit
-                    ? 'hover:border-slate-500 active:scale-[0.99]'
+                    ? 'active:scale-[0.99]'
                     : 'cursor-default opacity-80'
                 }`}
               >
@@ -260,9 +232,7 @@ ModulesSettingsTab() {
                         : 'bg-slate-800 text-slate-400'
                     }`}
                   >
-                    <Icon
-                      size={22}
-                    />
+                    <Icon size={22} />
                   </span>
 
                   <span
@@ -279,15 +249,10 @@ ModulesSettingsTab() {
                 </div>
 
                 <p className="mt-4 font-black text-white">
-                  {
-                    module.label
-                  }
+                  {module.label}
                 </p>
-
-                <p className="mt-1 text-xs leading-5 text-slate-400">
-                  {
-                    module.description
-                  }
+                <p className="mt-1 pr-5 text-xs leading-5 text-slate-400">
+                  {module.description}
                 </p>
 
                 {active && (
@@ -301,6 +266,23 @@ ModulesSettingsTab() {
           },
         )}
       </div>
+
+      {canEdit && (
+        <div className="sticky bottom-[5.5rem] z-20 md:hidden">
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() =>
+              void saveChanges()
+            }
+            className="min-h-12 w-full rounded-2xl bg-blue-600 px-5 font-black text-white shadow-2xl shadow-black/50 disabled:opacity-50"
+          >
+            {isSaving
+              ? 'Spremanje...'
+              : `Spremi (${selected.length} odabrano)`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

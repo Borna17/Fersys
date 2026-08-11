@@ -1,24 +1,22 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  Bot,
-  Boxes,
-  CalendarDays,
+  BellRing,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
+  FileText,
   Gauge,
-  ReceiptText,
+  Settings,
   Sparkles,
-  UsersRound,
   X,
 } from 'lucide-react'
+
 import {
   useEffect,
   useMemo,
   useState,
 } from 'react'
-import { useNavigate } from 'react-router'
 
 import {
   completeOnboarding,
@@ -30,12 +28,10 @@ type TutorialStep = {
   title: string
   description: string
   icon: LucideIcon
-  route?: string
-  actionLabel?: string
   tips: string[]
 }
 
-type OnboardingTutorialProps = {
+type Props = {
   displayName: string
   initialStep: number
   onClose: () => void
@@ -45,129 +41,87 @@ const steps: TutorialStep[] = [
   {
     title: 'Dobrodošao u FERSYS',
     description:
-      'Kroz nekoliko kratkih koraka upoznat ćeš glavne dijelove aplikacije i gdje se što nalazi.',
+      'Upoznaj najvažnije dijelove aplikacije prije nego odabereš module koje želiš koristiti.',
     icon: Sparkles,
     tips: [
-      'Tutorijal traje približno dvije minute.',
+      'Tutorijal traje oko minute.',
       'Napredak se automatski sprema.',
-      'Možeš ga preskočiti i kasnije ponovno pokrenuti.',
+      'Možeš ga ponovno pokrenuti iz profila ili Postavki.',
     ],
   },
   {
-    title: 'Dashboard',
+    title: 'Početna i investitori',
     description:
-      'Dashboard je početni pregled poslovanja. Ovdje vidiš aktivne naloge, kupce, termine i druge važne podatke.',
+      'Na Početnoj vidiš najvažnije podatke, a u Investitorima vodiš osobe, tvrtke i zgrade s njihovom poviješću.',
     icon: Gauge,
-    route: '/dashboard',
-    actionLabel: 'Otvori Dashboard',
     tips: [
-      'Statistike se pune stvarnim podacima tvoje tvrtke.',
-      'Novi račun počinje s praznim Dashboardom.',
-      'Klikom na kartice brzo dolaziš do detalja.',
-    ],
-  },
-  {
-    title: 'Investitori',
-    description:
-      'U modulu Investitori vodiš fizičke osobe, tvrtke i zgrade te pratiš njihove kontakte i povijest poslova.',
-    icon: UsersRound,
-    route: '/customers',
-    actionLabel: 'Otvori Kupce',
-    tips: [
-      'Pretražuj po imenu, OIB-u i kontaktu.',
+      'Početna se puni stvarnim podacima tvoje tvrtke.',
+      'Investitore možeš pretraživati po imenu i OIB-u.',
       'Svaki investitor ima vlastiti profil.',
-      'S profila investitora otvaraš naloge i dokumente.',
     ],
   },
   {
     title: 'Radni nalozi',
     description:
-      'Radni nalog sadrži opis posla, radnike, materijal, fotografije, vrijeme rada, potpis i PDF dokument.',
+      'Radni nalog povezuje posao, radnike, materijal, fotografije, vrijeme rada, potpis i završni PDF.',
     icon: ClipboardList,
-    route: '/work-orders',
-    actionLabel: 'Otvori Radne naloge',
     tips: [
-      'Novi nalog otvaraš gumbom „Novi radni nalog”.',
+      'Na mobitelu je unos prilagođen radu na terenu.',
       'Fotografije i potpis ostaju vezani uz nalog.',
-      'Završen nalog možeš preuzeti kao PDF.',
+      'Završen nalog možeš ponovno otvoriti i preuzeti.',
     ],
   },
   {
-    title: 'Ponude i računi',
+    title: 'Ponude, računi i kalendar',
     description:
-      'U ovim modulima pripremaš ponude, izlazne račune i ulazne račune te pratiš njihov status.',
-    icon: ReceiptText,
-    route: '/offers/new',
-    actionLabel: 'Otvori Novu ponudu',
+      'Ponude i računi imaju vlastite profesionalne dokumente, a Kalendar služi za planiranje termina i poslova.',
+    icon: FileText,
     tips: [
-      'Ponudu možeš spremiti kao nacrt.',
-      'Status pokazuje je li ponuda poslana ili prihvaćena.',
-      'Dokumenti se povezuju s investitorima i poslovima.',
+      'Ponude i računi povezuju se s investitorima.',
+      'Kalendar upozorava na preklapanja.',
+      'Na mobitelu koristi donju navigaciju i veliki + za brze akcije.',
     ],
   },
   {
-    title: 'Kalendar',
+    title: 'Obavijesti na telefonu',
     description:
-      'Kalendar služi za planiranje poslova. FERSYS provjerava preklapanja i može se povezati s Google Kalendarom.',
-    icon: CalendarDays,
-    route: '/calendar',
-    actionLabel: 'Otvori Kalendar',
+      'Zvonce na vrhu prikazuje FERSYS obavijesti. Kada dopustiš obavijesti, važne poruke mogu stići i kada FERSYS nije otvoren.',
+    icon: BellRing,
     tips: [
-      'Klikom na dan dodaješ novi termin.',
-      'AI koristi isti kalendar kao i ručni unos.',
-      'Termini se vide na svim uređajima.',
+      'Broj na zvoncu pokazuje nepročitane obavijesti.',
+      'Klik na obavijest otvara odgovarajući dio FERSYS-a.',
+      'Dozvole obavijesti možeš promijeniti i u postavkama telefona.',
     ],
   },
   {
-    title: 'Skladište',
+    title: 'Odaberi svoje module',
     description:
-      'U skladištu pratiš artikle, količine, ulaze, izlaze, inventuru i kretanje materijala.',
-    icon: Boxes,
-    route: '/inventory',
-    actionLabel: 'Otvori Skladište',
+      'Nakon tutorijala FERSYS će te pitati koje module želiš koristiti. Tako aplikacija ostaje jednostavna i prilagođena tvojoj tvrtki.',
+    icon: Settings,
     tips: [
-      'Svaki artikl ima svoju karticu.',
-      'Promjene količine ostaju zabilježene.',
-      'QR skener ubrzava pronalazak artikla.',
+      'Možeš uključiti samo ono što ti sada treba.',
+      'Odabir nije trajan.',
+      'Module uvijek možeš promijeniti u Postavke → Moduli.',
     ],
   },
   {
-    title: 'AI pomoćnik',
+    title: 'Spreman si',
     description:
-      'AI pomoćniku možeš pisati ili govoriti. On prvo priprema radnju, provjerava podatke i traži tvoju potvrdu.',
-    icon: Bot,
-    route: '/ai',
-    actionLabel: 'Otvori AI pomoćnika',
-    tips: [
-      'Primjer: „Rezerviraj servis klime sutra u 10.”',
-      'AI provjerava zauzetost, vikende i blagdane.',
-      'Termin se ne sprema dok ga ne potvrdiš.',
-    ],
-  },
-  {
-    title: 'Spreman si za rad',
-    description:
-      'Osnovne funkcije su ti sada poznate. Možeš krenuti s dodavanjem prvog investitora i prvog radnog naloga.',
+      'Završi tutorijal i odmah nakon toga odaberi module za svoju tvrtku.',
     icon: CheckCircle2,
     tips: [
-      'Počni s unosom stvarnih podataka svoje tvrtke.',
-      'Tutorijal možeš ponovno pokrenuti iz Postavki.',
-      'FERSYS je dostupan na računalu i mobitelu.',
+      'Sljedeći ekran je odabir modula.',
+      'Postavke, podrška i obavijesti ostaju dostupne.',
+      'FERSYS možeš koristiti na računalu i mobitelu.',
     ],
   },
 ]
 
-function clampStep(value: number) {
-  if (!Number.isFinite(value)) {
-    return 0
-  }
-
+function clamp(value: number) {
+  if (!Number.isFinite(value)) return 0
   return Math.min(
     steps.length - 1,
-    Math.max(
-      0,
-      Math.floor(value),
-    ),
+    Math.max(0, Math.floor(value)),
   )
 }
 
@@ -175,128 +129,52 @@ export default function OnboardingTutorial({
   displayName,
   initialStep,
   onClose,
-}: OnboardingTutorialProps) {
-  const navigate = useNavigate()
+}: Props) {
+  const [stepIndex, setStepIndex] =
+    useState(clamp(initialStep))
+  const [isSaving, setIsSaving] =
+    useState(false)
+  const [error, setError] =
+    useState('')
 
-  const [
-    stepIndex,
-    setStepIndex,
-  ] = useState(
-    clampStep(initialStep),
+  const step = steps[stepIndex]
+  const Icon = step.icon
+  const isFirst = stepIndex === 0
+  const isLast =
+    stepIndex === steps.length - 1
+
+  const firstName = useMemo(
+    () =>
+      displayName
+        .trim()
+        .split(/\s+/)[0] ||
+      'Korisniče',
+    [displayName],
   )
 
-  const [
-    isSaving,
-    setIsSaving,
-  ] = useState(false)
-
-  const [
-    error,
-    setError,
-  ] = useState('')
-
-  const step =
-    steps[stepIndex]
-
-  const Icon =
-    step.icon
-
-  const progress =
-    ((stepIndex + 1) /
-      steps.length) *
-    100
-
-  const isFirst =
-    stepIndex === 0
-
-  const isLast =
-    stepIndex ===
-    steps.length - 1
-
-  const greetingName =
-    useMemo(
-      () =>
-        displayName
-          .trim()
-          .split(/\s+/)[0] ||
-        'Korisniče',
-      [displayName],
-    )
-
   useEffect(() => {
-    const timeoutId =
+    const timeout =
       window.setTimeout(() => {
         void saveOnboardingStep(
           stepIndex,
-        ).catch(
-          (saveError) => {
-            console.error(
-              'Napredak tutorijala nije spremljen:',
-              saveError,
-            )
-          },
-        )
-      }, 250)
+        ).catch((saveError) => {
+          console.error(
+            'Napredak tutorijala nije spremljen:',
+            saveError,
+          )
+        })
+      }, 200)
 
-    return () => {
-      window.clearTimeout(
-        timeoutId,
-      )
-    }
+    return () =>
+      window.clearTimeout(timeout)
   }, [stepIndex])
 
-  function moveToStep(
-    nextStep: number,
-  ) {
-    setStepIndex(
-      clampStep(nextStep),
-    )
-    setError('')
-  }
-
-  async function handleOpenRoute() {
-    if (!step.route || isSaving) {
-      return
-    }
+  async function finish() {
+    if (isSaving) return
 
     try {
       setIsSaving(true)
       setError('')
-
-      const nextStep = clampStep(
-        stepIndex + 1,
-      )
-
-      await saveOnboardingStep(
-        nextStep,
-      )
-
-      navigate(step.route)
-
-      if (!isLast) {
-        setStepIndex(nextStep)
-      }
-    } catch (saveError) {
-      console.error(
-        'Stranicu tutorijala nije moguće otvoriti:',
-        saveError,
-      )
-
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Traženu stranicu trenutno nije moguće otvoriti.',
-      )
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  async function finishTutorial() {
-    try {
-      setIsSaving(true)
-      setError('')
-
       await completeOnboarding()
       onClose()
     } catch (saveError) {
@@ -310,11 +188,12 @@ export default function OnboardingTutorial({
     }
   }
 
-  async function handleSkip() {
+  async function skip() {
+    if (isSaving) return
+
     try {
       setIsSaving(true)
       setError('')
-
       await skipOnboarding()
       onClose()
     } catch (saveError) {
@@ -328,143 +207,136 @@ export default function OnboardingTutorial({
     }
   }
 
+  function next() {
+    if (isLast) {
+      void finish()
+      return
+    }
+
+    setError('')
+    setStepIndex((current) =>
+      clamp(current + 1),
+    )
+  }
+
+  function previous() {
+    setError('')
+    setStepIndex((current) =>
+      clamp(current - 1),
+    )
+  }
+
+  const progress =
+    ((stepIndex + 1) /
+      steps.length) *
+    100
+
   return (
-    <div className="fixed inset-0 z-[200] grid place-items-center overflow-y-auto bg-slate-950/90 p-4 backdrop-blur-md">
-      <div className="relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60">
-        <div
-          className="absolute left-0 top-0 h-1 bg-gradient-to-r from-violet-500 to-blue-500 transition-all duration-300"
-          style={{
-            width: `${progress}%`,
-          }}
-        />
-
-        <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4 sm:px-7">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">
-              FERSYS TUTORIJAL
-            </p>
-
-            <p className="mt-1 text-sm text-slate-500">
-              Korak {stepIndex + 1} od {steps.length}
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              void handleSkip()
+    <div className="fixed inset-0 z-[210] overflow-y-auto bg-slate-950/95 p-3 backdrop-blur-xl sm:p-5">
+      <div className="mx-auto flex min-h-full w-full max-w-4xl items-center">
+        <section className="relative w-full overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60">
+          <div
+            className="absolute left-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-violet-500 transition-all"
+            style={{
+              width: `${progress}%`,
             }}
-            disabled={isSaving}
-            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400 transition hover:bg-slate-700 hover:text-white disabled:opacity-50"
-            aria-label="Preskoči tutorijal"
-          >
-            <X size={20} />
-          </button>
-        </div>
+          />
 
-        <div className="grid md:grid-cols-[290px_1fr]">
-          <aside className="border-b border-slate-800 bg-slate-950/45 p-5 md:border-b-0 md:border-r md:p-7">
-            <div className="grid h-16 w-16 place-items-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
-              <Icon size={31} />
+          <header className="flex items-center justify-between gap-4 border-b border-slate-800 px-5 py-4 sm:px-7">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400 sm:text-xs">
+                FERSYS TUTORIJAL
+              </p>
+              <p className="mt-1 text-xs font-semibold text-slate-500">
+                Korak {stepIndex + 1} od {steps.length}
+              </p>
             </div>
 
-            <h2 className="mt-5 text-2xl font-black text-white">
-              {stepIndex === 0
-                ? `Pozdrav, ${greetingName}!`
-                : step.title}
-            </h2>
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() =>
+                void skip()
+              }
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 transition active:scale-95"
+              aria-label="Preskoči tutorijal"
+            >
+              <X size={20} />
+            </button>
+          </header>
 
-            <p className="mt-3 text-sm leading-6 text-slate-400">
-              {step.description}
-            </p>
-
-            <div className="mt-7 hidden space-y-2 md:block">
-              {steps.map(
-                (
-                  item,
-                  index,
-                ) => (
-                  <button
-                    key={
-                      item.title
-                    }
-                    type="button"
-                    onClick={() =>
-                      moveToStep(
-                        index,
-                      )
-                    }
-                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
-                      index ===
-                      stepIndex
-                        ? 'bg-blue-600/15 text-blue-300'
-                        : index <
-                            stepIndex
-                          ? 'text-emerald-400'
-                          : 'text-slate-600 hover:bg-slate-800 hover:text-slate-300'
-                    }`}
-                  >
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[10px] ${
-                        index ===
-                        stepIndex
-                          ? 'bg-blue-600 text-white'
-                          : index <
-                              stepIndex
-                            ? 'bg-emerald-500/15 text-emerald-400'
-                            : 'bg-slate-800 text-slate-500'
+          <div className="grid md:grid-cols-[250px_1fr]">
+            <aside className="hidden border-r border-slate-800 bg-slate-950/45 p-6 md:block">
+              <div className="space-y-2">
+                {steps.map(
+                  (item, index) => (
+                    <button
+                      key={item.title}
+                      type="button"
+                      onClick={() =>
+                        setStepIndex(index)
+                      }
+                      className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${
+                        index === stepIndex
+                          ? 'bg-blue-500/15 text-blue-300'
+                          : index < stepIndex
+                            ? 'text-emerald-400'
+                            : 'text-slate-600 hover:bg-slate-800'
                       }`}
                     >
-                      {index <
-                      stepIndex
-                        ? '✓'
-                        : index +
-                          1}
-                    </span>
+                      <span
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-[10px] ${
+                          index === stepIndex
+                            ? 'bg-blue-600 text-white'
+                            : index < stepIndex
+                              ? 'bg-emerald-500/10 text-emerald-400'
+                              : 'bg-slate-800 text-slate-500'
+                        }`}
+                      >
+                        {index < stepIndex
+                          ? '✓'
+                          : index + 1}
+                      </span>
+                      <span className="truncate">
+                        {item.title}
+                      </span>
+                    </button>
+                  ),
+                )}
+              </div>
+            </aside>
 
-                    <span className="truncate">
-                      {
-                        item.title
-                      }
-                    </span>
-                  </button>
-                ),
-              )}
-            </div>
-          </aside>
-
-          <main className="p-5 sm:p-7 md:p-9">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/55 p-5 sm:p-6">
-              <div className="flex items-start gap-4">
-                <div className="hidden h-11 w-11 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-400 sm:grid">
-                  <Icon size={22} />
-                </div>
-
-                <div>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-400">
-                    {stepIndex === 0
-                      ? 'Početak'
-                      : 'Što se ovdje nalazi'}
-                  </p>
-
-                  <h3 className="mt-2 text-xl font-black text-white sm:text-2xl">
-                    {step.title}
-                  </h3>
-                </div>
+            <main className="p-5 sm:p-8">
+              <div className="grid h-16 w-16 place-items-center rounded-2xl border border-blue-500/20 bg-blue-500/10 text-blue-400">
+                <Icon size={31} />
               </div>
 
-              <div className="mt-6 grid gap-3">
+              <p className="mt-6 text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                {stepIndex === 0
+                  ? `Pozdrav, ${firstName}`
+                  : `Korak ${stepIndex + 1}`}
+              </p>
+
+              <h1 className="mt-2 text-2xl font-black leading-tight text-white sm:text-3xl">
+                {step.title}
+              </h1>
+
+              <p className="mt-4 text-sm leading-6 text-slate-300 sm:text-base sm:leading-7">
+                {step.description}
+              </p>
+
+              <div className="mt-6 space-y-3">
                 {step.tips.map(
                   (tip) => (
                     <div
                       key={tip}
-                      className="flex items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/80 px-4 py-3"
+                      className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-4"
                     >
-                      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-blue-500/10 text-xs font-black text-blue-400">
-                        ✓
-                      </span>
-
-                      <p className="text-sm leading-6 text-slate-300">
+                      <CheckCircle2
+                        size={18}
+                        className="mt-0.5 shrink-0 text-emerald-400"
+                      />
+                      <p className="text-sm leading-5 text-slate-300">
                         {tip}
                       </p>
                     </div>
@@ -472,55 +344,21 @@ export default function OnboardingTutorial({
                 )}
               </div>
 
-              {step.route &&
-                step.actionLabel && (
-                  <button
-                    type="button"
-                    disabled={isSaving}
-                    onClick={() => {
-                      void handleOpenRoute()
-                    }}
-                    className="mt-6 inline-flex min-h-11 items-center justify-center rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-bold text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {isSaving
-                      ? 'Otvaranje...'
-                      : step.actionLabel}
-                  </button>
-                )}
-            </div>
+              {error && (
+                <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+                  {error}
+                </div>
+              )}
 
-            {error && (
-              <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-                {error}
-              </div>
-            )}
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <button
-                type="button"
-                onClick={() => {
-                  void handleSkip()
-                }}
-                disabled={isSaving}
-                className="min-h-11 rounded-xl px-4 text-sm font-semibold text-slate-500 transition hover:bg-slate-800 hover:text-slate-300 disabled:opacity-50"
-              >
-                Preskoči tutorijal
-              </button>
-
-              <div className="flex gap-3">
+              <div className="mt-7 flex items-center justify-between gap-3">
                 <button
                   type="button"
                   disabled={
                     isFirst ||
                     isSaving
                   }
-                  onClick={() =>
-                    moveToStep(
-                      stepIndex -
-                        1,
-                    )
-                  }
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 text-sm font-bold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  onClick={previous}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm font-black text-slate-300 disabled:opacity-30"
                 >
                   <ChevronLeft
                     size={18}
@@ -528,50 +366,42 @@ export default function OnboardingTutorial({
                   Natrag
                 </button>
 
-                {isLast ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void finishTutorial()
-                    }}
-                    disabled={
-                      isSaving
-                    }
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 text-sm font-black text-white transition hover:scale-[1.02] disabled:opacity-50"
-                  >
-                    <CheckCircle2
-                      size={18}
-                    />
+                <div className="flex items-center gap-1.5 md:hidden">
+                  {steps.map(
+                    (_, index) => (
+                      <span
+                        key={index}
+                        className={`h-1.5 rounded-full transition-all ${
+                          index === stepIndex
+                            ? 'w-5 bg-blue-500'
+                            : 'w-1.5 bg-slate-700'
+                        }`}
+                      />
+                    ),
+                  )}
+                </div>
 
-                    {isSaving
-                      ? 'Spremanje...'
-                      : 'Završi tutorijal'}
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={
-                      isSaving
-                    }
-                    onClick={() =>
-                      moveToStep(
-                        stepIndex +
-                          1,
-                      )
-                    }
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
-                  >
-                    Dalje
-
+                <button
+                  type="button"
+                  disabled={isSaving}
+                  onClick={next}
+                  className="inline-flex min-h-12 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-950/30 transition active:scale-[0.98] disabled:opacity-50"
+                >
+                  {isSaving
+                    ? 'Spremanje...'
+                    : isLast
+                      ? 'Odaberi module'
+                      : 'Dalje'}
+                  {!isLast && (
                     <ChevronRight
                       size={18}
                     />
-                  </button>
-                )}
+                  )}
+                </button>
               </div>
-            </div>
-          </main>
-        </div>
+            </main>
+          </div>
+        </section>
       </div>
     </div>
   )

@@ -955,12 +955,16 @@ export default function AppLayout() {
           </section>
         </div>
       )}
-      <ModuleSetupModal
+       <ModuleSetupModal
         open={
           !isModulesLoading &&
           role === 'owner' &&
-          !moduleSetupCompleted
+          !moduleSetupCompleted &&
+          Boolean(
+            onboardingProgress?.completed,
+          )
         }
+
         initialModules={
           enabledModules
         }
@@ -974,8 +978,7 @@ export default function AppLayout() {
         }}
       />
 
-      {moduleSetupCompleted &&
-        isOnboardingOpen &&
+       {isOnboardingOpen &&
         onboardingProgress && (
           <OnboardingTutorial
             displayName={
@@ -988,9 +991,27 @@ export default function AppLayout() {
               setIsOnboardingOpen(
                 false,
               )
+
+              void getOnboardingProgress()
+                .then(
+                  (progress) => {
+                    setOnboardingProgress(
+                      progress,
+                    )
+                  },
+                )
+                .catch(
+                  (error) => {
+                    console.error(
+                      'Onboarding status nije osvježen:',
+                      error,
+                    )
+                  },
+                )
             }}
           />
         )}
+
     </div>
   )
 }
