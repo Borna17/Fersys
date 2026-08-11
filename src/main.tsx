@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import { registerSW } from 'virtual:pwa-register'
 
 import App from './App'
+import MobileNotificationBell from './components/MobileNotificationBell'
 import './index.css'
 
 const updateServiceWorker = registerSW({
@@ -14,11 +15,8 @@ const updateServiceWorker = registerSW({
       return
     }
 
-    // Odmah provjeri postoji li nova verzija.
     void registration.update()
 
-    // Zatim provjeravaj novu verziju svakih 60 minuta
-    // dok je aplikacija otvorena.
     window.setInterval(
       () => {
         void registration.update()
@@ -28,8 +26,6 @@ const updateServiceWorker = registerSW({
   },
 
   onNeedRefresh() {
-    // Aktivira novog service workera.
-    // Parametar true zatvara staru verziju i primjenjuje novu.
     void updateServiceWorker(true)
   },
 
@@ -41,10 +37,18 @@ const updateServiceWorker = registerSW({
   },
 })
 
-createRoot(document.getElementById('root')!).render(
+createRoot(
+  document.getElementById('root')!,
+).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+
+      {/*
+       * Mobilno zvonce je globalno, ali se samo skriva
+       * na login/register/admin stranicama i na desktopu.
+       */}
+      <MobileNotificationBell />
     </BrowserRouter>
   </StrictMode>,
 )

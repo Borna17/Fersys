@@ -1,1 +1,32 @@
 @import "tailwindcss";
+
+/*
+ * FERSYS mobile safety.
+ * Sprječava neželjeno horizontalno pomicanje cijele aplikacije,
+ * ali ne dira vertikalni scroll niti interne elemente koji imaju
+ * vlastiti kontrolirani overflow.
+ */
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+html,
+body {
+  overscroll-behavior-x: none;
+}
+
+body {
+  margin: 0;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}

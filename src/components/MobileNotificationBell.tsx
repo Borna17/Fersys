@@ -1,0 +1,867 @@
+import {
+  Bell,
+  BellRing,
+  CheckCheck,
+  Settings,
+  X,
+} from 'lucide-react'
+
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
+
+import {
+  useLocation,
+  useNavigate,
+} from 'react-router'
+
+import {
+  getNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+  type AppNotification,
+} from '../services/notifications.service'
+
+import { supabase } from '../lib/supabase'
+
+const SEEN_STORAGE_KEY =
+  'fersys-mobile-os-notifications-seen-v1'
+
+const publicPaths = [
+  '/login',
+  '/register',
+  '/reset-password',
+  '/auth',
+  '/join',
+  '/admin',
+]
+
+function isPublicPath(
+  pathname: string,
+) {
+  return publicPaths.some(
+    (path) =>
+      pathname.startsWith(path),
+  )
+}
+
+function formatDate(
+  value: string,
+) {
+  const date =
+    new Date(value)
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return ''
+  }
+
+  return date.toLocaleString(
+    'hr-HR',
+    {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    },
+  )
+}
+
+function readSeenIds() {
+  try {
+    const value =
+      JSON.parse(
+        localStorage.getItem(
+          SEEN_STORAGE_KEY,
+        ) ?? '[]',
+      )
+
+    return new Set<string>(
+      Array.isArray(value)
+        ? value.map(String)
+        : [],
+    )
+  } catch {
+    return new Set<string>()
+  }
+}
+
+function saveSeenIds(
+  ids: Set<string>,
+) {
+  try {
+    localStorage.setItem(
+      SEEN_STORAGE_KEY,
+      JSON.stringify(
+        Array.from(ids)
+          .slice(-250),
+      ),
+    )
+  } catch {
+    // Local storage nije kritičan.
+  }
+}
+
+async function showSystemNotification(
+  item: AppNotification,
+) {
+  if (
+    typeof Notification ===
+      'undefined' ||
+    Notification.permission !==
+      'granted' ||
+    item.isSilent
+  ) {
+    return
+  }
+
+  try {
+    if (
+      'serviceWorker' in
+      navigator
+    ) {
+      const registration =
+        await navigator
+          .serviceWorker
+          .ready
+
+      await registration
+        .showNotification(
+          item.title,
+          {
+            body:
+              item.description ||
+              'Nova FERSYS obavijest',
+            icon:
+              '/pwa-192x192.png',
+            badge:
+              '/favicon-64x64.png',
+            tag:
+              `fersys-${item.id}`,
+            data: {
+              route:
+                item.route ||
+                '/dashboard',
+            },
+          },
+        )
+
+      return
+    }
+
+    new Notification(
+      item.title,
+      {
+        body:
+          item.description ||
+          'Nova FERSYS obavijest',
+        icon:
+          '/pwa-192x192.png',
+        tag:
+          `fersys-${item.id}`,
+      },
+    )
+  } catch (error) {
+    console.error(
+      'Sistemska obavijest nije prikazana:',
+      error,
+    )
+  }
+}
+
+export default function
+MobileNotificationBell() {
+  const location =
+    useLocation()
+
+  const navigate =
+    useNavigate()
+
+  const panelRef =
+    useRef<HTMLDivElement | null>(
+      null,
+    )
+
+  const [
+    isAuthenticated,
+    setIsAuthenticated,
+  ] = useState(false)
+
+  const [
+    open,
+    setOpen,
+  ] = useState(false)
+
+  const [
+    notifications,
+    setNotifications,
+  ] = useState<
+    AppNotification[]
+  >([])
+
+  const [
+    loading,
+    setLoading,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState('')
+
+  const [
+    permission,
+    setPermission,
+  ] = useState<
+    NotificationPermission | 'unsupported'
+  >(
+    typeof Notification ===
+      'undefined'
+      ? 'unsupported'
+      : Notification.permission,
+  )
+
+  const visible =
+    isAuthenticated &&
+    !isPublicPath(
+      location.pathname,
+    )
+
+  const unread =
+    useMemo(
+      () =>
+        notifications.filter(
+          (item) =>
+            !item.isRead,
+        ).length,
+      [notifications],
+    )
+
+  const load =
+    useCallback(
+      async (
+        notifySystem = true,
+      ) => {
+        if (
+          !isAuthenticated
+        ) {
+          return
+        }
+
+        try {
+          setLoading(true)
+          setError('')
+
+          const next =
+            await getNotifications()
+
+          const seen =
+            readSeenIds()
+
+          /*
+           * Prvo učitavanje samo pamti postojeće obavijesti
+           * da mobitel ne izbaci 20 starih obavijesti odjednom.
+           */
+          if (
+            seen.size === 0
+          ) {
+            next.forEach(
+              (item) =>
+                seen.add(item.id),
+            )
+
+            saveSeenIds(seen)
+          } else if (
+            notifySystem &&
+            permission ===
+              'granted'
+          ) {
+            for (
+              const item
+              of [...next].reverse()
+            ) {
+              if (
+                seen.has(
+                  item.id,
+                )
+              ) {
+                continue
+              }
+
+              seen.add(
+                item.id,
+              )
+
+              if (
+                !item.isRead
+              ) {
+                await showSystemNotification(
+                  item,
+                )
+              }
+            }
+
+            saveSeenIds(seen)
+          }
+
+          setNotifications(
+            next,
+          )
+        } catch (nextError) {
+          console.error(
+            'Mobilne obavijesti nisu učitane:',
+            nextError,
+          )
+
+          setError(
+            nextError instanceof Error
+              ? nextError.message
+              : 'Obavijesti trenutno nisu dostupne.',
+          )
+        } finally {
+          setLoading(false)
+        }
+      },
+      [
+        isAuthenticated,
+        permission,
+      ],
+    )
+
+  useEffect(() => {
+    let mounted = true
+
+    void (async () => {
+      const {
+        data,
+      } =
+        await supabase.auth
+          .getSession()
+
+      if (!mounted) {
+        return
+      }
+
+      setIsAuthenticated(
+        Boolean(
+          data.session?.user,
+        ),
+      )
+    })()
+
+    const {
+      data: listener,
+    } =
+      supabase.auth
+        .onAuthStateChange(
+          (
+            _event,
+            session,
+          ) => {
+            setIsAuthenticated(
+              Boolean(
+                session?.user,
+              ),
+            )
+          },
+        )
+
+    return () => {
+      mounted = false
+      listener.subscription
+        .unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (
+      !visible
+    ) {
+      setOpen(false)
+      return
+    }
+
+    void load(false)
+
+    const intervalId =
+      window.setInterval(
+        () => {
+          void load(true)
+        },
+        30_000,
+      )
+
+    function refresh() {
+      void load(true)
+    }
+
+    window.addEventListener(
+      'focus',
+      refresh,
+    )
+
+    window.addEventListener(
+      'fersys:notifications-refresh',
+      refresh,
+    )
+
+    return () => {
+      window.clearInterval(
+        intervalId,
+      )
+
+      window.removeEventListener(
+        'focus',
+        refresh,
+      )
+
+      window.removeEventListener(
+        'fersys:notifications-refresh',
+        refresh,
+      )
+    }
+  }, [
+    visible,
+    load,
+  ])
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    function closeOutside(
+      event:
+        | MouseEvent
+        | TouchEvent,
+    ) {
+      if (
+        event.target instanceof
+          Node &&
+        panelRef.current &&
+        !panelRef.current
+          .contains(
+            event.target,
+          )
+      ) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener(
+      'mousedown',
+      closeOutside,
+    )
+    document.addEventListener(
+      'touchstart',
+      closeOutside,
+    )
+
+    return () => {
+      document.removeEventListener(
+        'mousedown',
+        closeOutside,
+      )
+      document.removeEventListener(
+        'touchstart',
+        closeOutside,
+      )
+    }
+  }, [open])
+
+  async function
+  enableSystemNotifications() {
+    if (
+      typeof Notification ===
+      'undefined'
+    ) {
+      setPermission(
+        'unsupported',
+      )
+      return
+    }
+
+    try {
+      const result =
+        await Notification
+          .requestPermission()
+
+      setPermission(result)
+
+      if (
+        result ===
+        'granted'
+      ) {
+        const seen =
+          readSeenIds()
+
+        notifications.forEach(
+          (item) =>
+            seen.add(item.id),
+        )
+
+        saveSeenIds(seen)
+
+        await showSystemNotification({
+          id:
+            'permission-enabled',
+          title:
+            'FERSYS obavijesti uključene',
+          description:
+            'Od sada ćeš dobivati nove važne obavijesti na ovom uređaju dok je FERSYS aplikacija aktivna.',
+          route:
+            '/dashboard',
+          createdAt:
+            new Date()
+              .toISOString(),
+          isRead: true,
+          isSilent: false,
+          kind:
+            'system',
+          senderName: '',
+          companyName: '',
+          fersysCode: '',
+        })
+      }
+    } catch (nextError) {
+      console.error(
+        'Dozvola za obavijesti nije dostupna:',
+        nextError,
+      )
+    }
+  }
+
+  async function openItem(
+    item: AppNotification,
+  ) {
+    try {
+      if (!item.isRead) {
+        await markNotificationRead(
+          item.id,
+        )
+      }
+    } catch (nextError) {
+      console.error(
+        'Obavijest nije označena pročitanom:',
+        nextError,
+      )
+    }
+
+    setNotifications(
+      (current) =>
+        current.map(
+          (notification) =>
+            notification.id ===
+            item.id
+              ? {
+                  ...notification,
+                  isRead: true,
+                }
+              : notification,
+        ),
+    )
+
+    setOpen(false)
+
+    navigate(
+      item.route ||
+      '/dashboard',
+    )
+  }
+
+  async function
+  markAll() {
+    const keys =
+      notifications
+        .filter(
+          (item) =>
+            !item.isRead,
+        )
+        .map(
+          (item) =>
+            item.id,
+        )
+
+    if (
+      keys.length === 0
+    ) {
+      return
+    }
+
+    try {
+      await markAllNotificationsRead(
+        keys,
+      )
+
+      setNotifications(
+        (current) =>
+          current.map(
+            (item) => ({
+              ...item,
+              isRead: true,
+            }),
+          ),
+      )
+    } catch (nextError) {
+      console.error(
+        'Obavijesti nisu označene pročitanima:',
+        nextError,
+      )
+    }
+  }
+
+  if (!visible) {
+    return null
+  }
+
+  return (
+    <div
+      ref={panelRef}
+      className="fixed left-3 top-2.5 z-[85] md:hidden"
+    >
+      <button
+        type="button"
+        onClick={() =>
+          setOpen(
+            (current) =>
+              !current,
+          )
+        }
+        className={`relative grid h-11 w-11 place-items-center rounded-2xl border bg-slate-900/95 text-slate-300 shadow-lg shadow-black/20 backdrop-blur-xl transition active:scale-95 ${
+          open
+            ? 'border-blue-500/50 text-blue-300 ring-4 ring-blue-500/10'
+            : 'border-slate-800'
+        }`}
+        aria-label="Obavijesti"
+      >
+        {unread > 0 ? (
+          <BellRing
+            size={20}
+          />
+        ) : (
+          <Bell
+            size={20}
+          />
+        )}
+
+        {unread > 0 && (
+          <span className="absolute -right-1 -top-1 grid min-h-5 min-w-5 place-items-center rounded-full border-2 border-slate-950 bg-red-500 px-1 text-[9px] font-black text-white">
+            {unread > 99
+              ? '99+'
+              : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+0.65rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/70">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+            <div>
+              <p className="font-black text-white">
+                Obavijesti
+              </p>
+
+              <p className="mt-0.5 text-[11px] text-slate-500">
+                {unread > 0
+                  ? `${unread} nepročitano`
+                  : 'Sve je pročitano'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1">
+              {unread > 0 && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void markAll()
+                  }
+                  className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
+                  aria-label="Označi sve pročitanim"
+                >
+                  <CheckCheck
+                    size={18}
+                  />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() =>
+                  setOpen(false)
+                }
+                className="grid h-9 w-9 place-items-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white"
+                aria-label="Zatvori"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          </div>
+
+          {permission !==
+            'granted' &&
+            permission !==
+              'unsupported' && (
+              <div className="border-b border-slate-800 bg-blue-500/5 p-3">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void enableSystemNotifications()
+                  }
+                  className="flex w-full items-center gap-3 rounded-xl border border-blue-500/20 bg-blue-500/10 p-3 text-left"
+                >
+                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500 text-white">
+                    <BellRing
+                      size={19}
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-black text-blue-100">
+                      Uključi obavijesti na telefonu
+                    </p>
+
+                    <p className="mt-1 text-[11px] leading-4 text-blue-200/60">
+                      Dopusti FERSYS-u prikaz novih važnih obavijesti na ovom uređaju.
+                    </p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+          {permission ===
+            'denied' && (
+              <div className="border-b border-slate-800 bg-amber-500/5 px-4 py-3 text-[11px] leading-4 text-amber-200/70">
+                Obavijesti su blokirane u postavkama preglednika.
+                Dozvolu možeš ponovno uključiti u postavkama stranice.
+              </div>
+            )}
+
+          <div className="max-h-[min(58vh,430px)] overflow-y-auto">
+            {loading &&
+              notifications.length ===
+                0 && (
+                <p className="p-6 text-center text-xs text-slate-500">
+                  Učitavanje obavijesti...
+                </p>
+              )}
+
+            {error &&
+              notifications.length ===
+                0 && (
+                <p className="p-4 text-xs leading-5 text-red-300">
+                  {error}
+                </p>
+              )}
+
+            {!loading &&
+              !error &&
+              notifications.length ===
+                0 && (
+                <div className="p-7 text-center">
+                  <Bell
+                    size={26}
+                    className="mx-auto text-slate-700"
+                  />
+
+                  <p className="mt-3 text-sm font-bold text-slate-400">
+                    Nema novih obavijesti.
+                  </p>
+                </div>
+              )}
+
+            {notifications
+              .slice(0, 25)
+              .map(
+                (item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      void openItem(
+                        item,
+                      )
+                    }
+                    className={`block w-full border-b border-slate-800/70 px-4 py-3 text-left transition last:border-b-0 ${
+                      item.isRead
+                        ? 'bg-slate-900 hover:bg-slate-800/60'
+                        : 'bg-blue-500/[0.06] hover:bg-blue-500/10'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                          item.isRead
+                            ? 'bg-slate-700'
+                            : 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,.7)]'
+                        }`}
+                      />
+
+                      <div className="min-w-0 flex-1">
+                        <p
+                          className={`text-xs leading-5 ${
+                            item.isRead
+                              ? 'font-bold text-slate-300'
+                              : 'font-black text-white'
+                          }`}
+                        >
+                          {item.title}
+                        </p>
+
+                        {item.description && (
+                          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+                            {item.description}
+                          </p>
+                        )}
+
+                        <p className="mt-1.5 text-[10px] font-semibold text-slate-600">
+                          {formatDate(
+                            item.createdAt,
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                ),
+              )}
+          </div>
+
+          <div className="flex gap-2 border-t border-slate-800 p-2">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                navigate(
+                  '/settings',
+                )
+              }}
+              className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl text-xs font-black text-slate-400 transition hover:bg-slate-800 hover:text-white"
+            >
+              <Settings
+                size={15}
+              />
+              Postavke obavijesti
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                void load(false)
+              }
+              className="min-h-10 rounded-xl px-3 text-xs font-black text-blue-300 transition hover:bg-blue-500/10"
+            >
+              Osvježi
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
