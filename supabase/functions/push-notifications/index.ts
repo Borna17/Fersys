@@ -1,13 +1,10 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.111.0'
-import webpush from 'npm:web-push@3.6.7'
 
-type PushSubscriptionRow = {
+type FcmTokenRow = {
   id: string
   user_id: string
   company_id: string
-  endpoint: string
-  p256dh: string
-  auth: string
+  token: string
 }
 
 type EventRow = {
@@ -66,12 +63,292 @@ function prefKey(
   return `${userId}:${companyId}:${category}`
 }
 
+function base64Url(
+  bytes: Uint8Array,
+) {
+  let binary = ''
+
+  for (
+    const byte of bytes
+  ) {
+    binary +=
+      String.fromCharCode(byte)
+  }
+
+  return btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '')
+}
+
+function textBase64Url(
+  value: string,
+) {
+  return base64Url(
+    new TextEncoder()
+      .encode(value),
+  )
+}
+
+function pemToArrayBuffer(
+  pem: string,
+) {
+  const normalized =
+    pem
+      .replace(/\\n/g, '\n')
+      .replace(
+        /-----BEGIN PRIVATE KEY-----/g,
+        '',
+      )
+      .replace(
+        /-----END PRIVATE KEY-----/g,
+        '',
+      )
+      .replace(/\s/g, '')
+
+  const binary =
+    atob(normalized)
+
+  const bytes =
+    new Uint8Array(
+      binary.length,
+    )
+
+  for (
+    let index = 0;
+    index < binary.length;
+    index += 1
+  ) {
+    bytes[index] =
+      binary.charCodeAt(index)
+  }
+
+  return bytes.buffer
+}
+
+async function createGoogleJwt(
+  clientEmail: string,
+  privateKey: string,
+) {
+  const now =
+    Math.floor(
+      Date.now() / 1000,
+    )
+
+  const header =
+    textBase64Url(
+      JSON.stringify({
+        alg: 'RS256',
+        typ: 'JWT',
+      }),
+    )
+
+  const payload =
+    textBase64Url(
+      JSON.stringify({
+        iss:
+          clientEmail,
+        scope:
+          'https://www.googleapis.com/auth/firebase.messaging',
+        aud:
+          'https://oauth2.googleapis.com/token',
+        iat:
+          now,
+        exp:
+          now + 3600,
+      }),
+    )
+
+  const unsigned =
+    `${header}.${payload}`
+
+  const cryptoKey =
+    await crypto.subtle
+      .importKey(
+        'pkcs8',
+        pemToArrayBuffer(
+          privateKey,
+        ),
+        {
+          name:
+            'RSASSA-PKCS1-v1_5',
+          hash:
+            'SHA-256',
+        },
+        false,
+        ['sign'],
+      )
+
+  const signature =
+    await crypto.subtle
+      .sign(
+        'RSASSA-PKCS1-v1_5',
+        cryptoKey,
+        new TextEncoder()
+          .encode(unsigned),
+      )
+
+  return `${unsigned}.${base64Url(
+    new Uint8Array(
+      signature,
+    ),
+  )}`
+}
+
+async function getGoogleAccessToken() {
+  const clientEmail =
+    requiredSecret(
+      'FIREBASE_CLIENT_EMAIL',
+    )
+
+  const privateKey =
+    requiredSecret(
+      'FIREBASE_PRIVATE_KEY',
+    )
+
+  const assertion =
+    await createGoogleJwt(
+      clientEmail,
+      privateKey,
+    )
+
+  const response =
+    await fetch(
+      'https://oauth2.googleapis.com/token',
+      {
+        method: 'POST',
+        headers: {
+          'content-type':
+            'application/x-www-form-urlencoded',
+        },
+        body:
+          new URLSearchParams({
+            grant_type:
+              'urn:ietf:params:oauth:grant-type:jwt-bearer',
+            assertion,
+          }),
+      },
+    )
+
+  const body =
+    await response.json()
+
+  if (!response.ok) {
+    throw new Error(
+      `Google OAuth nije uspio: ${response.status} ${JSON.stringify(body)}`,
+    )
+  }
+
+  const accessToken =
+    String(
+      body.access_token ??
+      '',
+    )
+
+  if (!accessToken) {
+    throw new Error(
+      'Google OAuth nije vratio access_token.',
+    )
+  }
+
+  return accessToken
+}
+
+async function sendFcm(
+  accessToken: string,
+  projectId: string,
+  token: string,
+  event: EventRow,
+) {
+  const response =
+    await fetch(
+      `https://fcm.googleapis.com/v1/projects/${encodeURIComponent(projectId)}/messages:send`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+          'Content-Type':
+            'application/json',
+        },
+        body:
+          JSON.stringify({
+            message: {
+              token,
+
+              notification: {
+                title:
+                  event.title,
+                body:
+                  event.description ||
+                  'Nova FERSYS obavijest',
+              },
+
+              webpush: {
+                headers: {
+                  Urgency:
+                    'high',
+                },
+
+                notification: {
+                  icon:
+                    '/pwa-192x192.png',
+                  badge:
+                    '/favicon-64x64.png',
+                  tag:
+                    `fersys-${event.id}`,
+                  renotify:
+                    false,
+                },
+
+                fcm_options: {
+                  link:
+                    event.route ||
+                    '/dashboard',
+                },
+              },
+
+              data: {
+                route:
+                  event.route ||
+                  '/dashboard',
+                notificationKey:
+                  `event-v2:${event.id}`,
+                category:
+                  event.category,
+                title:
+                  event.title,
+                body:
+                  event.description ||
+                  '',
+              },
+            },
+          }),
+      },
+    )
+
+  const body =
+    await response.json()
+      .catch(
+        () => ({}),
+      )
+
+  return {
+    ok:
+      response.ok,
+    status:
+      response.status,
+    body,
+  }
+}
+
 export default {
   async fetch(
     req: Request,
   ) {
     if (
-      req.method !== 'POST'
+      req.method !==
+      'POST'
     ) {
       return json(
         {
@@ -116,26 +393,10 @@ export default {
           'SUPABASE_SERVICE_ROLE_KEY',
         )
 
-      const vapidPublicKey =
+      const firebaseProjectId =
         requiredSecret(
-          'VAPID_PUBLIC_KEY',
+          'FIREBASE_PROJECT_ID',
         )
-
-      const vapidPrivateKey =
-        requiredSecret(
-          'VAPID_PRIVATE_KEY',
-        )
-
-      const vapidSubject =
-        requiredSecret(
-          'VAPID_SUBJECT',
-        )
-
-      webpush.setVapidDetails(
-        vapidSubject,
-        vapidPublicKey,
-        vapidPrivateKey,
-      )
 
       const admin =
         createClient(
@@ -162,17 +423,17 @@ export default {
         ).toISOString()
 
       const [
-        subscriptionsResult,
+        tokensResult,
         eventsResult,
         preferencesResult,
       ] =
         await Promise.all([
           admin
             .from(
-              'push_subscriptions',
+              'fcm_tokens',
             )
             .select(
-              'id,user_id,company_id,endpoint,p256dh,auth',
+              'id,user_id,company_id,token',
             )
             .eq(
               'active',
@@ -209,9 +470,9 @@ export default {
         ])
 
       if (
-        subscriptionsResult.error
+        tokensResult.error
       ) {
-        throw subscriptionsResult.error
+        throw tokensResult.error
       }
 
       if (eventsResult.error) {
@@ -224,10 +485,9 @@ export default {
         throw preferencesResult.error
       }
 
-      const subscriptions =
-        (subscriptionsResult.data ??
-          []) as
-          PushSubscriptionRow[]
+      const tokens =
+        (tokensResult.data ??
+          []) as FcmTokenRow[]
 
       const events =
         (eventsResult.data ??
@@ -235,19 +495,30 @@ export default {
 
       const preferences =
         (preferencesResult.data ??
-          []) as
-          PreferenceRow[]
+          []) as PreferenceRow[]
+
+      console.log(
+        JSON.stringify({
+          phase:
+            'loaded',
+          tokens:
+            tokens.length,
+          events:
+            events.length,
+        }),
+      )
 
       if (
-        subscriptions.length ===
-          0 ||
+        tokens.length === 0 ||
         events.length === 0
       ) {
         return json({
           ok: true,
           sent: 0,
-          subscriptions:
-            subscriptions.length,
+          skipped: 0,
+          failed: 0,
+          tokens:
+            tokens.length,
           events:
             events.length,
         })
@@ -273,77 +544,49 @@ export default {
         )
       }
 
-      const subscriptionIds =
-        subscriptions.map(
-          (item) => item.id,
+      const tokenIds =
+        tokens.map(
+          (item) =>
+            item.id,
         )
 
-      const keys =
-        events.flatMap(
-          (event) =>
-            subscriptions
-              .filter(
-                (subscription) =>
-                  subscription
-                    .company_id ===
-                  event.company_id,
-              )
-              .map(
-                (subscription) =>
-                  `${subscription.id}:event-v2:${event.id}`,
-              ),
-        )
-
-      const delivered =
-        new Set<string>()
+      const {
+        data:
+          deliveredRows,
+        error:
+          deliveredError,
+      } =
+        await admin
+          .from(
+            'fcm_delivery_log',
+          )
+          .select(
+            'token_id,notification_key',
+          )
+          .in(
+            'token_id',
+            tokenIds,
+          )
 
       if (
-        subscriptionIds.length >
-          0 &&
-        keys.length > 0
+        deliveredError
       ) {
-        const {
-          data:
-            deliveredRows,
-          error:
-            deliveredError,
-        } =
-          await admin
-            .from(
-              'push_delivery_log',
-            )
-            .select(
-              'subscription_id,notification_key',
-            )
-            .in(
-              'subscription_id',
-              subscriptionIds,
-            )
-            .in(
-              'notification_key',
-              keys.map(
-                (key) =>
-                  key.split(
-                    ':',
-                  )
-                    .slice(1)
-                    .join(':'),
-              ),
-            )
-
-        if (deliveredError) {
-          throw deliveredError
-        }
-
-        for (
-          const row of
-            deliveredRows ?? []
-        ) {
-          delivered.add(
-            `${row.subscription_id}:${row.notification_key}`,
-          )
-        }
+        throw deliveredError
       }
+
+      const delivered =
+        new Set<string>(
+          (
+            deliveredRows ??
+            []
+          ).map(
+            (row) =>
+              `${row.token_id}:${row.notification_key}`,
+          ),
+        )
+
+      const accessToken =
+        await getGoogleAccessToken()
 
       let sent = 0
       let skipped = 0
@@ -352,35 +595,29 @@ export default {
       for (
         const event of events
       ) {
-        const companySubscriptions =
-          subscriptions.filter(
-            (subscription) =>
-              subscription
-                .company_id ===
+        const companyTokens =
+          tokens.filter(
+            (token) =>
+              token.company_id ===
               event.company_id,
           )
 
         for (
-          const subscription of
-            companySubscriptions
+          const tokenRow of
+            companyTokens
         ) {
-          const preferenceMode =
+          const mode =
             preferenceMap.get(
               prefKey(
-                subscription.user_id,
-                subscription.company_id,
+                tokenRow.user_id,
+                tokenRow.company_id,
                 event.category,
               ),
-            ) ?? 'enabled'
-
-          /*
-           * "silent" u FERSYS-u znači da korisnik
-           * ne želi vanjski push za tu kategoriju.
-           * U zvoncu i dalje može vidjeti događaj.
-           */
-          if (
-            preferenceMode !==
+            ) ??
             'enabled'
+
+          if (
+            mode !== 'enabled'
           ) {
             skipped += 1
             continue
@@ -390,7 +627,7 @@ export default {
             `event-v2:${event.id}`
 
           const deliveryKey =
-            `${subscription.id}:${notificationKey}`
+            `${tokenRow.id}:${notificationKey}`
 
           if (
             delivered.has(
@@ -401,44 +638,16 @@ export default {
             continue
           }
 
-          const payload =
-            JSON.stringify({
-              title:
-                event.title,
-              body:
-                event.description ||
-                'Nova FERSYS obavijest',
-              route:
-                event.route ||
-                '/dashboard',
-              notificationKey,
-              tag:
-                notificationKey,
-              category:
-                event.category,
-            })
+          const result =
+            await sendFcm(
+              accessToken,
+              firebaseProjectId,
+              tokenRow.token,
+              event,
+            )
 
-          try {
-            await webpush
-              .sendNotification(
-                {
-                  endpoint:
-                    subscription.endpoint,
-                  keys: {
-                    p256dh:
-                      subscription.p256dh,
-                    auth:
-                      subscription.auth,
-                  },
-                },
-                payload,
-                {
-                  TTL:
-                    60 * 60 * 24,
-                  urgency:
-                    'normal',
-                },
-              )
+          if (result.ok) {
+            sent += 1
 
             const {
               error:
@@ -446,11 +655,11 @@ export default {
             } =
               await admin
                 .from(
-                  'push_delivery_log',
+                  'fcm_delivery_log',
                 )
                 .insert({
-                  subscription_id:
-                    subscription.id,
+                  token_id:
+                    tokenRow.id,
                   notification_key:
                     notificationKey,
                 })
@@ -461,7 +670,7 @@ export default {
                 '23505'
             ) {
               console.error(
-                'Push delivery log:',
+                'FCM delivery log:',
                 logError,
               )
             }
@@ -470,60 +679,97 @@ export default {
               deliveryKey,
             )
 
-            sent += 1
-          } catch (error) {
-            failed += 1
-
-            const statusCode =
-              Number(
-                (
-                  error as {
-                    statusCode?:
-                      number
-                  }
-                )?.statusCode ??
-                  0,
-              )
-
-            console.error(
-              'Web Push send:',
-              statusCode,
-              error,
+            console.log(
+              JSON.stringify({
+                phase:
+                  'sent',
+                eventId:
+                  event.id,
+                tokenId:
+                  tokenRow.id,
+              }),
             )
 
-            if (
-              statusCode ===
-                404 ||
-              statusCode ===
-                410
-            ) {
-              await admin
-                .from(
-                  'push_subscriptions',
-                )
-                .update({
-                  active:
-                    false,
-                  updated_at:
-                    new Date()
-                      .toISOString(),
-                })
-                .eq(
-                  'id',
-                  subscription.id,
-                )
-            }
+            continue
+          }
+
+          failed += 1
+
+          console.error(
+            'FCM send failed:',
+            JSON.stringify({
+              status:
+                result.status,
+              body:
+                result.body,
+              tokenId:
+                tokenRow.id,
+              eventId:
+                event.id,
+            }),
+          )
+
+          const errorCode =
+            String(
+              (
+                result.body as {
+                  error?: {
+                    details?: Array<{
+                      errorCode?: string
+                    }>
+                  }
+                }
+              )?.error
+                ?.details?.[0]
+                ?.errorCode ??
+              '',
+            )
+
+          if (
+            result.status ===
+              404 ||
+            errorCode ===
+              'UNREGISTERED'
+          ) {
+            await admin
+              .from(
+                'fcm_tokens',
+              )
+              .update({
+                active: false,
+                updated_at:
+                  new Date()
+                    .toISOString(),
+              })
+              .eq(
+                'id',
+                tokenRow.id,
+              )
           }
         }
       }
+
+      console.log(
+        JSON.stringify({
+          phase:
+            'finished',
+          sent,
+          skipped,
+          failed,
+          tokens:
+            tokens.length,
+          events:
+            events.length,
+        }),
+      )
 
       return json({
         ok: true,
         sent,
         skipped,
         failed,
-        subscriptions:
-          subscriptions.length,
+        tokens:
+          tokens.length,
         events:
           events.length,
       })
