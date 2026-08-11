@@ -8,6 +8,7 @@ import {
   Search,
   Send,
   ShieldAlert,
+  Trash2,
   X,
 } from 'lucide-react'
 import {
@@ -22,6 +23,7 @@ import {
   getAdminSupportTickets,
   sendAdminSupportMessage,
   updateAdminSupportTicket,
+  deleteAdminSupportTicket,
   type AdminSupportTicket,
   type SupportMessage,
   type SupportTicketPriority,
@@ -97,9 +99,11 @@ export function AdminSupportPage() {
     useState<SupportMessage[]>([])
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] =
-    useState<'all' | SupportTicketStatus>(
-      'all',
-    )
+    useState<
+      | 'active'
+      | 'all'
+      | SupportTicketStatus
+    >('active')
   const [loading, setLoading] =
     useState(true)
   const [messagesLoading, setMessagesLoading] =
@@ -285,8 +289,17 @@ export function AdminSupportPage() {
     const matching =
       tickets.filter((ticket) => {
         const matchesStatus =
-          statusFilter === 'all' ||
-          ticket.status === statusFilter
+          statusFilter === 'all'
+            ? true
+            : statusFilter === 'active'
+              ? ![
+                  'resolved',
+                  'closed',
+                ].includes(
+                  ticket.status,
+                )
+              : ticket.status ===
+                statusFilter
 
         const matchesSearch =
           !query ||
@@ -447,12 +460,17 @@ export function AdminSupportPage() {
             onChange={(event) =>
               setStatusFilter(
                 event.target.value as
+                  | 'active'
                   | 'all'
                   | SupportTicketStatus,
               )
             }
             className="h-12 rounded-2xl border border-slate-800 bg-slate-950 px-4 text-sm font-bold text-slate-200"
           >
+            <option value="active">
+              Aktivni ticketi
+            </option>
+
             <option value="all">
               Svi statusi
             </option>
@@ -587,6 +605,14 @@ export function AdminSupportPage() {
                 )
                 await load()
               }}
+              onDelete={async () => {
+                await deleteAdminSupportTicket(
+                  selected.id,
+                )
+                setSelected(null)
+                setMessages([])
+                await load()
+              }}
             />
           ) : (
             <div className="grid min-h-[650px] place-items-center p-8 text-center text-slate-500">
@@ -605,12 +631,14 @@ function TicketChat({
   messagesLoading,
   onClose,
   onRefresh,
+  onDelete,
 }: {
   ticket: AdminSupportTicket
   messages: SupportMessage[]
   messagesLoading: boolean
   onClose: () => void
   onRefresh: () => Promise<void>
+  onDelete: () => Promise<void>
 }) {
   const [status, setStatus] =
     useState(ticket.status)
@@ -623,6 +651,8 @@ function TicketChat({
   const [saving, setSaving] =
     useState(false)
   const [sending, setSending] =
+    useState(false)
+  const [deleting, setDeleting] =
     useState(false)
   const [error, setError] = useState('')
 
@@ -682,6 +712,36 @@ function TicketChat({
       )
     } finally {
       setSending(false)
+    }
+  }
+
+  async function deleteTicket() {
+    const confirmed =
+      window.confirm(
+        `Trajno obrisati ticket "${ticket.subject}"?\n\nObrisat će se ticket i cijeli razgovor. Ova radnja se ne može poništiti.`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeleting(true)
+      setError('')
+      await onDelete()
+    } catch (value) {
+      console.error(
+        'Support ticket nije moguće obrisati:',
+        value,
+      )
+
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Ticket nije moguće obrisati.',
+      )
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -840,18 +900,39 @@ function TicketChat({
         </div>
       )}
 
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() =>
-          void saveSettings()
-        }
-        className="mt-4 h-11 w-full rounded-xl bg-violet-600 font-black text-white disabled:opacity-50"
-      >
-        {saving
-          ? 'Spremanje...'
-          : 'Spremi status i napomenu'}
-      </button>
+      <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_auto]">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() =>
+            void saveSettings()
+          }
+          className="h-11 rounded-xl bg-violet-600 px-5 font-black text-white disabled:opacity-50"
+        >
+          {saving
+            ? 'Spremanje...'
+            : 'Spremi status i napomenu'}
+        </button>
+
+        {[
+          'resolved',
+          'closed',
+        ].includes(status) && (
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={() =>
+              void deleteTicket()
+            }
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+          >
+            <Trash2 size={17} />
+            {deleting
+              ? 'Brisanje...'
+              : 'Obriši ticket'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

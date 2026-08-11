@@ -267,3 +267,22 @@ updateAdminSupportTicket(
     throw error
   }
 }
+
+
+export async function
+deleteAdminSupportTicket(
+  ticketId: string,
+): Promise<void> {
+  const { error } =
+    await supabase.rpc(
+      'admin_delete_support_ticket',
+      {
+        requested_ticket_id:
+          ticketId,
+      },
+    )
+
+  if (error) {
+    throw error
+  }
+}
