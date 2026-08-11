@@ -48,6 +48,45 @@ const priorityLabels: Record<
   urgent: 'Hitan',
 }
 
+function ticketTimestamp(
+  value: string,
+) {
+  const time =
+    new Date(value).getTime()
+
+  return Number.isFinite(time)
+    ? time
+    : 0
+}
+
+function sortSupportTickets(
+  items: AdminSupportTicket[],
+) {
+  return [...items].sort(
+    (a, b) => {
+      const aNew =
+        a.status === 'new'
+      const bNew =
+        b.status === 'new'
+
+      if (aNew !== bNew) {
+        return aNew
+          ? -1
+          : 1
+      }
+
+      return (
+        ticketTimestamp(
+          b.createdAt,
+        ) -
+        ticketTimestamp(
+          a.createdAt,
+        )
+      )
+    },
+  )
+}
+
 export function AdminSupportPage() {
   const [tickets, setTickets] =
     useState<AdminSupportTicket[]>([])
@@ -64,24 +103,31 @@ export function AdminSupportPage() {
     useState(true)
   const [messagesLoading, setMessagesLoading] =
     useState(false)
+  const [openingTicketId, setOpeningTicketId] =
+    useState<string | null>(null)
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
+
       const next =
-        await getAdminSupportTickets()
+        sortSupportTickets(
+          await getAdminSupportTickets(),
+        )
+
       setTickets(next)
 
-      if (selected) {
-        setSelected(
-          next.find(
-            (item) =>
-              item.id === selected.id,
-          ) ?? null,
-        )
-      }
+      setSelected(
+        (current) =>
+          current
+            ? next.find(
+                (item) =>
+                  item.id === current.id,
+              ) ?? null
+            : null,
+      )
     } catch (value) {
       setError(
         value instanceof Error
@@ -91,7 +137,7 @@ export function AdminSupportPage() {
     } finally {
       setLoading(false)
     }
-  }, [selected])
+  }, [])
 
   const loadMessages =
     useCallback(async (
@@ -118,7 +164,7 @@ export function AdminSupportPage() {
 
   useEffect(() => {
     void load()
-  }, [])
+  }, [load])
 
   useEffect(() => {
     if (selected) {
@@ -126,35 +172,131 @@ export function AdminSupportPage() {
     } else {
       setMessages([])
     }
-  }, [selected?.id])
+  }, [
+    selected?.id,
+    loadMessages,
+  ])
+
+  async function openTicket(
+    ticket: AdminSupportTicket,
+  ) {
+    if (
+      openingTicketId === ticket.id
+    ) {
+      return
+    }
+
+    if (
+      ticket.status !== 'new'
+    ) {
+      setSelected(ticket)
+      return
+    }
+
+    const openedTicket: AdminSupportTicket = {
+      ...ticket,
+      status: 'open',
+      updatedAt:
+        new Date().toISOString(),
+    }
+
+    setOpeningTicketId(
+      ticket.id,
+    )
+
+    setSelected(
+      openedTicket,
+    )
+
+    setTickets(
+      (current) =>
+        sortSupportTickets(
+          current.map(
+            (item) =>
+              item.id === ticket.id
+                ? openedTicket
+                : item,
+          ),
+        ),
+    )
+
+    try {
+      await updateAdminSupportTicket({
+        ticketId:
+          ticket.id,
+        status: 'open',
+        priority:
+          ticket.priority,
+        internalNote:
+          ticket.internalNote,
+      })
+
+      await load()
+    } catch (value) {
+      console.error(
+        'Novi support ticket nije moguće označiti otvorenim:',
+        value,
+      )
+
+      setTickets(
+        (current) =>
+          sortSupportTickets(
+            current.map(
+              (item) =>
+                item.id === ticket.id
+                  ? ticket
+                  : item,
+            ),
+          ),
+      )
+
+      setSelected(ticket)
+
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Ticket nije moguće označiti otvorenim.',
+      )
+    } finally {
+      setOpeningTicketId(
+        null,
+      )
+    }
+  }
 
   const filtered = useMemo(() => {
     const query =
       search.trim().toLowerCase()
 
-    return tickets.filter((ticket) => {
-      const matchesStatus =
-        statusFilter === 'all' ||
-        ticket.status === statusFilter
+    const matching =
+      tickets.filter((ticket) => {
+        const matchesStatus =
+          statusFilter === 'all' ||
+          ticket.status === statusFilter
 
-      const matchesSearch =
-        !query ||
-        [
-          ticket.subject,
-          ticket.companyName,
-          ticket.requesterName,
-          ticket.requesterEmail,
-          ticket.message,
-        ].some((value) =>
-          value
-            .toLowerCase()
-            .includes(query),
+        const matchesSearch =
+          !query ||
+          [
+            ticket.subject,
+            ticket.companyName,
+            ticket.requesterName,
+            ticket.requesterEmail,
+            ticket.message,
+          ].some((value) =>
+            value
+              .toLowerCase()
+              .includes(query),
+          )
+
+        return (
+          matchesStatus &&
+          matchesSearch
         )
+      })
 
-      return (
-        matchesStatus && matchesSearch
-      )
-    })
+    return sortSupportTickets(
+      matching,
+    )
   }, [
     search,
     statusFilter,
@@ -181,6 +323,10 @@ export function AdminSupportPage() {
             'closed',
           ].includes(ticket.status),
       ).length,
+      newCount: tickets.filter(
+        (ticket) =>
+          ticket.status === 'new',
+      ).length,
     }),
     [tickets],
   )
@@ -202,6 +348,16 @@ export function AdminSupportPage() {
             Razgovaraj s korisnicima i
             upravljaj ticketima.
           </p>
+
+          {summary.newCount > 0 && (
+            <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-black text-emerald-300">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,.8)]" />
+              {summary.newCount}{' '}
+              {summary.newCount === 1
+                ? 'novi zahtjev'
+                : 'novih zahtjeva'}
+            </div>
+          )}
         </div>
 
         <button
@@ -303,50 +459,107 @@ export function AdminSupportPage() {
       <div className="mt-6 grid min-h-[650px] overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 lg:grid-cols-[390px_1fr]">
         <div className="border-b border-slate-800 lg:border-b-0 lg:border-r">
           <div className="max-h-[650px] overflow-y-auto">
-            {filtered.map((ticket) => (
-              <button
-                key={ticket.id}
-                type="button"
-                onClick={() =>
-                  setSelected(ticket)
-                }
-                className={`w-full border-b border-slate-800/70 p-5 text-left transition ${
-                  selected?.id === ticket.id
-                    ? 'bg-blue-500/10'
-                    : 'hover:bg-slate-800/40'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <StatusBadge
-                    status={ticket.status}
-                  />
-                  <PriorityBadge
-                    priority={
-                      ticket.priority
-                    }
-                  />
-                </div>
+            {filtered.map((ticket) => {
+              const isNew =
+                ticket.status === 'new'
 
-                <p className="mt-3 font-black">
-                  {ticket.subject}
-                </p>
-                <p className="mt-2 line-clamp-2 text-sm text-slate-400">
-                  {ticket.message}
-                </p>
-                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-                  <span className="truncate">
-                    {ticket.companyName ||
-                      ticket.requesterEmail}
-                  </span>
+              const isOpening =
+                openingTicketId ===
+                ticket.id
 
-                  <span className="shrink-0 font-semibold text-slate-400">
-                    {formatDateTime(
-                      ticket.createdAt,
-                    )}
-                  </span>
+              return (
+                <button
+                  key={ticket.id}
+                  type="button"
+                  disabled={isOpening}
+                  onClick={() =>
+                    void openTicket(ticket)
+                  }
+                  className={`relative w-full border-b p-5 text-left transition ${
+                    selected?.id === ticket.id
+                      ? isNew
+                        ? 'border-emerald-400/25 bg-emerald-400/10'
+                        : 'border-slate-800/70 bg-blue-500/10'
+                      : isNew
+                        ? 'border-emerald-400/20 bg-emerald-400/[0.07] hover:bg-emerald-400/10'
+                        : 'border-slate-800/70 hover:bg-slate-800/40'
+                  } disabled:opacity-70`}
+                >
+                  {isNew && (
+                    <span className="absolute bottom-0 left-0 top-0 w-1 bg-emerald-400" />
+                  )}
+
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isNew && (
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-300">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          NOVO
+                        </span>
+                      )}
+
+                      <StatusBadge
+                        status={ticket.status}
+                      />
+                    </div>
+
+                    <PriorityBadge
+                      priority={
+                        ticket.priority
+                      }
+                    />
+                  </div>
+
+                  <p
+                    className={`mt-3 font-black ${
+                      isNew
+                        ? 'text-white'
+                        : ''
+                    }`}
+                  >
+                    {ticket.subject}
+                  </p>
+
+                  <p
+                    className={`mt-2 line-clamp-2 text-sm ${
+                      isNew
+                        ? 'text-slate-300'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    {ticket.message}
+                  </p>
+
+                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+                    <span className="truncate">
+                      {ticket.companyName ||
+                        ticket.requesterEmail}
+                    </span>
+
+                    <span
+                      className={`shrink-0 font-semibold ${
+                        isNew
+                          ? 'text-emerald-300'
+                          : 'text-slate-400'
+                      }`}
+                    >
+                      {isOpening
+                        ? 'Otvaranje...'
+                        : formatDateTime(
+                            ticket.createdAt,
+                          )}
+                    </span>
+                  </div>
+                </button>
+              )
+            })}
+
+            {!loading &&
+              filtered.length === 0 && (
+                <div className="p-8 text-center text-sm text-slate-500">
+                  Nema support ticketa za odabrani filter.
                 </div>
-              </button>
-            ))}
+              )}
           </div>
         </div>
 
@@ -738,8 +951,17 @@ function StatusBadge({
 }: {
   status: SupportTicketStatus
 }) {
+  const isNew =
+    status === 'new'
+
   return (
-    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-black text-slate-300">
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${
+        isNew
+          ? 'bg-emerald-400/15 text-emerald-300'
+          : 'bg-slate-800 text-slate-300'
+      }`}
+    >
       {statusLabels[status]}
     </span>
   )
@@ -750,8 +972,17 @@ function PriorityBadge({
 }: {
   priority: SupportTicketPriority
 }) {
+  const classes =
+    priority === 'urgent'
+      ? 'bg-red-500/15 text-red-300'
+      : priority === 'high'
+        ? 'bg-amber-500/15 text-amber-300'
+        : 'bg-slate-800 text-slate-300'
+
   return (
-    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-black text-slate-300">
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-black ${classes}`}
+    >
       {priorityLabels[priority]}
     </span>
   )
