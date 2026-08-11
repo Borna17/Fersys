@@ -141,22 +141,46 @@ export function AdminSupportPage() {
 
   const loadMessages =
     useCallback(async (
-      ticketId: string,
+      ticket: AdminSupportTicket,
     ) => {
       try {
         setMessagesLoading(true)
-        setError('')
-        setMessages(
+
+        const next =
           await getAdminSupportMessages(
-            ticketId,
-          ),
-        )
+            ticket.id,
+          )
+
+        setMessages(next)
       } catch (value) {
-        setError(
-          value instanceof Error
-            ? value.message
-            : 'Razgovor nije moguće učitati.',
+        console.error(
+          'Support poruke nije moguće učitati:',
+          value,
         )
+
+        setMessages([
+          {
+            id:
+              `fallback-${ticket.id}`,
+            ticketId:
+              ticket.id,
+            senderType:
+              'user',
+            senderName:
+              ticket.requesterName ||
+              ticket.requesterEmail ||
+              'Korisnik',
+            message:
+              ticket.message ||
+              'Nema sadržaja poruke.',
+            attachmentUrl: '',
+            createdAt:
+              ticket.createdAt,
+            readByUserAt: null,
+            readByAdminAt:
+              new Date().toISOString(),
+          },
+        ])
       } finally {
         setMessagesLoading(false)
       }
@@ -168,7 +192,7 @@ export function AdminSupportPage() {
 
   useEffect(() => {
     if (selected) {
-      void loadMessages(selected.id)
+      void loadMessages(selected)
     } else {
       setMessages([])
     }
@@ -189,38 +213,17 @@ export function AdminSupportPage() {
     if (
       ticket.status !== 'new'
     ) {
+      setError('')
       setSelected(ticket)
       return
     }
 
-    const openedTicket: AdminSupportTicket = {
-      ...ticket,
-      status: 'open',
-      updatedAt:
-        new Date().toISOString(),
-    }
-
-    setOpeningTicketId(
-      ticket.id,
-    )
-
-    setSelected(
-      openedTicket,
-    )
-
-    setTickets(
-      (current) =>
-        sortSupportTickets(
-          current.map(
-            (item) =>
-              item.id === ticket.id
-                ? openedTicket
-                : item,
-          ),
-        ),
-    )
-
     try {
+      setOpeningTicketId(
+        ticket.id,
+      )
+      setError('')
+
       await updateAdminSupportTicket({
         ticketId:
           ticket.id,
@@ -231,12 +234,13 @@ export function AdminSupportPage() {
           ticket.internalNote,
       })
 
-      await load()
-    } catch (value) {
-      console.error(
-        'Novi support ticket nije moguće označiti otvorenim:',
-        value,
-      )
+      const openedTicket:
+        AdminSupportTicket = {
+          ...ticket,
+          status: 'open',
+          updatedAt:
+            new Date().toISOString(),
+        }
 
       setTickets(
         (current) =>
@@ -244,18 +248,27 @@ export function AdminSupportPage() {
             current.map(
               (item) =>
                 item.id === ticket.id
-                  ? ticket
+                  ? openedTicket
                   : item,
             ),
           ),
       )
 
+      setSelected(
+        openedTicket,
+      )
+
+      await load()
+    } catch (value) {
+      console.error(
+        'Support ticket nije moguće označiti otvorenim:',
+        value,
+      )
+
       setSelected(ticket)
 
       setError(
-        value instanceof Error
-          ? value.message
-          : 'Ticket nije moguće označiti otvorenim.',
+        'Ticket je otvoren za pregled, ali status nije moguće automatski promijeniti. Pokušaj ručno spremiti status "Otvoren".',
       )
     } finally {
       setOpeningTicketId(
@@ -491,13 +504,6 @@ export function AdminSupportPage() {
 
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      {isNew && (
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/25 bg-emerald-400/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-300">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          NOVO
-                        </span>
-                      )}
-
                       <StatusBadge
                         status={ticket.status}
                       />
@@ -576,7 +582,7 @@ export function AdminSupportPage() {
               }
               onRefresh={async () => {
                 await loadMessages(
-                  selected.id,
+                  selected,
                 )
                 await load()
               }}
@@ -962,7 +968,9 @@ function StatusBadge({
           : 'bg-slate-800 text-slate-300'
       }`}
     >
-      {statusLabels[status]}
+      {isNew
+        ? 'NOVO'
+        : statusLabels[status]}
     </span>
   )
 }
