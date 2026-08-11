@@ -84,7 +84,7 @@ const layoutOptions: Array<{
     id: 'classic',
     title: 'Classic',
     description:
-      'Službeni servisni izgled s tamnim zaglavljem i jednostavnim rasporedom.',
+      'Klasičan servisni dokument s tamnim punim zaglavljem i ravnijim elementima.',
     icon: FileText,
     previewClassName:
       'from-slate-800 to-slate-950',
@@ -93,7 +93,7 @@ const layoutOptions: Array<{
     id: 'modern',
     title: 'Modern',
     description:
-      'Moderan FERSYS izgled s karticama, tablicom i naglašenom bojom firme.',
+      'Suvremeni FERSYS izgled s karticama, sjenama i naglašenom bojom tvrtke.',
     icon: Sparkles,
     previewClassName:
       'from-blue-600 to-violet-600',
@@ -102,16 +102,14 @@ const layoutOptions: Array<{
     id: 'custom',
     title: 'Custom',
     description:
-      'Izgled koji prati boje, logo, pečat i ostale postavke vaše tvrtke.',
+      'Vlastiti izgled s bojama, nazivima sekcija, logom, pečatom i poravnanjem.',
     icon: SlidersHorizontal,
     previewClassName:
       'from-violet-600 to-fuchsia-600',
   },
 ]
 
-function isoDate(
-  date: Date,
-) {
+function isoDate(date: Date) {
   return date
     .toISOString()
     .slice(0, 10)
@@ -124,49 +122,34 @@ function makeDemoWorkOrder(
     id: 'preview',
     companyId:
       settings.id,
-
     orderNumber:
       `${settings.workOrderPrefix || 'RN'}-${new Date().getFullYear()}-001`,
-
     customerId:
       'preview-customer',
-
     customerName:
       'Ivan Horvat',
-
     customerContactPerson:
       'Ivan Horvat',
-
     customerPhone:
       '091 234 5678',
-
     customerEmail:
       'ivan.horvat@primjer.hr',
-
     customerOib:
       '12345678901',
-
     address:
       'Ulica hrvatskih branitelja 12, 35000 Slavonski Brod',
-
     date:
       isoDate(new Date()),
-
     arrivalTime:
       '09:00',
-
     departureTime:
       '11:30',
-
     durationMinutes:
       150,
-
     title:
       'Servis plinskog bojlera',
-
     description:
       'Izvršen pregled i servis uređaja. Očišćen izmjenjivač, provjeren tlak sustava i ispitana sigurnost rada. Provjerena nepropusnost spojeva te izvršeno završno testiranje uređaja.',
-
     materials: [
       {
         id: '1',
@@ -209,40 +192,25 @@ function makeDemoWorkOrder(
         unitPrice: 7,
       },
     ],
-
     assignedWorkers: [
       'Borna Ferfolja',
     ],
-
     labourPrice: 80,
     materialPrice: 73,
-
     vatRate:
       settings.defaultVatRate ||
       25,
-
     totalPrice:
       191.25,
-
     priceNote: '',
-
     investorName:
       'Ivan Horvat',
-
-    investorSignature:
-      '',
-
+    investorSignature: '',
     images: [],
-
-    status:
-      'Novi',
-
-    priority:
-      'Normalan',
-
+    status: 'Novi',
+    priority: 'Normalan',
     createdAt:
       new Date().toISOString(),
-
     updatedAt:
       new Date().toISOString(),
   }
@@ -254,14 +222,11 @@ function offerSettings(
   return {
     companyName:
       settings.name,
-
     companySubtitle:
       settings.documentWatermark,
-
     companyAddress:
       [
         settings.address,
-
         [
           settings.postalCode,
           settings.city,
@@ -271,51 +236,34 @@ function offerSettings(
       ]
         .filter(Boolean)
         .join(', '),
-
     companyOib:
       settings.oib,
-
     companyIban:
       settings.iban,
-
     companyEmail:
       settings.email,
-
     companyPhone:
       settings.phone,
-
     companyWebsite:
       settings.website,
-
     logoDataUrl:
       settings.logoUrl ||
       undefined,
-
     stampDataUrl:
       settings.stampUrl ||
       undefined,
-
     signatureDataUrl:
       settings.signatureUrl ||
       undefined,
-
     primaryColor:
       settings.primaryColor,
-
     showStamp:
       Boolean(
         settings.stampUrl,
       ),
-
-    showSignature:
-      true,
-
-    showFooter:
-      true,
-
-    showItemImages:
-      false,
-
+    showSignature: true,
+    showFooter: true,
+    showItemImages: true,
     footerText:
       settings.documentFooter,
   }
@@ -327,14 +275,11 @@ function invoiceSettings(
   return {
     companyName:
       settings.name,
-
     companySubtitle:
       settings.documentWatermark,
-
     companyAddress:
       [
         settings.address,
-
         [
           settings.postalCode,
           settings.city,
@@ -344,41 +289,29 @@ function invoiceSettings(
       ]
         .filter(Boolean)
         .join(', '),
-
     companyOib:
       settings.oib,
-
     companyIban:
       settings.iban,
-
     companyEmail:
       settings.email,
-
     companyPhone:
       settings.phone,
-
     companyWebsite:
       settings.website,
-
     logoDataUrl:
       settings.logoUrl ||
       undefined,
-
     stampDataUrl:
       settings.stampUrl ||
       undefined,
-
     primaryColor:
       settings.primaryColor,
-
     showStamp:
       Boolean(
         settings.stampUrl,
       ),
-
-    showFooter:
-      true,
-
+    showFooter: true,
     footerText:
       settings.documentFooter,
   }
@@ -403,51 +336,35 @@ function demoOffer(
 
   return {
     id: 'preview',
-
     offerNumber:
       `${settings.offerPrefix || 'P'}-${now.getFullYear()}-001`,
-
     customerName:
       'Ivan Horvat',
-
     customerType:
       'Fizička osoba',
-
     oib:
       '12345678901',
-
     email:
       'ivan.horvat@primjer.hr',
-
     phone:
       '091 234 5678',
-
     address:
       'Ulica hrvatskih branitelja 12',
-
     city:
       '35000 Slavonski Brod',
-
     date:
       isoDate(now),
-
     validUntil:
       isoDate(valid),
-
     status:
       'Nacrt',
-
     responsiblePerson:
       'Borna Ferfolja',
-
     description:
       'Ponuda za servis, rad i potreban materijal.',
-
     internalNote: '',
-
     paymentTerms:
       'Plaćanje u roku 7 dana.',
-
     items: [
       {
         id: '1',
@@ -484,15 +401,11 @@ function demoOffer(
         vat: 25,
       },
     ],
-
     createdAt:
       now.toISOString(),
-
     updatedAt:
       now.toISOString(),
-
-    version:
-      1,
+    version: 1,
   }
 }
 
@@ -515,63 +428,43 @@ function demoInvoice(
 
   return {
     id: 'preview',
-
     invoiceNumber:
       `${settings.invoicePrefix || 'R'}-${now.getFullYear()}-001`,
-
     customerName:
       'Ivan Horvat',
-
     customerType:
       'Fizička osoba',
-
     oib:
       '12345678901',
-
     email:
       'ivan.horvat@primjer.hr',
-
     phone:
       '091 234 5678',
-
     address:
       'Ulica hrvatskih branitelja 12',
-
     city:
       '35000 Slavonski Brod',
-
     issueDate:
       isoDate(now),
-
     dueDate:
       isoDate(due),
-
     serviceDate:
       isoDate(now),
-
     status:
       'Nacrt',
-
     responsiblePerson:
       'Borna Ferfolja',
-
     description:
       'Račun za izvršene radove i materijal.',
-
     internalNote: '',
-
     paymentMethod:
       'Transakcijski račun',
-
     paymentModel:
       'HR00',
-
     paymentReference:
       '2026-001',
-
     iban:
       settings.iban,
-
     items: [
       {
         id: '1',
@@ -596,19 +489,19 @@ function demoInvoice(
         vat: 25,
       },
     ],
-
     createdAt:
       now.toISOString(),
-
     updatedAt:
       now.toISOString(),
   }
 }
 
-export default function DocumentLivePreview({
+export default function
+DocumentLivePreview({
   settings,
 }: {
-  settings: CompanySettings
+  settings:
+    CompanySettings
 }) {
   const [
     activeType,
@@ -622,73 +515,69 @@ export default function DocumentLivePreview({
     selectedLayout,
     setSelectedLayout,
   ] =
-    useState<Exclude<PdfLayout, 'minimal'>>(
-      'modern',
-    )
-
-  const [
-    isLoadingLayout,
-    setIsLoadingLayout,
-  ] =
-    useState(true)
-
-  const [
-    isSavingLayout,
-    setIsSavingLayout,
-  ] =
-    useState(false)
-
-  const [
-    layoutMessage,
-    setLayoutMessage,
-  ] =
-    useState('')
-
-  const [
-    zoom,
-    setZoom,
-  ] =
-    useState(78)
+    useState<
+      Exclude<
+        PdfLayout,
+        'minimal'
+      >
+    >('modern')
 
   const [
     savedBranding,
     setSavedBranding,
   ] =
-    useState<WorkOrderBranding | null>(
-      null,
-    )
+    useState<
+      WorkOrderBranding | null
+    >(null)
 
   const [
     customDraft,
     setCustomDraft,
   ] =
-    useState<WorkOrderBranding | null>(
-      null,
-    )
+    useState<
+      WorkOrderBranding | null
+    >(null)
 
   const [
-    isSavingCustom,
-    setIsSavingCustom,
+    zoom,
+    setZoom,
+  ] =
+    useState(72)
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
+    useState(true)
+
+  const [
+    isSaving,
+    setIsSaving,
   ] =
     useState(false)
 
+  const [
+    message,
+    setMessage,
+  ] =
+    useState('')
+
   useEffect(() => {
-    let cancelled = false
+    let cancelled =
+      false
 
     void (async () => {
       try {
-        setIsLoadingLayout(true)
+        setIsLoading(true)
 
         const branding =
           await getWorkOrderBrandingFromCompanySettings()
 
-        if (
-          cancelled
-        ) {
+        if (cancelled) {
           return
         }
 
-        const nextLayout =
+        const layout =
           branding.layout ===
           'classic'
             ? 'classic'
@@ -700,28 +589,21 @@ export default function DocumentLivePreview({
               : 'modern'
 
         setSelectedLayout(
-          nextLayout,
+          layout,
         )
-
         setSavedBranding(
           branding,
         )
-
         setCustomDraft(
           branding,
         )
       } catch (error) {
         console.error(
-          'Izgled radnog naloga nije moguće učitati:',
           error,
         )
       } finally {
-        if (
-          !cancelled
-        ) {
-          setIsLoadingLayout(
-            false,
-          )
+        if (!cancelled) {
+          setIsLoading(false)
         }
       }
     })()
@@ -740,13 +622,15 @@ export default function DocumentLivePreview({
           )
 
         if (
-          selectedLayout === 'custom' &&
+          selectedLayout ===
+            'custom' &&
           customDraft
         ) {
           return {
             ...base,
             ...customDraft,
-            layout: 'custom' as const,
+            layout:
+              'custom' as const,
           }
         }
 
@@ -796,7 +680,9 @@ export default function DocumentLivePreview({
     useMemo(
       () =>
         buildInvoicePdfHtml(
-          demoInvoice(settings),
+          demoInvoice(
+            settings,
+          ),
           invoiceSettings(
             settings,
           ),
@@ -804,111 +690,93 @@ export default function DocumentLivePreview({
       [settings],
     )
 
+  const activeHtml =
+    activeType ===
+    'work-order'
+      ? workOrderHtml
+      : activeType ===
+          'offer'
+        ? offerHtml
+        : invoiceHtml
 
-  async function selectLayout(
-    layout: Exclude<PdfLayout, 'minimal'>,
+  const scale =
+    zoom / 100
+
+  async function
+  selectLayout(
+    layout:
+      Exclude<
+        PdfLayout,
+        'minimal'
+      >,
   ) {
-    if (
-      isSavingLayout ||
-      selectedLayout === layout
-    ) {
+    if (isSaving) {
       return
     }
-
-    const previous =
-      selectedLayout
 
     setSelectedLayout(
       layout,
     )
-
-    setLayoutMessage('')
+    setMessage('')
 
     try {
-      setIsSavingLayout(
-        true,
-      )
+      setIsSaving(true)
 
       await saveWorkOrderLayout(
         layout,
       )
 
-      const nextBranding = {
-        ...workOrderBranding,
-        layout,
-      }
-
       setSavedBranding(
-        nextBranding,
+        (current) => ({
+          ...(current ??
+            workOrderBranding),
+          layout,
+        }),
       )
 
-      if (
-        layout === 'custom'
-      ) {
-        setCustomDraft(
-          nextBranding,
-        )
-      }
-
-      setLayoutMessage(
-        `Izgled ${layoutOptions.find(
+      setMessage(
+        `${layoutOptions.find(
           (item) =>
             item.id === layout,
-        )?.title ?? layout} je spremljen.`,
-      )
-
-      window.setTimeout(
-        () =>
-          setLayoutMessage(''),
-        2500,
+        )?.title} izgled spremljen.`,
       )
     } catch (error) {
-      console.error(
-        'Izgled dokumenta nije moguće spremiti:',
-        error,
-      )
-
-      setSelectedLayout(
-        previous,
-      )
-
-      setLayoutMessage(
+      console.error(error)
+      setMessage(
         'Izgled nije moguće spremiti.',
       )
     } finally {
-      setIsSavingLayout(
-        false,
-      )
+      setIsSaving(false)
     }
   }
 
   function updateCustom<
-    Key extends keyof WorkOrderBranding,
+    Key extends
+      keyof WorkOrderBranding,
   >(
     key: Key,
-    value: WorkOrderBranding[Key],
+    value:
+      WorkOrderBranding[Key],
   ) {
     setCustomDraft(
       (current) => ({
         ...(current ??
           workOrderBranding),
         [key]: value,
-        layout: 'custom',
+        layout:
+          'custom',
       }),
     )
   }
 
-  async function saveCustomSettings() {
-    if (
-      !customDraft ||
-      isSavingCustom
-    ) {
+  async function
+  saveCustom() {
+    if (!customDraft) {
       return
     }
 
     try {
-      setIsSavingCustom(true)
-      setLayoutMessage('')
+      setIsSaving(true)
 
       const saved =
         await saveWorkOrderBranding({
@@ -918,22 +786,20 @@ export default function DocumentLivePreview({
 
       setSavedBranding(saved)
       setCustomDraft(saved)
-      setSelectedLayout('custom')
+      setSelectedLayout(
+        'custom',
+      )
 
-      setLayoutMessage(
-        'Custom izgled je spremljen za ovu tvrtku.',
+      setMessage(
+        'Custom izgled spremljen.',
       )
     } catch (error) {
-      console.error(
-        'Custom izgled nije moguće spremiti:',
-        error,
-      )
-
-      setLayoutMessage(
+      console.error(error)
+      setMessage(
         'Custom izgled nije moguće spremiti.',
       )
     } finally {
-      setIsSavingCustom(false)
+      setIsSaving(false)
     }
   }
 
@@ -965,25 +831,16 @@ export default function DocumentLivePreview({
             60_000,
           )
         } catch (error) {
-          console.error(
-            'Probni PDF nije moguće otvoriti:',
-            error,
-          )
+          console.error(error)
         }
       })()
 
       return
     }
 
-    const html =
-      activeType ===
-      'offer'
-        ? offerHtml
-        : invoiceHtml
-
     const blob =
       new Blob(
-        [html],
+        [activeHtml],
         {
           type:
             'text/html;charset=utf-8',
@@ -1012,19 +869,17 @@ export default function DocumentLivePreview({
   return (
     <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/20">
       <div className="border-b border-slate-800 p-4 sm:p-5">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
-            Stil dokumenta
-          </p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+          Stil radnog naloga
+        </p>
 
-          <h2 className="mt-1 text-xl font-black text-white">
-            Odaberi izgled radnog naloga
-          </h2>
+        <h2 className="mt-1 text-xl font-black text-white">
+          Classic, Modern ili Custom
+        </h2>
 
-          <p className="mt-1 text-sm leading-6 text-slate-500">
-            Svaka tvrtka može spremiti svoj zadani izgled. Promjena se odmah prikazuje u A4 pregledu ispod.
-          </p>
-        </div>
+        <p className="mt-1 text-sm leading-6 text-slate-500">
+          Ova tri izgleda sada su stvarno različita. Odabir vrijedi za radni nalog.
+        </p>
 
         <div className="mt-5 grid gap-3 lg:grid-cols-3">
           {layoutOptions.map(
@@ -1043,15 +898,15 @@ export default function DocumentLivePreview({
                   }
                   type="button"
                   disabled={
-                    isLoadingLayout ||
-                    isSavingLayout
+                    isLoading ||
+                    isSaving
                   }
                   onClick={() =>
                     void selectLayout(
                       option.id,
                     )
                   }
-                  className={`group overflow-hidden rounded-2xl border text-left transition ${
+                  className={`overflow-hidden rounded-2xl border text-left transition ${
                     active
                       ? 'border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20'
                       : 'border-slate-800 bg-slate-950/60 hover:border-slate-700'
@@ -1069,27 +924,21 @@ export default function DocumentLivePreview({
 
                     <div className="absolute bottom-3 right-3 grid h-9 w-9 place-items-center rounded-xl bg-black/25 text-white">
                       {active ? (
-                        <Check size={19} />
+                        <Check
+                          size={19}
+                        />
                       ) : (
-                        <Icon size={19} />
+                        <Icon
+                          size={19}
+                        />
                       )}
                     </div>
                   </div>
 
                   <div className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="font-black text-white">
-                        {
-                          option.title
-                        }
-                      </p>
-
-                      {active && (
-                        <span className="rounded-full bg-blue-500/15 px-2.5 py-1 text-[10px] font-black uppercase text-blue-300">
-                          Odabrano
-                        </span>
-                      )}
-                    </div>
+                    <p className="font-black text-white">
+                      {option.title}
+                    </p>
 
                     <p className="mt-2 text-xs leading-5 text-slate-500">
                       {
@@ -1103,48 +952,47 @@ export default function DocumentLivePreview({
           )}
         </div>
 
-        {layoutMessage && (
+        {message && (
           <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-xs font-semibold text-slate-300">
-            {layoutMessage}
+            {message}
           </div>
         )}
 
-        {selectedLayout === 'custom' &&
+        {selectedLayout ===
+          'custom' &&
           customDraft && (
-            <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4 sm:p-5">
+            <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/5 p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-300">
                     Custom editor
                   </p>
 
-                  <h3 className="mt-1 text-lg font-black text-white">
-                    Napravi izgled samo za ovu firmu
-                  </h3>
-
                   <p className="mt-1 text-sm text-slate-500">
-                    Promjene se odmah vide u pregledu. Klikni Spremi custom izgled kada završiš.
+                    Promjene se odmah vide na radnom nalogu.
                   </p>
                 </div>
 
                 <button
                   type="button"
-                  disabled={isSavingCustom}
+                  disabled={
+                    isSaving
+                  }
                   onClick={() =>
-                    void saveCustomSettings()
+                    void saveCustom()
                   }
                   className="h-11 rounded-xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-500 disabled:opacity-50"
                 >
-                  {isSavingCustom
-                    ? 'Spremanje...'
-                    : 'Spremi custom izgled'}
+                  Spremi Custom
                 </button>
               </div>
 
-              <div className="mt-5 grid gap-4 md:grid-cols-2">
-                <CustomTextField
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <TextField
                   label="Naziv dokumenta"
-                  value={customDraft.customDocumentTitle}
+                  value={
+                    customDraft.customDocumentTitle
+                  }
                   onChange={(value) =>
                     updateCustom(
                       'customDocumentTitle',
@@ -1153,13 +1001,24 @@ export default function DocumentLivePreview({
                   }
                 />
 
-                <CustomSelectField
-                  label="Poravnanje zaglavlja"
-                  value={customDraft.headerAlignment}
+                <SelectField
+                  label="Poravnanje naslova"
+                  value={
+                    customDraft.headerAlignment
+                  }
                   options={[
-                    ['left', 'Lijevo'],
-                    ['center', 'Sredina'],
-                    ['right', 'Desno'],
+                    [
+                      'left',
+                      'Lijevo',
+                    ],
+                    [
+                      'center',
+                      'Sredina',
+                    ],
+                    [
+                      'right',
+                      'Desno',
+                    ],
                   ]}
                   onChange={(value) =>
                     updateCustom(
@@ -1169,183 +1028,82 @@ export default function DocumentLivePreview({
                   }
                 />
 
-                <CustomTextField
-                  label="Naziv sekcije opisa"
-                  value={customDraft.customDescriptionLabel}
+                <ColorField
+                  label="Glavna boja"
+                  value={
+                    customDraft.primaryColor
+                  }
                   onChange={(value) =>
                     updateCustom(
-                      'customDescriptionLabel',
+                      'primaryColor',
                       value,
                     )
                   }
                 />
 
-                <CustomTextField
-                  label="Naziv sekcije materijala"
-                  value={customDraft.customMaterialsLabel}
+                <ColorField
+                  label="Sekundarna boja"
+                  value={
+                    customDraft.secondaryColor
+                  }
                   onChange={(value) =>
                     updateCustom(
-                      'customMaterialsLabel',
+                      'secondaryColor',
                       value,
                     )
                   }
                 />
-
-                <CustomTextField
-                  label="Naziv sekcije fotografija"
-                  value={customDraft.customPhotosLabel}
-                  onChange={(value) =>
-                    updateCustom(
-                      'customPhotosLabel',
-                      value,
-                    )
-                  }
-                />
-
-                <CustomTextField
-                  label="Naziv potpisa i ovjere"
-                  value={customDraft.customSignatureLabel}
-                  onChange={(value) =>
-                    updateCustom(
-                      'customSignatureLabel',
-                      value,
-                    )
-                  }
-                />
-
-                <CustomSelectField
-                  label="Prikaz podataka investitora"
-                  value={customDraft.customInfoStyle}
-                  options={[
-                    ['cards', 'Kartice'],
-                    ['compact', 'Kompaktno'],
-                  ]}
-                  onChange={(value) =>
-                    updateCustom(
-                      'customInfoStyle',
-                      value as WorkOrderBranding['customInfoStyle'],
-                    )
-                  }
-                />
-
-                <CustomSelectField
-                  label="Prikaz materijala"
-                  value={customDraft.customMaterialStyle}
-                  options={[
-                    ['table', 'Tablica'],
-                    ['list', 'Popis / kartice'],
-                  ]}
-                  onChange={(value) =>
-                    updateCustom(
-                      'customMaterialStyle',
-                      value as WorkOrderBranding['customMaterialStyle'],
-                    )
-                  }
-                />
-
-                <CustomSelectField
-                  label="Redoslijed sekcija"
-                  value={customDraft.customSectionOrder}
-                  options={[
-                    ['description-first', 'Opis pa materijal'],
-                    ['materials-first', 'Materijal pa opis'],
-                  ]}
-                  onChange={(value) =>
-                    updateCustom(
-                      'customSectionOrder',
-                      value as WorkOrderBranding['customSectionOrder'],
-                    )
-                  }
-                />
-
-                <div className="grid grid-cols-2 gap-3">
-                  <CustomColorField
-                    label="Glavna boja"
-                    value={customDraft.primaryColor}
-                    onChange={(value) =>
-                      updateCustom(
-                        'primaryColor',
-                        value,
-                      )
-                    }
-                  />
-
-                  <CustomColorField
-                    label="Sekundarna boja"
-                    value={customDraft.secondaryColor}
-                    onChange={(value) =>
-                      updateCustom(
-                        'secondaryColor',
-                        value,
-                      )
-                    }
-                  />
-                </div>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <CustomToggle
-                  label="Prikaži logo"
-                  checked={customDraft.showLogo}
-                  onChange={(checked) =>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Toggle
+                  label="Logo"
+                  checked={
+                    customDraft.showLogo
+                  }
+                  onChange={(value) =>
                     updateCustom(
                       'showLogo',
-                      checked,
+                      value,
                     )
                   }
                 />
 
-                <CustomToggle
-                  label="Prikaži pečat"
-                  checked={customDraft.showStamp}
-                  onChange={(checked) =>
+                <Toggle
+                  label="Pečat"
+                  checked={
+                    customDraft.showStamp
+                  }
+                  onChange={(value) =>
                     updateCustom(
                       'showStamp',
-                      checked,
+                      value,
                     )
                   }
                 />
 
-                <CustomToggle
-                  label="Prikaži OIB"
-                  checked={customDraft.showCompanyOib}
-                  onChange={(checked) =>
+                <Toggle
+                  label="OIB firme"
+                  checked={
+                    customDraft.showCompanyOib
+                  }
+                  onChange={(value) =>
                     updateCustom(
                       'showCompanyOib',
-                      checked,
+                      value,
                     )
                   }
                 />
 
-                <CustomToggle
-                  label="Prikaži IBAN"
-                  checked={customDraft.showCompanyIban}
-                  onChange={(checked) =>
+                <Toggle
+                  label="IBAN firme"
+                  checked={
+                    customDraft.showCompanyIban
+                  }
+                  onChange={(value) =>
                     updateCustom(
                       'showCompanyIban',
-                      checked,
-                    )
-                  }
-                />
-
-                <CustomToggle
-                  label="Prikaži telefon"
-                  checked={customDraft.showCompanyPhone}
-                  onChange={(checked) =>
-                    updateCustom(
-                      'showCompanyPhone',
-                      checked,
-                    )
-                  }
-                />
-
-                <CustomToggle
-                  label="Prikaži e-mail"
-                  checked={customDraft.showCompanyEmail}
-                  onChange={(checked) =>
-                    updateCustom(
-                      'showCompanyEmail',
-                      checked,
+                      value,
                     )
                   }
                 />
@@ -1355,171 +1113,169 @@ export default function DocumentLivePreview({
       </div>
 
       <div className="border-b border-slate-800 p-4 sm:p-5">
-        <div className="flex flex-col gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
-              Živi pregled
-            </p>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
+          Živi pregled
+        </p>
 
-            <h2 className="mt-1 text-xl font-black text-white">
-              Stvarni izgled dokumenta
-            </h2>
+        <h2 className="mt-1 text-xl font-black text-white">
+          Stvarni izgled dokumenta
+        </h2>
 
-            <p className="mt-1 text-sm text-slate-500">
-              Preview koristi isti generator kao pravi dokument.
-            </p>
-          </div>
+        <p className="mt-1 text-sm text-slate-500">
+          A4 je automatski prilagođen širini ovog prozora — nema pomicanja lijevo/desno.
+        </p>
 
-          <div className="grid grid-cols-3 gap-2 rounded-2xl bg-slate-950/70 p-1.5">
-            {tabs.map(
-              (tab) => {
-                const Icon =
-                  tab.icon
+        <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-slate-950/70 p-1.5">
+          {tabs.map(
+            (tab) => {
+              const Icon =
+                tab.icon
 
-                const active =
-                  activeType ===
-                  tab.id
+              const active =
+                activeType ===
+                tab.id
 
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() =>
-                      setActiveType(
-                        tab.id,
-                      )
-                    }
-                    className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-black transition sm:text-sm ${
-                      active
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-                        : 'text-slate-500 hover:bg-slate-800 hover:text-white'
-                    }`}
-                  >
-                    <Icon
-                      size={16}
-                    />
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() =>
+                    setActiveType(
+                      tab.id,
+                    )
+                  }
+                  className={`flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-xs font-black transition sm:text-sm ${
+                    active
+                      ? 'bg-blue-600 text-white'
+                      : 'text-slate-500 hover:bg-slate-800 hover:text-white'
+                  }`}
+                >
+                  <Icon
+                    size={16}
+                  />
 
-                    <span className="truncate">
-                      {tab.label}
-                    </span>
-                  </button>
+                  <span className="truncate">
+                    {tab.label}
+                  </span>
+                </button>
+              )
+            },
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 p-1">
+            <button
+              type="button"
+              onClick={() =>
+                setZoom(
+                  (value) =>
+                    Math.max(
+                      45,
+                      value - 5,
+                    ),
                 )
-              },
-            )}
-          </div>
+              }
+              className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <Minus
+                size={17}
+              />
+            </button>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 p-1">
-              <button
-                type="button"
-                onClick={() =>
-                  setZoom(
-                    (value) =>
-                      Math.max(
-                        50,
-                        value - 5,
-                      ),
-                  )
-                }
-                className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <Minus
-                  size={17}
-                />
-              </button>
-
-              <span className="min-w-12 text-center text-xs font-black text-slate-300">
-                {zoom}%
-              </span>
-
-              <button
-                type="button"
-                onClick={() =>
-                  setZoom(
-                    (value) =>
-                      Math.min(
-                        100,
-                        value + 5,
-                      ),
-                  )
-                }
-                className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <Plus
-                  size={17}
-                />
-              </button>
-            </div>
+            <span className="min-w-12 text-center text-xs font-black text-slate-300">
+              {zoom}%
+            </span>
 
             <button
               type="button"
-              onClick={
-                openPreview
+              onClick={() =>
+                setZoom(
+                  (value) =>
+                    Math.min(
+                      100,
+                      value + 5,
+                    ),
+                )
               }
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-500"
+              className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             >
-              <Download
+              <Plus
                 size={17}
               />
-              Otvori probni dokument
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={
+              openPreview
+            }
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white hover:bg-violet-500"
+          >
+            <Download
+              size={17}
+            />
+            Otvori probni dokument
+          </button>
         </div>
       </div>
 
-      <div className="max-h-[78vh] overflow-auto bg-slate-950/70 p-4 sm:p-6">
-        <div
-          className="mx-auto origin-top"
-          style={{
-            width: 794,
-            height: 1123,
-
-            transform:
-              `scale(${zoom / 100})`,
-
-            marginBottom:
-              `${1123 * (zoom / 100 - 1)}px`,
-          }}
-        >
-          {activeType ===
-          'work-order' ? (
-            <iframe
-              title="Preview radnog naloga"
-              srcDoc={workOrderHtml}
-              className="h-[1123px] w-[794px] border-0 bg-white shadow-2xl"
-            />
-          ) : (
-            <iframe
-              title={
-                activeType ===
-                'offer'
-                  ? 'Preview ponude'
-                  : 'Preview računa'
-              }
-              srcDoc={
-                activeType ===
-                'offer'
-                  ? offerHtml
-                  : invoiceHtml
-              }
-              className="h-[1123px] w-[794px] border-0 bg-white shadow-2xl"
-            />
-          )}
+      <div className="overflow-hidden bg-slate-950/70 p-3 sm:p-5">
+        <div className="flex w-full justify-center overflow-hidden">
+          <div
+            className="relative shrink-0"
+            style={{
+              width:
+                `${794 * scale}px`,
+              height:
+                `${1123 * scale}px`,
+            }}
+          >
+            <div
+              className="absolute left-0 top-0 origin-top-left"
+              style={{
+                width: 794,
+                height: 1123,
+                transform:
+                  `scale(${scale})`,
+              }}
+            >
+              <iframe
+                key={`${activeType}-${selectedLayout}-${workOrderBranding.primaryColor}-${workOrderBranding.secondaryColor}`}
+                title={
+                  activeType ===
+                  'work-order'
+                    ? 'Preview radnog naloga'
+                    : activeType ===
+                        'offer'
+                      ? 'Preview ponude'
+                      : 'Preview računa'
+                }
+                srcDoc={
+                  activeHtml
+                }
+                scrolling="no"
+                className="h-[1123px] w-[794px] border-0 bg-white shadow-2xl"
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>
   )
 }
 
-
-function CustomTextField({
+function TextField({
   label,
   value,
   onChange,
 }: {
   label: string
   value: string
-  onChange: (value: string) => void
+  onChange:
+    (value: string) =>
+      void
 }) {
   return (
     <label>
@@ -1530,7 +1286,9 @@ function CustomTextField({
       <input
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value,
+          )
         }
         className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-semibold text-white outline-none focus:border-violet-500"
       />
@@ -1538,7 +1296,7 @@ function CustomTextField({
   )
 }
 
-function CustomSelectField({
+function SelectField({
   label,
   value,
   options,
@@ -1546,8 +1304,16 @@ function CustomSelectField({
 }: {
   label: string
   value: string
-  options: Array<[string, string]>
-  onChange: (value: string) => void
+  options:
+    Array<
+      [
+        string,
+        string,
+      ]
+    >
+  onChange:
+    (value: string) =>
+      void
 }) {
   return (
     <label>
@@ -1558,31 +1324,46 @@ function CustomSelectField({
       <select
         value={value}
         onChange={(event) =>
-          onChange(event.target.value)
+          onChange(
+            event.target.value,
+          )
         }
         className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-semibold text-white outline-none focus:border-violet-500"
       >
-        {options.map(([optionValue, optionLabel]) => (
-          <option
-            key={optionValue}
-            value={optionValue}
-          >
-            {optionLabel}
-          </option>
-        ))}
+        {options.map(
+          ([
+            optionValue,
+            optionLabel,
+          ]) => (
+            <option
+              key={
+                optionValue
+              }
+              value={
+                optionValue
+              }
+            >
+              {
+                optionLabel
+              }
+            </option>
+          ),
+        )}
       </select>
     </label>
   )
 }
 
-function CustomColorField({
+function ColorField({
   label,
   value,
   onChange,
 }: {
   label: string
   value: string
-  onChange: (value: string) => void
+  onChange:
+    (value: string) =>
+      void
 }) {
   return (
     <label>
@@ -1595,7 +1376,9 @@ function CustomColorField({
           type="color"
           value={value}
           onChange={(event) =>
-            onChange(event.target.value)
+            onChange(
+              event.target.value,
+            )
           }
           className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent"
         />
@@ -1608,14 +1391,17 @@ function CustomColorField({
   )
 }
 
-function CustomToggle({
+function Toggle({
   label,
   checked,
   onChange,
 }: {
   label: string
   checked: boolean
-  onChange: (checked: boolean) => void
+  onChange:
+    (
+      value: boolean,
+    ) => void
 }) {
   return (
     <label className="flex min-h-11 cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 px-3">
@@ -1627,7 +1413,9 @@ function CustomToggle({
         type="checkbox"
         checked={checked}
         onChange={(event) =>
-          onChange(event.target.checked)
+          onChange(
+            event.target.checked,
+          )
         }
         className="h-5 w-5 accent-violet-600"
       />

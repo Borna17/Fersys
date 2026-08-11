@@ -9,10 +9,11 @@ import type {
 } from '../types/workOrder'
 
 type LogicalPage = {
+  descriptionTitle?: string
+  description?: string
   materials: WorkOrderMaterial[]
   photos: WorkOrderImage[]
   showInfo: boolean
-  showDescription: boolean
   showTotals: boolean
   showSignature: boolean
 }
@@ -27,210 +28,279 @@ function escapeHtml(value: unknown) {
 }
 
 function multilineHtml(value: string) {
-  return escapeHtml(value).replace(/\r?\n/g, '<br>')
+  return escapeHtml(value)
+    .replace(/\r?\n/g, '<br>')
 }
 
 function formatDate(value: string) {
-  if (!value) return '—'
+  if (!value) {
+    return '—'
+  }
 
-  const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
+  const date =
+    new Date(`${value}T00:00:00`)
 
-  return new Intl.DateTimeFormat('hr-HR').format(date)
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat(
+    'hr-HR',
+  ).format(date)
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0)
-}
-
-function durationFromTimes(
-  arrivalTime: string,
-  departureTime: string,
-) {
-  if (!arrivalTime || !departureTime) return 0
-
-  const [ah, am] = arrivalTime.split(':').map(Number)
-  const [dh, dm] = departureTime.split(':').map(Number)
-
-  if (
-    [ah, am, dh, dm].some(
-      (value) => !Number.isFinite(value),
-    )
-  ) {
-    return 0
-  }
-
-  const start = ah * 60 + am
-  let end = dh * 60 + dm
-
-  if (end < start) {
-    end += 24 * 60
-  }
-
-  return Math.max(0, end - start)
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+    },
+  ).format(value)
 }
 
 function durationLabel(
-  order: WorkOrder,
+  minutes: number,
 ) {
-  const minutes =
-    order.durationMinutes > 0
-      ? order.durationMinutes
-      : durationFromTimes(
-          order.arrivalTime,
-          order.departureTime,
-        )
+  if (!minutes) {
+    return '—'
+  }
 
-  if (!minutes) return '—'
+  const hours =
+    Math.floor(minutes / 60)
 
-  const hours = Math.floor(minutes / 60)
-  const rest = minutes % 60
+  const rest =
+    minutes % 60
 
-  if (hours && rest) return `${hours} h ${rest} min`
-  if (hours) return `${hours} h`
+  if (hours && rest) {
+    return `${hours} h ${rest} min`
+  }
+
+  if (hours) {
+    return `${hours} h`
+  }
+
   return `${rest} min`
 }
 
-function materialTotal(
-  item: WorkOrderMaterial,
+function splitDescription(
+  text: string,
+  firstSize = 850,
+  nextSize = 1500,
 ) {
-  return item.quantity * item.unitPrice
-}
+  const clean =
+    text.trim()
 
-function calculatedMaterialTotal(
-  order: WorkOrder,
-) {
-  const total = order.materials.reduce(
-    (sum, item) => sum + materialTotal(item),
-    0,
-  )
-
-  return total > 0
-    ? total
-    : Number(order.materialPrice || 0)
-}
-
-function calculatedTotals(
-  order: WorkOrder,
-) {
-  const material = calculatedMaterialTotal(order)
-  const labour = Number(order.labourPrice || 0)
-  const base = material + labour
-  const vat =
-    base * (Number(order.vatRate || 0) / 100)
-
-  const total =
-    Number(order.totalPrice || 0) > 0
-      ? Number(order.totalPrice)
-      : base + vat
-
-  return {
-    material,
-    labour,
-    vat,
-    total,
+  if (!clean) {
+    return ['']
   }
+
+  const chunks: string[] = []
+  let remaining = clean
+  let limit = firstSize
+
+  while (
+    remaining.length > limit
+  ) {
+    let cut =
+      remaining.lastIndexOf(
+        ' ',
+        limit,
+      )
+
+    if (
+      cut <
+      limit * 0.65
+    ) {
+      cut = limit
+    }
+
+    chunks.push(
+      remaining
+        .slice(0, cut)
+        .trim(),
+    )
+
+    remaining =
+      remaining
+        .slice(cut)
+        .trim()
+
+    limit = nextSize
+  }
+
+  if (remaining) {
+    chunks.push(remaining)
+  }
+
+  return chunks
 }
 
 function paginateOrder(
   order: WorkOrder,
 ): LogicalPage[] {
-  const pages: LogicalPage[] = []
+  const descriptionChunks =
+    splitDescription(
+      order.description,
+    )
 
-  const firstMaterialLimit =
-    order.images.length > 0 ? 6 : 9
+  const pages:
+    LogicalPage[] = []
+
+  const firstDescription =
+    descriptionChunks.shift() ??
+    ''
+
+  const firstMaterials =
+    order.materials.slice(0, 7)
 
   pages.push({
+    descriptionTitle:
+      order.title,
+    description:
+      firstDescription,
     materials:
-      order.materials.slice(
-        0,
-        firstMaterialLimit,
-      ),
+      firstMaterials,
     photos: [],
     showInfo: true,
-    showDescription: true,
     showTotals:
       order.materials.length <=
-      firstMaterialLimit,
-    showSignature:
-      order.materials.length <=
-        firstMaterialLimit &&
-      order.images.length === 0,
+        firstMaterials.length &&
+      descriptionChunks.length === 0,
+    showSignature: false,
   })
 
-  let materialIndex = firstMaterialLimit
+  let materialIndex =
+    firstMaterials.length
 
   while (
+    descriptionChunks.length > 0 ||
     materialIndex <
-    order.materials.length
+      order.materials.length
   ) {
+    const description =
+      descriptionChunks.shift() ??
+      ''
+
+    const materialLimit =
+      description
+        ? 8
+        : 13
+
     const materials =
       order.materials.slice(
         materialIndex,
-        materialIndex + 15,
+        materialIndex +
+          materialLimit,
       )
 
-    materialIndex += materials.length
+    materialIndex +=
+      materials.length
 
     pages.push({
+      descriptionTitle:
+        description
+          ? 'Opis radova – nastavak'
+          : undefined,
+      description,
       materials,
       photos: [],
       showInfo: false,
-      showDescription: false,
       showTotals:
         materialIndex >=
-        order.materials.length,
-      showSignature:
-        materialIndex >=
           order.materials.length &&
-        order.images.length === 0,
+        descriptionChunks.length ===
+          0,
+      showSignature: false,
     })
   }
 
-  if (order.images.length > 0) {
+  if (
+    order.images.length > 0
+  ) {
     for (
       let index = 0;
-      index < order.images.length;
+      index <
+      order.images.length;
       index += 4
     ) {
-      const photos =
-        order.images.slice(
-          index,
-          index + 4,
-        )
-
-      const isLast =
-        index + 4 >=
-        order.images.length
-
       pages.push({
         materials: [],
-        photos,
+        photos:
+          order.images.slice(
+            index,
+            index + 4,
+          ),
         showInfo: false,
-        showDescription: false,
         showTotals: false,
-        showSignature:
-          isLast && photos.length <= 2,
+        showSignature: false,
       })
     }
+  }
 
-    const last =
-      pages[pages.length - 1]
+  const lastPage =
+    pages[
+      pages.length - 1
+    ]
 
-    if (!last.showSignature) {
+  if (
+    order.images.length === 0
+  ) {
+    lastPage.showSignature =
+      true
+  } else {
+    /*
+     * Fotografije na zadnjoj stranici
+     * mogu zauzeti previše prostora.
+     * Ako su 3 ili 4, potpis dobiva
+     * svoju završnu stranicu.
+     */
+    if (
+      lastPage.photos.length <= 2
+    ) {
+      lastPage.showSignature =
+        true
+    } else {
       pages.push({
         materials: [],
         photos: [],
         showInfo: false,
-        showDescription: false,
         showTotals: false,
         showSignature: true,
       })
     }
+  }
+
+  /*
+   * Ukupni iznos treba biti prije
+   * fotografija/potpisa, na posljednjoj
+   * stranici koja sadrži materijal.
+   */
+  const materialPage =
+    [...pages]
+      .reverse()
+      .find(
+        (page) =>
+          page.materials.length >
+            0 ||
+          page.description !==
+            undefined,
+      )
+
+  if (materialPage) {
+    for (
+      const page of pages
+    ) {
+      page.showTotals = false
+    }
+
+    materialPage.showTotals =
+      true
   }
 
   return pages
@@ -239,7 +309,9 @@ function paginateOrder(
 function layoutClass(
   branding: WorkOrderBranding,
 ) {
-  if (branding.layout === 'classic') {
+  if (
+    branding.layout === 'classic'
+  ) {
     return 'layout-classic'
   }
 
@@ -257,40 +329,44 @@ function commonCss(
   branding: WorkOrderBranding,
 ) {
   const primary =
-    branding.primaryColor || '#2563EB'
+    branding.primaryColor ||
+    '#2563EB'
 
   const secondary =
-    branding.secondaryColor || '#0F172A'
+    branding.secondaryColor ||
+    '#0F172A'
 
   const text =
-    branding.textColor || '#0F172A'
+    branding.textColor ||
+    '#0F172A'
 
   const border =
-    branding.borderColor || '#D6DEE8'
+    branding.borderColor ||
+    '#CBD5E1'
 
   const background =
-    branding.backgroundColor || '#FFFFFF'
+    branding.backgroundColor ||
+    '#FFFFFF'
 
   return `
     * {
       box-sizing: border-box;
     }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       background: #dfe5ec;
       color: ${text};
       font-family:
-        Inter,
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
         Arial,
         sans-serif;
-      -webkit-font-smoothing: antialiased;
+      font-kerning: normal;
       text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
     }
 
     .pdf-page {
@@ -308,7 +384,12 @@ function commonCss(
       flex-direction: column;
     }
 
-    .accent-line {
+    .page-content {
+      flex: 1 1 auto;
+      padding: 0 58px;
+    }
+
+    .top-line {
       height: 7px;
       background: ${primary};
     }
@@ -317,120 +398,99 @@ function commonCss(
       display: grid;
       grid-template-columns:
         minmax(0, 1fr)
-        240px;
-      gap: 28px;
+        auto;
+      gap: 24px;
       align-items: start;
-      padding:
-        31px 52px
-        20px;
+      padding: 32px 58px 24px;
     }
 
     .company-wrap {
       display: flex;
-      gap: 16px;
+      gap: 17px;
       min-width: 0;
     }
 
-    .logo,
-    .logo-fallback {
-      width: 68px;
-      height: 68px;
-      flex: 0 0 68px;
+    .logo {
+      width: 72px;
+      height: 72px;
       object-fit: contain;
+      flex: 0 0 72px;
     }
 
     .logo-fallback {
       display: grid;
+      width: 72px;
+      height: 72px;
       place-items: center;
-      border-radius: 14px;
+      flex: 0 0 72px;
+      border-radius: 15px;
       background: ${primary};
       color: #fff;
-      font-size: 22px;
-      font-weight: 900;
+      font-size: 24px;
+      font-weight: 800;
     }
 
     .company-name {
       margin: 2px 0 0;
       color: ${secondary};
-      font-size: 24px;
+      font-size: 25px;
       line-height: 1.1;
-      font-weight: 900;
+      font-weight: 800;
     }
 
     .company-details {
-      margin-top: 7px;
+      margin-top: 8px;
       color: #64748b;
-      font-size: 10.5px;
-      line-height: 1.48;
+      font-size: 12px;
+      line-height: 1.55;
     }
 
     .document-heading {
+      min-width: 190px;
       text-align: right;
     }
 
     .document-kicker {
       color: ${primary};
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 900;
-      letter-spacing: .14em;
+      letter-spacing: .12em;
       text-transform: uppercase;
     }
 
-    .document-title {
-      margin-top: 5px;
-      color: ${secondary};
-      font-size: 28px;
-      line-height: 1;
-      font-weight: 950;
-    }
-
     .document-number {
-      display: inline-block;
-      margin-top: 8px;
-      border-radius: 999px;
-      padding: 5px 10px;
-      background:
-        color-mix(
-          in srgb,
-          ${primary} 9%,
-          white
-        );
-      color: ${primary};
-      font-size: 10px;
+      margin-top: 7px;
+      color: ${secondary};
+      font-size: 23px;
       font-weight: 900;
     }
 
     .document-meta {
-      margin-top: 8px;
+      margin-top: 7px;
       color: #64748b;
-      font-size: 9.5px;
-      line-height: 1.5;
+      font-size: 11px;
+      line-height: 1.6;
     }
 
     .divider {
       height: 1px;
-      margin: 0 52px 16px;
+      margin: 0 58px 22px;
       background: #e2e8f0;
-    }
-
-    .page-content {
-      flex: 1 1 auto;
-      padding: 0 52px;
     }
 
     .info-grid {
       display: grid;
       grid-template-columns:
-        1.05fr .95fr;
-      gap: 12px;
-      margin-bottom: 16px;
+        1fr 1fr;
+      gap: 14px;
+      margin-bottom: 24px;
     }
 
     .info-card {
-      min-height: 112px;
-      padding: 14px 15px;
+      min-height: 124px;
+      padding: 17px 18px;
       border: 1px solid ${border};
-      border-radius: 12px;
+      border-radius: 13px;
       background: #fff;
     }
 
@@ -440,133 +500,124 @@ function commonCss(
 
     .eyebrow {
       color: #94a3b8;
-      font-size: 9px;
-      font-weight: 900;
-      letter-spacing: .09em;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
       text-transform: uppercase;
     }
 
     .customer-name {
-      margin-top: 7px;
+      margin-top: 10px;
       color: ${secondary};
-      font-size: 16px;
-      font-weight: 900;
+      font-size: 17px;
+      font-weight: 800;
     }
 
     .info-line {
-      margin-top: 5px;
+      margin-top: 6px;
       color: #475569;
-      font-size: 10.5px;
+      font-size: 12px;
       line-height: 1.35;
     }
 
     .meta-row {
       display: flex;
-      justify-content:
-        space-between;
-      gap: 14px;
-      margin-top: 6px;
+      justify-content: space-between;
+      gap: 15px;
+      margin-top: 7px;
       color: #64748b;
-      font-size: 10px;
+      font-size: 11.5px;
     }
 
     .meta-row strong {
-      max-width: 67%;
+      max-width: 65%;
       color: ${secondary};
       text-align: right;
     }
 
-    .duration {
-      margin-top: 9px;
-      border-radius: 999px;
-      padding: 6px 9px;
-      background: ${primary};
-      color: #fff;
-      font-size: 10px;
-      font-weight: 900;
-      text-align: center;
-    }
-
     .section {
-      margin-top: 15px;
+      margin-top: 21px;
     }
 
     .section-title {
       display: flex;
       align-items: center;
-      gap: 8px;
-      margin: 0 0 8px;
+      gap: 9px;
+      margin: 0 0 11px;
       color: ${secondary};
-      font-size: 13.5px;
-      font-weight: 900;
+      font-size: 15px;
+      font-weight: 850;
     }
 
     .section-title::before {
       width: 4px;
-      height: 20px;
-      border-radius: 4px;
+      height: 25px;
+      border-radius: 3px;
       background: ${primary};
       content: "";
     }
 
     .description-box {
-      padding: 11px 14px;
+      padding: 14px 17px;
       border: 1px solid ${border};
-      border-radius: 10px;
+      border-radius: 12px;
       background: #fff;
     }
 
     .work-title {
       display: block;
-      margin-bottom: 5px;
+      margin-bottom: 6px;
       color: ${secondary};
-      font-size: 11.5px;
-      font-weight: 900;
+      font-size: 13px;
+      font-weight: 800;
     }
 
     .normal-text {
       color: #334155;
-      font-size: 10.8px;
-      line-height: 1.45;
+      font-size: 12.5px;
+      line-height: 1.55;
+      white-space: normal;
       overflow-wrap: anywhere;
+      word-break: normal;
+      letter-spacing: 0;
+      word-spacing: 0;
     }
 
     .table-wrap {
       overflow: hidden;
       border: 1px solid ${border};
-      border-radius: 9px;
+      border-radius: 10px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 9.8px;
+      font-size: 11.5px;
     }
 
     th {
-      padding: 7px 8px;
-      background: ${secondary};
+      padding: 9px 10px;
+      background: ${primary};
       color: #fff;
-      font-size: 8.7px;
-      font-weight: 900;
+      font-size: 10px;
+      font-weight: 800;
       text-align: left;
-      text-transform: uppercase;
     }
 
-    th:nth-child(1) { width: 45%; }
-    th:nth-child(2) { width: 17%; }
-    th:nth-child(3) { width: 18%; }
-    th:nth-child(4) { width: 20%; }
+    th:nth-child(1) { width: 55%; }
+    th:nth-child(2) { width: 15%; }
+    th:nth-child(3) { width: 15%; }
+    th:nth-child(4) { width: 15%; }
 
     td {
-      padding: 6px 8px;
-      border-bottom:
-        1px solid
-        #e5eaf0;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
       color: #1e293b;
-      vertical-align: middle;
+      vertical-align: top;
       overflow-wrap: anywhere;
+      letter-spacing: 0;
+      word-spacing: 0;
     }
 
     tbody tr:nth-child(even) td {
@@ -589,21 +640,20 @@ function commonCss(
     .totals-wrap {
       display: flex;
       justify-content: flex-end;
-      margin-top: 12px;
+      margin-top: 15px;
     }
 
     .totals {
-      width: 275px;
+      width: 280px;
     }
 
     .total-row {
       display: flex;
-      justify-content:
-        space-between;
+      justify-content: space-between;
       gap: 15px;
-      padding: 4px 3px;
+      padding: 4px 2px;
       color: #64748b;
-      font-size: 9.5px;
+      font-size: 11px;
     }
 
     .total-row strong {
@@ -612,268 +662,292 @@ function commonCss(
 
     .grand-total {
       display: flex;
-      justify-content:
-        space-between;
+      justify-content: space-between;
       gap: 15px;
       margin-top: 3px;
-      border-radius: 8px;
-      padding: 9px 11px;
-      background:
-        color-mix(
-          in srgb,
-          ${primary} 8%,
-          white
-        );
+      border-radius: 9px;
+      padding: 10px 12px;
+      background: #eff6ff;
       color: ${primary};
-      font-size: 13px;
-      font-weight: 950;
+      font-size: 15px;
+      font-weight: 900;
     }
 
     .price-note {
-      margin-top: 7px;
+      margin-top: 8px;
       color: #64748b;
-      font-size: 9px;
-      line-height: 1.35;
+      font-size: 10px;
+      line-height: 1.4;
     }
 
     .photo-grid {
       display: grid;
       grid-template-columns:
         1fr 1fr;
-      gap: 12px;
+      gap: 13px;
     }
 
     .photo-card {
       overflow: hidden;
       border: 1px solid ${border};
-      border-radius: 10px;
+      border-radius: 11px;
       background: #f8fafc;
     }
 
     .photo-card img {
       display: block;
       width: 100%;
-      height: 225px;
+      height: 230px;
       object-fit: contain;
       background: #fff;
     }
 
     .photo-name {
       overflow: hidden;
-      padding: 6px 8px;
+      padding: 7px 9px;
       color: #64748b;
-      font-size: 8.5px;
-      text-overflow:
-        ellipsis;
+      font-size: 9px;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
     .signature-section {
       margin-top: auto;
-      padding:
-        17px 52px
-        22px;
+      padding: 20px 58px 24px;
     }
 
     .signature-title {
-      margin-bottom: 14px;
+      margin-bottom: 18px;
       color: ${secondary};
-      font-size: 12px;
-      font-weight: 900;
+      font-size: 14px;
+      font-weight: 800;
     }
 
     .signature-grid {
       display: grid;
       grid-template-columns:
         1fr 1fr;
-      gap: 65px;
+      gap: 72px;
     }
 
     .signature-space {
       display: flex;
-      height: 62px;
+      height: 73px;
       align-items: flex-end;
       justify-content: center;
     }
 
     .signature-space img {
-      max-width: 155px;
-      max-height: 58px;
+      max-width: 165px;
+      max-height: 68px;
       object-fit: contain;
     }
 
     .signature-line {
-      border-top:
-        1px solid
-        #94a3b8;
-      padding-top: 6px;
+      border-top: 1px solid #94a3b8;
+      padding-top: 7px;
       text-align: center;
     }
 
     .signature-line strong {
       display: block;
       color: ${secondary};
-      font-size: 10px;
+      font-size: 10.5px;
     }
 
     .signature-line span {
       display: block;
-      margin-top: 2px;
-      color: #94a3b8;
-      font-size: 8.5px;
-    }
-
-    .footer {
-      display: flex;
-      justify-content:
-        space-between;
-      gap: 16px;
-      margin: 0 52px 13px;
-      border-top:
-        1px solid
-        #e2e8f0;
-      padding-top: 6px;
-      color: #94a3b8;
-      font-size: 7.5px;
-    }
-
-    .continuation-note {
-      margin-bottom: 13px;
+      margin-top: 3px;
       color: #94a3b8;
       font-size: 9px;
     }
 
-    /* Jasno različiti preset izgledi */
-    .layout-classic .page-body {
-      background: #fff;
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      margin: 0 58px 14px;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 7px;
+      color: #94a3b8;
+      font-size: 8px;
+    }
+
+    .continuation-note {
+      margin-bottom: 16px;
+      color: #94a3b8;
+      font-size: 10px;
+    }
+
+    /* CLASSIC */
+    .layout-classic .top-line {
+      display: none;
     }
 
     .layout-classic .header {
-      grid-template-columns: minmax(0, 1fr) 220px;
-      margin: 0 0 16px;
-      padding: 27px 52px 24px;
+      margin-bottom: 24px;
+      padding-top: 27px;
+      padding-bottom: 27px;
       background: ${secondary};
     }
 
     .layout-classic .company-name,
-    .layout-classic .document-title {
+    .layout-classic .document-number {
       color: #fff;
     }
 
     .layout-classic .company-details,
-    .layout-classic .document-meta,
-    .layout-classic .document-kicker {
+    .layout-classic .document-meta {
       color: #cbd5e1;
     }
 
-    .layout-classic .document-number {
-      background: rgba(255,255,255,.12);
+    .layout-classic .document-kicker {
       color: #fff;
+      opacity: .78;
     }
 
     .layout-classic .divider {
       display: none;
     }
 
-    .layout-classic .info-card,
-    .layout-classic .description-box,
-    .layout-classic .table-wrap {
-      border-radius: 4px;
+    .layout-classic .page-content {
+      padding-top: 0;
+    }
+
+    .layout-classic .info-grid {
+      grid-template-columns:
+        repeat(4, 1fr);
+      gap: 10px;
+    }
+
+    .layout-classic .info-card {
+      min-height: 83px;
+      padding: 12px;
+      border: 0;
+      background: #f5f7fb;
+    }
+
+    .layout-classic .classic-customer {
+      grid-column: span 2;
+    }
+
+    .layout-classic .classic-document {
+      grid-column: span 2;
+    }
+
+    .layout-classic .section-title {
+      margin-bottom: 8px;
     }
 
     .layout-classic .section-title::before {
+      display: none;
+    }
+
+    .layout-classic .description-box {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .layout-classic .table-wrap {
+      border: 0;
       border-radius: 0;
-      background: ${secondary};
     }
 
     .layout-classic th {
       background: ${secondary};
     }
 
-    .layout-modern .header {
-      padding-top: 34px;
-      padding-bottom: 22px;
+    .layout-classic .grand-total {
+      color: ${secondary};
+      background: #f1f5f9;
     }
 
-    .layout-modern .document-heading {
-      border-left: 4px solid ${primary};
-      padding-left: 18px;
-    }
-
-    .layout-modern .info-card {
-      box-shadow: 0 7px 20px rgba(15,23,42,.06);
-    }
-
-    .layout-modern .info-card.muted {
-      background:
-        color-mix(
-          in srgb,
-          ${primary} 6%,
-          white
-        );
-    }
-
-    .layout-modern .description-box,
-    .layout-modern .table-wrap {
-      box-shadow: 0 5px 16px rgba(15,23,42,.045);
-    }
-
-    .layout-modern .grand-total {
-      background: ${primary};
-      color: #fff;
-    }
-
-    .layout-custom .accent-line {
-      height: 10px;
-      background:
-        linear-gradient(
-          90deg,
-          ${primary},
-          ${secondary}
-        );
-    }
-
+    /* CUSTOM */
     .layout-custom .header {
-      border-bottom: 0;
-      padding-bottom: 16px;
-    }
-
-    .layout-custom .document-heading {
-      text-align: ${
-        branding.headerAlignment === 'center'
-          ? 'center'
-          : branding.headerAlignment === 'left'
-            ? 'left'
-            : 'right'
-      };
-    }
-
-    .layout-custom .document-title {
-      color: ${primary};
+      border-bottom: 2px solid ${primary};
     }
 
     .layout-custom .info-card {
-      border: 2px solid
-        color-mix(
-          in srgb,
-          ${primary} 30%,
-          white
-        );
+      border-radius: 4px;
     }
 
-    .layout-custom .section-title {
-      color: ${primary};
+    .layout-custom .description-box,
+    .layout-custom .table-wrap,
+    .layout-custom .photo-card {
+      border-radius: 4px;
     }
 
-    .layout-custom th {
-      background:
-        linear-gradient(
-          90deg,
-          ${secondary},
-          ${primary}
-        );
+    .layout-custom .section-title::before {
+      width: 28px;
+      height: 3px;
     }
 
+    .layout-custom.header-center .header {
+      grid-template-columns: 1fr;
+      text-align: center;
+    }
+
+    .layout-custom.header-center .company-wrap {
+      justify-content: center;
+    }
+
+    .layout-custom.header-center .document-heading {
+      text-align: center;
+    }
+
+    .layout-custom.header-right .company-wrap {
+      flex-direction: row-reverse;
+      text-align: right;
+    }
+
+    .layout-custom.info-compact .info-grid {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+
+    .layout-custom.info-compact .info-card {
+      min-height: 0;
+      padding: 12px 14px;
+    }
+
+    .layout-custom.material-list .table-wrap {
+      border: 0;
+    }
+
+    .layout-custom.material-list table,
+    .layout-custom.material-list thead,
+    .layout-custom.material-list tbody,
+    .layout-custom.material-list tr,
+    .layout-custom.material-list th,
+    .layout-custom.material-list td {
+      display: block;
+      width: 100%;
+    }
+
+    .layout-custom.material-list thead {
+      display: none;
+    }
+
+    .layout-custom.material-list tr {
+      margin-bottom: 8px;
+      border: 1px solid ${border};
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .layout-custom.material-list td {
+      border: 0;
+      padding: 7px 10px;
+      text-align: left !important;
+      white-space: normal;
+    }
+
+    .layout-custom.material-list td:first-child {
+      font-weight: 800;
+      color: ${secondary};
+      background: #f8fafc;
+    }
 
     ${
       branding.showBackgroundImage &&
@@ -885,9 +959,8 @@ function commonCss(
             z-index: 0;
             background:
               url("${branding.backgroundImage}")
-              center / cover
-              no-repeat;
-            opacity: .06;
+              center / cover no-repeat;
+            opacity: .08;
             content: "";
           }
 
@@ -900,8 +973,7 @@ function commonCss(
     }
 
     @media print {
-      html,
-      body {
+      html, body {
         background: #fff;
       }
     }
@@ -977,16 +1049,8 @@ function headerHtml(
     )
     .join('')
 
-  const title =
-    branding.layout === 'custom'
-      ? (
-          branding.customDocumentTitle ||
-          'RADNI NALOG'
-        )
-      : 'RADNI NALOG'
-
   return `
-    <div class="accent-line"></div>
+    <div class="top-line"></div>
 
     <header class="header">
       <div class="company-wrap">
@@ -1009,11 +1073,14 @@ function headerHtml(
 
       <div class="document-heading">
         <div class="document-kicker">
-          Servis / evidencija rada
-        </div>
-
-        <div class="document-title">
-          ${escapeHtml(title)}
+          ${escapeHtml(
+            branding.layout === 'custom'
+              ? (
+                  branding.customDocumentTitle ||
+                  'RADNI NALOG'
+                )
+              : 'RADNI NALOG',
+          )}
         </div>
 
         <div class="document-number">
@@ -1042,15 +1109,14 @@ function infoHtml(
 ) {
   return `
     <section class="info-grid">
-      <article class="info-card">
+      <article class="info-card classic-customer">
         <div class="eyebrow">
-          Investitor
+          Investitor / investitor
         </div>
 
         <div class="customer-name">
           ${escapeHtml(
             order.customerName ||
-            order.investorName ||
             '—',
           )}
         </div>
@@ -1061,18 +1127,13 @@ function infoHtml(
           )}
         </div>
 
-        ${
-          order.customerOib
-            ? `
-              <div class="info-line">
-                OIB:
-                ${escapeHtml(
-                  order.customerOib,
-                )}
-              </div>
-            `
-            : ''
-        }
+        <div class="info-line">
+          OIB:
+          ${escapeHtml(
+            order.customerOib ||
+            '—',
+          )}
+        </div>
 
         ${
           order.customerPhone ||
@@ -1093,38 +1154,27 @@ function infoHtml(
         }
       </article>
 
-      <article class="info-card muted">
+      <article class="info-card muted classic-document">
         <div class="eyebrow">
-          Evidencija rada
+          Podaci dokumenta
         </div>
 
         <div class="meta-row">
-          <span>Dolazak</span>
+          <span>Vrijeme</span>
           <strong>
             ${escapeHtml(
-              order.arrivalTime ||
-              '—',
+              `${order.arrivalTime || '—'} – ${order.departureTime || '—'}`,
             )}
           </strong>
         </div>
 
         <div class="meta-row">
-          <span>Odlazak</span>
+          <span>Trajanje</span>
           <strong>
             ${escapeHtml(
-              order.departureTime ||
-              '—',
-            )}
-          </strong>
-        </div>
-
-        <div class="meta-row">
-          <span>Radnici</span>
-          <strong>
-            ${escapeHtml(
-              order.assignedWorkers
-                .join(', ') ||
-              '—',
+              durationLabel(
+                order.durationMinutes,
+              ),
             )}
           </strong>
         </div>
@@ -1133,17 +1183,20 @@ function infoHtml(
           <span>Status</span>
           <strong>
             ${escapeHtml(
-              order.status ||
-              '—',
+              order.status,
             )}
           </strong>
         </div>
 
-        <div class="duration">
-          Ukupno zadržavanje:
-          ${escapeHtml(
-            durationLabel(order),
-          )}
+        <div class="meta-row">
+          <span>Radnici</span>
+          <strong>
+            ${escapeHtml(
+              order.assignedWorkers.join(
+                ', ',
+              ) || '—',
+            )}
+          </strong>
         </div>
       </article>
     </section>
@@ -1151,33 +1204,43 @@ function infoHtml(
 }
 
 function descriptionHtml(
-  order: WorkOrder,
+  page: LogicalPage,
   branding: WorkOrderBranding,
-  show: boolean,
 ) {
-  if (!show) return ''
-
-  const label =
-    branding.layout === 'custom'
-      ? (
-          branding.customDescriptionLabel ||
-          'Opis radova'
-        )
-      : 'Opis radova'
+  if (
+    page.description === undefined
+  ) {
+    return ''
+  }
 
   return `
     <section class="section">
       <h2 class="section-title">
-        ${escapeHtml(label)}
+        ${
+          page.descriptionTitle ===
+          'Opis radova – nastavak'
+            ? `${escapeHtml(
+                branding.layout === 'custom'
+                  ? `${branding.customDescriptionLabel || 'Opis radova'} – nastavak`
+                  : 'Opis radova – nastavak',
+              )}`
+            : `${escapeHtml(
+                branding.layout === 'custom'
+                  ? branding.customDescriptionLabel || 'Opis radova'
+                  : 'Opis radova',
+              )}`
+        }
       </h2>
 
       <div class="description-box">
         ${
-          order.title
+          page.descriptionTitle &&
+          page.descriptionTitle !==
+            'Opis radova – nastavak'
             ? `
               <strong class="work-title">
                 ${escapeHtml(
-                  order.title,
+                  page.descriptionTitle,
                 )}
               </strong>
             `
@@ -1186,9 +1249,9 @@ function descriptionHtml(
 
         <div class="normal-text">
           ${
-            order.description
+            page.description
               ? multilineHtml(
-                  order.description,
+                  page.description,
                 )
               : 'Nema dodatnog opisa.'
           }
@@ -1199,32 +1262,24 @@ function descriptionHtml(
 }
 
 function materialsHtml(
-  materials:
-    WorkOrderMaterial[],
-  branding:
-    WorkOrderBranding,
+  page: LogicalPage,
+  branding: WorkOrderBranding,
 ) {
-  if (!materials.length) return ''
-
-  const label =
-    branding.layout === 'custom'
-      ? (
-          branding.customMaterialsLabel ||
-          'Utrošeni materijal'
-        )
-      : 'Utrošeni materijal'
+  if (
+    page.materials.length === 0
+  ) {
+    return ''
+  }
 
   const rows =
-    materials
+    page.materials
       .map(
         (material) => `
           <tr>
             <td>
-              <strong>
-                ${escapeHtml(
-                  material.name,
-                )}
-              </strong>
+              ${escapeHtml(
+                material.name,
+              )}
             </td>
 
             <td class="center">
@@ -1245,9 +1300,8 @@ function materialsHtml(
               <strong>
                 ${escapeHtml(
                   formatMoney(
-                    materialTotal(
-                      material,
-                    ),
+                    material.quantity *
+                      material.unitPrice,
                   ),
                 )}
               </strong>
@@ -1260,7 +1314,11 @@ function materialsHtml(
   return `
     <section class="section">
       <h2 class="section-title">
-        ${escapeHtml(label)}
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customMaterialsLabel || 'Utrošeni materijal'
+            : 'Utrošeni materijal',
+        )}
       </h2>
 
       <div class="table-wrap">
@@ -1293,10 +1351,14 @@ function totalsHtml(
   order: WorkOrder,
   show: boolean,
 ) {
-  if (!show) return ''
+  if (!show) {
+    return ''
+  }
 
-  const totals =
-    calculatedTotals(order)
+  const vatValue =
+    order.totalPrice -
+    order.materialPrice -
+    order.labourPrice
 
   return `
     <div class="totals-wrap">
@@ -1306,7 +1368,7 @@ function totalsHtml(
           <strong>
             ${escapeHtml(
               formatMoney(
-                totals.material,
+                order.materialPrice,
               ),
             )}
           </strong>
@@ -1317,7 +1379,7 @@ function totalsHtml(
           <strong>
             ${escapeHtml(
               formatMoney(
-                totals.labour,
+                order.labourPrice,
               ),
             )}
           </strong>
@@ -1333,9 +1395,7 @@ function totalsHtml(
 
           <strong>
             ${escapeHtml(
-              formatMoney(
-                totals.vat,
-              ),
+              formatMoney(vatValue),
             )}
           </strong>
         </div>
@@ -1346,7 +1406,7 @@ function totalsHtml(
           <strong>
             ${escapeHtml(
               formatMoney(
-                totals.total,
+                order.totalPrice,
               ),
             )}
           </strong>
@@ -1370,23 +1430,17 @@ function totalsHtml(
 }
 
 function photosHtml(
-  photos:
-    WorkOrderImage[],
-  branding:
-    WorkOrderBranding,
+  page: LogicalPage,
+  branding: WorkOrderBranding,
 ) {
-  if (!photos.length) return ''
-
-  const label =
-    branding.layout === 'custom'
-      ? (
-          branding.customPhotosLabel ||
-          'Fotografije'
-        )
-      : 'Fotografije'
+  if (
+    page.photos.length === 0
+  ) {
+    return ''
+  }
 
   const items =
-    photos
+    page.photos
       .map(
         (image) => `
           <figure class="photo-card">
@@ -1410,7 +1464,11 @@ function photosHtml(
   return `
     <section class="section">
       <h2 class="section-title">
-        ${escapeHtml(label)}
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customPhotosLabel || 'Fotografije'
+            : 'Fotografije',
+        )}
       </h2>
 
       <div class="photo-grid">
@@ -1422,24 +1480,21 @@ function photosHtml(
 
 function signatureHtml(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
   show: boolean,
 ) {
-  if (!show) return ''
-
-  const label =
-    branding.layout === 'custom'
-      ? (
-          branding.customSignatureLabel ||
-          'Potpis i ovjera'
-        )
-      : 'Potpis i ovjera'
+  if (!show) {
+    return ''
+  }
 
   return `
     <section class="signature-section">
       <div class="signature-title">
-        ${escapeHtml(label)}
+        ${escapeHtml(
+          branding.layout === 'custom'
+            ? branding.customSignatureLabel || 'Potpis i ovjera'
+            : 'Potpis i ovjera',
+        )}
       </div>
 
       <div class="signature-grid">
@@ -1491,7 +1546,6 @@ function signatureHtml(
             <strong>
               ${escapeHtml(
                 order.investorName ||
-                order.customerName ||
                 'Investitor',
               )}
             </strong>
@@ -1508,8 +1562,7 @@ function signatureHtml(
 
 function footerHtml(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   return `
     <footer class="footer">
@@ -1533,14 +1586,31 @@ function pageHtml(
   page: LogicalPage,
   index: number,
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   return `
     <article
       class="pdf-page ${layoutClass(
         branding,
-      )}"
+      )} ${
+        branding.layout === 'custom'
+          ? branding.headerAlignment === 'center'
+            ? 'header-center'
+            : branding.headerAlignment === 'right'
+              ? 'header-right'
+              : ''
+          : ''
+      } ${
+        branding.layout === 'custom' &&
+        branding.customInfoStyle === 'compact'
+          ? 'info-compact'
+          : ''
+      } ${
+        branding.layout === 'custom' &&
+        branding.customMaterialStyle === 'list'
+          ? 'material-list'
+          : ''
+      }"
       data-pdf-page
     >
       <div class="page-body">
@@ -1561,16 +1631,32 @@ function pageHtml(
               `
           }
 
-          ${descriptionHtml(
-            order,
-            branding,
-            page.showDescription,
-          )}
+          ${
+            branding.layout === 'custom' &&
+            branding.customSectionOrder === 'materials-first'
+              ? `
+                ${materialsHtml(
+                  page,
+                  branding,
+                )}
 
-          ${materialsHtml(
-            page.materials,
-            branding,
-          )}
+                ${descriptionHtml(
+                  page,
+                  branding,
+                )}
+              `
+              : `
+                ${descriptionHtml(
+                  page,
+                  branding,
+                )}
+
+                ${materialsHtml(
+                  page,
+                  branding,
+                )}
+              `
+          }
 
           ${totalsHtml(
             order,
@@ -1578,7 +1664,7 @@ function pageHtml(
           )}
 
           ${photosHtml(
-            page.photos,
+            page,
             branding,
           )}
         </main>
@@ -1600,8 +1686,7 @@ function pageHtml(
 
 function buildDocument(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   const pages =
     paginateOrder(order)
@@ -1654,7 +1739,9 @@ async function waitForImages(
       (image) =>
         new Promise<void>(
           (resolve) => {
-            if (image.complete) {
+            if (
+              image.complete
+            ) {
               resolve()
               return
             }
@@ -1672,8 +1759,7 @@ async function waitForImages(
 
 async function buildPdfDocument(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   const wrapper =
     document.createElement(
@@ -1787,68 +1873,19 @@ function safeFileName(
     .replace(/\s+/g, '-')
 }
 
-export function
-buildWorkOrderPdfHtml(
+export function buildWorkOrderPdfHtml(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
-  const hiddenDocument =
-    buildDocument(
-      order,
-      branding,
-    )
-
-  const visibleDocument =
-    hiddenDocument.replace(
-      /style="[\s\S]*?position:\s*fixed;[\s\S]*?z-index:\s*-1;[\s\S]*?"/,
-      'style="width:794px;margin:0 auto;background:#fff;"',
-    )
-
-  return `<!doctype html>
-<html lang="hr">
-<head>
-  <meta charset="utf-8" />
-  <meta
-    name="viewport"
-    content="width=device-width,initial-scale=1"
-  />
-  <style>
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-      background: #dfe5ec;
-    }
-
-    [data-fersys-work-order] {
-      position: static !important;
-      left: auto !important;
-      top: auto !important;
-      z-index: auto !important;
-    }
-
-    .pdf-page {
-      margin: 0 auto 14px;
-      box-shadow:
-        0 18px 50px
-        rgba(15,23,42,.14);
-    }
-  </style>
-</head>
-
-<body>
-  ${visibleDocument}
-</body>
-</html>`
+  return buildDocument(
+    order,
+    branding,
+  )
 }
 
-export async function
-downloadWorkOrderPdf(
+export async function downloadWorkOrderPdf(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   const doc =
     await buildPdfDocument(
@@ -1864,11 +1901,9 @@ downloadWorkOrderPdf(
   )
 }
 
-export async function
-getWorkOrderPdfBlob(
+export async function getWorkOrderPdfBlob(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   const doc =
     await buildPdfDocument(
@@ -1879,11 +1914,9 @@ getWorkOrderPdfBlob(
   return doc.output('blob')
 }
 
-export async function
-getWorkOrderPdfBlobUrl(
+export async function getWorkOrderPdfBlobUrl(
   order: WorkOrder,
-  branding:
-    WorkOrderBranding,
+  branding: WorkOrderBranding,
 ) {
   const blob =
     await getWorkOrderPdfBlob(
