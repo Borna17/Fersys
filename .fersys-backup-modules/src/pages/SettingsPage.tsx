@@ -6,7 +6,6 @@ import {
   FileText,
   ImagePlus,
   LayoutDashboard,
-  SlidersHorizontal,
   LockKeyhole,
   Palette,
   Plug,
@@ -28,7 +27,6 @@ import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
 import DocumentLivePreview from '../components/settings/DocumentLivePreview'
-import ModulesSettingsTab from '../components/settings/ModulesSettingsTab'
 import {
   defaultWorkingHours,
   getCompanySettings,
@@ -44,7 +42,6 @@ import { notifyCompanyBrandingUpdated } from '../services/companyBranding.servic
 
 type SettingsTab =
   | 'overview'
-  | 'modules'
   | 'company'
   | 'documents'
   | 'working-hours'
@@ -65,11 +62,6 @@ const tabs: Array<{
     id: 'overview',
     label: 'Pregled',
     icon: LayoutDashboard,
-  },
-  {
-    id: 'modules',
-    label: 'Moduli',
-    icon: SlidersHorizontal,
   },
   {
     id: 'company',
@@ -612,9 +604,6 @@ export function SettingsPage() {
             onOpenTab={setActiveTab}
             onNavigate={navigate}
           />
-        )}
-        {activeTab === 'modules' && (
-          <ModulesSettingsTab />
         )}
 
         {activeTab === 'company' && (

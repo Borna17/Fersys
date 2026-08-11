@@ -30,14 +30,12 @@ import AiClientActionRunner from '../ai/AiClientActionRunner'
 import { useAuth } from '../auth/AuthProvider'
 import type { PermissionKey } from '../auth/permissions'
 import CompanyLogo from '../components/CompanyLogo'
-import ModuleSetupModal from '../components/onboarding/ModuleSetupModal'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import TrialBanner from '../components/subscription/TrialBanner'
 import Topbar from '../components/Topbar'
 import { supabase } from '../lib/supabase'
 import { useCompanyBranding } from '../services/companyBranding.service'
-import { useCompanyModules } from '../services/companyModules.service'
 import {
   getOnboardingProgress,
   resetOnboarding,
@@ -219,7 +217,6 @@ export default function AppLayout() {
   const {
     user,
     can,
-    role,
   } = useAuth()
 
   const { branding } =
@@ -228,17 +225,6 @@ export default function AppLayout() {
   const {
     hasFeature,
   } = useSubscription()
-
-  const {
-    enabledModules,
-    setupCompleted:
-      moduleSetupCompleted,
-    isLoading:
-      isModulesLoading,
-    isPathEnabled,
-    save:
-      saveCompanyModules,
-  } = useCompanyModules()
 
   const profileMenuRef =
     useRef<HTMLDivElement | null>(
@@ -285,15 +271,9 @@ export default function AppLayout() {
           (item) =>
             can(
               item.permission,
-            ) &&
-            isPathEnabled(
-              item.path,
             ),
         ),
-      [
-        can,
-        isPathEnabled,
-      ],
+      [can],
     )
 
   const visibleQuickActions =
@@ -303,15 +283,9 @@ export default function AppLayout() {
           (action) =>
             can(
               action.permission,
-            ) &&
-            isPathEnabled(
-              action.path,
             ),
         ),
-      [
-        can,
-        isPathEnabled,
-      ],
+      [can],
     )
 
   const canManageSettings =
@@ -955,27 +929,8 @@ export default function AppLayout() {
           </section>
         </div>
       )}
-      <ModuleSetupModal
-        open={
-          !isModulesLoading &&
-          role === 'owner' &&
-          !moduleSetupCompleted
-        }
-        initialModules={
-          enabledModules
-        }
-        onSave={async (
-          modules,
-        ) => {
-          await saveCompanyModules(
-            modules,
-            true,
-          )
-        }}
-      />
 
-      {moduleSetupCompleted &&
-        isOnboardingOpen &&
+      {isOnboardingOpen &&
         onboardingProgress && (
           <OnboardingTutorial
             displayName={

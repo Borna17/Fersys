@@ -39,10 +39,6 @@ import {
 } from '../services/companyBranding.service'
 
 import {
-  useCompanyModules,
-} from '../services/companyModules.service'
-
-import {
   useAuth,
 } from '../auth/AuthProvider'
 
@@ -196,10 +192,6 @@ export default function Sidebar() {
     hasFeature,
   } = useSubscription()
 
-  const {
-    isPathEnabled,
-  } = useCompanyModules()
-
   const [
     isExpanded,
     setIsExpanded,
@@ -233,15 +225,9 @@ export default function Sidebar() {
           (item) =>
             can(
               item.permission,
-            ) &&
-            isPathEnabled(
-              item.path,
             ),
         ),
-      [
-        can,
-        isPathEnabled,
-      ],
+      [can],
     )
 
   const displayName =
