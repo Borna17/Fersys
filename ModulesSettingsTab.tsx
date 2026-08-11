@@ -22,7 +22,7 @@ import {
   companyModules,
   useCompanyModules,
   type CompanyModuleKey,
-} from '../../services/companyModules.service'
+} from './services/companyModules.service'
 
 const icons: Record<
   CompanyModuleKey,

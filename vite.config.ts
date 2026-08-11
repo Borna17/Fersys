@@ -22,7 +22,7 @@ export default defineConfig({
         'pwa-192x192.png',
         'pwa-512x512.png',
         'pwa-maskable-512x512.png',
-        'push-sw.js',
+        '/firebase-messaging-sw.js',
       ],
 
       manifest: {
@@ -130,7 +130,7 @@ export default defineConfig({
          * a ovaj dodatni script dodaje samo push/click handlere.
          */
         importScripts: [
-          '/push-sw.js',
+          '/firebase-messaging-sw.js',
         ],
 
         navigateFallback: '/index.html',

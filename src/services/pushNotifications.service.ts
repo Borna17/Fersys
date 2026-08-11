@@ -1,3 +1,5 @@
+import { getApp, getApps, initializeApp } from 'firebase/app'
+import { deleteToken, getMessaging, getToken, isSupported } from 'firebase/messaging'
 import { supabase } from '../lib/supabase'
 
 export type PushRegistrationState =
@@ -7,246 +9,92 @@ export type PushRegistrationState =
   | 'available'
   | 'subscribed'
 
-function urlBase64ToUint8Array(
-  value: string,
-) {
-  const padding =
-    '='.repeat(
-      (4 -
-        (value.length % 4)) %
-        4,
-    )
-
-  const base64 =
-    (value + padding)
-      .replace(/-/g, '+')
-      .replace(/_/g, '/')
-
-  const raw =
-    window.atob(base64)
-
-  return Uint8Array.from(
-    raw,
-    (char) =>
-      char.charCodeAt(0),
-  )
+const firebaseConfig = {
+  apiKey: 'AIzaSyBM1dPzjGK5cZEv_P5fKGSGMMOZfP22VfQ',
+  authDomain: 'fersys-2e3d3.firebaseapp.com',
+  projectId: 'fersys-2e3d3',
+  storageBucket: 'fersys-2e3d3.firebasestorage.app',
+  messagingSenderId: '37815987533',
+  appId: '1:37815987533:web:5a39d63f8ada0491175b04',
 }
 
-function getVapidPublicKey() {
-  return String(
-    import.meta.env
-      .VITE_VAPID_PUBLIC_KEY ??
-      '',
-  ).trim()
+function app() {
+  return getApps().length ? getApp() : initializeApp(firebaseConfig)
 }
 
-function supportsWebPush() {
-  return (
-    typeof window !==
-      'undefined' &&
-    'serviceWorker' in
-      navigator &&
-    'PushManager' in
-      window &&
-    typeof Notification !==
-      'undefined'
-  )
+function vapidKey() {
+  return String(import.meta.env.VITE_FIREBASE_VAPID_KEY ?? '').trim()
 }
 
-async function saveSubscription(
-  subscription:
-    PushSubscription,
-) {
-  const json =
-    subscription.toJSON()
-
-  const endpoint =
-    subscription.endpoint
-
-  const p256dh =
-    json.keys?.p256dh ?? ''
-
-  const auth =
-    json.keys?.auth ?? ''
-
-  if (
-    !endpoint ||
-    !p256dh ||
-    !auth
-  ) {
-    throw new Error(
-      'Push subscription nije potpuna.',
-    )
-  }
-
-  const {
-    error,
-  } =
-    await supabase.rpc(
-      'register_my_push_subscription',
-      {
-        requested_endpoint:
-          endpoint,
-        requested_p256dh:
-          p256dh,
-        requested_auth:
-          auth,
-        requested_user_agent:
-          navigator.userAgent,
-        requested_platform:
-          navigator.platform ??
-          '',
-      },
-    )
-
-  if (error) {
-    throw error
+async function context() {
+  if (!(await isSupported()) || !('serviceWorker' in navigator)) return null
+  const registration = await navigator.serviceWorker.ready
+  return {
+    registration,
+    messaging: getMessaging(app()),
   }
 }
 
-export async function
-getPushRegistrationState():
-Promise<PushRegistrationState> {
-  if (!supportsWebPush()) {
-    return 'unsupported'
-  }
+async function save(token: string) {
+  const { error } = await supabase.rpc('register_my_fcm_token', {
+    requested_token: token,
+    requested_user_agent: navigator.userAgent,
+    requested_platform: navigator.platform ?? '',
+  })
+  if (error) throw error
+}
 
-  if (
-    !getVapidPublicKey()
-  ) {
-    return 'missing-key'
-  }
+export async function getPushRegistrationState(): Promise<PushRegistrationState> {
+  const ctx = await context()
+  if (!ctx) return 'unsupported'
+  if (!vapidKey()) return 'missing-key'
+  if (Notification.permission === 'denied') return 'denied'
+  if (Notification.permission !== 'granted') return 'available'
 
-  if (
-    Notification.permission ===
-    'denied'
-  ) {
-    return 'denied'
-  }
+  const token = await getToken(ctx.messaging, {
+    vapidKey: vapidKey(),
+    serviceWorkerRegistration: ctx.registration,
+  })
 
-  const registration =
-    await navigator
-      .serviceWorker
-      .ready
-
-  const subscription =
-    await registration
-      .pushManager
-      .getSubscription()
-
-  if (!subscription) {
-    return 'available'
-  }
-
-  await saveSubscription(
-    subscription,
-  )
-
+  if (!token) return 'available'
+  await save(token)
   return 'subscribed'
 }
 
-export async function
-enablePushNotifications():
-Promise<PushRegistrationState> {
-  if (!supportsWebPush()) {
-    return 'unsupported'
-  }
+export async function enablePushNotifications(): Promise<PushRegistrationState> {
+  const ctx = await context()
+  if (!ctx) return 'unsupported'
+  if (!vapidKey()) return 'missing-key'
 
-  const vapidPublicKey =
-    getVapidPublicKey()
+  let permission = Notification.permission
+  if (permission !== 'granted') permission = await Notification.requestPermission()
+  if (permission !== 'granted') return 'denied'
 
-  if (!vapidPublicKey) {
-    return 'missing-key'
-  }
+  const token = await getToken(ctx.messaging, {
+    vapidKey: vapidKey(),
+    serviceWorkerRegistration: ctx.registration,
+  })
 
-  let permission =
-    Notification.permission
-
-  if (
-    permission ===
-    'default'
-  ) {
-    permission =
-      await Notification
-        .requestPermission()
-  }
-
-  if (
-    permission !==
-    'granted'
-  ) {
-    return 'denied'
-  }
-
-  const registration =
-    await navigator
-      .serviceWorker
-      .ready
-
-  let subscription =
-    await registration
-      .pushManager
-      .getSubscription()
-
-  if (!subscription) {
-    subscription =
-      await registration
-        .pushManager
-        .subscribe({
-          userVisibleOnly:
-            true,
-          applicationServerKey:
-            urlBase64ToUint8Array(
-              vapidPublicKey,
-            ),
-        })
-  }
-
-  await saveSubscription(
-    subscription,
-  )
-
+  if (!token) throw new Error('Firebase nije vratio FCM token za ovaj uređaj.')
+  await save(token)
   return 'subscribed'
 }
 
-export async function
-disablePushNotifications() {
-  if (!supportsWebPush()) {
-    return
+export async function disablePushNotifications() {
+  const ctx = await context()
+  if (!ctx || !vapidKey()) return
+
+  const token = await getToken(ctx.messaging, {
+    vapidKey: vapidKey(),
+    serviceWorkerRegistration: ctx.registration,
+  })
+
+  if (token) {
+    const { error } = await supabase.rpc('disable_my_fcm_token', {
+      requested_token: token,
+    })
+    if (error) throw error
   }
 
-  const registration =
-    await navigator
-      .serviceWorker
-      .ready
-
-  const subscription =
-    await registration
-      .pushManager
-      .getSubscription()
-
-  if (!subscription) {
-    return
-  }
-
-  const endpoint =
-    subscription.endpoint
-
-  const {
-    error,
-  } =
-    await supabase.rpc(
-      'disable_my_push_subscription',
-      {
-        requested_endpoint:
-          endpoint,
-      },
-    )
-
-  if (error) {
-    throw error
-  }
-
-  await subscription
-    .unsubscribe()
+  await deleteToken(ctx.messaging)
 }
