@@ -43,6 +43,7 @@ const priorityLabels: Record<
   SupportTicketPriority,
   string
 > = {
+  low: 'Nizak',
   normal: 'Normalan',
   high: 'Visok',
   urgent: 'Hitan',
