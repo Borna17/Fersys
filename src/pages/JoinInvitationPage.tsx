@@ -303,7 +303,7 @@ export function JoinInvitationPage() {
 
   if (isLoading) {
     return (
-      <main className="grid min-h-dvh place-items-center bg-slate-950 text-white">
+      <main className="grid min-h-dvh place-items-center bg-slate-950 px-4 py-5 text-white">
         <div className="text-center">
           <LoaderCircle
             size={48}
@@ -323,7 +323,7 @@ export function JoinInvitationPage() {
   ) {
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-slate-900 p-7 text-center">
+        <div className="w-full max-w-md rounded-[1.75rem] border border-red-500/20 bg-slate-900 p-5 text-center shadow-2xl sm:rounded-3xl sm:p-7">
           <ShieldCheck
             size={48}
             className="mx-auto text-red-400"
@@ -336,7 +336,7 @@ export function JoinInvitationPage() {
           </p>
           <Link
             to="/login"
-            className="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 font-bold"
+            className="mt-6 flex h-14 items-center justify-center rounded-2xl bg-blue-600 px-5 font-black active:scale-[0.99]"
           >
             Idi na prijavu
           </Link>
@@ -350,21 +350,21 @@ export function JoinInvitationPage() {
   }
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 px-4 py-8 text-white">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 px-4 py-5 text-white sm:px-6 sm:py-8">
       <div className="absolute -left-32 -top-32 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
       <div className="absolute -bottom-40 -right-32 h-[28rem] w-[28rem] rounded-full bg-blue-600/20 blur-3xl" />
 
-      <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-slate-900 shadow-2xl lg:grid-cols-[0.9fr_1.1fr]">
-        <section className="border-b border-slate-800 bg-slate-950/55 p-7 lg:border-b-0 lg:border-r lg:p-10">
-          <div className="grid h-14 w-14 place-items-center rounded-2xl bg-blue-500/15 text-blue-400">
+      <div className="relative grid w-full max-w-md overflow-hidden rounded-[1.75rem] border border-white/10 bg-slate-900 shadow-2xl sm:max-w-2xl lg:max-w-5xl lg:grid-cols-[0.9fr_1.1fr] lg:rounded-3xl">
+        <section className="border-b border-slate-800 bg-slate-950/55 p-5 sm:p-7 lg:border-b-0 lg:border-r lg:p-10">
+          <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-500/15 text-blue-400 sm:h-14 sm:w-14">
             <Building2 size={28} />
           </div>
 
-          <p className="mt-7 text-xs font-black uppercase tracking-[0.2em] text-blue-400">
+          <p className="mt-5 text-[11px] font-black uppercase tracking-[0.18em] text-blue-400 sm:mt-7 sm:text-xs sm:tracking-[0.2em]">
             POZIVNICA ZA TVRTKU
           </p>
 
-          <h1 className="mt-3 text-3xl font-black">
+          <h1 className="mt-2 break-words text-2xl font-black tracking-tight sm:mt-3 sm:text-3xl">
             {preview.companyName}
           </h1>
 
@@ -372,7 +372,7 @@ export function JoinInvitationPage() {
             Pozvan/a si pridružiti se poslovnom prostoru tvrtke u aplikaciji FERSYS.
           </p>
 
-          <div className="mt-7 space-y-3">
+          <div className="mt-5 space-y-2.5 sm:mt-7 sm:space-y-3">
             <InfoRow
               icon={<Mail size={18} />}
               label="E-mail"
@@ -402,9 +402,9 @@ export function JoinInvitationPage() {
           </div>
         </section>
 
-        <section className="p-7 lg:p-10">
+        <section className="p-5 sm:p-7 lg:p-10">
           {success ? (
-            <div className="grid min-h-[420px] place-items-center text-center">
+            <div className="grid min-h-[300px] place-items-center text-center sm:min-h-[420px]">
               <div>
                 <CheckCircle2
                   size={58}
@@ -426,7 +426,7 @@ export function JoinInvitationPage() {
                   onClick={() =>
                     setMode('register')
                   }
-                  className={`min-h-11 flex-1 rounded-xl text-sm font-bold transition ${
+                  className={`h-12 flex-1 rounded-xl px-2 text-sm font-black transition active:scale-[0.99] ${
                     mode === 'register'
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-500'
@@ -440,7 +440,7 @@ export function JoinInvitationPage() {
                   onClick={() =>
                     setMode('login')
                   }
-                  className={`min-h-11 flex-1 rounded-xl text-sm font-bold transition ${
+                  className={`h-12 flex-1 rounded-xl px-2 text-sm font-black transition active:scale-[0.99] ${
                     mode === 'login'
                       ? 'bg-blue-600 text-white'
                       : 'text-slate-500'
@@ -452,7 +452,7 @@ export function JoinInvitationPage() {
 
               <form
                 onSubmit={submit}
-                className="mt-7 space-y-5"
+                className="mt-5 space-y-4 sm:mt-7 sm:space-y-5"
               >
                 {mode === 'register' && (
                   <label className="block">
@@ -466,7 +466,7 @@ export function JoinInvitationPage() {
                           event.target.value,
                         )
                       }
-                      className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 outline-none focus:ring-2 focus:ring-blue-600"
+                      className="mt-2 h-14 w-full rounded-2xl bg-slate-800 px-4 text-base outline-none focus:ring-2 focus:ring-blue-600/60"
                     />
                   </label>
                 )}
@@ -478,7 +478,7 @@ export function JoinInvitationPage() {
                   <input
                     value={email}
                     readOnly
-                    className="mt-2 h-12 w-full cursor-not-allowed rounded-xl bg-slate-800/60 px-4 text-slate-500"
+                    className="mt-2 h-14 w-full cursor-not-allowed rounded-2xl bg-slate-800/60 px-4 text-base text-slate-500"
                   />
                 </label>
 
@@ -505,7 +505,7 @@ export function JoinInvitationPage() {
                           event.target.value,
                         )
                       }
-                      className="h-12 w-full rounded-xl bg-slate-800 pl-12 pr-12 outline-none focus:ring-2 focus:ring-blue-600"
+                      className="h-14 w-full rounded-2xl bg-slate-800 pl-12 pr-14 text-base outline-none focus:ring-2 focus:ring-blue-600/60"
                     />
 
                     <button
@@ -516,7 +516,7 @@ export function JoinInvitationPage() {
                             !current,
                         )
                       }
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                      className="absolute right-1 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-xl text-slate-400 active:bg-white/5 active:text-white"
                     >
                       {showPassword ? (
                         <EyeOff size={18} />
@@ -544,7 +544,7 @@ export function JoinInvitationPage() {
                   disabled={
                     isSubmitting
                   }
-                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-black disabled:opacity-50"
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-black active:scale-[0.99] disabled:opacity-50"
                 >
                   <ShieldCheck size={18} />
                   {isSubmitting
@@ -572,11 +572,11 @@ function InfoRow({
   value: string
 }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+    <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-3.5 sm:p-4">
       <div className="text-blue-400">
         {icon}
       </div>
-      <div>
+      <div className="min-w-0">
         <p className="text-xs font-bold uppercase tracking-wide text-slate-500">
           {label}
         </p>
