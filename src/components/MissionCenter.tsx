@@ -54,22 +54,53 @@ export default function MissionCenter() {
 
     async function load() {
       try {
-        const [customers, orders, offers, employees, calendar, inventory, flags] =
-          await Promise.all([
-            getCustomers(), getWorkOrders(), getOffers(), getEmployees(),
-            getCalendarEventCount(), getInventoryItemCount(), getMissionFlags(),
-          ])
+        const results = await Promise.allSettled([
+          getCustomers(),
+          getWorkOrders(),
+          getOffers(),
+          getEmployees(),
+          getCalendarEventCount(),
+          getInventoryItemCount(),
+          getMissionFlags(),
+        ])
 
         if (!cancelled) {
+          function readResult<T>({ index, fallback }: { index: number; fallback: T }): T {
+            const result = results[index]
+
+            if (result?.status === 'fulfilled') {
+              return result.value as T
+            }
+
+            if (result?.status === 'rejected') {
+              console.error('Mission Center task load:', result.reason)
+            }
+
+            return fallback
+          }
+
+          const customers = readResult({ index: 0, fallback: [] })
+          const orders = readResult({ index: 1, fallback: [] })
+          const offers = readResult({ index: 2, fallback: [] })
+          const employees = readResult({ index: 3, fallback: [] })
+          const calendar = readResult({ index: 4, fallback: 0 })
+          const inventory = readResult({ index: 5, fallback: 0 })
+          const flags = readResult({
+              index: 6, fallback: {
+                aiOpened: false,
+                celebrationSeen: false,
+              }
+            })
+
           setData({
-            customers: customers.length,
-            orders: orders.length,
-            offers: offers.length,
-            employees: employees.length,
-            calendar,
-            inventory,
-            aiOpened: flags.aiOpened,
-            celebrationSeen: flags.celebrationSeen,
+            customers: Array.isArray(customers) ? customers.length : 0,
+            orders: Array.isArray(orders) ? orders.length : 0,
+            offers: Array.isArray(offers) ? offers.length : 0,
+            employees: Array.isArray(employees) ? employees.length : 0,
+            calendar: Number(calendar) || 0,
+            inventory: Number(inventory) || 0,
+            aiOpened: Boolean(flags?.aiOpened),
+            celebrationSeen: Boolean(flags?.celebrationSeen),
           })
         }
       } catch (error) {
@@ -80,13 +111,22 @@ export default function MissionCenter() {
     }
 
     void load()
-    window.addEventListener('focus', load)
-    window.addEventListener('fersys:mission-refresh', load)
+
+    const refresh = () => {
+      void load()
+    }
+
+    window.addEventListener('focus', refresh)
+    window.addEventListener('pageshow', refresh)
+    window.addEventListener('storage', refresh)
+    window.addEventListener('fersys:mission-refresh', refresh)
 
     return () => {
       cancelled = true
-      window.removeEventListener('focus', load)
-      window.removeEventListener('fersys:mission-refresh', load)
+      window.removeEventListener('focus', refresh)
+      window.removeEventListener('pageshow', refresh)
+      window.removeEventListener('storage', refresh)
+      window.removeEventListener('fersys:mission-refresh', refresh)
     }
   }, [])
 
