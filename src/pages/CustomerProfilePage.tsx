@@ -5,14 +5,15 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import {
+  useNavigate,
+  useParams,
+} from 'react-router'
 import {
   ArrowLeft,
-  Banknote,
   Building,
   Building2,
   CalendarDays,
-  ChevronRight,
   ClipboardList,
   Edit3,
   FileText,
@@ -62,68 +63,60 @@ const tabs: {
   id: CustomerTab
   label: string
 }[] = [
-  {
-    id: 'overview',
-    label: 'Pregled',
-  },
-  {
-    id: 'work-orders',
-    label: 'Radni nalozi',
-  },
-  {
-    id: 'offers',
-    label: 'Ponude',
-  },
-  {
-    id: 'invoices',
-    label: 'Računi',
-  },
-  {
-    id: 'documents',
-    label: 'Dokumenti',
-  },
-  {
-    id: 'photos',
-    label: 'Fotografije',
-  },
-  {
-    id: 'notes',
-    label: 'Napomene',
-  },
+  { id: 'overview', label: 'Pregled' },
+  { id: 'work-orders', label: 'Nalozi' },
+  { id: 'offers', label: 'Ponude' },
+  { id: 'invoices', label: 'Računi' },
+  { id: 'documents', label: 'Dokumenti' },
+  { id: 'photos', label: 'Fotografije' },
+  { id: 'notes', label: 'Napomene' },
 ]
 
-function CustomerAvatar({ customer }: { customer: Customer }) {
-  if (customer.type === 'company' && customer.logo) {
+const inputClass =
+  'h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600'
+
+function CustomerAvatar({
+  customer,
+}: {
+  customer: Customer
+}) {
+  if (
+    customer.type === 'company' &&
+    customer.logo
+  ) {
     return (
-      <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-xl">
+      <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-3xl border border-slate-700 bg-white shadow-xl sm:h-24 sm:w-24">
         <img
           src={customer.logo}
           alt={`Logo tvrtke ${customer.name}`}
-          className="h-full w-full object-contain p-3"
+          className="h-full w-full object-contain p-2 sm:p-3"
         />
       </div>
     )
   }
 
+  const common =
+    'grid h-20 w-20 shrink-0 place-items-center rounded-3xl sm:h-24 sm:w-24'
+
   if (customer.type === 'company') {
     return (
-      <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-violet-500/15 text-violet-400">
-        <Building2 size={42} />
+      <div className={`${common} bg-violet-500/15 text-violet-300`}>
+        <Building2 size={36} />
       </div>
     )
   }
 
   if (customer.type === 'building') {
     return (
-      <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-amber-500/15 text-amber-400">
-        <Building size={42} />
+      <div className={`${common} bg-amber-500/15 text-amber-300`}>
+        <Building size={36} />
       </div>
     )
   }
 
   return (
-    <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-3xl bg-blue-500/15 text-blue-400">
-      <UserRound size={42} />
+    <div className={`${common} bg-blue-500/15 text-blue-300`}>
+      <UserRound size={36} />
     </div>
   )
 }
@@ -133,19 +126,21 @@ function EmptySection({
   title,
   description,
   buttonLabel,
+  onClick,
 }: {
   icon: ReactNode
   title: string
   description: string
   buttonLabel: string
+  onClick?: () => void
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 px-6 py-16 text-center">
-      <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-800 text-slate-400">
+    <div className="rounded-3xl border border-slate-800 bg-slate-900 px-5 py-12 text-center sm:px-6 sm:py-16">
+      <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-800 text-slate-400">
         {icon}
       </div>
 
-      <h3 className="mt-5 text-lg font-bold text-white">
+      <h3 className="mt-5 text-lg font-black text-white">
         {title}
       </h3>
 
@@ -155,7 +150,8 @@ function EmptySection({
 
       <button
         type="button"
-        className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500"
+        onClick={onClick}
+        className="mt-6 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.98]"
       >
         <Plus size={18} />
         {buttonLabel}
@@ -170,15 +166,42 @@ export function CustomerProfilePage() {
 
   const [customer, setCustomer] =
     useState<Customer | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [loadError, setLoadError] = useState('')
-  const [isSaving, setIsSaving] = useState(false)
+  const [isLoading, setIsLoading] =
+    useState(true)
+  const [loadError, setLoadError] =
+    useState('')
+  const [isSaving, setIsSaving] =
+    useState(false)
 
   const [activeTab, setActiveTab] =
     useState<CustomerTab>('overview')
 
-  const [isEditModalOpen, setIsEditModalOpen] =
-    useState(false)
+  const [
+    isEditModalOpen,
+    setIsEditModalOpen,
+  ] = useState(false)
+
+  const [editType, setEditType] =
+    useState<CustomerType>('person')
+  const [editName, setEditName] = useState('')
+  const [
+    editContactPerson,
+    setEditContactPerson,
+  ] = useState('')
+  const [editLogo, setEditLogo] = useState('')
+  const [editOib, setEditOib] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editStreet, setEditStreet] = useState('')
+  const [editCity, setEditCity] = useState('')
+  const [
+    editPostalCode,
+    setEditPostalCode,
+  ] = useState('')
+  const [editIban, setEditIban] = useState('')
+  const [editNotes, setEditNotes] = useState('')
+  const [editStatus, setEditStatus] =
+    useState<CustomerStatus>('Aktivan')
 
   useEffect(() => {
     let cancelled = false
@@ -221,32 +244,23 @@ export function CustomerProfilePage() {
     }
   }, [id])
 
-  const [editType, setEditType] =
-    useState<CustomerType>('person')
-  const [editName, setEditName] = useState('')
-  const [editContactPerson, setEditContactPerson] =
-    useState('')
-  const [editLogo, setEditLogo] = useState('')
-  const [editOib, setEditOib] = useState('')
-  const [editPhone, setEditPhone] = useState('')
-  const [editEmail, setEditEmail] = useState('')
-  const [editStreet, setEditStreet] = useState('')
-  const [editCity, setEditCity] = useState('')
-  const [editPostalCode, setEditPostalCode] = useState('')
-  const [editIban, setEditIban] = useState('')
-  const [editNotes, setEditNotes] = useState('')
-  const [editStatus, setEditStatus] =
-    useState<CustomerStatus>('Aktivan')
+  useEffect(() => {
+    document.body.style.overflow =
+      isEditModalOpen ? 'hidden' : ''
 
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [isEditModalOpen])
 
   function openEditModal() {
-    if (!customer) {
-      return
-    }
+    if (!customer) return
 
     setEditType(customer.type)
     setEditName(customer.name)
-    setEditContactPerson(customer.contactPerson ?? '')
+    setEditContactPerson(
+      customer.contactPerson ?? '',
+    )
     setEditLogo(customer.logo ?? '')
     setEditOib(customer.oib)
     setEditPhone(customer.phone)
@@ -262,14 +276,13 @@ export function CustomerProfilePage() {
   }
 
   function closeEditModal() {
-    if (isSaving) {
-      return
-    }
-
+    if (isSaving) return
     setIsEditModalOpen(false)
   }
 
-  function selectEditCustomerType(type: CustomerType) {
+  function selectEditCustomerType(
+    type: CustomerType,
+  ) {
     setEditType(type)
 
     if (type === 'person') {
@@ -284,11 +297,10 @@ export function CustomerProfilePage() {
   function handleEditLogoUpload(
     event: ChangeEvent<HTMLInputElement>,
   ) {
-    const file = event.target.files?.[0]
+    const file =
+      event.target.files?.[0]
 
-    if (!file) {
-      return
-    }
+    if (!file) return
 
     const allowedTypes = [
       'image/png',
@@ -297,15 +309,17 @@ export function CustomerProfilePage() {
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      alert('Logo mora biti PNG, JPG, JPEG ili WEBP slika.')
+      alert(
+        'Logo mora biti PNG, JPG, JPEG ili WEBP slika.',
+      )
       event.target.value = ''
       return
     }
 
-    const maximumSize = 1024 * 1024
-
-    if (file.size > maximumSize) {
-      alert('Logo ne smije biti veći od 1 MB.')
+    if (file.size > 1024 * 1024) {
+      alert(
+        'Logo ne smije biti veći od 1 MB.',
+      )
       event.target.value = ''
       return
     }
@@ -313,13 +327,17 @@ export function CustomerProfilePage() {
     const reader = new FileReader()
 
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
+      if (
+        typeof reader.result === 'string'
+      ) {
         setEditLogo(reader.result)
       }
     }
 
     reader.onerror = () => {
-      alert('Logo nije moguće učitati. Pokušajte ponovno.')
+      alert(
+        'Logo nije moguće učitati. Pokušajte ponovno.',
+      )
     }
 
     reader.readAsDataURL(file)
@@ -330,53 +348,59 @@ export function CustomerProfilePage() {
   ) {
     event.preventDefault()
 
-    if (!customer) {
-      return
-    }
+    if (!customer) return
 
-    const cleanName = editName.trim()
-    const cleanOib = editOib.replace(/\D/g, '')
+    const cleanName =
+      editName.trim()
+    const cleanOib =
+      editOib.replace(/\D/g, '')
 
     if (!cleanName) {
-      alert('Unesite naziv investitora.')
+      alert(
+        'Unesite naziv investitora.',
+      )
       return
     }
 
     if (cleanOib.length !== 11) {
-      alert('OIB mora sadržavati točno 11 znamenki.')
+      alert(
+        'OIB mora sadržavati točno 11 znamenki.',
+      )
       return
     }
 
     try {
       setIsSaving(true)
 
-      const updatedCustomer = await updateCustomer(
-        customer.id,
-        {
-          type: editType,
-          name: cleanName,
-          contactPerson:
-            editType === 'person'
-              ? undefined
-              : editContactPerson.trim(),
-          logo:
-            editType === 'company'
-              ? editLogo
-              : undefined,
-          oib: cleanOib,
-          phone: editPhone,
-          email: editEmail,
-          street: editStreet,
-          city: editCity,
-          postalCode: editPostalCode,
-          iban: editIban,
-          notes: editNotes,
-          status: editStatus,
-        },
-      )
+      const updatedCustomer =
+        await updateCustomer(
+          customer.id,
+          {
+            type: editType,
+            name: cleanName,
+            contactPerson:
+              editType === 'person'
+                ? undefined
+                : editContactPerson.trim(),
+            logo:
+              editType === 'company'
+                ? editLogo
+                : undefined,
+            oib: cleanOib,
+            phone: editPhone,
+            email: editEmail,
+            street: editStreet,
+            city: editCity,
+            postalCode:
+              editPostalCode,
+            iban: editIban,
+            notes: editNotes,
+            status: editStatus,
+          },
+        )
 
       setCustomer(updatedCustomer)
-      closeEditModal()
+      setIsEditModalOpen(false)
     } catch (error) {
       alert(
         error instanceof Error
@@ -396,20 +420,24 @@ export function CustomerProfilePage() {
 
   if (loadError) {
     return (
-      <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-8 text-center">
-          <h1 className="text-xl font-bold text-white">
+      <section className="mx-auto flex min-h-[60vh] w-full max-w-xl items-center justify-center">
+        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center sm:p-8">
+          <h1 className="text-xl font-black text-white">
             Investitora nije moguće učitati
           </h1>
+
           <p className="mt-3 text-sm text-red-300">
             {loadError}
           </p>
+
           <button
             type="button"
-            onClick={() => navigate('/customers')}
-            className="mt-5 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white"
+            onClick={() =>
+              navigate('/customers')
+            }
+            className="mt-5 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
-            Povratak na kupce
+            Povratak na investitore
           </button>
         </div>
       </section>
@@ -418,27 +446,29 @@ export function CustomerProfilePage() {
 
   if (!customer) {
     return (
-      <section className="mx-auto flex min-h-[70vh] w-full max-w-3xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-slate-800 bg-slate-900 p-10 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
+      <section className="mx-auto flex min-h-[70vh] w-full max-w-xl items-center justify-center">
+        <div className="w-full rounded-3xl border border-slate-800 bg-slate-900 p-7 text-center sm:p-10">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-red-500/10 text-red-400">
             <Users size={30} />
           </div>
 
-          <h1 className="mt-5 text-2xl font-bold text-white">
+          <h1 className="mt-5 text-2xl font-black text-white">
             Investitor nije pronađen
           </h1>
 
-          <p className="mt-2 text-slate-400">
+          <p className="mt-2 text-sm leading-6 text-slate-400">
             Ovaj investitor ne postoji ili je uklonjen iz sustava.
           </p>
 
           <button
             type="button"
-            onClick={() => navigate('/customers')}
-            className="mt-7 inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500"
+            onClick={() =>
+              navigate('/customers')
+            }
+            className="mt-7 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white"
           >
             <ArrowLeft size={19} />
-            Povratak na kupce
+            Povratak
           </button>
         </div>
       </section>
@@ -453,584 +483,474 @@ export function CustomerProfilePage() {
     .filter(Boolean)
     .join(', ')
 
-  const offersCount = 0
-  const invoicesCount = 0
   const documentsCount = 0
-  const activeServices = customer.workOrders > 0 ? 1 : 0
+  const activeServices =
+    customer.workOrders > 0
+      ? 1
+      : 0
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[1600px]">
+      <section className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6">
         <button
           type="button"
-          onClick={() => navigate('/customers')}
-          className="mb-6 flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-white"
+          onClick={() =>
+            navigate('/customers')
+          }
+          className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
         >
           <ArrowLeft size={18} />
-          Povratak na kupce
+          Investitori
         </button>
 
-        <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-          <div className="border-b border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/50 p-6 lg:p-8">
-            <div className="flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
-                <CustomerAvatar customer={customer} />
+        <section className="overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-900">
+          <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-7">
+            <div className="flex items-start gap-4">
+              <CustomerAvatar
+                customer={customer}
+              />
 
-                <div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <h1 className="text-3xl font-extrabold tracking-tight text-white">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
+                      {customerTypeLabels[
+                        customer.type
+                      ]}
+                    </p>
+
+                    <h1 className="mt-1 truncate text-2xl font-black text-white sm:text-3xl">
                       {customer.name}
                     </h1>
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        customer.status === 'Aktivan'
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : 'bg-slate-700 text-slate-400'
-                      }`}
-                    >
-                      {customer.status}
-                    </span>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-slate-400">
-                    <span>
-                      {customerTypeLabels[customer.type]}
-                    </span>
-
-                    <span>OIB: {customer.oib}</span>
-
-                    {customer.contactPerson && (
-                      <span>
-                        Kontakt: {customer.contactPerson}
-                      </span>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
+                    aria-label="Uredi investitora"
+                  >
+                    <Edit3 size={18} />
+                  </button>
                 </div>
-              </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={openEditModal}
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 font-semibold text-white transition hover:bg-slate-700"
-                >
-                  <Edit3 size={18} />
-                  Uredi investitora
-                </button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-black ${
+                      customer.status ===
+                      'Aktivan'
+                        ? 'bg-emerald-500/15 text-emerald-300'
+                        : 'bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    {customer.status}
+                  </span>
 
-                <button
-                  type="button"
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white transition hover:bg-blue-500"
-                >
-                  <Plus size={18} />
-                  Novi radni nalog
-                </button>
+                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-black text-slate-400">
+                    OIB {customer.oib}
+                  </span>
+                </div>
+
+                {customer.contactPerson && (
+                  <p className="mt-3 truncate text-xs font-semibold text-slate-400">
+                    Kontakt: {
+                      customer.contactPerson
+                    }
+                  </p>
+                )}
               </div>
             </div>
 
-            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
-                  <Phone size={20} />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Telefon
-                  </p>
-                  <p className="mt-1 truncate font-medium text-white">
-                    {customer.phone || 'Nije uneseno'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400">
-                  <Mail size={20} />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    E-mail
-                  </p>
-                  <p className="mt-1 truncate font-medium text-white">
-                    {customer.email || 'Nije uneseno'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 sm:col-span-2">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400">
-                  <MapPin size={20} />
-                </div>
-
-                <div className="min-w-0">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Adresa
-                  </p>
-                  <p className="mt-1 truncate font-medium text-white">
-                    {fullAddress || 'Nije uneseno'}
-                  </p>
-                </div>
-              </div>
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <SummaryMetric
+                label="Nalozi"
+                value={String(
+                  customer.workOrders,
+                )}
+              />
+              <SummaryMetric
+                label="Servisi"
+                value={String(
+                  activeServices,
+                )}
+              />
+              <SummaryMetric
+                label="Vrijednost"
+                value={
+                  customer.totalSpent
+                }
+                compact
+              />
             </div>
           </div>
+        </section>
 
-          <div className="grid grid-cols-2 gap-px bg-slate-800 sm:grid-cols-3 xl:grid-cols-5">
-            <div className="bg-slate-900 p-5">
-              <div className="flex items-center gap-3">
-                <ClipboardList
-                  size={20}
-                  className="text-blue-400"
-                />
-                <span className="text-sm text-slate-400">
-                  Radni nalozi
-                </span>
-              </div>
+        <section className="grid grid-cols-3 gap-2">
+          <ContactAction
+            icon={<Phone size={19} />}
+            label="Poziv"
+            disabled={!customer.phone}
+            onClick={() => {
+              if (customer.phone) {
+                window.location.href =
+                  `tel:${customer.phone}`
+              }
+            }}
+          />
 
-              <p className="mt-3 text-2xl font-bold text-white">
-                {customer.workOrders}
-              </p>
-            </div>
+          <ContactAction
+            icon={<Mail size={19} />}
+            label="E-mail"
+            disabled={!customer.email}
+            onClick={() => {
+              if (customer.email) {
+                window.location.href =
+                  `mailto:${customer.email}`
+              }
+            }}
+          />
 
-            <div className="bg-slate-900 p-5">
-              <div className="flex items-center gap-3">
-                <FileText
-                  size={20}
-                  className="text-violet-400"
-                />
-                <span className="text-sm text-slate-400">
-                  Ponude
-                </span>
-              </div>
+          <ContactAction
+            icon={<MapPin size={19} />}
+            label="Adresa"
+            disabled={!fullAddress}
+            onClick={() => {
+              if (fullAddress) {
+                window.open(
+                  `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                    fullAddress,
+                  )}`,
+                  '_blank',
+                  'noopener,noreferrer',
+                )
+              }
+            }}
+          />
+        </section>
 
-              <p className="mt-3 text-2xl font-bold text-white">
-                {offersCount}
-              </p>
-            </div>
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <QuickAction
+            icon={<ClipboardList size={20} />}
+            label="Novi nalog"
+            onClick={() =>
+              navigate(
+                '/work-orders/new',
+              )
+            }
+          />
+          <QuickAction
+            icon={<FileText size={20} />}
+            label="Nova ponuda"
+            onClick={() =>
+              navigate('/offers/new')
+            }
+          />
+          <QuickAction
+            icon={<ReceiptText size={20} />}
+            label="Novi račun"
+            onClick={() =>
+              navigate('/invoices/new')
+            }
+          />
+          <QuickAction
+            icon={<CalendarDays size={20} />}
+            label="Kalendar"
+            onClick={() =>
+              navigate('/calendar')
+            }
+          />
+        </section>
 
-            <div className="bg-slate-900 p-5">
-              <div className="flex items-center gap-3">
-                <ReceiptText
-                  size={20}
-                  className="text-emerald-400"
-                />
-                <span className="text-sm text-slate-400">
-                  Računi
-                </span>
-              </div>
-
-              <p className="mt-3 text-2xl font-bold text-white">
-                {invoicesCount}
-              </p>
-            </div>
-
-            <div className="bg-slate-900 p-5">
-              <div className="flex items-center gap-3">
-                <CalendarDays
-                  size={20}
-                  className="text-amber-400"
-                />
-                <span className="text-sm text-slate-400">
-                  Aktivni servisi
-                </span>
-              </div>
-
-              <p className="mt-3 text-2xl font-bold text-white">
-                {activeServices}
-              </p>
-            </div>
-
-            <div className="col-span-2 bg-slate-900 p-5 sm:col-span-1">
-              <div className="flex items-center gap-3">
-                <Banknote
-                  size={20}
-                  className="text-emerald-400"
-                />
-                <span className="text-sm text-slate-400">
-                  Ukupna vrijednost
-                </span>
-              </div>
-
-              <p className="mt-3 text-2xl font-bold text-white">
-                {customer.totalSpent}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-2">
+        <nav className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-2">
           <div className="flex min-w-max gap-1">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`rounded-xl px-4 py-3 text-sm font-semibold transition ${
+                onClick={() =>
+                  setActiveTab(tab.id)
+                }
+                className={`min-h-11 rounded-xl px-4 text-sm font-black transition ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    : 'text-slate-400 active:bg-slate-800'
                 }`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
-        </div>
+        </nav>
 
-        <div className="mt-6">
-          {activeTab === 'overview' && (
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-              <div className="space-y-6 xl:col-span-2">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <h2 className="text-xl font-bold text-white">
-                        Podaci o investitoru
-                      </h2>
-
-                      <p className="mt-1 text-sm text-slate-400">
-                        Osnovni kontaktni i poslovni podaci.
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={openEditModal}
-                      className="flex h-10 shrink-0 items-center gap-2 rounded-xl bg-slate-800 px-4 text-sm font-semibold text-white transition hover:bg-slate-700"
-                    >
-                      <Edit3 size={16} />
-                      Uredi
-                    </button>
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="rounded-xl bg-slate-800/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Vrsta investitora
-                      </p>
-
-                      <p className="mt-2 font-medium text-white">
-                        {customerTypeLabels[customer.type]}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-800/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        OIB
-                      </p>
-
-                      <p className="mt-2 font-medium text-white">
-                        {customer.oib}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-800/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Kontakt osoba
-                      </p>
-
-                      <p className="mt-2 font-medium text-white">
-                        {customer.contactPerson ||
-                          'Nije uneseno'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-800/60 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        IBAN
-                      </p>
-
-                      <p className="mt-2 break-all font-medium text-white">
-                        {customer.iban || 'Nije uneseno'}
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-800/60 p-4 md:col-span-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        Puna adresa
-                      </p>
-
-                      <p className="mt-2 font-medium text-white">
-                        {fullAddress || 'Nije uneseno'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        {activeTab === 'overview' && (
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.5fr_1fr]">
+            <div className="space-y-4">
+              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-xl font-bold text-white">
-                      Nedavne aktivnosti
-                    </h2>
-
-                    <p className="mt-1 text-sm text-slate-400">
-                      Zadnje promjene i aktivnosti za ovog investitora.
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                      PODACI
                     </p>
-                  </div>
-
-                  <div className="mt-6 space-y-3">
-                    <div className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 text-blue-400">
-                        <Users size={18} />
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-white">
-                          Investitor je dodan u CRM
-                        </p>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                          Podaci su spremljeni u FERSYS sustav.
-                        </p>
-                      </div>
-
-                      <ChevronRight
-                        size={18}
-                        className="text-slate-600"
-                      />
-                    </div>
-
-                    {customer.workOrders > 0 && (
-                      <div className="flex items-center gap-4 rounded-xl border border-slate-800 bg-slate-950/40 p-4">
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400">
-                          <ClipboardList size={18} />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium text-white">
-                            Evidentirani radni nalozi
-                          </p>
-
-                          <p className="mt-1 text-sm text-slate-500">
-                            Investitor trenutačno ima{' '}
-                            {customer.workOrders} evidentiranih
-                            naloga.
-                          </p>
-                        </div>
-
-                        <ChevronRight
-                          size={18}
-                          className="text-slate-600"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-6">
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                  <h2 className="text-xl font-bold text-white">
-                    Brze radnje
-                  </h2>
-
-                  <div className="mt-5 space-y-3">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl bg-blue-600 p-4 text-left font-semibold text-white transition hover:bg-blue-500"
-                    >
-                      <ClipboardList size={19} />
-                      Novi radni nalog
-                    </button>
-
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl bg-slate-800 p-4 text-left font-semibold text-white transition hover:bg-slate-700"
-                    >
-                      <FileText size={19} />
-                      Nova ponuda
-                    </button>
-
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl bg-slate-800 p-4 text-left font-semibold text-white transition hover:bg-slate-700"
-                    >
-                      <ReceiptText size={19} />
-                      Novi račun
-                    </button>
-
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 rounded-xl bg-slate-800 p-4 text-left font-semibold text-white transition hover:bg-slate-700"
-                    >
-                      <CalendarDays size={19} />
-                      Novi termin
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                  <div className="flex items-center gap-3">
-                    <NotebookPen
-                      size={20}
-                      className="text-amber-400"
-                    />
-
-                    <h2 className="text-xl font-bold text-white">
-                      Napomena
+                    <h2 className="mt-1 text-lg font-black text-white">
+                      Podaci o investitoru
                     </h2>
                   </div>
 
-                  <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-400">
-                    {customer.notes ||
-                      'Za ovog investitora još nema spremljenih napomena.'}
-                  </p>
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300 sm:flex sm:w-auto sm:gap-2 sm:px-4"
+                  >
+                    <Edit3 size={16} />
+                    <span className="hidden text-xs font-black sm:inline">
+                      Uredi
+                    </span>
+                  </button>
                 </div>
 
-                <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-                  <div className="flex items-center gap-3">
-                    <WalletCards
-                      size={20}
-                      className="text-emerald-400"
+                <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <InfoCard
+                    label="Vrsta"
+                    value={
+                      customerTypeLabels[
+                        customer.type
+                      ]
+                    }
+                  />
+                  <InfoCard
+                    label="OIB"
+                    value={customer.oib}
+                  />
+                  <InfoCard
+                    label="Telefon"
+                    value={
+                      customer.phone ||
+                      'Nije uneseno'
+                    }
+                  />
+                  <InfoCard
+                    label="E-mail"
+                    value={
+                      customer.email ||
+                      'Nije uneseno'
+                    }
+                  />
+                  <InfoCard
+                    label="Kontakt osoba"
+                    value={
+                      customer.contactPerson ||
+                      'Nije uneseno'
+                    }
+                  />
+                  <InfoCard
+                    label="IBAN"
+                    value={
+                      customer.iban ||
+                      'Nije uneseno'
+                    }
+                  />
+                  <InfoCard
+                    label="Adresa"
+                    value={
+                      fullAddress ||
+                      'Nije uneseno'
+                    }
+                    className="sm:col-span-2"
+                  />
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+                  AKTIVNOST
+                </p>
+                <h2 className="mt-1 text-lg font-black text-white">
+                  Nedavne aktivnosti
+                </h2>
+
+                <div className="mt-4 space-y-3">
+                  <ActivityCard
+                    icon={<Users size={18} />}
+                    title="Investitor je dodan u CRM"
+                    description="Podaci su spremljeni u FERSYS sustav."
+                  />
+
+                  {customer.workOrders > 0 && (
+                    <ActivityCard
+                      icon={<ClipboardList size={18} />}
+                      title="Evidentirani radni nalozi"
+                      description={`Investitor ima ${customer.workOrders} evidentiranih naloga.`}
                     />
-
-                    <h2 className="text-xl font-bold text-white">
-                      Financijski pregled
-                    </h2>
-                  </div>
-
-                  <div className="mt-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">
-                        Ukupna vrijednost
-                      </span>
-
-                      <span className="font-bold text-white">
-                        {customer.totalSpent}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">
-                        Otvoreni računi
-                      </span>
-
-                      <span className="font-bold text-white">
-                        0 €
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-slate-800 pt-4">
-                      <span className="text-sm text-slate-400">
-                        Status plaćanja
-                      </span>
-
-                      <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-400">
-                        Uredno
-                      </span>
-                    </div>
-                  </div>
+                  )}
                 </div>
-              </div>
+              </section>
             </div>
-          )}
 
-          {activeTab === 'work-orders' && (
-            <EmptySection
-              icon={<ClipboardList size={25} />}
-              title="Nema povezanih radnih naloga"
-              description="Ovdje će se prikazivati svi radni nalozi povezani s ovim investitorom."
-              buttonLabel="Novi radni nalog"
-            />
-          )}
-
-          {activeTab === 'offers' && (
-            <EmptySection
-              icon={<FileText size={25} />}
-              title="Nema ponuda"
-              description="Izradite prvu ponudu za ovog investitora. Podaci investitora automatski će se preuzeti u ponudu."
-              buttonLabel="Nova ponuda"
-            />
-          )}
-
-          {activeTab === 'invoices' && (
-            <EmptySection
-              icon={<ReceiptText size={25} />}
-              title="Nema računa"
-              description="Ovdje će se nalaziti izdani računi, statusi plaćanja i otvorena dugovanja."
-              buttonLabel="Novi račun"
-            />
-          )}
-
-          {activeTab === 'documents' && (
-            <EmptySection
-              icon={<FileText size={25} />}
-              title="Nema dokumenata"
-              description={`Za ovog investitora trenutačno nema spremljenih dokumenata. Ukupno: ${documentsCount}.`}
-              buttonLabel="Dodaj dokument"
-            />
-          )}
-
-          {activeTab === 'photos' && (
-            <EmptySection
-              icon={<Image size={25} />}
-              title="Nema fotografija"
-              description="Ovdje će se čuvati fotografije objekta, izvedenih radova i servisne dokumentacije."
-              buttonLabel="Dodaj fotografije"
-            />
-          )}
-
-          {activeTab === 'notes' && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6">
-              <div className="flex items-center gap-3">
-                <NotebookPen
-                  size={22}
-                  className="text-amber-400"
-                />
-
-                <div>
-                  <h2 className="text-xl font-bold text-white">
-                    Napomene o investitoru
+            <div className="space-y-4">
+              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <NotebookPen
+                    size={20}
+                    className="text-amber-400"
+                  />
+                  <h2 className="text-lg font-black text-white">
+                    Napomena
                   </h2>
-
-                  <p className="mt-1 text-sm text-slate-400">
-                    Interne informacije dostupne korisnicima
-                    sustava.
-                  </p>
                 </div>
-              </div>
 
-              <div className="mt-6 rounded-2xl bg-slate-800/60 p-5">
-                <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-400">
                   {customer.notes ||
                     'Za ovog investitora još nema spremljenih napomena.'}
                 </p>
-              </div>
+              </section>
 
-              <button
-                type="button"
-                onClick={openEditModal}
-                className="mt-5 flex h-11 items-center gap-2 rounded-xl bg-slate-800 px-5 font-semibold text-white transition hover:bg-slate-700"
-              >
-                <Edit3 size={17} />
-                Uredi napomenu
-              </button>
+              <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+                <div className="flex items-center gap-3">
+                  <WalletCards
+                    size={20}
+                    className="text-emerald-400"
+                  />
+                  <h2 className="text-lg font-black text-white">
+                    Financijski pregled
+                  </h2>
+                </div>
+
+                <div className="mt-4 space-y-4">
+                  <FinanceRow
+                    label="Ukupna vrijednost"
+                    value={
+                      customer.totalSpent
+                    }
+                  />
+                  <FinanceRow
+                    label="Otvoreni računi"
+                    value="0 €"
+                  />
+
+                  <div className="flex items-center justify-between border-t border-slate-800 pt-4">
+                    <span className="text-sm text-slate-400">
+                      Status plaćanja
+                    </span>
+                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300">
+                      Uredno
+                    </span>
+                  </div>
+                </div>
+              </section>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+
+        {activeTab === 'work-orders' && (
+          <EmptySection
+            icon={<ClipboardList size={25} />}
+            title="Nema povezanih radnih naloga"
+            description="Ovdje će se prikazivati svi radni nalozi povezani s ovim investitorom."
+            buttonLabel="Novi radni nalog"
+            onClick={() =>
+              navigate('/work-orders/new')
+            }
+          />
+        )}
+
+        {activeTab === 'offers' && (
+          <EmptySection
+            icon={<FileText size={25} />}
+            title="Nema ponuda"
+            description="Izradi prvu ponudu za ovog investitora."
+            buttonLabel="Nova ponuda"
+            onClick={() =>
+              navigate('/offers/new')
+            }
+          />
+        )}
+
+        {activeTab === 'invoices' && (
+          <EmptySection
+            icon={<ReceiptText size={25} />}
+            title="Nema računa"
+            description="Ovdje će se nalaziti izdani računi, statusi plaćanja i otvorena dugovanja."
+            buttonLabel="Novi račun"
+            onClick={() =>
+              navigate('/invoices/new')
+            }
+          />
+        )}
+
+        {activeTab === 'documents' && (
+          <EmptySection
+            icon={<FileText size={25} />}
+            title="Nema dokumenata"
+            description={`Za ovog investitora trenutačno nema spremljenih dokumenata. Ukupno: ${documentsCount}.`}
+            buttonLabel="Dodaj dokument"
+          />
+        )}
+
+        {activeTab === 'photos' && (
+          <EmptySection
+            icon={<Image size={25} />}
+            title="Nema fotografija"
+            description="Ovdje će se čuvati fotografije objekta, izvedenih radova i servisne dokumentacije."
+            buttonLabel="Dodaj fotografije"
+          />
+        )}
+
+        {activeTab === 'notes' && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+            <div className="flex items-center gap-3">
+              <NotebookPen
+                size={22}
+                className="text-amber-400"
+              />
+
+              <div>
+                <h2 className="text-lg font-black text-white">
+                  Napomene o investitoru
+                </h2>
+
+                <p className="mt-1 text-xs text-slate-400 sm:text-sm">
+                  Interne informacije dostupne korisnicima sustava.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-slate-800/60 p-4">
+              <p className="whitespace-pre-wrap text-sm leading-7 text-slate-300">
+                {customer.notes ||
+                  'Za ovog investitora još nema spremljenih napomena.'}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={openEditModal}
+              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white"
+            >
+              <Edit3 size={17} />
+              Uredi napomenu
+            </button>
+          </section>
+        )}
       </section>
 
       {isEditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-5">
+        <div className="fixed inset-0 z-[120] flex items-end bg-black/75 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+          <div className="max-h-[96dvh] w-full overflow-y-auto rounded-t-[2rem] border-t border-slate-700 bg-slate-900 shadow-2xl sm:max-w-3xl sm:rounded-3xl sm:border">
+            <div className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-800 bg-slate-900/98 px-4 py-4 backdrop-blur-xl sm:px-6 sm:py-5">
               <div>
-                <h2 className="text-2xl font-bold text-white">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
+                  UREĐIVANJE
+                </p>
+                <h2 className="mt-1 text-xl font-black text-white sm:text-2xl">
                   Uredi investitora
                 </h2>
-
-                <p className="mt-1 text-sm text-slate-400">
-                  Promijenite podatke investitora i spremite izmjene.
-                </p>
               </div>
 
               <button
                 type="button"
                 onClick={closeEditModal}
                 disabled={isSaving}
-                className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-800 text-slate-400 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-400 disabled:opacity-50"
                 aria-label="Zatvori uređivanje"
               >
                 <X size={20} />
@@ -1039,93 +959,70 @@ export function CustomerProfilePage() {
 
             <form
               onSubmit={handleEditCustomer}
-              className="p-6"
+              className="p-4 pb-28 sm:p-6 sm:pb-6"
             >
-              <div>
-                <label className="text-sm font-semibold text-slate-300">
-                  Vrsta investitora
-                </label>
+              <label className="text-sm font-black text-slate-300">
+                Vrsta investitora
+              </label>
 
-                <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      selectEditCustomerType('person')
-                    }
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                      editType === 'person'
-                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <UserRound size={22} />
-                    <span className="font-semibold">
-                      Fizička osoba
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      selectEditCustomerType('company')
-                    }
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                      editType === 'company'
-                        ? 'border-violet-500 bg-violet-500/10 text-white'
-                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <Building2 size={22} />
-                    <span className="font-semibold">
-                      Tvrtka / Obrt
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      selectEditCustomerType('building')
-                    }
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                      editType === 'building'
-                        ? 'border-amber-500 bg-amber-500/10 text-white'
-                        : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600'
-                    }`}
-                  >
-                    <Building size={22} />
-                    <span className="font-semibold">
-                      Zgrada
-                    </span>
-                  </button>
-                </div>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <TypeButton
+                  active={editType === 'person'}
+                  onClick={() =>
+                    selectEditCustomerType('person')
+                  }
+                  icon={<UserRound size={20} />}
+                  label="Osoba"
+                  activeClass="border-blue-500 bg-blue-500/10 text-blue-200"
+                />
+                <TypeButton
+                  active={editType === 'company'}
+                  onClick={() =>
+                    selectEditCustomerType('company')
+                  }
+                  icon={<Building2 size={20} />}
+                  label="Tvrtka"
+                  activeClass="border-violet-500 bg-violet-500/10 text-violet-200"
+                />
+                <TypeButton
+                  active={editType === 'building'}
+                  onClick={() =>
+                    selectEditCustomerType('building')
+                  }
+                  icon={<Building size={20} />}
+                  label="Zgrada"
+                  activeClass="border-amber-500 bg-amber-500/10 text-amber-200"
+                />
               </div>
 
-              <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2">
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold text-slate-300">
-                    {editType === 'person'
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Field
+                  label={
+                    editType === 'person'
                       ? 'Ime i prezime'
                       : editType === 'company'
                         ? 'Naziv tvrtke ili obrta'
-                        : 'Naziv zgrade'}
-                  </label>
-
+                        : 'Naziv zgrade'
+                  }
+                  className="md:col-span-2"
+                >
                   <input
                     required
                     value={editName}
                     onChange={(event) =>
-                      setEditName(event.target.value)
+                      setEditName(
+                        event.target.value,
+                      )
                     }
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
                 {editType !== 'person' && (
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-semibold text-slate-300">
-                      Kontakt osoba
-                    </label>
-
+                  <Field
+                    label="Kontakt osoba"
+                    className="md:col-span-2"
+                  >
                     <input
                       value={editContactPerson}
                       onChange={(event) =>
@@ -1133,36 +1030,24 @@ export function CustomerProfilePage() {
                           event.target.value,
                         )
                       }
-                      placeholder={
-                        editType === 'building'
-                          ? 'Ime predstavnika suvlasnika'
-                          : 'Ime i prezime kontakt osobe'
-                      }
-                      className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                      className={inputClass}
                     />
-                  </div>
+                  </Field>
                 )}
 
                 {editType === 'company' && (
-                  <div className="md:col-span-2">
-                    <label className="text-sm font-semibold text-slate-300">
-                      Logo tvrtke
-                    </label>
-
+                  <Field
+                    label="Logo tvrtke"
+                    className="md:col-span-2"
+                  >
                     {!editLogo ? (
-                      <label className="mt-2 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/60 px-6 py-8 text-center transition hover:border-violet-500 hover:bg-violet-500/5">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-violet-500/15 text-violet-400">
-                          <ImagePlus size={24} />
+                      <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-700 bg-slate-800/60 px-5 py-7 text-center">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
+                          <ImagePlus size={23} />
                         </div>
-
-                        <p className="mt-3 font-semibold text-white">
-                          Učitaj logo tvrtke
+                        <p className="mt-3 font-black text-white">
+                          Učitaj logo
                         </p>
-
-                        <p className="mt-1 text-sm text-slate-500">
-                          PNG, JPG ili WEBP, najviše 1 MB
-                        </p>
-
                         <input
                           type="file"
                           accept="image/png,image/jpeg,image/webp"
@@ -1171,29 +1056,23 @@ export function CustomerProfilePage() {
                         />
                       </label>
                     ) : (
-                      <div className="mt-2 flex flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-800 p-4 sm:flex-row sm:items-center">
-                        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-white">
+                      <div className="flex items-center gap-4 rounded-2xl border border-slate-700 bg-slate-800 p-4">
+                        <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-2xl bg-white">
                           <img
                             src={editLogo}
-                            alt="Pregled logotipa tvrtke"
+                            alt="Logo"
                             className="h-full w-full object-contain p-2"
                           />
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-white">
-                            Logo tvrtke
+                          <p className="font-black text-white">
+                            Logo je učitan
                           </p>
 
-                          <p className="mt-1 text-sm text-slate-400">
-                            Možete ga promijeniti ili ukloniti.
-                          </p>
-
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <label className="flex cursor-pointer items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-600">
-                              <ImagePlus size={17} />
+                          <div className="mt-3 flex gap-2">
+                            <label className="cursor-pointer rounded-xl bg-slate-700 px-3 py-2 text-xs font-black text-white">
                               Promijeni
-
                               <input
                                 type="file"
                                 accept="image/png,image/jpeg,image/webp"
@@ -1204,24 +1083,22 @@ export function CustomerProfilePage() {
 
                             <button
                               type="button"
-                              onClick={() => setEditLogo('')}
-                              className="flex items-center gap-2 rounded-xl bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/20"
+                              onClick={() =>
+                                setEditLogo('')
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-red-500/10 px-3 py-2 text-xs font-black text-red-300"
                             >
-                              <Trash2 size={17} />
+                              <Trash2 size={14} />
                               Ukloni
                             </button>
                           </div>
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Field>
                 )}
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    OIB
-                  </label>
-
+                <Field label="OIB">
                   <input
                     required
                     inputMode="numeric"
@@ -1234,19 +1111,14 @@ export function CustomerProfilePage() {
                           .slice(0, 11),
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-
                   <p className="mt-1.5 text-xs text-slate-500">
-                    Uneseno {editOib.length}/11 znamenki
+                    Uneseno {editOib.length}/11
                   </p>
-                </div>
+                </Field>
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    Status investitora
-                  </label>
-
+                <Field label="Status">
                   <select
                     value={editStatus}
                     onChange={(event) =>
@@ -1254,51 +1126,49 @@ export function CustomerProfilePage() {
                         event.target.value as CustomerStatus,
                       )
                     }
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   >
-                    <option value="Aktivan">Aktivan</option>
+                    <option value="Aktivan">
+                      Aktivan
+                    </option>
                     <option value="Neaktivan">
                       Neaktivan
                     </option>
                   </select>
-                </div>
+                </Field>
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    Telefon
-                  </label>
-
+                <Field label="Telefon">
                   <input
+                    inputMode="tel"
                     value={editPhone}
                     onChange={(event) =>
-                      setEditPhone(event.target.value)
+                      setEditPhone(
+                        event.target.value,
+                      )
                     }
                     placeholder="+385 91 000 0000"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    E-mail
-                  </label>
-
+                <Field label="E-mail">
                   <input
                     type="email"
                     value={editEmail}
                     onChange={(event) =>
-                      setEditEmail(event.target.value)
+                      setEditEmail(
+                        event.target.value,
+                      )
                     }
                     placeholder="email@primjer.hr"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold text-slate-300">
-                    IBAN
-                  </label>
-
+                <Field
+                  label="IBAN"
+                  className="md:col-span-2"
+                >
                   <input
                     value={editIban}
                     onChange={(event) =>
@@ -1306,83 +1176,77 @@ export function CustomerProfilePage() {
                         event.target.value.toUpperCase(),
                       )
                     }
-                    placeholder="HR00 0000 0000 0000 0000 0"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 uppercase text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={`${inputClass} uppercase`}
                   />
-                </div>
+                </Field>
 
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold text-slate-300">
-                    Ulica i kućni broj
-                  </label>
-
+                <Field
+                  label="Ulica i kućni broj"
+                  className="md:col-span-2"
+                >
                   <input
                     value={editStreet}
                     onChange={(event) =>
-                      setEditStreet(event.target.value)
+                      setEditStreet(
+                        event.target.value,
+                      )
                     }
-                    placeholder="Ulica i kućni broj"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    Grad
-                  </label>
-
+                <Field label="Grad">
                   <input
                     required
                     value={editCity}
                     onChange={(event) =>
-                      setEditCity(event.target.value)
+                      setEditCity(
+                        event.target.value,
+                      )
                     }
-                    placeholder="Slavonski Brod"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
-                <div>
-                  <label className="text-sm font-semibold text-slate-300">
-                    Poštanski broj
-                  </label>
-
+                <Field label="Poštanski broj">
                   <input
                     inputMode="numeric"
                     value={editPostalCode}
                     onChange={(event) =>
                       setEditPostalCode(
-                        event.target.value.replace(/\D/g, ''),
+                        event.target.value.replace(
+                          /\D/g,
+                          '',
+                        ),
                       )
                     }
-                    placeholder="35000"
-                    className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className={inputClass}
                   />
-                </div>
+                </Field>
 
-                <div className="md:col-span-2">
-                  <label className="text-sm font-semibold text-slate-300">
-                    Napomena
-                  </label>
-
+                <Field
+                  label="Napomena"
+                  className="md:col-span-2"
+                >
                   <textarea
                     rows={5}
                     value={editNotes}
                     onChange={(event) =>
-                      setEditNotes(event.target.value)
+                      setEditNotes(
+                        event.target.value,
+                      )
                     }
-                    placeholder="Dodatne informacije o investitoru..."
-                    className="mt-2 w-full resize-none rounded-xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                    className="w-full resize-none rounded-2xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
                   />
-                </div>
+                </Field>
               </div>
 
-              <div className="mt-8 flex flex-col-reverse gap-3 border-t border-slate-800 pt-6 sm:flex-row sm:justify-end">
+              <div className="mt-6 hidden border-t border-slate-800 pt-5 sm:flex sm:justify-end sm:gap-3">
                 <button
                   type="button"
                   onClick={closeEditModal}
                   disabled={isSaving}
-                  className="h-12 rounded-xl bg-slate-800 px-6 font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-12 rounded-2xl bg-slate-800 px-6 font-black text-slate-300 disabled:opacity-50"
                 >
                   Odustani
                 </button>
@@ -1390,9 +1254,22 @@ export function CustomerProfilePage() {
                 <button
                   type="submit"
                   disabled={isSaving}
-                  className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white disabled:opacity-50"
                 >
-                  <Save size={19} />
+                  <Save size={18} />
+                  {isSaving
+                    ? 'Spremanje...'
+                    : 'Spremi izmjene'}
+                </button>
+              </div>
+
+              <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-800 bg-slate-900/98 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
+                >
+                  <Save size={18} />
                   {isSaving
                     ? 'Spremanje...'
                     : 'Spremi izmjene'}
@@ -1403,5 +1280,200 @@ export function CustomerProfilePage() {
         </div>
       )}
     </>
+  )
+}
+
+function SummaryMetric({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string
+  value: string
+  compact?: boolean
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="text-[9px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
+        {label}
+      </p>
+      <p
+        className={`mt-1 truncate font-black text-white ${
+          compact
+            ? 'text-sm sm:text-lg'
+            : 'text-xl sm:text-2xl'
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function ContactAction({
+  icon,
+  label,
+  onClick,
+  disabled,
+}: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="flex min-h-[82px] flex-col items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 text-sm font-black text-slate-200 transition active:scale-[0.98] disabled:opacity-35"
+    >
+      <span className="text-blue-300">
+        {icon}
+      </span>
+      {label}
+    </button>
+  )
+}
+
+function QuickAction({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-[92px] items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 text-left font-black text-white transition active:scale-[0.98]"
+    >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/12 text-blue-300">
+        {icon}
+      </span>
+      <span className="text-sm">
+        {label}
+      </span>
+    </button>
+  )
+}
+
+function InfoCard({
+  label,
+  value,
+  className = '',
+}: {
+  label: string
+  value: string
+  className?: string
+}) {
+  return (
+    <div className={`rounded-2xl bg-slate-800/60 p-4 ${className}`}>
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-2 break-words text-sm font-bold text-white">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function ActivityCard({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4">
+      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/15 text-blue-300">
+        {icon}
+      </div>
+
+      <div className="min-w-0">
+        <p className="font-black text-white">
+          {title}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-slate-500">
+          {description}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function FinanceRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-sm text-slate-400">
+        {label}
+      </span>
+      <span className="font-black text-white">
+        {value}
+      </span>
+    </div>
+  )
+}
+
+function Field({
+  label,
+  className = '',
+  children,
+}: {
+  label: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={className}>
+      <label className="text-sm font-black text-slate-300">
+        {label}
+      </label>
+      <div className="mt-2">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function TypeButton({
+  active,
+  onClick,
+  icon,
+  label,
+  activeClass,
+}: {
+  active: boolean
+  onClick: () => void
+  icon: ReactNode
+  label: string
+  activeClass: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-[84px] flex-col items-center justify-center gap-2 rounded-2xl border px-2 text-center text-xs font-black transition active:scale-[0.98] ${
+        active
+          ? activeClass
+          : 'border-slate-700 bg-slate-800 text-slate-400'
+      }`}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }
