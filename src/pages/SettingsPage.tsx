@@ -6,12 +6,12 @@ import {
   FileText,
   ImagePlus,
   LayoutDashboard,
-  SlidersHorizontal,
   LockKeyhole,
   Palette,
   Plug,
   RotateCcw,
   Save,
+  SlidersHorizontal,
   ShieldCheck,
   Stamp,
   Trash2,
@@ -27,7 +27,6 @@ import {
 import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
-import DocumentLivePreview from '../components/settings/DocumentLivePreview'
 import ModulesSettingsTab from '../components/settings/ModulesSettingsTab'
 import {
   defaultWorkingHours,
@@ -536,50 +535,61 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1500px]">
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-white">
-            Postavke
-          </h1>
+    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-28 sm:space-y-6 sm:pb-12">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
-          <p className="mt-2 text-slate-400">
-            Glavni upravljački centar za tvrtku,
-            dokumente, zaposlenike, sigurnost i
-            izgled FERSYS-a.
-          </p>
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
+              UPRAVLJAČKI CENTAR
+            </p>
+
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Postavke
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Tvrtka, dokumenti, moduli, radno vrijeme, obavijesti i sigurnost.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() => void saveSettings()}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white active:scale-95 disabled:opacity-50 sm:hidden"
+            aria-label="Spremi postavke"
+          >
+            {saved ? <CheckCircle2 size={20} /> : <Save size={20} />}
+          </button>
+        </div>
+
+        <div className="relative mt-5 grid grid-cols-3 gap-2">
+          <HeroMetric label="Dovršeno" value={`${setupCompletion.percentage}%`} />
+          <HeroMetric label="Postavljeno" value={`${setupCompletion.completed}/${setupCompletion.total}`} />
+          <HeroMetric label="Kartica" value={tabs.find((tab) => tab.id === activeTab)?.label ?? 'Pregled'} />
         </div>
 
         <button
           type="button"
           disabled={isSaving}
-          onClick={() =>
-            void saveSettings()
-          }
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-bold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          onClick={() => void saveSettings()}
+          className="relative mt-4 hidden h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 text-sm font-black text-white disabled:opacity-50 sm:inline-flex"
         >
-          {saved ? (
-            <CheckCircle2 size={19} />
-          ) : (
-            <Save size={19} />
-          )}
-
-          {isSaving
-            ? 'Spremanje...'
-            : saved
-              ? 'Spremljeno'
-              : 'Spremi postavke'}
+          {saved ? <CheckCircle2 size={18} /> : <Save size={18} />}
+          {isSaving ? 'Spremanje...' : saved ? 'Spremljeno' : 'Spremi postavke'}
         </button>
-      </div>
+      </section>
 
       {saveError && (
-        <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-5 py-4 text-sm text-red-300">
           {saveError}
         </div>
       )}
 
-      <div className="mt-7 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-2">
-        <div className="flex min-w-max gap-1">
+      <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900 p-2">
+        <div className="flex min-w-max gap-1.5">
           {tabs.map((tab) => {
             const Icon = tab.icon
 
@@ -590,7 +600,7 @@ export function SettingsPage() {
                 onClick={() =>
                   setActiveTab(tab.id)
                 }
-                className={`flex min-h-11 items-center gap-2 rounded-xl px-4 text-sm font-bold transition ${
+                className={`flex min-h-11 items-center gap-2 rounded-2xl px-3 text-xs font-black transition sm:px-4 sm:text-sm ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white'
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -604,7 +614,7 @@ export function SettingsPage() {
         </div>
       </div>
 
-      <div className="mt-6">
+      <div>
         {activeTab === 'overview' && (
           <OverviewSettingsTab
             settings={settings}
@@ -613,6 +623,7 @@ export function SettingsPage() {
             onNavigate={navigate}
           />
         )}
+
         {activeTab === 'modules' && (
           <ModulesSettingsTab />
         )}
@@ -679,6 +690,18 @@ export function SettingsPage() {
         )}
       </div>
 
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={() => void saveSettings()}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
+        >
+          {saved ? <CheckCircle2 size={18} /> : <Save size={18} />}
+          {isSaving ? 'Spremanje...' : saved ? 'Spremljeno' : 'Spremi postavke'}
+        </button>
+      </div>
+
       {isSaving && (
         <FersysLoader
           fullScreen
@@ -686,6 +709,25 @@ export function SettingsPage() {
         />
       )}
     </section>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
+    </div>
   )
 }
 
@@ -711,8 +753,8 @@ function CompanySettingsTab({
   uploadingField: ImageField | null
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
-      <div className="space-y-6">
+    <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_420px]">
+      <div className="space-y-4 sm:space-y-6">
         <SettingsCard
           icon={
             <Building2 className="text-blue-400" />
@@ -925,7 +967,7 @@ function CompanySettingsTab({
         </SettingsCard>
       </div>
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <ImageSettingsCard
           title="Logo tvrtke"
           description="FERSYS automatski uklanja bijelu ili gotovo bijelu pozadinu, obrezuje prazne rubove i sprema transparentni PNG."
@@ -987,120 +1029,120 @@ function DocumentSettingsTab({
   updateField: UpdateField
 }) {
   return (
-    <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(520px,0.9fr)]">
-      <div className="space-y-6">
-        <SettingsCard
-          icon={
-            <FileText className="text-blue-400" />
-          }
-          title="Oznake dokumenata"
-          description="Prefiksi koji se prikazuju ispred rednog broja dokumenta."
-        >
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <TextField
-              label="Radni nalozi"
-              value={settings.workOrderPrefix}
-              placeholder="RN"
-              maxLength={10}
-              onChange={(value) =>
-                updateField(
-                  'workOrderPrefix',
-                  value.toUpperCase(),
-                )
-              }
-            />
+    <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <SettingsCard
+        icon={
+          <FileText className="text-blue-400" />
+        }
+        title="Oznake dokumenata"
+        description="Prefiksi koji se prikazuju ispred rednog broja dokumenta."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <TextField
+            label="Radni nalozi"
+            value={settings.workOrderPrefix}
+            placeholder="RN"
+            maxLength={10}
+            onChange={(value) =>
+              updateField(
+                'workOrderPrefix',
+                value.toUpperCase(),
+              )
+            }
+          />
 
-            <TextField
-              label="Ponude"
-              value={settings.offerPrefix}
-              placeholder="P"
-              maxLength={10}
-              onChange={(value) =>
-                updateField(
-                  'offerPrefix',
-                  value.toUpperCase(),
-                )
-              }
-            />
+          <TextField
+            label="Ponude"
+            value={settings.offerPrefix}
+            placeholder="P"
+            maxLength={10}
+            onChange={(value) =>
+              updateField(
+                'offerPrefix',
+                value.toUpperCase(),
+              )
+            }
+          />
 
-            <TextField
-              label="Izlazni računi"
-              value={settings.invoicePrefix}
-              placeholder="R"
-              maxLength={10}
-              onChange={(value) =>
-                updateField(
-                  'invoicePrefix',
-                  value.toUpperCase(),
-                )
-              }
-            />
+          <TextField
+            label="Izlazni računi"
+            value={settings.invoicePrefix}
+            placeholder="R"
+            maxLength={10}
+            onChange={(value) =>
+              updateField(
+                'invoicePrefix',
+                value.toUpperCase(),
+              )
+            }
+          />
 
-            <TextField
-              label="Ulazni računi"
-              value={
-                settings.incomingInvoicePrefix
-              }
-              placeholder="UR"
-              maxLength={10}
-              onChange={(value) =>
-                updateField(
-                  'incomingInvoicePrefix',
-                  value.toUpperCase(),
-                )
-              }
-            />
-          </div>
-        </SettingsCard>
+          <TextField
+            label="Ulazni računi"
+            value={
+              settings.incomingInvoicePrefix
+            }
+            placeholder="UR"
+            maxLength={10}
+            onChange={(value) =>
+              updateField(
+                'incomingInvoicePrefix',
+                value.toUpperCase(),
+              )
+            }
+          />
+        </div>
+      </SettingsCard>
 
-        <SettingsCard
-          icon={
-            <Clock3 className="text-amber-400" />
-          }
-          title="Rokovi dokumenata"
-          description="Zadani rokovi pri izradi novih ponuda i računa."
-        >
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <NumberField
-              label="Rok plaćanja"
-              value={
-                settings.defaultPaymentDays
-              }
-              min={0}
-              max={365}
-              suffix="dana"
-              onChange={(value) =>
-                updateField(
-                  'defaultPaymentDays',
-                  value,
-                )
-              }
-            />
+      <SettingsCard
+        icon={
+          <Clock3 className="text-amber-400" />
+        }
+        title="Rokovi dokumenata"
+        description="Zadani rokovi pri izradi novih ponuda i računa."
+      >
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <NumberField
+            label="Rok plaćanja"
+            value={
+              settings.defaultPaymentDays
+            }
+            min={0}
+            max={365}
+            suffix="dana"
+            onChange={(value) =>
+              updateField(
+                'defaultPaymentDays',
+                value,
+              )
+            }
+          />
 
-            <NumberField
-              label="Valjanost ponude"
-              value={
-                settings.defaultOfferValidityDays
-              }
-              min={1}
-              max={365}
-              suffix="dana"
-              onChange={(value) =>
-                updateField(
-                  'defaultOfferValidityDays',
-                  value,
-                )
-              }
-            />
-          </div>
-        </SettingsCard>
+          <NumberField
+            label="Valjanost ponude"
+            value={
+              settings.defaultOfferValidityDays
+            }
+            min={1}
+            max={365}
+            suffix="dana"
+            onChange={(value) =>
+              updateField(
+                'defaultOfferValidityDays',
+                value,
+              )
+            }
+          />
+        </div>
+      </SettingsCard>
 
+      <div className="xl:col-span-2">
         <SettingsCard
           icon={
             <FileText className="text-violet-400" />
           }
           title="Izgled dokumenata"
-          description="Promjene se odmah prikazuju u živom A4 pregledu."
+          description="Tekst koji će se prikazivati na dokumentima tvrtke."
         >
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
             <TextAreaField
@@ -1133,16 +1175,6 @@ function DocumentSettingsTab({
             />
           </div>
         </SettingsCard>
-
-        <div className="rounded-2xl border border-blue-500/15 bg-blue-500/5 p-4 text-sm leading-6 text-slate-400">
-          Logo, pečat, potpis i boje uređuju se u kartici
-          <strong className="text-blue-300"> Tvrtka</strong>.
-          Nakon promjene odmah će se koristiti i u ovom pregledu.
-        </div>
-      </div>
-
-      <div className="min-w-0 2xl:sticky 2xl:top-6 2xl:self-start">
-        <DocumentLivePreview settings={settings} />
       </div>
     </div>
   )
@@ -1467,7 +1499,7 @@ function OverviewSettingsTab({
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <section className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-violet-500/10 p-6 sm:p-8">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -1721,7 +1753,7 @@ function SecuritySettingsTab({
   onOpenEmployees: () => void
 }) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {message && (
         <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
           {message}
@@ -1818,7 +1850,7 @@ function SecuritySettingsTab({
             ].map((item) => (
               <div
                 key={item}
-                className="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/50 px-4 py-3"
+                className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-800/50 px-4 py-3"
               >
                 <span className="text-sm font-semibold text-slate-400">
                   {item}
