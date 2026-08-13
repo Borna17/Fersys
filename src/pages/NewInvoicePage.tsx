@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import {
   ArrowLeft,
@@ -16,19 +16,19 @@ import {
   UsersRound,
   X,
 } from 'lucide-react'
-import { openInvoicePdf } from '../utils/invoicePdf'
-import { getCustomers } from '../services/customers.service'
-import type { Customer as CompanyCustomer } from '../types/customer'
 
 import DraftAutosaveBadge, {
   type DraftAutosaveState,
 } from '../components/DraftAutosaveBadge'
+import { getCustomers } from '../services/customers.service'
 import {
   deleteUserDraft,
   formatDraftSavedAt,
   loadUserDraft,
   saveUserDraft,
 } from '../services/drafts.service'
+import type { Customer as CompanyCustomer } from '../types/customer'
+import { openInvoicePdf } from '../utils/invoicePdf'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -141,6 +141,9 @@ const paymentMethods = [
   'Virman',
 ]
 
+const inputClass =
+  'h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20'
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random()
     .toString(36)
@@ -237,14 +240,8 @@ function formatCurrency(value: number) {
 function mapCompanyCustomerType(
   type: CompanyCustomer['type'],
 ): CustomerType {
-  if (type === 'company') {
-    return 'Tvrtka'
-  }
-
-  if (type === 'building') {
-    return 'Zgrada'
-  }
-
+  if (type === 'company') return 'Tvrtka'
+  if (type === 'building') return 'Zgrada'
   return 'Fizička osoba'
 }
 
@@ -255,25 +252,14 @@ function customerIcon(type: CustomerType) {
 }
 
 export function NewInvoicePage() {
-
-  const [
-    autosaveState,
-    setAutosaveState,
-  ] = useState<DraftAutosaveState>('idle')
-
-  const [
-    autosaveText,
-    setAutosaveText,
-  ] = useState('')
-
-  const [
-    draftReady,
-    setDraftReady,
-  ] = useState(false)
-
   const navigate = useNavigate()
   const { invoiceId } = useParams<{ invoiceId: string }>()
   const [searchParams] = useSearchParams()
+
+  const [autosaveState, setAutosaveState] =
+    useState<DraftAutosaveState>('idle')
+  const [autosaveText, setAutosaveText] = useState('')
+  const [draftReady, setDraftReady] = useState(false)
 
   const storedInvoices = useMemo(() => readInvoices(), [])
   const storedOffers = useMemo(() => readOffers(), [])
@@ -281,8 +267,7 @@ export function NewInvoicePage() {
   const editingInvoice = useMemo(
     () =>
       invoiceId
-        ? storedInvoices.find((invoice) => invoice.id === invoiceId) ??
-          null
+        ? storedInvoices.find((invoice) => invoice.id === invoiceId) ?? null
         : null,
     [invoiceId, storedInvoices],
   )
@@ -291,8 +276,7 @@ export function NewInvoicePage() {
     const duplicateId = searchParams.get('duplicate')
     if (!duplicateId || editingInvoice) return null
     return (
-      storedInvoices.find((invoice) => invoice.id === duplicateId) ??
-      null
+      storedInvoices.find((invoice) => invoice.id === duplicateId) ?? null
     )
   }, [editingInvoice, searchParams, storedInvoices])
 
@@ -308,8 +292,7 @@ export function NewInvoicePage() {
   const today = getDateString(new Date())
 
   const [invoiceNumber, setInvoiceNumber] = useState(
-    editingInvoice?.invoiceNumber ??
-      getNextInvoiceNumber(storedInvoices),
+    editingInvoice?.invoiceNumber ?? getNextInvoiceNumber(storedInvoices),
   )
   const [issueDate, setIssueDate] = useState(
     editingInvoice?.issueDate ?? today,
@@ -321,10 +304,9 @@ export function NewInvoicePage() {
     editingInvoice?.dueDate ?? addDays(today, 15),
   )
 
-  const [customerType, setCustomerType] =
-    useState<CustomerType>(
-      source?.customerType ?? 'Fizička osoba',
-    )
+  const [customerType, setCustomerType] = useState<CustomerType>(
+    source?.customerType ?? 'Fizička osoba',
+  )
   const [customerName, setCustomerName] = useState(
     source?.customerName ?? '',
   )
@@ -332,9 +314,7 @@ export function NewInvoicePage() {
   const [email, setEmail] = useState(source?.email ?? '')
   const [phone, setPhone] = useState(source?.phone ?? '')
   const [address, setAddress] = useState(source?.address ?? '')
-  const [city, setCity] = useState(
-    source?.city ?? 'Slavonski Brod',
-  )
+  const [city, setCity] = useState(source?.city ?? 'Slavonski Brod')
 
   const [responsiblePerson, setResponsiblePerson] = useState(
     source?.responsiblePerson ?? 'Borna Ferfolja',
@@ -352,15 +332,13 @@ export function NewInvoicePage() {
     editingInvoice?.paymentModel ?? 'HR00',
   )
   const [paymentReference, setPaymentReference] = useState(
-    editingInvoice?.paymentReference ??
-      invoiceNumber.replace(/\D/g, ''),
+    editingInvoice?.paymentReference ?? invoiceNumber.replace(/\D/g, ''),
   )
-  const [iban, setIban] = useState(
-    editingInvoice?.iban ?? '',
-  )
+  const [iban, setIban] = useState(editingInvoice?.iban ?? '')
 
   const [items, setItems] = useState<InvoiceItem[]>(() => {
     if (!source?.items?.length) return [createEmptyItem()]
+
     return source.items.map((item) => ({
       ...item,
       id:
@@ -376,16 +354,9 @@ export function NewInvoicePage() {
     source?.customerName ?? '',
   )
   const [showCustomers, setShowCustomers] = useState(false)
-
-  const [
-    companyCustomers,
-    setCompanyCustomers,
-  ] = useState<CompanyCustomer[]>([])
-
-  const [
-    customerLoadError,
-    setCustomerLoadError,
-  ] = useState('')
+  const [companyCustomers, setCompanyCustomers] =
+    useState<CompanyCustomer[]>([])
+  const [customerLoadError, setCustomerLoadError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -393,24 +364,17 @@ export function NewInvoicePage() {
     async function loadCompanyCustomers() {
       try {
         setCustomerLoadError('')
-
-        const savedCustomers =
-          await getCustomers()
+        const savedCustomers = await getCustomers()
 
         if (!cancelled) {
           setCompanyCustomers(
             savedCustomers.filter(
-              (customer) =>
-                customer.status ===
-                'Aktivan',
+              (customer) => customer.status === 'Aktivan',
             ),
           )
         }
       } catch (error) {
-        console.error(
-          'Investitore nije moguće učitati:',
-          error,
-        )
+        console.error('Investitore nije moguće učitati:', error)
 
         if (!cancelled) {
           setCustomerLoadError(
@@ -429,14 +393,8 @@ export function NewInvoicePage() {
     }
   }, [])
 
-
-
   useEffect(() => {
-    if (
-      isEditing ||
-      isDuplicating ||
-      sourceOffer
-    ) {
+    if (isEditing || isDuplicating || sourceOffer) {
       setDraftReady(true)
       return
     }
@@ -445,21 +403,11 @@ export function NewInvoicePage() {
 
     void (async () => {
       try {
-        const draft =
-          await loadUserDraft<any>(
-            'invoice',
-            'new',
-          )
+        const draft = await loadUserDraft<any>('invoice', 'new')
 
-        if (
-          cancelled ||
-          !draft
-        ) {
-          return
-        }
+        if (cancelled || !draft) return
 
-        const value =
-          draft.payload ?? {}
+        const value = draft.payload ?? {}
 
         setInvoiceNumber(value.invoiceNumber ?? invoiceNumber)
         setIssueDate(value.issueDate ?? issueDate)
@@ -473,31 +421,25 @@ export function NewInvoicePage() {
         setAddress(value.address ?? '')
         setCity(value.city ?? 'Slavonski Brod')
         setResponsiblePerson(
-          value.responsiblePerson ??
-            responsiblePerson,
+          value.responsiblePerson ?? responsiblePerson,
         )
         setDescription(value.description ?? '')
         setInternalNote(value.internalNote ?? '')
         setPaymentMethod(
-          value.paymentMethod ??
-            'Transakcijski račun',
+          value.paymentMethod ?? 'Transakcijski račun',
         )
         setPaymentModel(value.paymentModel ?? 'HR00')
         setPaymentReference(
-          value.paymentReference ??
-            paymentReference,
+          value.paymentReference ?? paymentReference,
         )
         setIban(value.iban ?? '')
         setItems(
-          Array.isArray(value.items) &&
-          value.items.length
+          Array.isArray(value.items) && value.items.length
             ? value.items
             : [createEmptyItem()],
         )
         setCustomerSearch(
-          value.customerSearch ??
-            value.customerName ??
-            '',
+          value.customerSearch ?? value.customerName ?? '',
         )
 
         setAutosaveState('restored')
@@ -519,75 +461,52 @@ export function NewInvoicePage() {
   }, [])
 
   useEffect(() => {
-    if (
-      !draftReady ||
-      isEditing ||
-      isDuplicating ||
-      sourceOffer
-    ) {
+    if (!draftReady || isEditing || isDuplicating || sourceOffer) {
       return
     }
 
-    const hasContent =
-      Boolean(
-        customerName.trim() ||
+    const hasContent = Boolean(
+      customerName.trim() ||
         description.trim() ||
-        items.some(
-          (item) =>
-            item.name.trim(),
-        ),
-      )
+        items.some((item) => item.name.trim()),
+    )
 
-    if (!hasContent) {
-      return
-    }
+    if (!hasContent) return
 
-    const timer =
-      window.setTimeout(() => {
-        void (async () => {
-          setAutosaveState('saving')
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        setAutosaveState('saving')
 
-          const savedAt =
-            await saveUserDraft(
-              'invoice',
-              'new',
-              {
-                invoiceNumber,
-                issueDate,
-                serviceDate,
-                dueDate,
-                customerType,
-                customerName,
-                oib,
-                email,
-                phone,
-                address,
-                city,
-                responsiblePerson,
-                description,
-                internalNote,
-                paymentMethod,
-                paymentModel,
-                paymentReference,
-                iban,
-                items,
-                customerSearch,
-              },
-            )
+        const savedAt = await saveUserDraft('invoice', 'new', {
+          invoiceNumber,
+          issueDate,
+          serviceDate,
+          dueDate,
+          customerType,
+          customerName,
+          oib,
+          email,
+          phone,
+          address,
+          city,
+          responsiblePerson,
+          description,
+          internalNote,
+          paymentMethod,
+          paymentModel,
+          paymentReference,
+          iban,
+          items,
+          customerSearch,
+        })
 
-          setAutosaveState(
-            navigator.onLine
-              ? 'saved'
-              : 'offline',
-          )
+        setAutosaveState(
+          navigator.onLine ? 'saved' : 'offline',
+        )
 
-          setAutosaveText(
-            formatDraftSavedAt(
-              savedAt,
-            ),
-          )
-        })()
-      }, 1200)
+        setAutosaveText(formatDraftSavedAt(savedAt))
+      })()
+    }, 1200)
 
     return () => {
       window.clearTimeout(timer)
@@ -620,21 +539,12 @@ export function NewInvoicePage() {
   ])
 
   async function discardInvoiceDraft() {
-    if (
-      !window.confirm(
-        'Odbaciti nedovršeni račun?',
-      )
-    ) {
-      return
-    }
+    if (!window.confirm('Odbaciti nedovršeni račun?')) return
 
-    await deleteUserDraft(
-      'invoice',
-      'new',
-    )
-
+    await deleteUserDraft('invoice', 'new')
     window.location.reload()
   }
+
   const customerSuggestions = useMemo(() => {
     const map = new Map<string, CustomerSuggestion>()
 
@@ -644,33 +554,29 @@ export function NewInvoicePage() {
         `${customer.name.trim().toLocaleLowerCase(
           'hr-HR',
         )}|${customer.email.trim().toLocaleLowerCase('hr-HR')}`
-      if (key && !map.has(key)) map.set(key, customer)
+
+      if (key && !map.has(key)) {
+        map.set(key, customer)
+      }
     }
 
-    companyCustomers.forEach(
-      (customer) =>
-        addCustomer({
-          name: customer.name,
-          type:
-            mapCompanyCustomerType(
-              customer.type,
-            ),
-          oib: customer.oib,
-          email: customer.email,
-          phone: customer.phone,
-          address: [
-            customer.street,
-            [
-              customer.postalCode,
-              customer.city,
-            ]
-              .filter(Boolean)
-              .join(' '),
-          ]
+    companyCustomers.forEach((customer) =>
+      addCustomer({
+        name: customer.name,
+        type: mapCompanyCustomerType(customer.type),
+        oib: customer.oib,
+        email: customer.email,
+        phone: customer.phone,
+        address: [
+          customer.street,
+          [customer.postalCode, customer.city]
             .filter(Boolean)
-            .join(', '),
-          city: customer.city,
-        }),
+            .join(' '),
+        ]
+          .filter(Boolean)
+          .join(', '),
+        city: customer.city,
+      }),
     )
 
     storedInvoices.forEach((invoice) =>
@@ -741,7 +647,14 @@ export function NewInvoicePage() {
       (sum, item) => sum + calculateItemVat(item),
       0,
     )
-    return { base, discount, net, vat, total: net + vat }
+
+    return {
+      base,
+      discount,
+      net,
+      vat,
+      total: net + vat,
+    }
   }, [items])
 
   function updateItem(
@@ -763,9 +676,13 @@ export function NewInvoicePage() {
   function duplicateItem(itemId: string) {
     const item = items.find((current) => current.id === itemId)
     if (!item) return
+
     setItems((current) => [
       ...current,
-      { ...item, id: createId('invoice-item') },
+      {
+        ...item,
+        id: createId('invoice-item'),
+      },
     ])
   }
 
@@ -787,7 +704,10 @@ export function NewInvoicePage() {
     setCity(customer.city)
     setCustomerSearch(customer.name)
     setShowCustomers(false)
-    setErrors((current) => ({ ...current, customerName: '' }))
+    setErrors((current) => ({
+      ...current,
+      customerName: '',
+    }))
   }
 
   function validate() {
@@ -797,11 +717,21 @@ export function NewInvoicePage() {
       nextErrors.invoiceNumber = 'Unesi broj računa.'
     }
 
-    if (!issueDate) nextErrors.issueDate = 'Odaberi datum izdavanja.'
-    if (!serviceDate) nextErrors.serviceDate = 'Odaberi datum usluge.'
-    if (!dueDate) nextErrors.dueDate = 'Odaberi datum dospijeća.'
+    if (!issueDate) {
+      nextErrors.issueDate = 'Odaberi datum izdavanja.'
+    }
+
+    if (!serviceDate) {
+      nextErrors.serviceDate = 'Odaberi datum usluge.'
+    }
+
+    if (!dueDate) {
+      nextErrors.dueDate = 'Odaberi datum dospijeća.'
+    }
+
     if (!customerName.trim()) {
-      nextErrors.customerName = 'Unesi ili odaberi investitora.'
+      nextErrors.customerName =
+        'Unesi ili odaberi investitora.'
     }
 
     if (!items.some((item) => item.name.trim())) {
@@ -843,6 +773,7 @@ export function NewInvoicePage() {
 
   function buildInvoice(status: InvoiceStatus): Invoice {
     const now = new Date().toISOString()
+
     const cleanItems = items
       .filter((item) => item.name.trim())
       .map((item) => ({
@@ -906,40 +837,50 @@ export function NewInvoicePage() {
 
   function preview() {
     setSaveMessage('')
+
     if (!validate()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
       return
     }
-    openInvoicePdf(buildInvoice(editingInvoice?.status ?? 'Nacrt'))
+
+    openInvoicePdf(
+      buildInvoice(
+        editingInvoice?.status ?? 'Nacrt',
+      ),
+    )
   }
 
   function save(status: InvoiceStatus) {
     setSaveMessage('')
+
     if (!validate()) {
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth',
+      })
       return
     }
 
     const savedInvoice = buildInvoice(status)
     const current = readInvoices()
+
     const updated = isEditing
       ? current.map((invoice) =>
-          invoice.id === savedInvoice.id ? savedInvoice : invoice,
+          invoice.id === savedInvoice.id
+            ? savedInvoice
+            : invoice,
         )
       : [savedInvoice, ...current]
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
 
-    if (
-      !isEditing &&
-      !isDuplicating &&
-      !sourceOffer
-    ) {
-      void deleteUserDraft(
-        'invoice',
-        'new',
-      )
+    if (!isEditing && !isDuplicating && !sourceOffer) {
+      void deleteUserDraft('invoice', 'new')
     }
+
     setSaveMessage(
       isEditing
         ? 'Promjene računa su spremljene.'
@@ -952,716 +893,796 @@ export function NewInvoicePage() {
   }
 
   return (
-    <section className="min-h-screen bg-slate-950 px-4 py-5 text-slate-100 sm:px-6 lg:px-8">
-      <DraftAutosaveBadge
-        state={autosaveState}
-        text={autosaveText}
-        onDiscard={
-          !isEditing &&
-          !isDuplicating &&
-          !sourceOffer &&
-          autosaveState !== 'idle'
-            ? () =>
-                void discardInvoiceDraft()
-            : undefined
-        }
-      />
-      <div className="mx-auto max-w-[1500px]">
-        <div className="mb-6 flex flex-col gap-4 rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-2xl shadow-black/20 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => navigate('/invoices')}
-              className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10"
-              aria-label="Natrag na račune"
-            >
-              <ArrowLeft size={20} />
-            </button>
+    <>
+      <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-28 sm:space-y-6 sm:pb-12">
+        <DraftAutosaveBadge
+          state={autosaveState}
+          text={autosaveText}
+          onDiscard={
+            !isEditing &&
+            !isDuplicating &&
+            !sourceOffer &&
+            autosaveState !== 'idle'
+              ? () => void discardInvoiceDraft()
+              : undefined
+          }
+        />
 
-            <div>
-              <div className="mb-1 flex items-center gap-2 text-sm font-bold text-violet-300">
-                <FileText size={16} />
-                Računi
-              </div>
-              <h1 className="text-2xl font-black tracking-tight sm:text-3xl">
+        <button
+          type="button"
+          onClick={() => navigate('/invoices')}
+          className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
+        >
+          <ArrowLeft size={18} />
+          Računi
+        </button>
+
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/45 p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
+
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
                 {isEditing
-                  ? `Uredi račun ${editingInvoice?.invoiceNumber}`
+                  ? 'UREĐIVANJE RAČUNA'
                   : sourceOffer
-                    ? 'Novi račun iz ponude'
+                    ? 'RAČUN IZ PONUDE'
                     : isDuplicating
-                      ? 'Kopija računa'
-                      : 'Novi račun'}
+                      ? 'KOPIJA RAČUNA'
+                      : 'NOVI RAČUN'}
+              </p>
+
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                {isEditing
+                  ? `Uredi ${invoiceNumber}`
+                  : 'Izradi račun'}
               </h1>
-              <p className="mt-1 text-sm text-slate-400">
-                Unesi investitora, datume, način plaćanja i stavke računa.
+
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Investitor, datumi, stavke i plaćanje u nekoliko jasnih koraka.
               </p>
             </div>
-          </div>
 
-          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={preview}
-              className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-slate-200 transition hover:bg-white/10"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-white active:scale-95 sm:hidden"
+              aria-label="PDF pregled"
             >
-              <Eye size={17} />
-              Pregled PDF-a
+              <Eye size={19} />
+            </button>
+          </div>
+
+          <div className="relative mt-5 grid grid-cols-3 gap-2">
+            <HeroMetric
+              label="Broj"
+              value={invoiceNumber}
+            />
+            <HeroMetric
+              label="Stavke"
+              value={String(
+                items.filter((item) => item.name.trim()).length,
+              )}
+            />
+            <HeroMetric
+              label="Ukupno"
+              value={formatCurrency(totals.total)}
+            />
+          </div>
+
+          <div className="relative mt-4 hidden gap-2 sm:flex">
+            <button
+              type="button"
+              onClick={preview}
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-sm font-black text-white"
+            >
+              <Eye size={18} />
+              PDF pregled
             </button>
 
             <button
               type="button"
               onClick={() => save('Nacrt')}
-              className="inline-flex items-center gap-2 rounded-2xl border border-violet-400/20 bg-violet-500/10 px-4 py-3 text-sm font-black text-violet-200 transition hover:bg-violet-500/20"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 text-sm font-black text-violet-200"
             >
-              <Save size={17} />
+              <Save size={18} />
               Spremi nacrt
             </button>
 
             <button
               type="button"
               onClick={() => save('Izdano')}
-              className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-black text-white transition hover:brightness-110"
+              className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white"
             >
-              <CheckCircle2 size={17} />
+              <CheckCircle2 size={18} />
               Izdaj račun
             </button>
           </div>
-        </div>
+        </section>
 
         {saveMessage && (
-          <div className="mb-5 rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-bold text-emerald-200">
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-200">
             {saveMessage}
           </div>
         )}
 
         {Object.keys(errors).length > 0 && (
-          <div className="mb-5 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          <div className="rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-200">
             Provjeri označena polja prije spremanja računa.
           </div>
         )}
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <main className="space-y-6">
-            <section className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/10">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
-                  <CalendarDays size={19} />
-                </div>
-                <div>
-                  <h2 className="font-black">Podaci računa</h2>
-                  <p className="text-sm text-slate-400">
-                    Broj računa i važni datumi.
-                  </p>
-                </div>
-              </div>
+        <MobileSection
+          number="1"
+          title="Podaci računa"
+          description="Broj računa i ključni datumi."
+          icon={<CalendarDays size={19} />}
+        >
+          <Field label="Broj računa">
+            <input
+              value={invoiceNumber}
+              onChange={(event) => {
+                setInvoiceNumber(event.target.value)
+                setErrors((current) => ({
+                  ...current,
+                  invoiceNumber: '',
+                }))
+              }}
+              className={`${inputClass} ${
+                errors.invoiceNumber ? 'border-red-500' : ''
+              }`}
+            />
+            {errors.invoiceNumber && (
+              <p className="mt-2 text-xs font-black text-red-300">
+                {errors.invoiceNumber}
+              </p>
+            )}
+          </Field>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Broj računa
-                  </span>
-                  <input
-                    value={invoiceNumber}
-                    onChange={(event) => {
-                      setInvoiceNumber(event.target.value)
-                      setErrors((current) => ({
-                        ...current,
-                        invoiceNumber: '',
-                      }))
-                    }}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 font-bold outline-none transition focus:border-violet-400/50"
-                  />
-                  {errors.invoiceNumber && (
-                    <span className="text-xs font-bold text-red-300">
-                      {errors.invoiceNumber}
+          <Field label="Datum izdavanja">
+            <input
+              type="date"
+              value={issueDate}
+              onChange={(event) => setIssueDate(event.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
+            />
+          </Field>
+
+          <Field label="Datum usluge">
+            <input
+              type="date"
+              value={serviceDate}
+              onChange={(event) => setServiceDate(event.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
+            />
+          </Field>
+
+          <Field label="Dospijeće">
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className={`${inputClass} [color-scheme:dark]`}
+            />
+          </Field>
+        </MobileSection>
+
+        <MobileSection
+          number="2"
+          title="Investitor"
+          description="Pretraži postojećeg ili unesi novog investitora."
+          icon={<UserRound size={19} />}
+        >
+          <div className="relative sm:col-span-2">
+            <Search
+              size={18}
+              className="pointer-events-none absolute left-4 top-6 -translate-y-1/2 text-slate-500"
+            />
+
+            <input
+              value={customerSearch}
+              onFocus={() => setShowCustomers(true)}
+              onChange={(event) => {
+                setCustomerSearch(event.target.value)
+                setCustomerName(event.target.value)
+                setShowCustomers(true)
+              }}
+              placeholder="Naziv, OIB, e-mail ili telefon..."
+              className={`${inputClass} pl-11 pr-11`}
+            />
+
+            {customerSearch && (
+              <button
+                type="button"
+                onClick={() => {
+                  setCustomerSearch('')
+                  setCustomerName('')
+                }}
+                className="absolute right-2 top-1.5 grid h-9 w-9 place-items-center rounded-xl text-slate-500"
+              >
+                <X size={16} />
+              </button>
+            )}
+
+            {showCustomers && filteredCustomers.length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-2 shadow-2xl">
+                {filteredCustomers.map((customer) => {
+                  const Icon = customerIcon(customer.type)
+
+                  return (
+                    <button
+                      key={`${customer.oib}-${customer.name}-${customer.email}`}
+                      type="button"
+                      onClick={() => selectCustomer(customer)}
+                      className="flex w-full items-start gap-3 rounded-xl p-3 text-left active:bg-slate-800"
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/15 text-violet-300">
+                        <Icon size={18} />
+                      </span>
+
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-white">
+                          {customer.name}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-slate-500">
+                          {[customer.oib, customer.email, customer.city]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            {errors.customerName && (
+              <p className="mt-2 text-xs font-black text-red-300">
+                {errors.customerName}
+              </p>
+            )}
+          </div>
+
+          {customerLoadError && (
+            <div className="sm:col-span-2 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs font-semibold text-amber-300">
+              {customerLoadError}
+            </div>
+          )}
+
+          <Field label="Vrsta investitora">
+            <select
+              value={customerType}
+              onChange={(event) =>
+                setCustomerType(event.target.value as CustomerType)
+              }
+              className={inputClass}
+            >
+              <option>Fizička osoba</option>
+              <option>Tvrtka</option>
+              <option>Zgrada</option>
+            </select>
+          </Field>
+
+          <Field label="Naziv / ime investitora">
+            <input
+              value={customerName}
+              onChange={(event) => {
+                setCustomerName(event.target.value)
+                setCustomerSearch(event.target.value)
+              }}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="OIB">
+            <input
+              inputMode="numeric"
+              maxLength={11}
+              value={oib}
+              onChange={(event) =>
+                setOib(
+                  event.target.value.replace(/\D/g, '').slice(0, 11),
+                )
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Telefon">
+            <input
+              inputMode="tel"
+              value={phone}
+              onChange={(event) => setPhone(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="E-mail">
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Grad">
+            <input
+              value={city}
+              onChange={(event) => setCity(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field
+            label="Adresa"
+            className="sm:col-span-2"
+          >
+            <input
+              value={address}
+              onChange={(event) => setAddress(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+        </MobileSection>
+
+        <MobileSection
+          number="3"
+          title="Stavke računa"
+          description="Radovi, materijal, količina, cijena, popust i PDV."
+          action={
+            <button
+              type="button"
+              onClick={addItem}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-500 px-3 text-xs font-black text-slate-950"
+            >
+              <Plus size={16} />
+              Dodaj
+            </button>
+          }
+        >
+          <div className="space-y-3 sm:col-span-2">
+            {errors.items && (
+              <div className="rounded-2xl bg-red-500/10 p-3 text-sm font-black text-red-300">
+                {errors.items}
+              </div>
+            )}
+
+            {items.map((item, index) => (
+              <article
+                key={item.id}
+                className="rounded-3xl border border-slate-800 bg-slate-950/45 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-800 text-xs font-black text-white">
+                      {index + 1}
                     </span>
-                  )}
-                </label>
+                    <p className="text-sm font-black text-white">
+                      Stavka
+                    </p>
+                  </div>
 
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Datum izdavanja
-                  </span>
-                  <input
-                    type="date"
-                    value={issueDate}
-                    onChange={(event) => setIssueDate(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 font-bold outline-none transition focus:border-violet-400/50"
-                  />
-                </label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => duplicateItem(item.id)}
+                      className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-300"
+                    >
+                      <Copy size={14} />
+                      Dupliciraj
+                    </button>
 
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Datum usluge
-                  </span>
-                  <input
-                    type="date"
-                    value={serviceDate}
-                    onChange={(event) => setServiceDate(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 font-bold outline-none transition focus:border-violet-400/50"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Dospijeće
-                  </span>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(event) => setDueDate(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 font-bold outline-none transition focus:border-violet-400/50"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/10">
-              <div className="mb-5 flex items-center gap-3">
-                <div className="grid h-10 w-10 place-items-center rounded-2xl bg-cyan-500/15 text-cyan-300">
-                  <UserRound size={19} />
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="grid h-9 w-9 place-items-center rounded-xl bg-red-500/10 text-red-400"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
-                <div>
-                  <h2 className="font-black">Investitor</h2>
-                  <p className="text-sm text-slate-400">
-                    Odaberi postojećeg ili unesi novog investitora.
-                  </p>
-                </div>
-              </div>
 
-              <div className="relative mb-4">
-                <Search className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                <input
-                  value={customerSearch}
-                  onFocus={() => setShowCustomers(true)}
-                  onChange={(event) => {
-                    setCustomerSearch(event.target.value)
-                    setCustomerName(event.target.value)
-                    setShowCustomers(true)
-                  }}
-                  placeholder="Pretraži investitora po nazivu, OIB-u ili e-mailu"
-                  className="w-full rounded-2xl border border-white/10 bg-slate-950/80 py-3 pl-11 pr-11 outline-none transition focus:border-violet-400/50"
-                />
+                <div className="mt-4 space-y-3">
+                  <input
+                    value={item.name}
+                    onChange={(event) =>
+                      updateItem(item.id, 'name', event.target.value)
+                    }
+                    placeholder="Naziv stavke"
+                    className={inputClass}
+                  />
 
-                {customerSearch && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCustomerSearch('')
-                      setCustomerName('')
-                    }}
-                    className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-xl text-slate-500 hover:bg-white/5"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-
-                {showCustomers && filteredCustomers.length > 0 && (
-                  <div className="absolute z-20 mt-2 max-h-72 w-full overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-2 shadow-2xl">
-                    {filteredCustomers.map((customer) => {
-                      const Icon = customerIcon(customer.type)
-                      return (
-                        <button
-                          key={`${customer.oib}-${customer.name}-${customer.email}`}
-                          type="button"
-                          onClick={() => selectCustomer(customer)}
-                          className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-white/5"
-                        >
-                          <div className="grid h-9 w-9 place-items-center rounded-xl bg-violet-500/15 text-violet-300">
-                            <Icon size={17} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="truncate font-black">
-                              {customer.name}
-                            </div>
-                            <div className="truncate text-xs text-slate-400">
-                              {[customer.oib, customer.email, customer.city]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </div>
-                          </div>
-                        </button>
+                  <textarea
+                    rows={3}
+                    value={item.description}
+                    onChange={(event) =>
+                      updateItem(
+                        item.id,
+                        'description',
+                        event.target.value,
                       )
-                    })}
+                    }
+                    placeholder="Opis stavke"
+                    className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
+                  />
+
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    <MiniField label="Količina">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.quantity}
+                        onChange={(event) =>
+                          updateItem(
+                            item.id,
+                            'quantity',
+                            Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+
+                    <MiniField label="Jedinica">
+                      <select
+                        value={item.unit}
+                        onChange={(event) =>
+                          updateItem(item.id, 'unit', event.target.value)
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      >
+                        {unitOptions.map((unit) => (
+                          <option
+                            key={unit}
+                            value={unit}
+                          >
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
+                    </MiniField>
+
+                    <MiniField label="Cijena €">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.price}
+                        onChange={(event) =>
+                          updateItem(
+                            item.id,
+                            'price',
+                            Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+
+                    <MiniField label="Popust %">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={item.discount}
+                        onChange={(event) =>
+                          updateItem(
+                            item.id,
+                            'discount',
+                            Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+
+                    <MiniField label="PDV %">
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={item.vat}
+                        onChange={(event) =>
+                          updateItem(
+                            item.id,
+                            'vat',
+                            Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
                   </div>
-                )}
-              </div>
 
-              {customerLoadError && (
-                <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300">
-                  {customerLoadError}
-                </div>
-              )}
+                  <div className="flex items-center justify-between rounded-2xl bg-violet-500/10 p-3">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-violet-300">
+                      Ukupno stavke
+                    </span>
 
-              {errors.customerName && (
-                <div className="mb-4 text-xs font-bold text-red-300">
-                  {errors.customerName}
-                </div>
-              )}
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Vrsta investitora
-                  </span>
-                  <select
-                    value={customerType}
-                    onChange={(event) =>
-                      setCustomerType(event.target.value as CustomerType)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  >
-                    <option>Fizička osoba</option>
-                    <option>Tvrtka</option>
-                    <option>Zgrada</option>
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Naziv / ime investitora
-                  </span>
-                  <input
-                    value={customerName}
-                    onChange={(event) => {
-                      setCustomerName(event.target.value)
-                      setCustomerSearch(event.target.value)
-                    }}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    OIB
-                  </span>
-                  <input
-                    value={oib}
-                    onChange={(event) => setOib(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    E-mail
-                  </span>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Telefon
-                  </span>
-                  <input
-                    value={phone}
-                    onChange={(event) => setPhone(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Grad
-                  </span>
-                  <input
-                    value={city}
-                    onChange={(event) => setCity(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2 md:col-span-2 xl:col-span-3">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Adresa
-                  </span>
-                  <input
-                    value={address}
-                    onChange={(event) => setAddress(event.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/10">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="font-black">Stavke računa</h2>
-                  <p className="text-sm text-slate-400">
-                    Unesi radove, materijal, količine i cijene.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addItem}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-2.5 text-sm font-black text-white"
-                >
-                  <Plus size={17} />
-                  Dodaj stavku
-                </button>
-              </div>
-
-              {errors.items && (
-                <div className="mb-4 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-200">
-                  {errors.items}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {items.map((item, index) => (
-                  <article
-                    key={item.id}
-                    className="rounded-2xl border border-white/10 bg-slate-950/50 p-4"
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="font-black text-slate-200">
-                        Stavka {index + 1}
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={() => duplicateItem(item.id)}
-                          className="grid h-9 w-9 place-items-center rounded-xl border border-white/10 text-slate-400 hover:bg-white/5"
-                          title="Dupliciraj stavku"
-                        >
-                          <Copy size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.id)}
-                          className="grid h-9 w-9 place-items-center rounded-xl border border-red-400/20 text-red-300 hover:bg-red-500/10"
-                          title="Obriši stavku"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-4 lg:grid-cols-12">
-                      <label className="space-y-2 lg:col-span-5">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          Naziv
-                        </span>
-                        <input
-                          value={item.name}
-                          onChange={(event) =>
-                            updateItem(item.id, 'name', event.target.value)
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          Količina
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.quantity}
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'quantity',
-                              Number(event.target.value),
-                            )
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          JM
-                        </span>
-                        <select
-                          value={item.unit}
-                          onChange={(event) =>
-                            updateItem(item.id, 'unit', event.target.value)
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        >
-                          {unitOptions.map((unit) => (
-                            <option key={unit}>{unit}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-3">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          Cijena bez PDV-a
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.price}
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'price',
-                              Number(event.target.value),
-                            )
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-6">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          Opis
-                        </span>
-                        <textarea
-                          rows={3}
-                          value={item.description}
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'description',
-                              event.target.value,
-                            )
-                          }
-                          className="w-full resize-none rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          Popust %
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          value={item.discount}
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'discount',
-                              Number(event.target.value),
-                            )
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <label className="space-y-2 lg:col-span-2">
-                        <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                          PDV %
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={item.vat}
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'vat',
-                              Number(event.target.value),
-                            )
-                          }
-                          className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 outline-none"
-                        />
-                      </label>
-
-                      <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4 lg:col-span-2">
-                        <div className="text-xs font-black uppercase tracking-wider text-violet-300">
-                          Ukupno
-                        </div>
-                        <div className="mt-2 text-lg font-black text-white">
-                          {formatCurrency(calculateItemTotal(item))}
-                        </div>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="rounded-3xl border border-white/10 bg-slate-900/80 p-5 shadow-xl shadow-black/10">
-              <h2 className="mb-5 font-black">Plaćanje i napomene</h2>
-
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Način plaćanja
-                  </span>
-                  <select
-                    value={paymentMethod}
-                    onChange={(event) =>
-                      setPaymentMethod(event.target.value)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  >
-                    {paymentMethods.map((method) => (
-                      <option key={method}>{method}</option>
-                    ))}
-                  </select>
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    IBAN
-                  </span>
-                  <input
-                    value={iban}
-                    onChange={(event) => setIban(event.target.value)}
-                    placeholder="HR..."
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Odgovorna osoba
-                  </span>
-                  <input
-                    value={responsiblePerson}
-                    onChange={(event) =>
-                      setResponsiblePerson(event.target.value)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Model
-                  </span>
-                  <input
-                    value={paymentModel}
-                    onChange={(event) =>
-                      setPaymentModel(event.target.value)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2 md:col-span-1 xl:col-span-2">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Poziv na broj
-                  </span>
-                  <input
-                    value={paymentReference}
-                    onChange={(event) =>
-                      setPaymentReference(event.target.value)
-                    }
-                    className="w-full rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2 md:col-span-2 xl:col-span-3">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Opis računa
-                  </span>
-                  <textarea
-                    rows={3}
-                    value={description}
-                    onChange={(event) =>
-                      setDescription(event.target.value)
-                    }
-                    className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-
-                <label className="space-y-2 md:col-span-2 xl:col-span-3">
-                  <span className="text-xs font-black uppercase tracking-wider text-slate-400">
-                    Interna napomena
-                  </span>
-                  <textarea
-                    rows={3}
-                    value={internalNote}
-                    onChange={(event) =>
-                      setInternalNote(event.target.value)
-                    }
-                    className="w-full resize-none rounded-2xl border border-white/10 bg-slate-950/80 px-4 py-3 outline-none"
-                  />
-                </label>
-              </div>
-            </section>
-          </main>
-
-          <aside className="space-y-5 xl:sticky xl:top-5 xl:self-start">
-            <section className="rounded-3xl border border-white/10 bg-slate-900/90 p-5 shadow-xl">
-              <h2 className="mb-4 font-black">Sažetak računa</h2>
-
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between gap-3 text-slate-400">
-                  <span>Vrijednost stavki</span>
-                  <strong className="text-slate-200">
-                    {formatCurrency(totals.base)}
-                  </strong>
-                </div>
-                {totals.discount > 0 && (
-                  <div className="flex justify-between gap-3 text-orange-300">
-                    <span>Popust</span>
-                    <strong>
-                      − {formatCurrency(totals.discount)}
-                    </strong>
+                    <span className="text-sm font-black text-white">
+                      {formatCurrency(calculateItemTotal(item))}
+                    </span>
                   </div>
-                )}
-                <div className="flex justify-between gap-3 text-slate-400">
-                  <span>Osnovica</span>
-                  <strong className="text-slate-200">
-                    {formatCurrency(totals.net)}
-                  </strong>
                 </div>
-                <div className="flex justify-between gap-3 text-slate-400">
-                  <span>PDV</span>
-                  <strong className="text-slate-200">
-                    {formatCurrency(totals.vat)}
-                  </strong>
-                </div>
-              </div>
+              </article>
+            ))}
+          </div>
+        </MobileSection>
 
-              <div className="mt-5 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
-                <div className="text-xs font-black uppercase tracking-wider text-violet-300">
-                  Ukupno za plaćanje
-                </div>
-                <div className="mt-2 text-3xl font-black tracking-tight text-white">
-                  {formatCurrency(totals.total)}
-                </div>
-              </div>
+        <MobileSection
+          number="4"
+          title="Plaćanje i napomene"
+          description="Način plaćanja, IBAN i završni tekst računa."
+          icon={<FileText size={19} />}
+        >
+          <Field label="Način plaćanja">
+            <select
+              value={paymentMethod}
+              onChange={(event) => setPaymentMethod(event.target.value)}
+              className={inputClass}
+            >
+              {paymentMethods.map((method) => (
+                <option key={method}>{method}</option>
+              ))}
+            </select>
+          </Field>
 
-              <div className="mt-5 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => save('Izdano')}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-black text-white"
-                >
-                  <CheckCircle2 size={17} />
-                  Izdaj račun
-                </button>
-                <button
-                  type="button"
-                  onClick={() => save('Nacrt')}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black text-slate-200"
-                >
-                  <Save size={17} />
-                  Spremi kao nacrt
-                </button>
-                <button
-                  type="button"
-                  onClick={preview}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 px-4 py-3 text-sm font-black text-slate-300"
-                >
-                  <Eye size={17} />
-                  Pregled PDF-a
-                </button>
-              </div>
-            </section>
-          </aside>
+          <Field label="IBAN">
+            <input
+              value={iban}
+              onChange={(event) => setIban(event.target.value)}
+              placeholder="HR..."
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Odgovorna osoba">
+            <input
+              value={responsiblePerson}
+              onChange={(event) =>
+                setResponsiblePerson(event.target.value)
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field label="Model">
+            <input
+              value={paymentModel}
+              onChange={(event) => setPaymentModel(event.target.value)}
+              className={inputClass}
+            />
+          </Field>
+
+          <Field
+            label="Poziv na broj"
+            className="sm:col-span-2"
+          >
+            <input
+              value={paymentReference}
+              onChange={(event) =>
+                setPaymentReference(event.target.value)
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <Field
+            label="Opis računa"
+            className="sm:col-span-2"
+          >
+            <textarea
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none focus:border-violet-500"
+            />
+          </Field>
+
+          <Field
+            label="Interna napomena"
+            className="sm:col-span-2"
+          >
+            <textarea
+              rows={4}
+              value={internalNote}
+              onChange={(event) => setInternalNote(event.target.value)}
+              className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none focus:border-violet-500"
+            />
+          </Field>
+        </MobileSection>
+
+        <section className="rounded-3xl border border-violet-500/20 bg-gradient-to-br from-slate-900 to-violet-950/30 p-4 sm:p-6">
+          <div className="flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
+              <CheckCircle2 size={20} />
+            </span>
+
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
+                SAŽETAK
+              </p>
+
+              <h2 className="mt-1 text-lg font-black text-white">
+                Ukupno za plaćanje
+              </h2>
+            </div>
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <TotalBox
+              label="Vrijednost"
+              value={formatCurrency(totals.base)}
+            />
+            <TotalBox
+              label="Popust"
+              value={formatCurrency(totals.discount)}
+            />
+            <TotalBox
+              label="PDV"
+              value={formatCurrency(totals.vat)}
+            />
+            <TotalBox
+              label="Ukupno"
+              value={formatCurrency(totals.total)}
+              strong
+            />
+          </div>
+        </section>
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+        <div className="mx-auto grid max-w-xl grid-cols-[auto_1fr] gap-2">
+          <button
+            type="button"
+            onClick={() => save('Nacrt')}
+            className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-800 text-violet-200"
+            aria-label="Spremi nacrt"
+          >
+            <Save size={18} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => save('Izdano')}
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white"
+          >
+            <CheckCircle2 size={18} />
+            {isEditing ? 'Spremi i izdaj' : 'Izdaj račun'}
+          </button>
         </div>
       </div>
+    </>
+  )
+}
+
+function MobileSection({
+  number,
+  title,
+  description,
+  icon,
+  action,
+  children,
+}: {
+  number: string
+  title: string
+  description: string
+  icon?: ReactNode
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-500/12 text-xs font-black text-violet-300">
+            {icon ?? number}
+          </span>
+
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-white sm:text-xl">
+              {number}. {title}
+            </h2>
+
+            <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        {action && <div className="shrink-0">{action}</div>}
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {children}
+      </div>
     </section>
+  )
+}
+
+function Field({
+  label,
+  className = '',
+  children,
+}: {
+  label: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <label className={className}>
+      <span className="text-sm font-black text-slate-300">{label}</span>
+      <div className="mt-2">{children}</div>
+    </label>
+  )
+}
+
+function MiniField({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <label className="min-w-0">
+      <span className="block truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
+        {label}
+      </span>
+      <div className="mt-1">{children}</div>
+    </label>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
+    </div>
+  )
+}
+
+function TotalBox({
+  label,
+  value,
+  strong = false,
+}: {
+  label: string
+  value: string
+  strong?: boolean
+}) {
+  return (
+    <div
+      className={`rounded-2xl p-4 ${
+        strong ? 'bg-violet-600' : 'bg-slate-800/65'
+      }`}
+    >
+      <p
+        className={`text-[9px] font-black uppercase tracking-wider ${
+          strong ? 'text-violet-100' : 'text-slate-600'
+        }`}
+      >
+        {label}
+      </p>
+
+      <p className="mt-2 truncate text-sm font-black text-white sm:text-base">
+        {value}
+      </p>
+    </div>
   )
 }
