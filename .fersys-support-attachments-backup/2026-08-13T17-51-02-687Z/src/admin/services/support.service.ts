@@ -1,43 +1,5 @@
 import { supabase } from '../../lib/supabase'
 
-const SUPPORT_ATTACHMENTS_BUCKET =
-  'support-attachments'
-
-function isAbsoluteUrl(value: string) {
-  return /^https?:\/\//i.test(value)
-}
-
-async function resolveSupportAttachment(
-  storedValue: string,
-): Promise<string> {
-  const value = storedValue.trim()
-
-  if (!value) return ''
-  if (isAbsoluteUrl(value)) {
-    return value
-  }
-
-  const { data, error } =
-    await supabase.storage
-      .from(
-        SUPPORT_ATTACHMENTS_BUCKET,
-      )
-      .createSignedUrl(
-        value,
-        60 * 60,
-      )
-
-  if (error) {
-    console.error(
-      'Admin support attachment URL:',
-      error,
-    )
-    return ''
-  }
-
-  return data.signedUrl
-}
-
 export type SupportTicketStatus =
   | 'new'
   | 'open'
@@ -74,7 +36,6 @@ export type AdminSupportTicket = {
   status: SupportTicketStatus
   priority: SupportTicketPriority
   internalNote: string
-  attachmentUrl: string
   createdAt: string
   updatedAt: string
 }
@@ -140,59 +101,50 @@ Promise<AdminSupportTicket[]> {
     throw error
   }
 
-  return Promise.all(
-    (data ?? []).map(
-      async (
-        row:
-          Record<string, unknown>,
-      ) => ({
-        id: String(
-          row.id ?? '',
+  return (data ?? []).map(
+    (
+      row:
+        Record<string, unknown>,
+    ) => ({
+      id: String(
+        row.id ?? '',
+      ),
+      companyId: String(
+        row.company_id ?? '',
+      ),
+      companyName: String(
+        row.company_name ?? '',
+      ),
+      requesterName: String(
+        row.requester_name ?? '',
+      ),
+      requesterEmail: String(
+        row.requester_email ?? '',
+      ),
+      subject: String(
+        row.subject ?? '',
+      ),
+      message: String(
+        row.message ?? '',
+      ),
+      status:
+        mapDbStatus(
+          row.status,
         ),
-        companyId: String(
-          row.company_id ?? '',
+      priority:
+        mapDbPriority(
+          row.priority,
         ),
-        companyName: String(
-          row.company_name ?? '',
-        ),
-        requesterName: String(
-          row.requester_name ?? '',
-        ),
-        requesterEmail: String(
-          row.requester_email ?? '',
-        ),
-        subject: String(
-          row.subject ?? '',
-        ),
-        message: String(
-          row.message ?? '',
-        ),
-        status:
-          mapDbStatus(
-            row.status,
-          ),
-        priority:
-          mapDbPriority(
-            row.priority,
-          ),
-        internalNote: String(
-          row.internal_note ?? '',
-        ),
-        attachmentUrl:
-          await resolveSupportAttachment(
-            String(
-              row.attachment_url ??
-                '',
-            ),
-          ),
-        createdAt: String(
-          row.created_at ?? '',
-        ),
-        updatedAt: String(
-          row.updated_at ?? '',
-        ),
-      }),
-    ),
+      internalNote: String(
+        row.internal_note ?? '',
+      ),
+      createdAt: String(
+        row.created_at ?? '',
+      ),
+      updatedAt: String(
+        row.updated_at ?? '',
+      ),
+    }),
   )
 }
 
@@ -213,54 +165,49 @@ getAdminSupportMessages(
     throw error
   }
 
-  return Promise.all(
-    (data ?? []).map(
-      async (
-        row:
-          Record<string, unknown>,
-      ) => ({
-        id: String(
-          row.id ?? '',
-        ),
-        ticketId: String(
-          row.ticket_id ?? '',
-        ),
-        senderType: String(
-          row.sender_type ??
-          'user',
-        ) as
-          | 'user'
-          | 'admin',
-        senderName: String(
-          row.sender_name ?? '',
-        ),
-        message: String(
-          row.message ?? '',
-        ),
-        attachmentUrl:
-          await resolveSupportAttachment(
-            String(
-              row.attachment_url ??
-                '',
-            ),
-          ),
-        createdAt: String(
-          row.created_at ?? '',
-        ),
-        readByUserAt:
-          row.read_by_user_at
-            ? String(
-                row.read_by_user_at,
-              )
-            : null,
-        readByAdminAt:
-          row.read_by_admin_at
-            ? String(
-                row.read_by_admin_at,
-              )
-            : null,
-      }),
-    ),
+  return (data ?? []).map(
+    (
+      row:
+        Record<string, unknown>,
+    ) => ({
+      id: String(
+        row.id ?? '',
+      ),
+      ticketId: String(
+        row.ticket_id ?? '',
+      ),
+      senderType: String(
+        row.sender_type ??
+        'user',
+      ) as
+        | 'user'
+        | 'admin',
+      senderName: String(
+        row.sender_name ?? '',
+      ),
+      message: String(
+        row.message ?? '',
+      ),
+      attachmentUrl: String(
+        row.attachment_url ??
+        '',
+      ),
+      createdAt: String(
+        row.created_at ?? '',
+      ),
+      readByUserAt:
+        row.read_by_user_at
+          ? String(
+              row.read_by_user_at,
+            )
+          : null,
+      readByAdminAt:
+        row.read_by_admin_at
+          ? String(
+              row.read_by_admin_at,
+            )
+          : null,
+    }),
   )
 }
 

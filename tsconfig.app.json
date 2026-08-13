@@ -22,5 +22,5 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src", "apply-inventory-supabase-v1.mjs", "apply-investitor-fix-v2.mjs", "apply-super-admin-v2.mjs", "apply-investitor-rename-v1.mjs", "apply-email-center-v1.mjs", "apply-final-mobile-audit.mjs"]
 }

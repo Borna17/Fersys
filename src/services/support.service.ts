@@ -39,6 +39,116 @@ export type MySupportTicket = {
   updatedAt: string
 }
 
+const SUPPORT_ATTACHMENTS_BUCKET =
+  'support-attachments'
+
+function isAbsoluteUrl(value: string) {
+  return /^https?:\/\//i.test(value)
+}
+
+export function validateSupportImage(
+  file: File,
+): void {
+  if (!file.type.startsWith('image/')) {
+    throw new Error(
+      'Možeš priložiti samo sliku ili screenshot.',
+    )
+  }
+
+  if (file.size > 8 * 1024 * 1024) {
+    throw new Error(
+      'Slika može imati najviše 8 MB.',
+    )
+  }
+}
+
+export async function uploadSupportAttachment(
+  file: File,
+): Promise<string> {
+  validateSupportImage(file)
+
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser()
+
+  if (authError) throw authError
+  if (!user) {
+    throw new Error(
+      'Korisnik nije prijavljen.',
+    )
+  }
+
+  const rawExtension =
+    file.name.split('.').pop() ?? 'jpg'
+  const extension =
+    rawExtension
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '') ||
+    'jpg'
+
+  const objectPath =
+    user.id +
+    '/' +
+    Date.now() +
+    '-' +
+    crypto.randomUUID() +
+    '.' +
+    extension
+
+  const { error: uploadError } =
+    await supabase.storage
+      .from(
+        SUPPORT_ATTACHMENTS_BUCKET,
+      )
+      .upload(
+        objectPath,
+        file,
+        {
+          cacheControl: '3600',
+          upsert: false,
+          contentType:
+            file.type ||
+            'image/jpeg',
+        },
+      )
+
+  if (uploadError) throw uploadError
+
+  return objectPath
+}
+
+async function resolveSupportAttachment(
+  storedValue: string,
+): Promise<string> {
+  const value = storedValue.trim()
+
+  if (!value) return ''
+  if (isAbsoluteUrl(value)) {
+    return value
+  }
+
+  const { data, error } =
+    await supabase.storage
+      .from(
+        SUPPORT_ATTACHMENTS_BUCKET,
+      )
+      .createSignedUrl(
+        value,
+        60 * 60,
+      )
+
+  if (error) {
+    console.error(
+      'Support attachment URL:',
+      error,
+    )
+    return ''
+  }
+
+  return data.signedUrl
+}
+
 export type CreateSupportTicketInput = {
   category: string
   subject: string
@@ -86,41 +196,51 @@ Promise<MySupportTicket[]> {
     throw error
   }
 
-  return (data ?? []).map(
-    (row: Record<string, unknown>) => ({
-      id: String(row.id ?? ''),
-      ticketNumber: String(
-        row.ticket_number ?? '',
-      ),
-      category: String(
-        row.category ?? '',
-      ),
-      subject: String(
-        row.subject ?? '',
-      ),
-      description: String(
-        row.description ?? '',
-      ),
-      priority: String(
-        row.priority ?? 'normal',
-      ) as SupportTicketPriority,
-      status: String(
-        row.status ?? 'new',
-      ) as SupportTicketStatus,
-      module: String(row.module ?? ''),
-      contactPhone: String(
-        row.contact_phone ?? '',
-      ),
-      attachmentUrl: String(
-        row.attachment_url ?? '',
-      ),
-      createdAt: String(
-        row.created_at ?? '',
-      ),
-      updatedAt: String(
-        row.updated_at ?? '',
-      ),
-    }),
+  return Promise.all(
+    (data ?? []).map(
+      async (
+        row: Record<string, unknown>,
+      ) => ({
+        id: String(row.id ?? ''),
+        ticketNumber: String(
+          row.ticket_number ?? '',
+        ),
+        category: String(
+          row.category ?? '',
+        ),
+        subject: String(
+          row.subject ?? '',
+        ),
+        description: String(
+          row.description ?? '',
+        ),
+        priority: String(
+          row.priority ?? 'normal',
+        ) as SupportTicketPriority,
+        status: String(
+          row.status ?? 'new',
+        ) as SupportTicketStatus,
+        module: String(
+          row.module ?? '',
+        ),
+        contactPhone: String(
+          row.contact_phone ?? '',
+        ),
+        attachmentUrl:
+          await resolveSupportAttachment(
+            String(
+              row.attachment_url ??
+                '',
+            ),
+          ),
+        createdAt: String(
+          row.created_at ?? '',
+        ),
+        updatedAt: String(
+          row.updated_at ?? '',
+        ),
+      }),
+    ),
   )
 }
 
@@ -138,47 +258,63 @@ export async function getMySupportMessages(
     throw error
   }
 
-  return (data ?? []).map(
-    (row: Record<string, unknown>) => ({
-      id: String(row.id ?? ''),
-      ticketId: String(
-        row.ticket_id ?? '',
-      ),
-      senderType: String(
-        row.sender_type ?? 'user',
-      ) as 'user' | 'admin',
-      senderName: String(
-        row.sender_name ?? '',
-      ),
-      message: String(
-        row.message ?? '',
-      ),
-      attachmentUrl: String(
-        row.attachment_url ?? '',
-      ),
-      createdAt: String(
-        row.created_at ?? '',
-      ),
-      readByUserAt: row.read_by_user_at
-        ? String(row.read_by_user_at)
-        : null,
-      readByAdminAt: row.read_by_admin_at
-        ? String(row.read_by_admin_at)
-        : null,
-    }),
+  return Promise.all(
+    (data ?? []).map(
+      async (
+        row: Record<string, unknown>,
+      ) => ({
+        id: String(row.id ?? ''),
+        ticketId: String(
+          row.ticket_id ?? '',
+        ),
+        senderType: String(
+          row.sender_type ?? 'user',
+        ) as 'user' | 'admin',
+        senderName: String(
+          row.sender_name ?? '',
+        ),
+        message: String(
+          row.message ?? '',
+        ),
+        attachmentUrl:
+          await resolveSupportAttachment(
+            String(
+              row.attachment_url ??
+                '',
+            ),
+          ),
+        createdAt: String(
+          row.created_at ?? '',
+        ),
+        readByUserAt:
+          row.read_by_user_at
+            ? String(
+                row.read_by_user_at,
+              )
+            : null,
+        readByAdminAt:
+          row.read_by_admin_at
+            ? String(
+                row.read_by_admin_at,
+              )
+            : null,
+      }),
+    ),
   )
 }
 
 export async function sendMySupportMessage(
   ticketId: string,
   message: string,
+  attachmentPath = '',
 ): Promise<void> {
   const { error } = await supabase.rpc(
     'send_support_message',
     {
       requested_ticket_id: ticketId,
       requested_message: message,
-      requested_attachment_url: null,
+      requested_attachment_url:
+        attachmentPath || null,
     },
   )
 

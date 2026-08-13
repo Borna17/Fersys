@@ -178,8 +178,7 @@ export function AdminSupportPage() {
             message:
               ticket.message ||
               'Nema sadržaja poruke.',
-            attachmentUrl:
-              ticket.attachmentUrl,
+            attachmentUrl: '',
             createdAt:
               ticket.createdAt,
             readByUserAt: null,
@@ -780,25 +779,6 @@ function TicketChat({
               </strong>
             </span>
           </div>
-
-          {ticket.attachmentUrl && (
-            <a
-              href={ticket.attachmentUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 block max-w-xl overflow-hidden rounded-2xl border border-blue-500/20 bg-slate-950/60 p-2"
-            >
-              <p className="mb-2 px-1 text-xs font-black uppercase tracking-wide text-blue-300">
-                Priloženi screenshot
-              </p>
-              <img
-                src={ticket.attachmentUrl}
-                alt="Screenshot support zahtjeva"
-                className="max-h-80 w-full rounded-xl object-contain"
-                loading="lazy"
-              />
-            </a>
-          )}
         </div>
 
         <button
@@ -1010,23 +990,6 @@ function ChatBubble({
         <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
           {message.message}
         </p>
-
-        {message.attachmentUrl && (
-          <a
-            href={message.attachmentUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 block overflow-hidden rounded-xl border border-white/10 bg-black/15"
-            title="Otvori screenshot"
-          >
-            <img
-              src={message.attachmentUrl}
-              alt="Priloženi screenshot"
-              className="max-h-80 w-full object-contain"
-              loading="lazy"
-            />
-          </a>
-        )}
 
         <p
           className={`mt-3 text-[11px] font-bold ${

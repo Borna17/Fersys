@@ -5,8 +5,6 @@ import {
   Headphones,
   MailQuestion,
   MessageSquareText,
-  ImagePlus,
-  Paperclip,
   RefreshCw,
   Send,
   X,
@@ -23,8 +21,6 @@ import {
   getMySupportMessages,
   getMySupportTickets,
   sendMySupportMessage,
-  uploadSupportAttachment,
-  validateSupportImage,
   type MySupportTicket,
   type SupportMessage,
   type SupportTicketPriority,
@@ -107,14 +103,6 @@ export function SupportPage() {
     useState('')
   const [reply, setReply] =
     useState('')
-  const [
-    newAttachment,
-    setNewAttachment,
-  ] = useState<File | null>(null)
-  const [
-    replyAttachment,
-    setReplyAttachment,
-  ] = useState<File | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -206,13 +194,6 @@ export function SupportPage() {
       setError('')
       setSuccess('')
 
-      const attachmentPath =
-        newAttachment
-          ? await uploadSupportAttachment(
-              newAttachment,
-            )
-          : ''
-
       const ticketNumber =
         await createSupportTicket({
           category,
@@ -223,8 +204,6 @@ export function SupportPage() {
           module,
           contactPhone:
             contactPhone.trim(),
-          attachmentUrl:
-            attachmentPath,
         })
 
       setSuccess(
@@ -236,7 +215,6 @@ export function SupportPage() {
       setPriority('normal')
       setModule('')
       setContactPhone('')
-      setNewAttachment(null)
 
       await load()
     } catch (value) {
@@ -253,10 +231,7 @@ export function SupportPage() {
   async function sendReply() {
     if (
       !selected ||
-      (
-        reply.trim().length < 1 &&
-        !replyAttachment
-      )
+      reply.trim().length < 1
     ) {
       return
     }
@@ -265,22 +240,12 @@ export function SupportPage() {
       setSending(true)
       setError('')
 
-      const attachmentPath =
-        replyAttachment
-          ? await uploadSupportAttachment(
-              replyAttachment,
-            )
-          : ''
-
       await sendMySupportMessage(
         selected.id,
-        reply.trim() ||
-          'Priložen screenshot.',
-        attachmentPath,
+        reply.trim(),
       )
 
       setReply('')
-      setReplyAttachment(null)
       await loadMessages(selected.id)
       await load()
     } catch (value) {
@@ -291,44 +256,6 @@ export function SupportPage() {
       )
     } finally {
       setSending(false)
-    }
-  }
-
-  function chooseNewAttachment(
-    file: File | null,
-  ) {
-    if (!file) return
-
-    try {
-      validateSupportImage(file)
-      setNewAttachment(file)
-      setError('')
-    } catch (value) {
-      setNewAttachment(null)
-      setError(
-        value instanceof Error
-          ? value.message
-          : 'Slika nije valjana.',
-      )
-    }
-  }
-
-  function chooseReplyAttachment(
-    file: File | null,
-  ) {
-    if (!file) return
-
-    try {
-      validateSupportImage(file)
-      setReplyAttachment(file)
-      setError('')
-    } catch (value) {
-      setReplyAttachment(null)
-      setError(
-        value instanceof Error
-          ? value.message
-          : 'Slika nije valjana.',
-      )
     }
   }
 
@@ -515,50 +442,6 @@ export function SupportPage() {
               </Field>
             </div>
 
-            <Field label="Priloži screenshot — opcionalno">
-              <label className="mt-2 flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-slate-700 bg-slate-950 px-4 text-sm text-slate-300 transition hover:border-blue-500/60">
-                <ImagePlus
-                  size={20}
-                  className="shrink-0 text-blue-400"
-                />
-
-                <span className="min-w-0 flex-1 truncate">
-                  {newAttachment
-                    ? newAttachment.name
-                    : 'Odaberi sliku iz galerije'}
-                </span>
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(event) => {
-                    chooseNewAttachment(
-                      event.target.files?.[0] ??
-                        null,
-                    )
-                    event.target.value = ''
-                  }}
-                />
-              </label>
-
-              {newAttachment && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setNewAttachment(null)
-                  }
-                  className="mt-2 text-xs font-black text-red-300"
-                >
-                  Ukloni prilog
-                </button>
-              )}
-
-              <p className="mt-2 text-xs font-normal leading-5 text-slate-500">
-                Slika do 8 MB.
-              </p>
-            </Field>
-
             <Field label="Kontakt telefon — opcionalno">
               <input
                 value={contactPhone}
@@ -656,75 +539,31 @@ export function SupportPage() {
                 'resolved',
                 'closed',
               ].includes(selected.status) && (
-                <div className="sticky bottom-0 mt-4 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 backdrop-blur-xl">
-                  {replyAttachment && (
-                    <div className="mb-2 flex items-center justify-between gap-3 rounded-xl bg-slate-800 px-3 py-2 text-xs">
-                      <span className="min-w-0 truncate text-slate-300">
-                        {replyAttachment.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setReplyAttachment(
-                            null,
-                          )
-                        }
-                        className="shrink-0 text-slate-500 hover:text-white"
-                        aria-label="Ukloni prilog"
-                      >
-                        <X size={15} />
-                      </button>
-                    </div>
-                  )}
+                <div className="sticky bottom-0 mt-4 flex items-end gap-2 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 backdrop-blur-xl">
+                  <textarea
+                    value={reply}
+                    onChange={(event) =>
+                      setReply(
+                        event.target.value,
+                      )
+                    }
+                    placeholder="Napiši poruku podršci..."
+                    className="min-h-12 max-h-32 flex-1 resize-none rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-blue-500"
+                  />
 
-                  <div className="flex items-end gap-2">
-                    <label
-                      className="grid h-12 w-12 shrink-0 cursor-pointer place-items-center rounded-2xl bg-slate-800 text-slate-400 transition active:scale-95 hover:text-white"
-                      title="Priloži screenshot"
-                    >
-                      <Paperclip size={18} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) => {
-                          chooseReplyAttachment(
-                            event.target.files?.[0] ??
-                              null,
-                          )
-                          event.target.value = ''
-                        }}
-                      />
-                    </label>
-
-                    <textarea
-                      value={reply}
-                      onChange={(event) =>
-                        setReply(
-                          event.target.value,
-                        )
-                      }
-                      placeholder="Napiši poruku podršci..."
-                      className="min-h-12 max-h-32 flex-1 resize-none rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-blue-500"
-                    />
-
-                    <button
-                      type="button"
-                      disabled={
-                        sending ||
-                        (
-                          !reply.trim() &&
-                          !replyAttachment
-                        )
-                      }
-                      onClick={() =>
-                        void sendReply()
-                      }
-                      className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white disabled:opacity-50"
-                    >
-                      <Send size={20} />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={
+                      sending ||
+                      !reply.trim()
+                    }
+                    onClick={() =>
+                      void sendReply()
+                    }
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white disabled:opacity-50"
+                  >
+                    <Send size={20} />
+                  </button>
                 </div>
               )}
             </div>
@@ -824,24 +663,6 @@ function ChatBubble({
         <p className="mt-2 whitespace-pre-wrap text-sm leading-6">
           {message.message}
         </p>
-
-        {message.attachmentUrl && (
-          <a
-            href={message.attachmentUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 block overflow-hidden rounded-xl border border-white/10 bg-black/15"
-            title="Otvori screenshot"
-          >
-            <img
-              src={message.attachmentUrl}
-              alt="Priloženi screenshot"
-              className="max-h-72 w-full object-contain"
-              loading="lazy"
-            />
-          </a>
-        )}
-
         <p className="mt-2 text-[11px] opacity-60">
           {formatDateTime(
             message.createdAt,
