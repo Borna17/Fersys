@@ -78,7 +78,7 @@ import InventoryItemDetailsPage from '../pages/InventoryItemDetailsPage'
 
 import InventoryMovementsPage from '../pages/InventoryMovementsPage'
 
-import InventoryPage from '../pages/InventoryPage'
+import { InventoryPage } from '../pages/InventoryPage'
 
 import InventoryQrScannerPage from '../pages/InventoryQrScannerPage'
 
