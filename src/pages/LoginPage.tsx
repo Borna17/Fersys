@@ -110,7 +110,7 @@ export function LoginPage() {
       setError(resetError.message)
     } else {
       setMessage(
-        'Poslana je poveznica za obnovu lozinke. Otvori je na uređaju na kojem želiš postaviti novu lozinku.',
+        'Poslana je poruka za obnovu lozinke. Provjeri e-mail.',
       )
     }
 
@@ -118,7 +118,7 @@ export function LoginPage() {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-slate-950 text-white">
+    <main className="relative min-h-dvh overflow-hidden bg-slate-950 px-4 py-5 text-white sm:px-6 sm:py-8">
       <div className="absolute inset-0">
         <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
         <div className="absolute -bottom-48 -right-32 h-[30rem] w-[30rem] rounded-full bg-blue-600/20 blur-3xl" />
@@ -156,7 +156,7 @@ export function LoginPage() {
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-8 text-slate-400">
-              Upravljaj investitorima, radnim nalozima,
+              Upravljaj kupcima, radnim nalozima,
               ponudama, računima, skladištem i radnicima
               kroz jedan sustav.
             </p>
