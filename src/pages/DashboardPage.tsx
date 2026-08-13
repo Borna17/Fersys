@@ -1,5 +1,5 @@
 import {
-  ArrowUpRight,
+  ArrowRight,
   CalendarDays,
   CheckCircle2,
   CircleAlert,
@@ -13,40 +13,32 @@ import {
   Users,
   Wrench,
 } from 'lucide-react'
+
 import {
   useEffect,
   useMemo,
   useState,
 } from 'react'
+
 import { useNavigate } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import MissionCenter from '../components/MissionCenter'
-import {
-  getCustomers,
-} from '../services/customers.service'
+import { supabase } from '../lib/supabase'
+import { getCustomers } from '../services/customers.service'
 import {
   getEmployees,
   type CompanyEmployee,
 } from '../services/employees.service'
-import {
-  getOffers,
-} from '../services/offers.service'
+import { getOffers } from '../services/offers.service'
 import {
   getWorkOrders,
   type CloudWorkOrder,
 } from '../services/workOrders.service'
-import type {
-  Customer,
-} from '../types/customer'
-import type {
-  Offer,
-} from '../types/offers'
-import {
-  calculateOfferTotal,
-} from '../utils/offerCalculations'
-import { supabase } from '../lib/supabase'
+import type { Customer } from '../types/customer'
+import type { Offer } from '../types/offers'
+import { calculateOfferTotal } from '../utils/offerCalculations'
 
 type DashboardData = {
   customers: Customer[]
@@ -63,18 +55,8 @@ type MonthlyValue = {
 }
 
 const monthLabels = [
-  'Sij',
-  'Velj',
-  'Ožu',
-  'Tra',
-  'Svi',
-  'Lip',
-  'Srp',
-  'Kol',
-  'Ruj',
-  'Lis',
-  'Stu',
-  'Pro',
+  'Sij', 'Velj', 'Ožu', 'Tra', 'Svi', 'Lip',
+  'Srp', 'Kol', 'Ruj', 'Lis', 'Stu', 'Pro',
 ]
 
 function formatCurrency(value: number) {
@@ -86,9 +68,7 @@ function formatCurrency(value: number) {
 }
 
 function formatDateTime(value: string) {
-  if (!value) {
-    return 'Nema podatka'
-  }
+  if (!value) return 'Nema podatka'
 
   const date = new Date(value)
 
@@ -108,12 +88,8 @@ function formatTime(value: string) {
 
 function getLocalDateString(date = new Date()) {
   const year = date.getFullYear()
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, '0')
-  const day = String(
-    date.getDate(),
-  ).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
@@ -121,107 +97,79 @@ function getLocalDateString(date = new Date()) {
 function getCurrentMonthRange() {
   const now = new Date()
 
-  const firstDay = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    1,
-  )
-
-  const lastDay = new Date(
-    now.getFullYear(),
-    now.getMonth() + 1,
-    0,
-  )
-
   return {
-    from: getLocalDateString(firstDay),
-    to: getLocalDateString(lastDay),
+    from: getLocalDateString(
+      new Date(now.getFullYear(), now.getMonth(), 1),
+    ),
+    to: getLocalDateString(
+      new Date(now.getFullYear(), now.getMonth() + 1, 0),
+    ),
   }
 }
 
 function getLastSevenMonths(): MonthlyValue[] {
   const now = new Date()
 
-  return Array.from(
-    {
-      length: 7,
-    },
-    (_, index) => {
-      const date = new Date(
-        now.getFullYear(),
-        now.getMonth() - (6 - index),
-        1,
-      )
+  return Array.from({ length: 7 }, (_, index) => {
+    const date = new Date(
+      now.getFullYear(),
+      now.getMonth() - (6 - index),
+      1,
+    )
 
-      return {
-        key: `${date.getFullYear()}-${String(
-          date.getMonth() + 1,
-        ).padStart(2, '0')}`,
-        label: monthLabels[date.getMonth()],
-        value: 0,
-      }
-    },
-  )
+    return {
+      key: `${date.getFullYear()}-${String(
+        date.getMonth() + 1,
+      ).padStart(2, '0')}`,
+      label: monthLabels[date.getMonth()],
+      value: 0,
+    }
+  })
 }
 
 function getStatusClassName(
   status: CloudWorkOrder['status'],
 ) {
   if (status === 'Završen') {
-    return 'bg-emerald-500/15 text-emerald-400'
+    return 'bg-emerald-500/15 text-emerald-300'
   }
 
   if (status === 'U tijeku') {
-    return 'bg-blue-500/15 text-blue-400'
+    return 'bg-blue-500/15 text-blue-300'
   }
 
   if (status === 'Otkazan') {
-    return 'bg-red-500/15 text-red-400'
+    return 'bg-red-500/15 text-red-300'
   }
 
-  return 'bg-amber-500/15 text-amber-400'
+  return 'bg-amber-500/15 text-amber-300'
 }
 
 export function DashboardPage() {
   const navigate = useNavigate()
   const { can } = useAuth()
 
-  const canViewOffers =
-    can('offers.view')
-
+  const canViewOffers = can('offers.view')
   const canViewFinance =
     can('finance.view') ||
     can('offers.viewPrices')
+  const canViewEmployees = can('employees.view')
 
-  const canViewEmployees =
-    can('employees.view')
+  const canManageCustomers = can('customers.manage')
+  const canManageWorkOrders = can('workOrders.manage')
+  const canManageOffers = can('offers.manage')
+  const canManageInventory = can('inventory.manage')
 
-  const canManageCustomers =
-    can('customers.manage')
+  const [data, setData] = useState<DashboardData>({
+    customers: [],
+    workOrders: [],
+    offers: [],
+    employees: [],
+    userName: '',
+  })
 
-  const canManageWorkOrders =
-    can('workOrders.manage')
-
-  const canManageOffers =
-    can('offers.manage')
-
-  const canManageInventory =
-    can('inventory.manage')
-
-  const [data, setData] =
-    useState<DashboardData>({
-      customers: [],
-      workOrders: [],
-      offers: [],
-      employees: [],
-      userName: '',
-    })
-
-  const [isLoading, setIsLoading] =
-    useState(true)
-
-  const [loadError, setLoadError] =
-    useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -253,12 +201,10 @@ export function DashboardPage() {
           throw userResult.error
         }
 
-        const user =
-          userResult.data.user
+        const user = userResult.data.user
 
         const metadataName =
-          typeof user?.user_metadata?.full_name ===
-          'string'
+          typeof user?.user_metadata?.full_name === 'string'
             ? user.user_metadata.full_name
             : ''
 
@@ -303,36 +249,26 @@ export function DashboardPage() {
   }, [canViewEmployees, canViewOffers])
 
   const dashboard = useMemo(() => {
-    const today =
-      getLocalDateString()
+    const today = getLocalDateString()
+    const monthRange = getCurrentMonthRange()
 
-    const monthRange =
-      getCurrentMonthRange()
+    const activeOrders = data.workOrders.filter((order) =>
+      ['Novi', 'Zakazan', 'U tijeku'].includes(order.status),
+    )
 
-    const activeOrders =
-      data.workOrders.filter((order) =>
-        [
-          'Novi',
-          'Zakazan',
-          'U tijeku',
-        ].includes(order.status),
-      )
+    const completedThisMonth = data.workOrders.filter(
+      (order) =>
+        order.status === 'Završen' &&
+        order.date >= monthRange.from &&
+        order.date <= monthRange.to,
+    )
 
-    const completedThisMonth =
-      data.workOrders.filter(
-        (order) =>
-          order.status === 'Završen' &&
-          order.date >= monthRange.from &&
-          order.date <= monthRange.to,
-      )
-
-    const acceptedOffersThisMonth =
-      data.offers.filter(
-        (offer) =>
-          offer.status === 'Prihvaćeno' &&
-          offer.date >= monthRange.from &&
-          offer.date <= monthRange.to,
-      )
+    const acceptedOffersThisMonth = data.offers.filter(
+      (offer) =>
+        offer.status === 'Prihvaćeno' &&
+        offer.date >= monthRange.from &&
+        offer.date <= monthRange.to,
+    )
 
     const acceptedOfferValue =
       acceptedOffersThisMonth.reduce(
@@ -341,89 +277,61 @@ export function DashboardPage() {
         0,
       )
 
-    const todayOrders =
-      data.workOrders
-        .filter(
-          (order) =>
-            order.date === today &&
-            order.status !== 'Otkazan',
-        )
-        .sort((first, second) =>
-          (
-            first.arrivalTime || '99:99'
-          ).localeCompare(
-            second.arrivalTime || '99:99',
-          ),
-        )
-
-    const recentOrders = [
-      ...data.workOrders,
-    ]
+    const todayOrders = data.workOrders
+      .filter(
+        (order) =>
+          order.date === today &&
+          order.status !== 'Otkazan',
+      )
       .sort((first, second) =>
-        second.createdAt.localeCompare(
-          first.createdAt,
+        (first.arrivalTime || '99:99').localeCompare(
+          second.arrivalTime || '99:99',
         ),
+      )
+
+    const recentOrders = [...data.workOrders]
+      .sort((first, second) =>
+        second.createdAt.localeCompare(first.createdAt),
       )
       .slice(0, 5)
 
-    const urgentOrders =
-      activeOrders.filter(
-        (order) =>
-          order.priority === 'Hitno',
-      )
+    const urgentOrders = activeOrders.filter(
+      (order) => order.priority === 'Hitno',
+    )
 
-    const overdueOrders =
-      activeOrders.filter(
-        (order) =>
-          order.date < today,
-      )
+    const overdueOrders = activeOrders.filter(
+      (order) => order.date < today,
+    )
 
-    const pendingOffers =
-      data.offers.filter((offer) =>
-        [
-          'Nacrt',
-          'Poslano',
-          'Pregledano',
-          'U tijeku',
-        ].includes(offer.status),
-      )
+    const pendingOffers = data.offers.filter((offer) =>
+      ['Nacrt', 'Poslano', 'Pregledano', 'U tijeku'].includes(
+        offer.status,
+      ),
+    )
 
-    const monthlyValues =
-      getLastSevenMonths()
+    const monthlyValues = getLastSevenMonths()
 
     data.offers
-      .filter(
-        (offer) =>
-          offer.status === 'Prihvaćeno',
-      )
+      .filter((offer) => offer.status === 'Prihvaćeno')
       .forEach((offer) => {
-        const key =
-          offer.date.slice(0, 7)
-
-        const month =
-          monthlyValues.find(
-            (item) => item.key === key,
-          )
+        const key = offer.date.slice(0, 7)
+        const month = monthlyValues.find(
+          (item) => item.key === key,
+        )
 
         if (month) {
-          month.value +=
-            calculateOfferTotal(offer)
+          month.value += calculateOfferTotal(offer)
         }
       })
 
-    const maxMonthlyValue =
-      Math.max(
-        ...monthlyValues.map(
-          (month) => month.value,
-        ),
-        0,
-      )
+    const maxMonthlyValue = Math.max(
+      ...monthlyValues.map((month) => month.value),
+      0,
+    )
 
-    const activeEmployees =
-      data.employees.filter(
-        (employee) =>
-          employee.status === 'active',
-      ).length
+    const activeEmployees = data.employees.filter(
+      (employee) => employee.status === 'active',
+    ).length
 
     return {
       activeOrders,
@@ -448,14 +356,14 @@ export function DashboardPage() {
 
   if (loadError) {
     return (
-      <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-8 text-center">
+      <section className="mx-auto flex min-h-[60vh] w-full max-w-xl items-center justify-center">
+        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center sm:p-8">
           <CircleAlert
-            size={42}
+            size={38}
             className="mx-auto text-red-400"
           />
 
-          <h1 className="mt-5 text-2xl font-black text-white">
+          <h1 className="mt-5 text-xl font-black text-white sm:text-2xl">
             Dashboard nije moguće učitati
           </h1>
 
@@ -465,10 +373,8 @@ export function DashboardPage() {
 
           <button
             type="button"
-            onClick={() =>
-              window.location.reload()
-            }
-            className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-bold text-white"
+            onClick={() => window.location.reload()}
+            className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
             Pokušaj ponovno
           </button>
@@ -479,271 +385,396 @@ export function DashboardPage() {
 
   const statistics = [
     {
-      title: 'Aktivni radni nalozi',
-      value: String(
-        dashboard.activeOrders.length,
-      ),
+      title: 'Aktivni nalozi',
+      value: String(dashboard.activeOrders.length),
       description:
         dashboard.urgentOrders.length > 0
-          ? `${dashboard.urgentOrders.length} hitnih naloga`
-          : 'Nema hitnih naloga',
+          ? `${dashboard.urgentOrders.length} hitnih`
+          : 'Bez hitnih',
       icon: Wrench,
-      iconClass:
-        'bg-blue-500/15 text-blue-400',
-      accentClass:
-        'from-blue-500/20 to-transparent',
+      iconClass: 'bg-blue-500/15 text-blue-300',
+      accent: 'from-blue-500/20',
+      route: '/work-orders',
     },
     {
-      title: 'Ukupno investitora',
-      value: String(
-        data.customers.length,
-      ),
+      title: 'Investitori',
+      value: String(data.customers.length),
       description:
         data.customers.length === 0
-          ? 'Još nema unesenih investitora'
+          ? 'Nema unosa'
           : `${dashboard.activeEmployees} aktivnih korisnika`,
       icon: Users,
-      iconClass:
-        'bg-violet-500/15 text-violet-400',
-      accentClass:
-        'from-violet-500/20 to-transparent',
+      iconClass: 'bg-violet-500/15 text-violet-300',
+      accent: 'from-violet-500/20',
+      route: '/customers',
     },
     ...(canViewFinance
       ? [
           {
-            title: 'Prihvaćene ponude ovaj mjesec',
+            title: 'Prihvaćene ponude',
             value: formatCurrency(
               dashboard.acceptedOfferValue,
             ),
             description:
               dashboard.pendingOffers.length > 0
-                ? `${dashboard.pendingOffers.length} ponuda u obradi`
-                : 'Nema ponuda u obradi',
+                ? `${dashboard.pendingOffers.length} u obradi`
+                : 'Sve obrađeno',
             icon: CircleDollarSign,
             iconClass:
-              'bg-emerald-500/15 text-emerald-400',
-            accentClass:
-              'from-emerald-500/20 to-transparent',
+              'bg-emerald-500/15 text-emerald-300',
+            accent: 'from-emerald-500/20',
+            route: '/offers',
           },
         ]
       : []),
     {
-      title: 'Završeni poslovi ovaj mjesec',
+      title: 'Završeni poslovi',
       value: String(
         dashboard.completedThisMonth.length,
       ),
       description:
         dashboard.overdueOrders.length > 0
-          ? `${dashboard.overdueOrders.length} naloga kasni`
-          : 'Nema zakašnjelih naloga',
+          ? `${dashboard.overdueOrders.length} kasni`
+          : 'Bez kašnjenja',
       icon: CheckCircle2,
-      iconClass:
-        'bg-amber-500/15 text-amber-400',
-      accentClass:
-        'from-amber-500/20 to-transparent',
+      iconClass: 'bg-amber-500/15 text-amber-300',
+      accent: 'from-amber-500/20',
+      route: '/work-orders',
     },
   ]
 
   const quickActions = [
     {
-      title: 'Novi radni nalog',
-      description: 'Kreiraj novi posao',
+      title: 'Novi nalog',
+      subtitle: 'Radni nalog',
       icon: Wrench,
       route: '/work-orders/new',
+      visible: canManageWorkOrders,
     },
     {
-      title: 'Novi investitor',
-      description: 'Dodaj osobu ili tvrtku',
+      title: 'Investitor',
+      subtitle: 'Dodaj novog',
       icon: Users,
       route: '/customers',
+      visible: canManageCustomers,
     },
     {
       title: 'Nova ponuda',
-      description: 'Izradi ponudu investitoru',
+      subtitle: 'Izradi ponudu',
       icon: FileText,
       route: '/offers/new',
+      visible: canManageOffers,
     },
     {
-      title: 'Dodaj materijal',
-      description: 'Ažuriraj skladište',
+      title: 'Materijal',
+      subtitle: 'Dodaj artikl',
       icon: Package,
       route: '/inventory/items/new',
+      visible: canManageInventory,
     },
-  ].filter((action) => {
-    if (
-      action.route === '/customers' &&
-      !canManageCustomers
-    ) {
-      return false
-    }
-
-    if (
-      action.route === '/work-orders/new' &&
-      !canManageWorkOrders
-    ) {
-      return false
-    }
-
-    if (
-      action.route === '/offers/new' &&
-      !canManageOffers
-    ) {
-      return false
-    }
-
-    if (
-      action.route === '/inventory/items/new' &&
-      !canManageInventory
-    ) {
-      return false
-    }
-
-    return true
-  })
+  ].filter((item) => item.visible)
 
   const hasAnyBusinessData =
     data.customers.length > 0 ||
     data.workOrders.length > 0 ||
     data.offers.length > 0
 
+  const firstName =
+    data.userName.trim().split(/\s+/)[0] ||
+    data.userName
+
   return (
-    <section className="mx-auto w-full max-w-[1600px] space-y-6">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
-            Pregled poslovanja
+    <section className="mx-auto w-full max-w-[1600px] space-y-4 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 shadow-xl shadow-black/15 sm:p-6">
+        <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="relative">
+          <p className="text-[10px] font-black uppercase tracking-[0.24em] text-blue-400 sm:text-xs">
+            FERSYS · DANAS
           </p>
 
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white md:text-4xl">
-            Dobro došao, {data.userName} 👋
-          </h1>
+          <div className="mt-2 flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl font-black tracking-tight text-white sm:text-3xl lg:text-4xl">
+                Pozdrav, {firstName} 👋
+              </h1>
 
-          <p className="mt-3 max-w-2xl text-base text-slate-400">
-            Ovo su stvarni podaci tvoje tvrtke spremljeni u
-            Supabaseu.
-          </p>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                Sve najvažnije za današnji rad na jednom mjestu.
+              </p>
+            </div>
+
+            {canManageWorkOrders && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate('/work-orders/new')
+                }
+                className="hidden min-h-12 shrink-0 items-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-950/30 transition active:scale-[0.98] sm:inline-flex"
+              >
+                <Plus size={18} />
+                Novi nalog
+              </button>
+            )}
+          </div>
+
+          <div className="mt-5 grid grid-cols-3 gap-2 sm:hidden">
+            <MiniMetric
+              label="Danas"
+              value={String(
+                dashboard.todayOrders.length,
+              )}
+            />
+            <MiniMetric
+              label="Hitno"
+              value={String(
+                dashboard.urgentOrders.length,
+              )}
+            />
+            <MiniMetric
+              label="Kasni"
+              value={String(
+                dashboard.overdueOrders.length,
+              )}
+            />
+          </div>
         </div>
+      </section>
 
-        <div className="flex flex-wrap gap-3">
-          {canManageCustomers && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/customers')
-              }
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
-            >
-              <Users size={18} />
-              Novi investitor
-            </button>
-          )}
-
-          {canManageWorkOrders && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate('/work-orders/new')
-              }
-              className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
-            >
-              <Plus size={18} />
-              Novi radni nalog
-            </button>
-          )}
-        </div>
+      <div className="md:hidden">
+        <MissionCenter />
       </div>
 
-      <MissionCenter />
-
       {!hasAnyBusinessData && (
-        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-5">
-          <h2 className="font-bold text-blue-300">
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/10 p-4 sm:p-5">
+          <p className="font-black text-blue-200">
             Tvrtka je spremna za početak
-          </h2>
-
+          </p>
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Trenutačno nema investitora, radnih naloga ni ponuda.
-            Dodaj prvog investitora i kreni s radom.
+            Dodaj prvog investitora i napravi prvi radni nalog.
           </p>
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
-        {statistics.map((statistic) => {
-          const Icon = statistic.icon
+      {quickActions.length > 0 && (
+        <section className="md:hidden">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            BRZE AKCIJE
+          </p>
+          <h2 className="mt-1 text-lg font-black text-white">
+            Što želiš napraviti?
+          </h2>
 
-          return (
-            <article
-              key={statistic.title}
-              className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-5 transition duration-200 hover:-translate-y-1 hover:border-slate-700"
-            >
-              <div
-                className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${statistic.accentClass}`}
-              />
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            {quickActions.map((action) => {
+              const Icon = action.icon
 
-              <div className="relative flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-slate-400">
-                    {statistic.title}
+              return (
+                <button
+                  key={action.title}
+                  type="button"
+                  onClick={() =>
+                    navigate(action.route)
+                  }
+                  className="min-h-[118px] rounded-2xl border border-slate-800 bg-slate-900 p-4 text-left transition active:scale-[0.98] active:border-blue-500/40 active:bg-slate-800"
+                >
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/12 text-blue-300">
+                    <Icon size={21} />
+                  </span>
+                  <p className="mt-3 font-black text-white">
+                    {action.title}
                   </p>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {action.subtitle}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
-                  <p className="mt-4 text-3xl font-black tracking-tight text-white">
+      <section>
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+          PREGLED
+        </p>
+        <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+          Poslovanje
+        </h2>
+
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {statistics.map((statistic) => {
+            const Icon = statistic.icon
+
+            return (
+              <button
+                key={statistic.title}
+                type="button"
+                onClick={() =>
+                  navigate(statistic.route)
+                }
+                className="relative min-h-[132px] overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 p-4 text-left transition active:scale-[0.99] sm:min-h-[155px] sm:p-5"
+              >
+                <div
+                  className={`pointer-events-none absolute inset-x-0 top-0 h-20 bg-gradient-to-b ${statistic.accent} to-transparent`}
+                />
+                <div className="relative">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-[11px] font-bold leading-4 text-slate-400 sm:text-sm">
+                      {statistic.title}
+                    </p>
+                    <span
+                      className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl sm:h-11 sm:w-11 ${statistic.iconClass}`}
+                    >
+                      <Icon size={18} />
+                    </span>
+                  </div>
+                  <p className="mt-4 break-words text-2xl font-black tracking-tight text-white sm:text-3xl">
                     {statistic.value}
                   </p>
-
-                  <p className="mt-3 flex items-center gap-1.5 text-sm text-slate-400">
+                  <p className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-slate-500 sm:text-xs">
                     <TrendingUp
-                      size={15}
+                      size={13}
                       className="text-emerald-400"
                     />
                     {statistic.description}
                   </p>
                 </div>
+              </button>
+            )
+          })}
+        </div>
+      </section>
 
-                <div
-                  className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${statistic.iconClass}`}
-                >
-                  <Icon size={23} />
-                </div>
-              </div>
-            </article>
-          )
-        })}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.7fr_1fr]">
-        {canViewFinance && (
-          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-violet-400">
-                  Pregled prihvaćenih ponuda
-              </p>
-
-              <h2 className="mt-1 text-xl font-bold text-white">
-                Zadnjih 7 mjeseci
-              </h2>
-            </div>
-
-            <div className="rounded-xl bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-400">
-              {formatCurrency(
-                dashboard.monthlyValues.reduce(
-                  (sum, month) =>
-                    sum + month.value,
-                  0,
-                ),
-              )}
-            </div>
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+              DANAS
+            </p>
+            <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+              Današnji raspored
+            </h2>
           </div>
 
-          <div className="mt-8">
-            <div className="flex h-64 items-end gap-2 sm:gap-3">
-              {dashboard.monthlyValues.map(
-                (month) => {
+          <button
+            type="button"
+            onClick={() => navigate('/calendar')}
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 sm:flex sm:w-auto sm:gap-2 sm:px-4"
+            aria-label="Otvori kalendar"
+          >
+            <CalendarDays size={18} />
+            <span className="hidden text-sm font-black sm:inline">
+              Kalendar
+            </span>
+          </button>
+        </div>
+
+        <div className="mt-4 space-y-3">
+          {dashboard.todayOrders.slice(0, 5).map((order) => (
+            <button
+              key={order.id}
+              type="button"
+              onClick={() =>
+                navigate(`/work-orders/${order.id}`)
+              }
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950/55 p-4 text-left transition active:scale-[0.99] active:border-blue-500/35"
+            >
+              <div className="flex items-start gap-3">
+                <div className="grid h-12 w-14 shrink-0 place-items-center rounded-2xl bg-blue-500/12 text-sm font-black text-blue-300">
+                  {formatTime(order.arrivalTime)}
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <h3 className="truncate font-black text-white">
+                        {order.title}
+                      </h3>
+                      <p className="mt-1 truncate text-xs font-semibold text-slate-400 sm:text-sm">
+                        {order.customerName}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${getStatusClassName(
+                        order.status,
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+
+                  {order.address && (
+                    <p className="mt-2 truncate text-xs text-slate-500">
+                      {order.address}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </button>
+          ))}
+
+          {dashboard.todayOrders.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-9 text-center">
+              <CalendarDays
+                size={30}
+                className="mx-auto text-slate-600"
+              />
+              <p className="mt-3 font-black text-white">
+                Danas nema zakazanih naloga
+              </p>
+
+              {canManageWorkOrders && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    navigate('/work-orders/new')
+                  }
+                  className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+                >
+                  <Plus size={17} />
+                  Novi nalog
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="hidden md:block">
+        <MissionCenter />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.7fr_1fr]">
+        {canViewFinance && (
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
+                  PONUDE
+                </p>
+                <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+                  Zadnjih 7 mjeseci
+                </h2>
+              </div>
+
+              <span className="rounded-xl bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-300 sm:text-sm">
+                {formatCurrency(
+                  dashboard.monthlyValues.reduce(
+                    (sum, month) => sum + month.value,
+                    0,
+                  ),
+                )}
+              </span>
+            </div>
+
+            <div className="mt-6 overflow-x-auto pb-1">
+              <div className="flex min-w-[520px] items-end gap-2">
+                {dashboard.monthlyValues.map((month) => {
                   const height =
                     dashboard.maxMonthlyValue > 0
                       ? Math.max(
-                          4,
+                          5,
                           (month.value /
                             dashboard.maxMonthlyValue) *
                             100,
@@ -753,55 +784,47 @@ export function DashboardPage() {
                   return (
                     <div
                       key={month.key}
-                      className="flex flex-1 flex-col items-center justify-end gap-3"
+                      className="flex flex-1 flex-col items-center justify-end gap-2"
                     >
-                      <div
-                        className="relative flex h-52 w-full items-end overflow-hidden rounded-xl bg-slate-800/60"
-                        title={formatCurrency(
-                          month.value,
-                        )}
-                      >
+                      <div className="flex h-40 w-full items-end overflow-hidden rounded-xl bg-slate-800/70 sm:h-52">
                         <div
-                          className="w-full rounded-xl bg-gradient-to-t from-violet-600 to-blue-500 transition hover:brightness-110"
+                          className="w-full rounded-xl bg-gradient-to-t from-violet-600 to-blue-500"
                           style={{
                             height: `${height}%`,
                           }}
                         />
                       </div>
-
-                      <span className="text-xs text-slate-500">
+                      <span className="text-xs font-bold text-slate-500">
                         {month.label}
                       </span>
                     </div>
                   )
-                },
-              )}
+                })}
+              </div>
             </div>
-          </div>
           </section>
         )}
 
-        <section className="relative overflow-hidden rounded-2xl border border-violet-500/20 bg-slate-900 p-5 sm:p-6">
-          <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-violet-600/20 blur-3xl" />
+        <section className="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-slate-900 p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-violet-600/15 blur-3xl" />
 
           <div className="relative">
             <div className="flex items-center justify-between">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-500/15 text-violet-400">
-                <Sparkles size={24} />
-              </div>
-
-              <span className="rounded-full bg-violet-500/10 px-3 py-1 text-xs font-bold text-violet-300">
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
+                <Sparkles size={22} />
+              </span>
+              <span className="rounded-full bg-violet-500/10 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-violet-300">
                 Automatski pregled
               </span>
             </div>
 
-            <h2 className="mt-6 text-xl font-bold text-white">
+            <h2 className="mt-5 text-xl font-black text-white">
               Trenutačno stanje
             </h2>
 
-            <p className="mt-3 leading-7 text-slate-400">
+            <p className="mt-3 text-sm leading-6 text-slate-400">
               {dashboard.overdueOrders.length > 0
-                ? `${dashboard.overdueOrders.length} aktivnih radnih naloga ima datum u prošlosti. Preporuka je provjeriti njihov status.`
+                ? `${dashboard.overdueOrders.length} aktivnih naloga ima datum u prošlosti.`
                 : dashboard.urgentOrders.length > 0
                   ? `${dashboard.urgentOrders.length} aktivnih naloga označeno je kao hitno.`
                   : hasAnyBusinessData
@@ -809,252 +832,161 @@ export function DashboardPage() {
                     : 'Dodaj prve poslovne podatke kako bi se ovdje prikazivale preporuke.'}
             </p>
 
-            <div className="mt-6 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
-              <p className="text-sm font-semibold text-white">
+            <div className="mt-5 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Ponude u obradi
               </p>
-
-              <p className="mt-2 text-3xl font-black text-violet-400">
+              <p className="mt-2 text-3xl font-black text-violet-300">
                 {dashboard.pendingOffers.length}
               </p>
             </div>
 
             <button
               type="button"
-              onClick={() =>
-                navigate('/ai')
-              }
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 font-semibold text-white transition hover:bg-violet-500"
+              onClick={() => navigate('/ai')}
+              className="mt-5 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white transition active:scale-[0.98]"
             >
-              Otvori AI pomoćnika
-              <ArrowUpRight size={18} />
+              Otvori AI
+              <ArrowRight size={18} />
             </button>
           </div>
         </section>
       </div>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-        <div>
-          <h2 className="text-xl font-bold text-white">
-            Brze akcije
-          </h2>
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+              AKTIVNOST
+            </p>
+            <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
+              Zadnji radni nalozi
+            </h2>
+          </div>
 
-          <p className="mt-1 text-sm text-slate-400">
-            Najčešće korištene funkcije na jednom mjestu.
-          </p>
+          <Clock3
+            size={19}
+            className="text-slate-500"
+          />
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {quickActions.map((action) => {
-            const Icon = action.icon
-
-            return (
-              <button
-                key={action.title}
-                type="button"
-                onClick={() =>
-                  navigate(action.route)
-                }
-                className="group flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-violet-500/40 hover:bg-slate-800"
-              >
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-slate-800 text-slate-300 transition group-hover:bg-violet-500/15 group-hover:text-violet-400">
-                  <Icon size={22} />
-                </div>
-
-                <div>
-                  <p className="font-semibold text-white">
-                    {action.title}
-                  </p>
-
-                  <p className="mt-1 text-sm text-slate-500">
-                    {action.description}
-                  </p>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </section>
-
-      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.3fr_1fr]">
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Današnji raspored
-              </h2>
-
-              <p className="mt-1 text-sm text-slate-400">
-                Radni nalozi zakazani za danas.
-              </p>
-            </div>
-
+        <div className="mt-4 space-y-3">
+          {dashboard.recentOrders.map((order) => (
             <button
+              key={order.id}
               type="button"
               onClick={() =>
-                navigate('/calendar')
+                navigate(`/work-orders/${order.id}`)
               }
-              className="flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-700 hover:text-white"
+              className="w-full rounded-2xl border border-slate-800 bg-slate-950/55 p-4 text-left transition active:scale-[0.99]"
             >
-              <CalendarDays size={17} />
-              Kalendar
-            </button>
-          </div>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-[10px] font-black uppercase tracking-wider text-violet-400 sm:text-xs">
+                    {order.orderNumber}
+                  </p>
+                  <h3 className="mt-1 truncate font-black text-white">
+                    {order.customerName}
+                  </h3>
+                  <p className="mt-1 truncate text-xs text-slate-400 sm:text-sm">
+                    {order.title}
+                  </p>
+                </div>
 
-          <div className="mt-6 space-y-3">
-            {dashboard.todayOrders.map(
-              (order) => (
-                <button
-                  key={order.id}
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      `/work-orders/${order.id}`,
-                    )
-                  }
-                  className="flex w-full flex-col gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-left transition hover:border-slate-700 sm:flex-row sm:items-center"
+                <span
+                  className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${getStatusClassName(
+                    order.status,
+                  )}`}
                 >
-                  <div className="flex h-12 w-20 shrink-0 items-center justify-center rounded-xl bg-blue-500/15 font-bold text-blue-400">
-                    {formatTime(
-                      order.arrivalTime,
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-white">
-                      {order.title}
-                    </h3>
-
-                    <p className="mt-1 text-sm text-slate-400">
-                      {order.customerName}
-                      {order.address
-                        ? ` · ${order.address}`
-                        : ''}
-                    </p>
-                  </div>
-
-                  <span
-                    className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${getStatusClassName(
-                      order.status,
-                    )}`}
-                  >
-                    {order.status}
-                  </span>
-                </button>
-              ),
-            )}
-
-            {dashboard.todayOrders.length ===
-              0 && (
-              <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-12 text-center">
-                <CalendarDays
-                  size={34}
-                  className="mx-auto text-slate-600"
-                />
-
-                <p className="mt-4 font-semibold text-white">
-                  Danas nema zakazanih naloga
-                </p>
-
-                <p className="mt-2 text-sm text-slate-500">
-                  Novi termin možeš dodati kroz radni nalog.
-                </p>
+                  {order.status}
+                </span>
               </div>
-            )}
-          </div>
-        </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-white">
-                Zadnji radni nalozi
-              </h2>
+              <p className="mt-3 text-[11px] font-semibold text-slate-500">
+                {formatDateTime(order.createdAt)}
+              </p>
+            </button>
+          ))}
 
-              <p className="mt-1 text-sm text-slate-400">
-                Posljednje aktivnosti u sustavu.
+          {dashboard.recentOrders.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-9 text-center">
+              <Wrench
+                size={30}
+                className="mx-auto text-slate-600"
+              />
+              <p className="mt-3 font-black text-white">
+                Još nema radnih naloga
               </p>
             </div>
+          )}
+        </div>
 
-            <Clock3
-              size={20}
-              className="text-slate-500"
-            />
-          </div>
+        <button
+          type="button"
+          onClick={() => navigate('/work-orders')}
+          className="mt-4 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-4 font-black text-slate-200 transition active:scale-[0.99]"
+        >
+          Pogledaj sve naloge
+          <ArrowRight size={18} />
+        </button>
+      </section>
 
-          <div className="mt-6 space-y-3">
-            {dashboard.recentOrders.map(
-              (order) => (
+      {quickActions.length > 0 && (
+        <section className="hidden rounded-3xl border border-slate-800 bg-slate-900 p-6 md:block">
+          <h2 className="text-xl font-black text-white">
+            Brze akcije
+          </h2>
+          <p className="mt-1 text-sm text-slate-400">
+            Najčešće korištene funkcije.
+          </p>
+
+          <div className="mt-5 grid grid-cols-2 gap-4 xl:grid-cols-4">
+            {quickActions.map((action) => {
+              const Icon = action.icon
+
+              return (
                 <button
-                  key={order.id}
+                  key={action.title}
                   type="button"
-                  onClick={() =>
-                    navigate(
-                      `/work-orders/${order.id}`,
-                    )
-                  }
-                  className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 p-4 text-left transition hover:border-slate-700"
+                  onClick={() => navigate(action.route)}
+                  className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/60 p-4 text-left transition hover:border-blue-500/30 hover:bg-slate-800"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold uppercase tracking-wider text-violet-400">
-                        {order.orderNumber}
-                      </p>
-
-                      <h3 className="mt-1 truncate font-semibold text-white">
-                        {order.customerName}
-                      </h3>
-
-                      <p className="mt-1 truncate text-sm text-slate-400">
-                        {order.title}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${getStatusClassName(
-                        order.status,
-                      )}`}
-                    >
-                      {order.status}
-                    </span>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-500/12 text-blue-300">
+                    <Icon size={21} />
+                  </span>
+                  <div>
+                    <p className="font-black text-white">
+                      {action.title}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {action.subtitle}
+                    </p>
                   </div>
-
-                  <p className="mt-3 text-xs text-slate-500">
-                    {formatDateTime(
-                      order.createdAt,
-                    )}
-                  </p>
                 </button>
-              ),
-            )}
-
-            {dashboard.recentOrders.length ===
-              0 && (
-              <div className="rounded-2xl border border-dashed border-slate-700 px-5 py-12 text-center">
-                <Wrench
-                  size={34}
-                  className="mx-auto text-slate-600"
-                />
-
-                <p className="mt-4 font-semibold text-white">
-                  Još nema radnih naloga
-                </p>
-              </div>
-            )}
+              )
+            })}
           </div>
-
-          <button
-            type="button"
-            onClick={() =>
-              navigate('/work-orders')
-            }
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 font-semibold text-slate-200 transition hover:bg-slate-700 hover:text-white"
-          >
-            Pogledaj sve naloge
-            <ArrowUpRight size={18} />
-          </button>
         </section>
-      </div>
+      )}
     </section>
+  )
+}
+
+function MiniMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-black text-white">
+        {value}
+      </p>
+    </div>
   )
 }
