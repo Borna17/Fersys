@@ -76,7 +76,7 @@ import {
 
 import InventoryItemDetailsPage from '../pages/InventoryItemDetailsPage'
 
-import InventoryMovementsPage from '../pages/InventoryMovementsPage'
+import {InventoryMovementsPage} from '../pages/InventoryMovementsPage'
 
 import { InventoryPage } from '../pages/InventoryPage'
 
