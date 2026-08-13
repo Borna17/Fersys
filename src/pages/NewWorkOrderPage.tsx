@@ -4,6 +4,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from 'react'
 import { useNavigate } from 'react-router'
 import {
@@ -14,18 +15,32 @@ import {
   Clock3,
   Euro,
   ImagePlus,
+  MapPin,
   PackagePlus,
   Plus,
-  Search,
   Save,
+  Search,
   Trash2,
   UserRound,
 } from 'lucide-react'
 
 import { useAuth } from '../auth/AuthProvider'
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
 import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
-import { createWorkOrder } from '../services/workOrders.service'
+import { getCustomers } from '../services/customers.service'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
+import {
+  getEmployees,
+  type CompanyEmployee,
+} from '../services/employees.service'
 import {
   createWorkOrderTemplate,
   deleteWorkOrderTemplate,
@@ -33,11 +48,7 @@ import {
   updateWorkOrderTemplate,
   type WorkOrderTemplate,
 } from '../services/workOrderTemplates.service'
-import { getCustomers } from '../services/customers.service'
-import {
-  getEmployees,
-  type CompanyEmployee,
-} from '../services/employees.service'
+import { createWorkOrder } from '../services/workOrders.service'
 import type { Customer } from '../types/customer'
 import type {
   WorkOrderImage,
@@ -47,15 +58,8 @@ import type {
 } from '../types/workOrder'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
-import DraftAutosaveBadge, {
-  type DraftAutosaveState,
-} from '../components/DraftAutosaveBadge'
-import {
-  deleteUserDraft,
-  formatDraftSavedAt,
-  loadUserDraft,
-  saveUserDraft,
-} from '../services/drafts.service'
+const inputClass =
+  'h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600'
 
 function calculateDuration(
   arrival: string,
@@ -133,12 +137,10 @@ export function NewWorkOrderPage() {
 
   const [customers, setCustomers] =
     useState<Customer[]>([])
-
   const [
     isLoadingCustomers,
     setIsLoadingCustomers,
   ] = useState(true)
-
   const [
     customersError,
     setCustomersError,
@@ -146,12 +148,10 @@ export function NewWorkOrderPage() {
 
   const [workers, setWorkers] =
     useState<CompanyEmployee[]>([])
-
   const [
     isLoadingWorkers,
     setIsLoadingWorkers,
   ] = useState(true)
-
   const [
     workersError,
     setWorkersError,
@@ -162,54 +162,36 @@ export function NewWorkOrderPage() {
 
   const [customerId, setCustomerId] =
     useState('')
-
-  const [
-    customerName,
-    setCustomerName,
-  ] = useState('')
-
+  const [customerName, setCustomerName] =
+    useState('')
   const [
     customerContactPerson,
     setCustomerContactPerson,
   ] = useState('')
-
   const [
     customerPhone,
     setCustomerPhone,
   ] = useState('')
-
   const [
     customerEmail,
     setCustomerEmail,
   ] = useState('')
-
-  const [
-    customerOib,
-    setCustomerOib,
-  ] = useState('')
-
+  const [customerOib, setCustomerOib] =
+    useState('')
   const [address, setAddress] =
     useState('')
 
   const [date, setDate] = useState(
-    new Date()
-      .toISOString()
-      .slice(0, 10),
+    new Date().toISOString().slice(0, 10),
   )
-
-  const [
-    arrivalTime,
-    setArrivalTime,
-  ] = useState('')
-
+  const [arrivalTime, setArrivalTime] =
+    useState('')
   const [
     departureTime,
     setDepartureTime,
   ] = useState('')
-
   const [status, setStatus] =
     useState<WorkOrderStatus>('Novi')
-
   const [priority, setPriority] =
     useState<WorkOrderPriority>(
       'Normalan',
@@ -217,40 +199,24 @@ export function NewWorkOrderPage() {
 
   const [title, setTitle] =
     useState('')
-
-  const [
-    description,
-    setDescription,
-  ] = useState('')
-
+  const [description, setDescription] =
+    useState('')
   const [
     assignedWorkers,
     setAssignedWorkers,
   ] = useState<string[]>([])
 
-  const [
-    materials,
-    setMaterials,
-  ] = useState<WorkOrderMaterial[]>([])
-
-  const [
-    labourPrice,
-    setLabourPrice,
-  ] = useState('0')
-
+  const [materials, setMaterials] =
+    useState<WorkOrderMaterial[]>([])
+  const [labourPrice, setLabourPrice] =
+    useState('0')
   const [vatRate, setVatRate] =
     useState('25')
+  const [priceNote, setPriceNote] =
+    useState('')
 
-  const [
-    priceNote,
-    setPriceNote,
-  ] = useState('')
-
-  const [
-    investorName,
-    setInvestorName,
-  ] = useState('')
-
+  const [investorName, setInvestorName] =
+    useState('')
   const [
     investorSignature,
     setInvestorSignature,
@@ -258,49 +224,35 @@ export function NewWorkOrderPage() {
 
   const [images, setImages] =
     useState<WorkOrderImage[]>([])
+  const [isUploading, setIsUploading] =
+    useState(false)
 
-  const [
-    isUploading,
-    setIsUploading,
-  ] = useState(false)
-
-
-  const [
-    templates,
-    setTemplates,
-  ] =
+  const [templates, setTemplates] =
     useState<WorkOrderTemplate[]>([])
-
   const [
     isLoadingTemplates,
     setIsLoadingTemplates,
   ] = useState(true)
-
   const [
     templatesError,
     setTemplatesError,
   ] = useState('')
-
   const [
     templateSearch,
     setTemplateSearch,
   ] = useState('')
-
   const [
     selectedTemplateId,
     setSelectedTemplateId,
   ] = useState('')
-
   const [
     showTemplateModal,
     setShowTemplateModal,
   ] = useState(false)
-
   const [
     templateName,
     setTemplateName,
   ] = useState('')
-
   const [
     isSavingTemplate,
     setIsSavingTemplate,
@@ -309,18 +261,14 @@ export function NewWorkOrderPage() {
   const [
     autosaveState,
     setAutosaveState,
-  ] = useState<DraftAutosaveState>('idle')
-
+  ] =
+    useState<DraftAutosaveState>('idle')
   const [
     autosaveText,
     setAutosaveText,
   ] = useState('')
-
-  const [
-    draftReady,
-    setDraftReady,
-  ] = useState(false)
-
+  const [draftReady, setDraftReady] =
+    useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -369,9 +317,7 @@ export function NewWorkOrderPage() {
         const employees =
           await getEmployees()
 
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
 
         const activeEmployees =
           employees
@@ -428,10 +374,7 @@ export function NewWorkOrderPage() {
 
     async function loadTemplates() {
       try {
-        setIsLoadingTemplates(
-          true,
-        )
-
+        setIsLoadingTemplates(true)
         setTemplatesError('')
 
         const saved =
@@ -450,9 +393,7 @@ export function NewWorkOrderPage() {
         }
       } finally {
         if (!cancelled) {
-          setIsLoadingTemplates(
-            false,
-          )
+          setIsLoadingTemplates(false)
         }
       }
     }
@@ -469,9 +410,7 @@ export function NewWorkOrderPage() {
       const search =
         templateSearch
           .trim()
-          .toLocaleLowerCase(
-            'hr-HR',
-          )
+          .toLocaleLowerCase('hr-HR')
 
       if (!search) {
         return templates
@@ -484,22 +423,17 @@ export function NewWorkOrderPage() {
             template.title,
             template.description,
             ...template.materials.map(
-              (material) =>
-                material.name,
+              (material) => material.name,
             ),
           ]
             .join(' ')
-            .toLocaleLowerCase(
-              'hr-HR',
-            )
+            .toLocaleLowerCase('hr-HR')
             .includes(search),
       )
     }, [
       templates,
       templateSearch,
     ])
-
-
 
   useEffect(() => {
     let cancelled = false
@@ -522,36 +456,77 @@ export function NewWorkOrderPage() {
         const value =
           draft.payload ?? {}
 
-        setCustomerId(value.customerId ?? '')
-        setCustomerName(value.customerName ?? '')
+        setCustomerId(
+          value.customerId ?? '',
+        )
+        setCustomerName(
+          value.customerName ?? '',
+        )
         setCustomerContactPerson(
           value.customerContactPerson ?? '',
         )
-        setCustomerPhone(value.customerPhone ?? '')
-        setCustomerEmail(value.customerEmail ?? '')
-        setCustomerOib(value.customerOib ?? '')
-        setAddress(value.address ?? '')
-        setDate(value.date ?? date)
-        setArrivalTime(value.arrivalTime ?? '')
-        setDepartureTime(value.departureTime ?? '')
-        setStatus(value.status ?? 'Novi')
-        setPriority(value.priority ?? 'Normalan')
-        setTitle(value.title ?? '')
-        setDescription(value.description ?? '')
+        setCustomerPhone(
+          value.customerPhone ?? '',
+        )
+        setCustomerEmail(
+          value.customerEmail ?? '',
+        )
+        setCustomerOib(
+          value.customerOib ?? '',
+        )
+        setAddress(
+          value.address ?? '',
+        )
+        setDate(
+          value.date ??
+            new Date()
+              .toISOString()
+              .slice(0, 10),
+        )
+        setArrivalTime(
+          value.arrivalTime ?? '',
+        )
+        setDepartureTime(
+          value.departureTime ?? '',
+        )
+        setStatus(
+          value.status ?? 'Novi',
+        )
+        setPriority(
+          value.priority ?? 'Normalan',
+        )
+        setTitle(
+          value.title ?? '',
+        )
+        setDescription(
+          value.description ?? '',
+        )
         setAssignedWorkers(
-          Array.isArray(value.assignedWorkers)
+          Array.isArray(
+            value.assignedWorkers,
+          )
             ? value.assignedWorkers
             : [],
         )
         setMaterials(
-          Array.isArray(value.materials)
+          Array.isArray(
+            value.materials,
+          )
             ? value.materials
             : [],
         )
-        setLabourPrice(value.labourPrice ?? '0')
-        setVatRate(value.vatRate ?? '25')
-        setPriceNote(value.priceNote ?? '')
-        setInvestorName(value.investorName ?? '')
+        setLabourPrice(
+          value.labourPrice ?? '0',
+        )
+        setVatRate(
+          value.vatRate ?? '25',
+        )
+        setPriceNote(
+          value.priceNote ?? '',
+        )
+        setInvestorName(
+          value.investorName ?? '',
+        )
         setInvestorSignature(
           value.investorSignature ?? '',
         )
@@ -659,7 +634,9 @@ export function NewWorkOrderPage() {
               'Autosave radnog naloga nije uspio:',
               error,
             )
-            setAutosaveState('offline')
+            setAutosaveState(
+              'offline',
+            )
             setAutosaveText(
               'Nacrt je spremljen lokalno.',
             )
@@ -713,6 +690,7 @@ export function NewWorkOrderPage() {
 
     window.location.reload()
   }
+
   const durationMinutes =
     useMemo(
       () =>
@@ -746,7 +724,8 @@ export function NewWorkOrderPage() {
   const totalPrice =
     subtotal +
     subtotal *
-      ((Number(vatRate) || 0) / 100)
+      ((Number(vatRate) || 0) /
+        100)
 
   function applyTemplate(
     template: WorkOrderTemplate,
@@ -754,36 +733,24 @@ export function NewWorkOrderPage() {
     setSelectedTemplateId(
       template.id,
     )
-
     setTitle(
       template.title,
     )
-
     setDescription(
       template.description,
     )
-
     setPriority(
       template.priority,
     )
-
     setMaterials(
       template.materials.map(
         (material) => ({
-          id:
-            crypto.randomUUID(),
-
-          name:
-            material.name,
-
+          id: crypto.randomUUID(),
+          name: material.name,
           quantity:
             material.quantity,
-
-          unit:
-            material.unit,
-
-          unitPrice:
-            0,
+          unit: material.unit,
+          unitPrice: 0,
         }),
       ),
     )
@@ -798,7 +765,6 @@ export function NewWorkOrderPage() {
       alert(
         'Prvo unesite naziv, opis ili materijal koji želite spremiti kao predložak.',
       )
-
       return
     }
 
@@ -811,13 +777,11 @@ export function NewWorkOrderPage() {
 
     setTemplateName(
       selected?.name ||
-      title.trim() ||
-      '',
+        title.trim() ||
+        '',
     )
 
-    setShowTemplateModal(
-      true,
-    )
+    setShowTemplateModal(true)
   }
 
   async function saveTemplate(
@@ -834,9 +798,7 @@ export function NewWorkOrderPage() {
     }
 
     try {
-      setIsSavingTemplate(
-        true,
-      )
+      setIsSavingTemplate(true)
 
       const input = {
         name,
@@ -900,11 +862,7 @@ export function NewWorkOrderPage() {
       setSelectedTemplateId(
         saved.id,
       )
-
-      setShowTemplateModal(
-        false,
-      )
-
+      setShowTemplateModal(false)
       setTemplateName('')
 
       alert(
@@ -920,9 +878,7 @@ export function NewWorkOrderPage() {
           : 'Predložak nije moguće spremiti.',
       )
     } finally {
-      setIsSavingTemplate(
-        false,
-      )
+      setIsSavingTemplate(false)
     }
   }
 
@@ -956,9 +912,7 @@ export function NewWorkOrderPage() {
         selectedTemplateId ===
         template.id
       ) {
-        setSelectedTemplateId(
-          '',
-        )
+        setSelectedTemplateId('')
       }
     } catch (error) {
       alert(
@@ -976,7 +930,8 @@ export function NewWorkOrderPage() {
 
     const customer =
       customers.find(
-        (item) => item.id === value,
+        (item) =>
+          item.id === value,
       )
 
     if (!customer) {
@@ -990,13 +945,21 @@ export function NewWorkOrderPage() {
       return
     }
 
-    setCustomerName(customer.name)
+    setCustomerName(
+      customer.name,
+    )
     setCustomerContactPerson(
       customer.contactPerson ?? '',
     )
-    setCustomerPhone(customer.phone)
-    setCustomerEmail(customer.email)
-    setCustomerOib(customer.oib)
+    setCustomerPhone(
+      customer.phone,
+    )
+    setCustomerEmail(
+      customer.email,
+    )
+    setCustomerOib(
+      customer.oib,
+    )
 
     setAddress(
       [
@@ -1096,7 +1059,6 @@ export function NewWorkOrderPage() {
       alert(
         'Možete dodati najviše 12 fotografija.',
       )
-
       event.target.value = ''
       return
     }
@@ -1161,7 +1123,9 @@ export function NewWorkOrderPage() {
     }
 
     if (!customerId) {
-      alert('Odaberite investitora.')
+      alert(
+        'Odaberite investitora.',
+      )
       return
     }
 
@@ -1182,14 +1146,11 @@ export function NewWorkOrderPage() {
         .map(
           (material) => ({
             ...material,
-
             name:
               material.name.trim(),
-
             unit:
               material.unit.trim() ||
               'kom',
-
             quantity:
               Math.max(
                 0,
@@ -1197,7 +1158,6 @@ export function NewWorkOrderPage() {
                   material.quantity,
                 ) || 0,
               ),
-
             unitPrice:
               canViewPrices
                 ? Math.max(
@@ -1220,43 +1180,31 @@ export function NewWorkOrderPage() {
       const createdOrder =
         await createWorkOrder({
           customerId,
-
           customerName:
             customerName.trim(),
-
           customerContactPerson:
             customerContactPerson.trim(),
-
           customerPhone:
             customerPhone.trim(),
-
           customerEmail:
             customerEmail.trim(),
-
           customerOib:
             customerOib
               .replace(/\D/g, '')
               .slice(0, 11),
-
           address:
             address.trim(),
-
           date,
           arrivalTime,
           departureTime,
           durationMinutes,
-
           title:
             title.trim(),
-
           description:
             description.trim(),
-
           materials:
             cleanMaterials,
-
           assignedWorkers,
-
           labourPrice:
             canViewPrices
               ? Math.max(
@@ -1266,7 +1214,6 @@ export function NewWorkOrderPage() {
                   ) || 0,
                 )
               : 0,
-
           materialPrice:
             canViewPrices
               ? cleanMaterials.reduce(
@@ -1280,7 +1227,6 @@ export function NewWorkOrderPage() {
                   0,
                 )
               : 0,
-
           vatRate:
             canViewPrices
               ? Math.max(
@@ -1290,7 +1236,6 @@ export function NewWorkOrderPage() {
                   ) || 0,
                 )
               : 0,
-
           totalPrice:
             canViewPrices
               ? Math.max(
@@ -1298,19 +1243,14 @@ export function NewWorkOrderPage() {
                   totalPrice,
                 )
               : 0,
-
           priceNote:
             canViewPrices
               ? priceNote.trim()
               : '',
-
           investorName:
             investorName.trim(),
-
           investorSignature,
-
           images,
-
           status,
           priority,
         })
@@ -1339,9 +1279,9 @@ export function NewWorkOrderPage() {
 
   if (customersError) {
     return (
-      <section className="mx-auto flex min-h-[60vh] w-full max-w-2xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-8 text-center">
-          <h1 className="text-2xl font-bold text-white">
+      <section className="mx-auto flex min-h-[60vh] w-full max-w-xl items-center justify-center">
+        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center sm:p-8">
+          <h1 className="text-xl font-black text-white sm:text-2xl">
             Kupce nije moguće učitati
           </h1>
 
@@ -1354,7 +1294,7 @@ export function NewWorkOrderPage() {
             onClick={() =>
               window.location.reload()
             }
-            className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white"
+            className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
             Pokušaj ponovno
           </button>
@@ -1364,95 +1304,127 @@ export function NewWorkOrderPage() {
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="mx-auto w-full max-w-[1500px] space-y-6"
-    >
-      <DraftAutosaveBadge
-        state={autosaveState}
-        text={autosaveText}
-        onDiscard={
-          autosaveState !== 'idle'
-            ? () =>
-                void discardWorkOrderDraft()
-            : undefined
-        }
-      />
-      <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div>
-          <button
-            type="button"
-            onClick={() =>
-              navigate(
-                '/work-orders',
-              )
-            }
-            className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white"
-          >
-            <ArrowLeft size={18} />
-            Povratak na radne naloge
-          </button>
-
-          <h1 className="text-3xl font-extrabold text-white">
-            Novi radni nalog
-          </h1>
-
-          <p className="mt-2 text-slate-400">
-            Unesi podatke, fotografije i potpis investitora.
-          </p>
-        </div>
+    <>
+      <form
+        id="mobile-work-order-form"
+        onSubmit={submit}
+        className="mx-auto w-full max-w-[1500px] space-y-4 pb-24 sm:space-y-6 sm:pb-10"
+      >
+        <DraftAutosaveBadge
+          state={autosaveState}
+          text={autosaveText}
+          onDiscard={
+            autosaveState !== 'idle'
+              ? () =>
+                  void discardWorkOrderDraft()
+              : undefined
+          }
+        />
 
         <button
-          type="submit"
-          disabled={
-            isSaving ||
-            customers.length === 0
+          type="button"
+          onClick={() =>
+            navigate('/work-orders')
           }
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
         >
-          <Save size={19} />
-
-          {isSaving
-            ? 'Spremanje...'
-            : 'Spremi radni nalog'}
+          <ArrowLeft size={18} />
+          Radni nalozi
         </button>
-      </div>
 
-      {customers.length === 0 && (
-        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-5">
-          <p className="font-semibold text-amber-300">
-            Prvo je potrebno dodati investitora.
-          </p>
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
-          <p className="mt-1 text-sm text-slate-400">
-            Radni nalog mora biti povezan s investitorom iz vaše tvrtke.
-          </p>
+          <div className="relative flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
+                NOVI RADNI NALOG
+              </p>
 
-          <button
-            type="button"
-            onClick={() =>
-              navigate(
-                '/customers',
-              )
-            }
-            className="mt-4 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-slate-950"
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                Novi terenski posao
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                Unesi investitora, radove, fotografije i potpis.
+              </p>
+            </div>
+
+            <button
+              type="submit"
+              disabled={
+                isSaving ||
+                customers.length === 0
+              }
+              className="hidden h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50 sm:flex"
+            >
+              <Save size={18} />
+              Spremi
+            </button>
+          </div>
+
+          <div className="relative mt-5 grid grid-cols-3 gap-2 sm:hidden">
+            <HeroMetric
+              label="Investitor"
+              value={
+                customerName ||
+                'Nije odabran'
+              }
+            />
+            <HeroMetric
+              label="Trajanje"
+              value={durationText(
+                durationMinutes,
+              )}
+            />
+            <HeroMetric
+              label={
+                canViewPrices
+                  ? 'Ukupno'
+                  : 'Cijena'
+              }
+              value={
+                canViewPrices
+                  ? `${totalPrice.toFixed(
+                      2,
+                    )} €`
+                  : 'Skriveno'
+              }
+            />
+          </div>
+        </section>
+
+        {customers.length === 0 && (
+          <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-5">
+            <p className="font-black text-amber-300">
+              Prvo je potrebno dodati investitora.
+            </p>
+
+            <p className="mt-1 text-sm leading-6 text-slate-400">
+              Radni nalog mora biti povezan s investitorom.
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                navigate('/customers')
+              }
+              className="mt-4 min-h-11 rounded-2xl bg-amber-500 px-4 text-sm font-black text-slate-950"
+            >
+              Otvori investitore
+            </button>
+          </section>
+        )}
+
+        <MobileSection
+          number="1"
+          title="Investitor i lokacija"
+          description="Odaberi kome se posao radi i na kojoj adresi."
+        >
+          <Field
+            label="Investitor"
+            className="sm:col-span-2"
           >
-            Otvori kupce
-          </button>
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <h2 className="text-xl font-bold text-white">
-          1. Investitor i lokacija
-        </h2>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-2">
-          <label className="md:col-span-2">
-            <span className="text-sm font-semibold text-slate-300">
-              Investitor
-            </span>
-
             <select
               required
               value={customerId}
@@ -1461,7 +1433,7 @@ export function NewWorkOrderPage() {
                   event.target.value,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+              className={inputClass}
             >
               <option value="">
                 Odaberi investitora
@@ -1479,18 +1451,15 @@ export function NewWorkOrderPage() {
                       key={customer.id}
                       value={customer.id}
                     >
-                      {customer.name} · OIB {customer.oib}
+                      {customer.name} · OIB{' '}
+                      {customer.oib}
                     </option>
                   ),
                 )}
             </select>
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Kontakt osoba
-            </span>
-
+          <Field label="Kontakt osoba">
             <input
               value={
                 customerContactPerson
@@ -1500,31 +1469,24 @@ export function NewWorkOrderPage() {
                   event.target.value,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Telefon
-            </span>
-
+          <Field label="Telefon">
             <input
+              inputMode="tel"
               value={customerPhone}
               onChange={(event) =>
                 setCustomerPhone(
                   event.target.value,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              E-mail
-            </span>
-
+          <Field label="E-mail">
             <input
               type="email"
               value={customerEmail}
@@ -1533,15 +1495,11 @@ export function NewWorkOrderPage() {
                   event.target.value,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              OIB
-            </span>
-
+          <Field label="OIB">
             <input
               inputMode="numeric"
               maxLength={11}
@@ -1553,43 +1511,44 @@ export function NewWorkOrderPage() {
                     .slice(0, 11),
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label className="md:col-span-2">
-            <span className="text-sm font-semibold text-slate-300">
-              Adresa radova
-            </span>
+          <Field
+            label="Adresa radova"
+            className="sm:col-span-2"
+          >
+            <div className="relative">
+              <MapPin
+                size={18}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+              />
+              <input
+                value={address}
+                onChange={(event) =>
+                  setAddress(
+                    event.target.value,
+                  )
+                }
+                className={`${inputClass} pl-11`}
+              />
+            </div>
+          </Field>
+        </MobileSection>
 
-            <input
-              value={address}
-              onChange={(event) =>
-                setAddress(
-                  event.target.value,
-                )
-              }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+        <MobileSection
+          number="2"
+          title="Datum i vrijeme"
+          description="Termin, status i prioritet naloga."
+          icon={
+            <Clock3
+              size={20}
+              className="text-blue-400"
             />
-          </label>
-        </div>
-      </div>
-
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <div className="flex items-center gap-3">
-          <Clock3 className="text-blue-400" />
-
-          <h2 className="text-xl font-bold text-white">
-            2. Datum, dolazak i odlazak
-          </h2>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-5">
-          <label className="md:col-span-2">
-            <span className="text-sm font-semibold text-slate-300">
-              Datum
-            </span>
-
+          }
+        >
+          <Field label="Datum">
             <input
               type="date"
               value={date}
@@ -1598,61 +1557,50 @@ export function NewWorkOrderPage() {
                   event.target.value,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
+              className={`${inputClass} [color-scheme:dark]`}
             />
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Dolazak
-            </span>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Dolazak">
+              <input
+                type="time"
+                value={arrivalTime}
+                onChange={(event) =>
+                  setArrivalTime(
+                    event.target.value,
+                  )
+                }
+                className={`${inputClass} px-3 [color-scheme:dark]`}
+              />
+            </Field>
 
-            <input
-              type="time"
-              value={arrivalTime}
-              onChange={(event) =>
-                setArrivalTime(
-                  event.target.value,
-                )
-              }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
-            />
-          </label>
+            <Field label="Odlazak">
+              <input
+                type="time"
+                value={departureTime}
+                onChange={(event) =>
+                  setDepartureTime(
+                    event.target.value,
+                  )
+                }
+                className={`${inputClass} px-3 [color-scheme:dark]`}
+              />
+            </Field>
+          </div>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Odlazak
-            </span>
-
-            <input
-              type="time"
-              value={departureTime}
-              onChange={(event) =>
-                setDepartureTime(
-                  event.target.value,
-                )
-              }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white [color-scheme:dark]"
-            />
-          </label>
-
-          <div className="rounded-xl bg-slate-800 p-4">
-            <span className="text-xs font-semibold uppercase text-slate-500">
+          <div className="rounded-2xl bg-blue-500/10 p-4">
+            <p className="text-[10px] font-black uppercase tracking-wider text-blue-400">
               Trajanje
-            </span>
-
-            <p className="mt-2 text-lg font-bold text-white">
+            </p>
+            <p className="mt-1 text-xl font-black text-white">
               {durationText(
                 durationMinutes,
               )}
             </p>
           </div>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Status
-            </span>
-
+          <Field label="Status">
             <select
               value={status}
               onChange={(event) =>
@@ -1661,7 +1609,7 @@ export function NewWorkOrderPage() {
                     .value as WorkOrderStatus,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             >
               {[
                 'Novi',
@@ -1678,13 +1626,9 @@ export function NewWorkOrderPage() {
                 </option>
               ))}
             </select>
-          </label>
+          </Field>
 
-          <label>
-            <span className="text-sm font-semibold text-slate-300">
-              Prioritet
-            </span>
-
+          <Field label="Prioritet">
             <select
               value={priority}
               onChange={(event) =>
@@ -1693,7 +1637,7 @@ export function NewWorkOrderPage() {
                     .value as WorkOrderPriority,
                 )
               }
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             >
               {[
                 'Nizak',
@@ -1709,189 +1653,143 @@ export function NewWorkOrderPage() {
                 </option>
               ))}
             </select>
-          </label>
-        </div>
-      </div>
+          </Field>
+        </MobileSection>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              3. Radovi i radnici
-            </h2>
-
-            <p className="mt-1 text-sm text-slate-400">
-              Odaberi spremljeni predložak ili unesi novi opis radova.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={
-              openSaveTemplate
-            }
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-4 text-sm font-bold text-violet-300 transition hover:bg-violet-500/15"
-          >
-            <BookmarkPlus
-              size={18}
-            />
-            Spremi kao predložak
-          </button>
-        </div>
-
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="font-bold text-white">
-                Predlošci radova
-              </p>
-
-              <p className="mt-1 text-xs text-slate-500">
-                Jednim klikom ubaci naziv, opis i materijal. Nakon toga sve možeš normalno izmijeniti.
-              </p>
-            </div>
-
-            <div className="relative w-full md:max-w-sm">
-              <Search
-                size={17}
-                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+        <MobileSection
+          number="3"
+          title="Radovi i radnici"
+          description="Predložak, opis posla i osobe koje rade."
+          action={
+            <button
+              type="button"
+              onClick={openSaveTemplate}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 text-xs font-black text-violet-300"
+            >
+              <BookmarkPlus
+                size={16}
               />
+              Spremi predložak
+            </button>
+          }
+        >
+          <div className="sm:col-span-2">
+            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-3 sm:p-4">
+              <div className="relative">
+                <Search
+                  size={17}
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+                <input
+                  type="search"
+                  value={templateSearch}
+                  onChange={(event) =>
+                    setTemplateSearch(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Pretraži predloške..."
+                  className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-10 pr-3 text-sm text-white outline-none focus:border-violet-500"
+                />
+              </div>
 
-              <input
-                type="search"
-                value={
-                  templateSearch
-                }
-                onChange={(event) =>
-                  setTemplateSearch(
-                    event.target.value,
-                  )
-                }
-                placeholder="Pretraži predloške..."
-                className="h-10 w-full rounded-xl border border-slate-700 bg-slate-900 pl-10 pr-3 text-sm text-white outline-none focus:border-violet-500"
-              />
-            </div>
-          </div>
-
-          {isLoadingTemplates ? (
-            <p className="mt-4 text-sm text-slate-500">
-              Učitavanje predložaka...
-            </p>
-          ) : templatesError ? (
-            <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-              {templatesError}
-            </div>
-          ) : filteredTemplates.length === 0 ? (
-            <div className="mt-4 rounded-xl border border-dashed border-slate-700 p-5 text-center">
-              <p className="font-semibold text-slate-300">
-                {templates.length === 0
-                  ? 'Još nema spremljenih predložaka.'
-                  : 'Nema predložaka za ovu pretragu.'}
-              </p>
-
-              {templates.length === 0 && (
-                <p className="mt-1 text-xs text-slate-500">
-                  Unesi prvi rad, opis i materijal pa klikni „Spremi kao predložak”.
+              {isLoadingTemplates ? (
+                <p className="mt-3 text-sm text-slate-500">
+                  Učitavanje predložaka...
                 </p>
-              )}
-            </div>
-          ) : (
-            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {filteredTemplates.map(
-                (template) => {
-                  const active =
-                    selectedTemplateId ===
-                    template.id
-
-                  return (
-                    <div
-                      key={
+              ) : templatesError ? (
+                <p className="mt-3 rounded-xl bg-red-500/10 p-3 text-sm text-red-300">
+                  {templatesError}
+                </p>
+              ) : filteredTemplates.length ===
+                0 ? (
+                <p className="mt-3 rounded-xl border border-dashed border-slate-700 p-4 text-center text-sm text-slate-500">
+                  {templates.length === 0
+                    ? 'Još nema spremljenih predložaka.'
+                    : 'Nema rezultata za ovu pretragu.'}
+                </p>
+              ) : (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {filteredTemplates.map(
+                    (template) => {
+                      const active =
+                        selectedTemplateId ===
                         template.id
-                      }
-                      className={`rounded-xl border p-3 transition ${
-                        active
-                          ? 'border-violet-500/50 bg-violet-500/10'
-                          : 'border-slate-800 bg-slate-900'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          applyTemplate(
-                            template,
-                          )
-                        }
-                        className="w-full text-left"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${
-                              active
-                                ? 'bg-violet-500 text-white'
-                                : 'bg-slate-800 text-violet-300'
-                            }`}
-                          >
-                            {active ? (
-                              <Check
-                                size={17}
-                              />
-                            ) : (
-                              <BookmarkPlus
-                                size={17}
-                              />
-                            )}
-                          </div>
 
-                          <div className="min-w-0">
-                            <p className="truncate font-bold text-white">
-                              {
-                                template.name
-                              }
-                            </p>
-
-                            <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                              {template.title ||
-                                template.description ||
-                                'Predložak radnog naloga'}
-                            </p>
-
-                            <p className="mt-2 text-[11px] font-semibold text-slate-600">
-                              {
-                                template.materials.length
-                              }{' '}
-                              stavki materijala
-                            </p>
-                          </div>
-                        </div>
-                      </button>
-
-                      <div className="mt-3 flex justify-end border-t border-slate-800 pt-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void removeTemplate(
-                              template,
-                            )
-                          }
-                          className="rounded-lg px-2 py-1 text-xs font-bold text-red-400 hover:bg-red-500/10"
+                      return (
+                        <div
+                          key={template.id}
+                          className={`w-[210px] shrink-0 rounded-2xl border p-3 ${
+                            active
+                              ? 'border-violet-500/50 bg-violet-500/10'
+                              : 'border-slate-800 bg-slate-900'
+                          }`}
                         >
-                          Obriši
-                        </button>
-                      </div>
-                    </div>
-                  )
-                },
+                          <button
+                            type="button"
+                            onClick={() =>
+                              applyTemplate(
+                                template,
+                              )
+                            }
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-start gap-2">
+                              <span
+                                className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+                                  active
+                                    ? 'bg-violet-500 text-white'
+                                    : 'bg-slate-800 text-violet-300'
+                                }`}
+                              >
+                                {active ? (
+                                  <Check
+                                    size={17}
+                                  />
+                                ) : (
+                                  <BookmarkPlus
+                                    size={17}
+                                  />
+                                )}
+                              </span>
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-black text-white">
+                                  {template.name}
+                                </p>
+                                <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
+                                  {template.title ||
+                                    template.description ||
+                                    'Predložak radnog naloga'}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void removeTemplate(
+                                template,
+                              )
+                            }
+                            className="mt-3 w-full border-t border-slate-800 pt-2 text-right text-[11px] font-black text-red-400"
+                          >
+                            Obriši
+                          </button>
+                        </div>
+                      )
+                    },
+                  )}
+                </div>
               )}
             </div>
-          )}
-        </div>
+          </div>
 
-        <div className="mt-5 space-y-5">
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-300">
-              Naziv radnog naloga
-            </span>
-
+          <Field
+            label="Naziv radnog naloga"
+            className="sm:col-span-2"
+          >
             <input
               value={title}
               onChange={(event) =>
@@ -1900,17 +1798,16 @@ export function NewWorkOrderPage() {
                 )
               }
               placeholder="Primjer: Servis klima uređaja"
-              className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+              className={inputClass}
             />
-          </label>
+          </Field>
 
-          <label className="block">
-            <span className="text-sm font-semibold text-slate-300">
-              Opis radova
-            </span>
-
+          <Field
+            label="Opis radova"
+            className="sm:col-span-2"
+          >
             <textarea
-              rows={7}
+              rows={6}
               value={description}
               onChange={(event) =>
                 setDescription(
@@ -1918,36 +1815,29 @@ export function NewWorkOrderPage() {
                 )
               }
               placeholder="Detaljno opiši izvedene ili planirane radove..."
-              className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white"
+              className="w-full resize-none rounded-2xl bg-slate-800 p-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
             />
-          </label>
+          </Field>
 
-          <div>
-            <span className="text-sm font-semibold text-slate-300">
+          <div className="sm:col-span-2">
+            <p className="text-sm font-black text-slate-300">
               Radnici
-            </span>
-
+            </p>
             <p className="mt-1 text-xs text-slate-500">
-              Prikazuju se aktivni članovi vaše tvrtke. Vlasnik je uvijek prvi.
+              Dodirni radnika za odabir.
             </p>
 
-            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {isLoadingWorkers ? (
-                <div className="col-span-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-sm text-slate-400">
+                <div className="col-span-full rounded-2xl bg-slate-800 p-4 text-sm text-slate-400">
                   Učitavanje radnika...
                 </div>
               ) : workersError ? (
-                <div className="col-span-full rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                  <p className="text-sm font-semibold text-red-300">
-                    Radnike nije moguće učitati.
-                  </p>
-
-                  <p className="mt-1 break-words text-xs text-red-300/80">
-                    {workersError}
-                  </p>
+                <div className="col-span-full rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
+                  {workersError}
                 </div>
               ) : workers.length === 0 ? (
-                <div className="col-span-full rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-500">
+                <div className="col-span-full rounded-2xl border border-dashed border-slate-700 p-5 text-sm text-slate-500">
                   Nema aktivnih članova tvrtke.
                 </div>
               ) : (
@@ -1972,31 +1862,41 @@ export function NewWorkOrderPage() {
                             workerName,
                           )
                         }
-                        className={`flex items-center gap-3 rounded-xl border p-4 text-left font-semibold transition ${
+                        className={`min-h-[86px] rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
                           isSelected
-                            ? 'border-blue-500 bg-blue-500/10 text-white'
-                            : 'border-slate-700 bg-slate-800 text-slate-400 hover:border-slate-600 hover:bg-slate-800/80'
+                            ? 'border-blue-500 bg-blue-500/10'
+                            : 'border-slate-700 bg-slate-800'
                         }`}
                       >
-                        <UserRound
-                          size={19}
-                          className={
-                            isSelected
-                              ? 'text-blue-400'
-                              : ''
-                          }
-                        />
-
-                        <div className="min-w-0">
-                          <p className="truncate">
-                            {workerName}
-                          </p>
-
-                          <p className="mt-0.5 text-xs font-medium text-slate-500">
-                            {getRoleLabel(
-                              worker.role,
+                        <div className="flex items-start gap-2">
+                          <span
+                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+                              isSelected
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-slate-700 text-slate-400'
+                            }`}
+                          >
+                            {isSelected ? (
+                              <Check
+                                size={17}
+                              />
+                            ) : (
+                              <UserRound
+                                size={17}
+                              />
                             )}
-                          </p>
+                          </span>
+
+                          <div className="min-w-0">
+                            <p className="line-clamp-2 text-xs font-black leading-4 text-white sm:text-sm">
+                              {workerName}
+                            </p>
+                            <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                              {getRoleLabel(
+                                worker.role,
+                              )}
+                            </p>
+                          </div>
                         </div>
                       </button>
                     )
@@ -2005,471 +1905,488 @@ export function NewWorkOrderPage() {
               )}
             </div>
           </div>
-        </div>
-      </div>
+        </MobileSection>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">
-              4. Materijal i cijena
-            </h2>
+        <MobileSection
+          number="4"
+          title="Materijal i cijena"
+          description="Utrošeni materijal i financijski dio naloga."
+          action={
+            <button
+              type="button"
+              onClick={addMaterial}
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
+            >
+              <PackagePlus
+                size={16}
+              />
+              Dodaj
+            </button>
+          }
+        >
+          <div className="space-y-3 sm:col-span-2">
+            {materials.map(
+              (material) => (
+                <div
+                  key={material.id}
+                  className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3"
+                >
+                  <div className="flex items-start gap-2">
+                    <input
+                      value={material.name}
+                      onChange={(event) =>
+                        updateMaterial(
+                          material.id,
+                          'name',
+                          event.target.value,
+                        )
+                      }
+                      placeholder="Naziv materijala"
+                      className="h-11 min-w-0 flex-1 rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                    />
 
-            <p className="mt-1 text-sm text-slate-400">
-              Dodaj utrošeni materijal, cijenu rada i PDV.
-            </p>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeMaterial(
+                          material.id,
+                        )
+                      }
+                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400"
+                    >
+                      <Trash2
+                        size={17}
+                      />
+                    </button>
+                  </div>
+
+                  <div
+                    className={`mt-2 grid gap-2 ${
+                      canViewPrices
+                        ? 'grid-cols-3'
+                        : 'grid-cols-2'
+                    }`}
+                  >
+                    <MiniInput
+                      label="Količina"
+                    >
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={
+                          material.quantity
+                        }
+                        onChange={(event) =>
+                          updateMaterial(
+                            material.id,
+                            'quantity',
+                            Number(
+                              event.target.value,
+                            ),
+                          )
+                        }
+                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                      />
+                    </MiniInput>
+
+                    <MiniInput
+                      label="Jedinica"
+                    >
+                      <input
+                        value={material.unit}
+                        onChange={(event) =>
+                          updateMaterial(
+                            material.id,
+                            'unit',
+                            event.target.value,
+                          )
+                        }
+                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                      />
+                    </MiniInput>
+
+                    {canViewPrices && (
+                      <MiniInput
+                        label="Cijena €"
+                      >
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={
+                            material.unitPrice
+                          }
+                          onChange={(event) =>
+                            updateMaterial(
+                              material.id,
+                              'unitPrice',
+                              Number(
+                                event.target.value,
+                              ),
+                            )
+                          }
+                          className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                        />
+                      </MiniInput>
+                    )}
+                  </div>
+                </div>
+              ),
+            )}
+
+            {materials.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
+                Još nema dodanog materijala.
+              </div>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={addMaterial}
-            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 font-semibold text-white"
-          >
-            <PackagePlus size={18} />
-            Dodaj materijal
-          </button>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {materials.map(
-            (material) => (
-              <div
-                key={material.id}
-                className={`grid grid-cols-1 gap-3 rounded-xl bg-slate-800/70 p-4 ${
-                  canViewPrices
-                    ? 'md:grid-cols-[1fr_120px_120px_150px_44px]'
-                    : 'md:grid-cols-[1fr_120px_120px_44px]'
-                }`}
-              >
-                <input
-                  value={material.name}
-                  onChange={(event) =>
-                    updateMaterial(
-                      material.id,
-                      'name',
-                      event.target.value,
-                    )
-                  }
-                  placeholder="Naziv materijala"
-                  className="h-11 rounded-lg bg-slate-950 px-3 text-white"
-                />
-
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={material.quantity}
-                  onChange={(event) =>
-                    updateMaterial(
-                      material.id,
-                      'quantity',
-                      Number(
-                        event.target.value,
-                      ),
-                    )
-                  }
-                  className="h-11 rounded-lg bg-slate-950 px-3 text-white"
-                />
-
-                <input
-                  value={material.unit}
-                  onChange={(event) =>
-                    updateMaterial(
-                      material.id,
-                      'unit',
-                      event.target.value,
-                    )
-                  }
-                  placeholder="kom"
-                  className="h-11 rounded-lg bg-slate-950 px-3 text-white"
-                />
-
-                {canViewPrices && (
+          {canViewPrices && (
+            <>
+              <Field label="Cijena rada">
+                <div className="relative">
                   <input
                     type="number"
                     min="0"
                     step="0.01"
-                    value={
-                      material.unitPrice
-                    }
+                    value={labourPrice}
                     onChange={(event) =>
-                      updateMaterial(
-                        material.id,
-                        'unitPrice',
-                        Number(
-                          event.target.value,
-                        ),
+                      setLabourPrice(
+                        event.target.value,
                       )
                     }
-                    placeholder="Cijena"
-                    className="h-11 rounded-lg bg-slate-950 px-3 text-white"
+                    className={`${inputClass} pr-11`}
                   />
-                )}
+                  <Euro
+                    size={17}
+                    className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
+                  />
+                </div>
+              </Field>
 
-                <button
-                  type="button"
-                  onClick={() =>
-                    removeMaterial(
-                      material.id,
-                    )
-                  }
-                  className="flex h-11 items-center justify-center rounded-lg bg-red-500/10 text-red-400"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            ),
-          )}
-
-          {materials.length === 0 && (
-            <p className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-slate-500">
-              Još nema dodanog materijala.
-            </p>
-          )}
-        </div>
-
-        {canViewPrices && (
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <label>
-              <span className="text-sm font-semibold text-slate-300">
-                Cijena rada
-              </span>
-
-              <div className="relative mt-2">
+              <Field label="PDV %">
                 <input
                   type="number"
                   min="0"
-                  step="0.01"
-                  value={labourPrice}
+                  max="100"
+                  value={vatRate}
                   onChange={(event) =>
-                    setLabourPrice(
+                    setVatRate(
                       event.target.value,
                     )
                   }
-                  className="h-12 w-full rounded-xl bg-slate-800 px-4 pr-12 text-white"
+                  className={inputClass}
                 />
+              </Field>
 
-                <Euro
-                  size={18}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500"
-                />
+              <div className="rounded-2xl bg-blue-600 p-4 sm:col-span-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-blue-100">
+                  Ukupno s PDV-om
+                </p>
+
+                <p className="mt-1 text-2xl font-black text-white">
+                  {totalPrice.toFixed(2)} €
+                </p>
               </div>
-            </label>
 
-            <label>
-              <span className="text-sm font-semibold text-slate-300">
-                PDV %
-              </span>
+              <Field
+                label="Napomena uz cijenu"
+                className="sm:col-span-2"
+              >
+                <textarea
+                  rows={3}
+                  value={priceNote}
+                  onChange={(event) =>
+                    setPriceNote(
+                      event.target.value,
+                    )
+                  }
+                  className="w-full resize-none rounded-2xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                />
+              </Field>
+            </>
+          )}
+        </MobileSection>
 
+        <MobileSection
+          number="5"
+          title="Fotografije"
+          description={`${images.length}/12 fotografija dodano.`}
+          icon={
+            <Camera
+              size={20}
+              className="text-violet-400"
+            />
+          }
+        >
+          <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-3">
+            <label className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-center text-xs font-black text-white active:scale-[0.99] sm:text-sm">
+              <Camera
+                size={22}
+                className="text-blue-300"
+              />
+              Slikaj sada
               <input
-                type="number"
-                min="0"
-                max="100"
-                value={vatRate}
-                onChange={(event) =>
-                  setVatRate(
-                    event.target.value,
-                  )
-                }
-                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImages}
+                className="hidden"
               />
             </label>
 
-            <div className="rounded-xl bg-blue-600 p-4">
-              <span className="text-xs font-semibold uppercase text-blue-100">
-                Ukupno s PDV-om
-              </span>
-
-              <p className="mt-2 text-2xl font-bold text-white">
-                {totalPrice.toFixed(2)} €
-              </p>
-            </div>
-
-            <label className="md:col-span-3">
-              <span className="text-sm font-semibold text-slate-300">
-                Napomena uz cijenu
-              </span>
-
-              <textarea
-                rows={3}
-                value={priceNote}
-                onChange={(event) =>
-                  setPriceNote(
-                    event.target.value,
-                  )
-                }
-                className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white"
+            <label className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/10 p-3 text-center text-xs font-black text-white active:scale-[0.99] sm:text-sm">
+              <ImagePlus
+                size={22}
+                className="text-violet-300"
+              />
+              Galerija
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleImages}
+                className="hidden"
               />
             </label>
           </div>
-        )}
-      </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <div className="flex items-center gap-3">
-          <Camera className="text-violet-400" />
+          {isUploading && (
+            <div className="sm:col-span-2">
+              <FersysLoader
+                compact
+                text="Obrada fotografija..."
+              />
+            </div>
+          )}
 
-          <h2 className="text-xl font-bold text-white">
-            5. Fotografije
-          </h2>
+          {images.length > 0 && (
+            <div className="grid grid-cols-3 gap-2 sm:col-span-2 sm:grid-cols-4 md:grid-cols-5">
+              {images.map(
+                (image) => (
+                  <div
+                    key={image.id}
+                    className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800"
+                  >
+                    <img
+                      src={image.dataUrl}
+                      alt={image.name}
+                      className="aspect-square w-full object-cover"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        removeImage(
+                          image.id,
+                        )
+                      }
+                      className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-xl bg-black/75 text-white"
+                    >
+                      <Trash2
+                        size={15}
+                      />
+                    </button>
+                  </div>
+                ),
+              )}
+            </div>
+          )}
+        </MobileSection>
+
+        <MobileSection
+          number="6"
+          title="Potpis investitora"
+          description="Ime i potpis osobe koja potvrđuje nalog."
+        >
+          <Field
+            label="Ime i prezime investitora"
+            className="sm:col-span-2"
+          >
+            <input
+              value={investorName}
+              onChange={(event) =>
+                setInvestorName(
+                  event.target.value,
+                )
+              }
+              className={inputClass}
+            />
+          </Field>
+
+          <div className="min-w-0 sm:col-span-2">
+            <SignaturePad
+              value={
+                investorSignature
+              }
+              onChange={
+                setInvestorSignature
+              }
+            />
+          </div>
+        </MobileSection>
+
+        <div className="hidden flex-col-reverse gap-3 sm:flex sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={() =>
+              navigate('/work-orders')
+            }
+            className="h-12 rounded-2xl bg-slate-800 px-6 font-black text-white disabled:opacity-50"
+          >
+            Odustani
+          </button>
+
+          <button
+            type="submit"
+            disabled={
+              isSaving ||
+              customers.length === 0
+            }
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white disabled:opacity-50"
+          >
+            <Plus size={19} />
+            {isSaving
+              ? 'Spremanje...'
+              : 'Spremi radni nalog'}
+          </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-blue-500 hover:bg-slate-800/80">
-            <Camera
-              size={22}
-              className="text-blue-400"
-            />
+        {showTemplateModal && (
+          <div className="fixed inset-0 z-[120] flex items-end bg-slate-950/85 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+            <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border-t border-slate-700 bg-slate-900 p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:border sm:p-6">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
+                PREDLOŽAK
+              </p>
 
-            Slikaj sada
+              <h2 className="mt-2 text-xl font-black text-white sm:text-2xl">
+                Spremi ovaj rad za ubuduće
+              </h2>
 
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleImages}
-              className="hidden"
-            />
-          </label>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Spremaju se naziv, opis, prioritet i materijal.
+              </p>
 
-          <label className="flex min-h-24 cursor-pointer items-center justify-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 px-5 py-5 font-semibold text-white transition hover:border-violet-500 hover:bg-slate-800/80">
-            <ImagePlus
-              size={22}
-              className="text-violet-400"
-            />
-
-            Odaberi iz galerije
-
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              onChange={handleImages}
-              className="hidden"
-            />
-          </label>
-        </div>
-
-        <p className="mt-3 text-center text-sm text-slate-500">
-          Najviše 12 fotografija. Fotografije se automatski smanjuju prije spremanja.
-        </p>
-
-        {isUploading && (
-          <FersysLoader
-            compact
-            text="Obrada fotografija..."
-          />
-        )}
-
-        <div className="mt-5 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-          {images.map(
-            (image) => (
-              <div
-                key={image.id}
-                className="group relative overflow-hidden rounded-xl border border-slate-700 bg-slate-800"
+              <Field
+                label="Naziv predloška"
+                className="mt-5"
               >
-                <img
-                  src={image.dataUrl}
-                  alt={image.name}
-                  className="aspect-square w-full object-cover"
+                <input
+                  autoFocus
+                  value={templateName}
+                  onChange={(event) =>
+                    setTemplateName(
+                      event.target.value,
+                    )
+                  }
+                  placeholder="Npr. Izmjena kotlića"
+                  className={inputClass}
                 />
+              </Field>
+
+              <div className="mt-5 rounded-2xl bg-slate-950/60 p-4">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                  Sprema se
+                </p>
+
+                <p className="mt-2 font-black text-white">
+                  {title.trim() ||
+                    'Bez naziva radnog naloga'}
+                </p>
+
+                <p className="mt-1 line-clamp-3 text-sm leading-6 text-slate-500">
+                  {description.trim() ||
+                    'Bez opisa'}
+                </p>
+
+                <p className="mt-2 text-xs font-semibold text-slate-600">
+                  {materials.filter(
+                    (material) =>
+                      material.name.trim(),
+                  ).length}{' '}
+                  stavki materijala
+                </p>
+              </div>
+
+              <div className="mt-6 grid gap-2">
+                <button
+                  type="button"
+                  disabled={
+                    isSavingTemplate
+                  }
+                  onClick={() =>
+                    void saveTemplate(
+                      false,
+                    )
+                  }
+                  className="min-h-12 rounded-2xl bg-violet-600 px-4 font-black text-white disabled:opacity-50"
+                >
+                  {isSavingTemplate
+                    ? 'Spremanje...'
+                    : 'Spremi novi predložak'}
+                </button>
+
+                {selectedTemplateId &&
+                  templates.some(
+                    (template) =>
+                      template.id ===
+                      selectedTemplateId,
+                  ) && (
+                    <button
+                      type="button"
+                      disabled={
+                        isSavingTemplate
+                      }
+                      onClick={() =>
+                        void saveTemplate(
+                          true,
+                        )
+                      }
+                      className="min-h-12 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 font-black text-blue-300 disabled:opacity-50"
+                    >
+                      Ažuriraj postojeći
+                    </button>
+                  )}
 
                 <button
                   type="button"
-                  onClick={() =>
-                    removeImage(
-                      image.id,
-                    )
+                  disabled={
+                    isSavingTemplate
                   }
-                  className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-lg bg-black/70 text-white"
+                  onClick={() => {
+                    setShowTemplateModal(
+                      false,
+                    )
+                    setTemplateName('')
+                  }}
+                  className="min-h-12 rounded-2xl bg-slate-800 px-4 font-black text-white"
                 >
-                  <Trash2 size={17} />
+                  Odustani
                 </button>
               </div>
-            ),
-          )}
-        </div>
-      </div>
+            </div>
+          </div>
+        )}
+      </form>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
-        <h2 className="text-xl font-bold text-white">
-          6. Potpis investitora
-        </h2>
-
-        <label className="mt-5 block">
-          <span className="text-sm font-semibold text-slate-300">
-            Ime i prezime investitora
-          </span>
-
-          <input
-            value={investorName}
-            onChange={(event) =>
-              setInvestorName(
-                event.target.value,
-              )
-            }
-            className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white"
-          />
-        </label>
-
-        <div className="mt-5">
-          <SignaturePad
-            value={investorSignature}
-            onChange={
-              setInvestorSignature
-            }
-          />
-        </div>
-      </div>
-
-      <div className="flex flex-col-reverse gap-3 pb-10 sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          disabled={isSaving}
-          onClick={() =>
-            navigate(
-              '/work-orders',
-            )
-          }
-          className="h-12 rounded-xl bg-slate-800 px-6 font-semibold text-white disabled:opacity-50"
-        >
-          Odustani
-        </button>
-
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
         <button
           type="submit"
+          form="mobile-work-order-form"
           disabled={
             isSaving ||
             customers.length === 0
           }
-          className="flex h-12 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
         >
-          <Plus size={19} />
-
+          <Save size={18} />
           {isSaving
             ? 'Spremanje...'
             : 'Spremi radni nalog'}
         </button>
       </div>
-
-      {showTemplateModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg rounded-3xl border border-slate-700 bg-slate-900 p-5 shadow-2xl sm:p-6">
-            <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-400">
-              Predložak radnog naloga
-            </p>
-
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Spremi ovaj rad za ubuduće
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Spremit će se naziv radnog naloga, opis, prioritet i popis materijala. Investitor, datum, radnici, potpis i fotografije se ne spremaju.
-            </p>
-
-            <label className="mt-5 block">
-              <span className="text-sm font-bold text-slate-300">
-                Naziv predloška
-              </span>
-
-              <input
-                autoFocus
-                value={
-                  templateName
-                }
-                onChange={(event) =>
-                  setTemplateName(
-                    event.target.value,
-                  )
-                }
-                placeholder="Npr. Izmjena kotlića"
-                className="mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 text-white outline-none focus:border-violet-500"
-              />
-            </label>
-
-            <div className="mt-5 rounded-xl bg-slate-950/60 p-4">
-              <p className="text-xs font-black uppercase text-slate-600">
-                Sprema se
-              </p>
-
-              <p className="mt-2 font-bold text-white">
-                {title.trim() ||
-                  'Bez naziva radnog naloga'}
-              </p>
-
-              <p className="mt-1 line-clamp-3 text-sm leading-6 text-slate-500">
-                {description.trim() ||
-                  'Bez opisa'}
-              </p>
-
-              <p className="mt-2 text-xs font-semibold text-slate-600">
-                {materials.filter(
-                  (material) =>
-                    material.name.trim(),
-                ).length}{' '}
-                stavki materijala
-              </p>
-            </div>
-
-            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                disabled={
-                  isSavingTemplate
-                }
-                onClick={() => {
-                  setShowTemplateModal(
-                    false,
-                  )
-                  setTemplateName('')
-                }}
-                className="h-11 rounded-xl bg-slate-800 px-4 font-bold text-white"
-              >
-                Odustani
-              </button>
-
-              {selectedTemplateId &&
-                templates.some(
-                  (template) =>
-                    template.id ===
-                    selectedTemplateId,
-                ) && (
-                  <button
-                    type="button"
-                    disabled={
-                      isSavingTemplate
-                    }
-                    onClick={() =>
-                      void saveTemplate(
-                        true,
-                      )
-                    }
-                    className="h-11 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 font-bold text-blue-300 disabled:opacity-50"
-                  >
-                    Ažuriraj postojeći
-                  </button>
-                )}
-
-              <button
-                type="button"
-                disabled={
-                  isSavingTemplate
-                }
-                onClick={() =>
-                  void saveTemplate(
-                    false,
-                  )
-                }
-                className="h-11 rounded-xl bg-violet-600 px-4 font-bold text-white hover:bg-violet-500 disabled:opacity-50"
-              >
-                {isSavingTemplate
-                  ? 'Spremanje...'
-                  : 'Spremi novi predložak'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {isSaving && (
         <FersysLoader
@@ -2477,7 +2394,114 @@ export function NewWorkOrderPage() {
           text="Spremanje radnog naloga..."
         />
       )}
-    </form>
+    </>
+  )
+}
+
+function MobileSection({
+  number,
+  title,
+  description,
+  icon,
+  action,
+  children,
+}: {
+  number: string
+  title: string
+  description: string
+  icon?: ReactNode
+  action?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/12 text-xs font-black text-blue-300">
+            {icon ?? number}
+          </span>
+
+          <div className="min-w-0">
+            <h2 className="text-lg font-black text-white sm:text-xl">
+              {number}. {title}
+            </h2>
+
+            <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
+              {description}
+            </p>
+          </div>
+        </div>
+
+        {action && (
+          <div className="shrink-0">
+            {action}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+function Field({
+  label,
+  className = '',
+  children,
+}: {
+  label: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <label className={className}>
+      <span className="text-sm font-black text-slate-300">
+        {label}
+      </span>
+      <div className="mt-2">
+        {children}
+      </div>
+    </label>
+  )
+}
+
+function MiniInput({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
+  return (
+    <label className="min-w-0">
+      <span className="block truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
+        {label}
+      </span>
+      <div className="mt-1">
+        {children}
+      </div>
+    </label>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
+    </div>
   )
 }
 
