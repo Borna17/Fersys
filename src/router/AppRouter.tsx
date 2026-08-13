@@ -109,6 +109,10 @@ import {
 } from '../pages/NewOfferPage'
 
 import {
+  OfferDetailsPage,
+} from '../pages/OfferDetailsPage'
+
+import {
   NewWorkOrderPage,
 } from '../pages/NewWorkOrderPage'
 
@@ -606,6 +610,18 @@ function RouterContent() {
               feature="offers"
             >
               <OffersPage />
+            </Guard>
+          }
+        />
+
+        <Route
+          path="/offers/:offerId"
+          element={
+            <Guard
+              permission="offers.view"
+              feature="offers"
+            >
+              <OfferDetailsPage />
             </Guard>
           }
         />
