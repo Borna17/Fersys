@@ -506,21 +506,35 @@ export function WorkOrderDetailsPage() {
               />
             </div>
 
-{canManageWorkOrders &&
-              canEditThisOrder && (
-            <button
-              type="button"
-              onClick={() =>
-                navigate(
-                  `/work-orders/${order.id}/edit`,
-                )
-              }
-              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white active:scale-[0.99] sm:hidden"
-            >
-              <Pencil size={18} />
-              Uredi radni nalog
-            </button>
-              )}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+              {canManageWorkOrders &&
+                canEditThisOrder ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/work-orders/${order.id}/edit`,
+                      )
+                    }
+                    className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99]"
+                  >
+                    <Pencil size={18} />
+                    Uredi
+                  </button>
+                ) : (
+                  <div />
+                )}
+
+              <button
+                type="button"
+                disabled={isDownloading}
+                onClick={handleDownloadPdf}
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white active:scale-[0.99] disabled:opacity-50"
+              >
+                <Download size={18} />
+                {isDownloading ? 'PDF...' : 'PDF'}
+              </button>
+            </div>
 
             <div className="mt-4 hidden gap-3 sm:flex">
               {canManageWorkOrders &&

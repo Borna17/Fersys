@@ -1,5 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from 'react'
+import { useNavigate } from 'react-router'
 import {
+  ArrowLeft,
   Building2,
   ImagePlus,
   Palette,
@@ -8,15 +10,17 @@ import {
   Stamp,
   Trash2,
 } from 'lucide-react'
+import FersysLoader from '../components/FersysLoader'
 import {
   defaultWorkOrderBranding,
   type WorkOrderBranding,
 } from '../types/workOrder'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
 import {
-  readBranding,
-  writeBranding,
-} from '../utils/workOrderStorage'
+  getWorkOrderBrandingFromCompanySettings,
+  resetWorkOrderBranding,
+  saveWorkOrderBranding,
+} from '../services/workOrderBranding.service'
 
 function Toggle({
   checked,
@@ -41,13 +45,49 @@ function Toggle({
 }
 
 export function WorkOrderSettingsPage() {
-  const [branding, setBranding] = useState<WorkOrderBranding>(() =>
-    readBranding(),
+  const navigate = useNavigate()
+  const [branding, setBranding] = useState<WorkOrderBranding>(
+    defaultWorkOrderBranding,
   )
   const [saved, setSaved] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [error, setError] = useState('')
+
   useEffect(() => {
-    writeBranding(branding)
-  }, [branding])
+    let cancelled = false
+
+    async function loadBranding() {
+      try {
+        setIsLoading(true)
+        setError('')
+        const current =
+          await getWorkOrderBrandingFromCompanySettings()
+
+        if (!cancelled) {
+          setBranding(current)
+        }
+      } catch (value) {
+        if (!cancelled) {
+          setError(
+            value instanceof Error
+              ? value.message
+              : 'Izgled radnog naloga nije moguće učitati.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    void loadBranding()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function update<K extends keyof WorkOrderBranding>(
     key: K,
@@ -79,18 +119,71 @@ export function WorkOrderSettingsPage() {
     }
   }
 
-  function saveSettings() {
-    writeBranding(branding)
-    setSaved(true)
+  async function saveSettings() {
+    if (isSaving) return
+
+    try {
+      setIsSaving(true)
+      setError('')
+      const savedBranding =
+        await saveWorkOrderBranding(branding)
+      setBranding(savedBranding)
+      setSaved(true)
+    } catch (value) {
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Izgled radnog naloga nije moguće spremiti.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
   }
 
-  function resetSettings() {
-    setBranding(defaultWorkOrderBranding)
-    setSaved(false)
+  async function resetSettings() {
+    if (isSaving) return
+
+    try {
+      setIsSaving(true)
+      setError('')
+      const resetBranding =
+        await resetWorkOrderBranding()
+      setBranding(resetBranding)
+      setSaved(false)
+    } catch (value) {
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Zadani izgled nije moguće vratiti.',
+      )
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <FersysLoader text="Učitavanje izgleda radnog naloga..." />
+    )
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-28 sm:space-y-6 sm:pb-12">
+    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-44 sm:space-y-6 sm:pb-12">
+      <button
+        type="button"
+        onClick={() => navigate('/settings')}
+        className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-black text-slate-300 active:scale-[0.99]"
+      >
+        <ArrowLeft size={18} />
+        Postavke
+      </button>
+
+      {error && (
+        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          {error}
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -117,8 +210,9 @@ export function WorkOrderSettingsPage() {
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={resetSettings}
-            className="flex h-12 items-center gap-2 rounded-xl bg-slate-800 px-5 font-semibold text-white"
+            onClick={() => void resetSettings()}
+            disabled={isSaving}
+            className="flex h-12 items-center gap-2 rounded-xl bg-slate-800 px-5 font-semibold text-white disabled:opacity-50"
           >
             <RotateCcw size={18} />
             Vrati zadano
@@ -126,8 +220,9 @@ export function WorkOrderSettingsPage() {
 
           <button
             type="button"
-            onClick={saveSettings}
-            className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white"
+            onClick={() => void saveSettings()}
+            disabled={isSaving}
+            className="flex h-12 items-center gap-2 rounded-xl bg-blue-600 px-5 font-semibold text-white disabled:opacity-50"
           >
             <Save size={18} />
             {saved ? 'Spremljeno' : 'Spremi izgled'}
@@ -445,11 +540,12 @@ export function WorkOrderSettingsPage() {
         </div>
       </div>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
         <button
           type="button"
-          onClick={saveSettings}
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.99]"
+          onClick={() => void saveSettings()}
+          disabled={isSaving}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.99] disabled:opacity-50"
         >
           <Save size={18} />
           {saved ? 'Spremljeno' : 'Spremi izgled'}

@@ -1027,14 +1027,7 @@ export function CalendarPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => openNewEvent()}
-            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white active:scale-95 sm:hidden"
-            aria-label="Novi termin"
-          >
-            <Plus size={21} />
-          </button>
+          <div className="sm:hidden" />
         </div>
 
         <div className="relative mt-5 grid grid-cols-3 gap-2">
@@ -1042,6 +1035,15 @@ export function CalendarPage() {
           <HeroMetric label="Termini" value={String(events.length)} />
           <HeroMetric label="Google" value={googleAccessToken ? 'Povezan' : 'Nije povezan'} />
         </div>
+
+        <button
+          type="button"
+          onClick={() => openNewEvent()}
+          className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99] sm:hidden"
+        >
+          <Plus size={20} />
+          Novi termin
+        </button>
 
         <div className="relative mt-4 hidden flex-wrap gap-2 sm:flex">
           <button

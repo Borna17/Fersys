@@ -535,7 +535,7 @@ export function SettingsPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-44 sm:space-y-6 sm:pb-12">
+    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-28 sm:space-y-6 sm:pb-12">
       <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -690,7 +690,7 @@ export function SettingsPage() {
         )}
       </div>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
         <button
           type="button"
           disabled={isSaving}
@@ -1590,16 +1590,6 @@ function OverviewSettingsTab({
           description="Prefiksi, rokovi, podnožje i vodeni žig."
           action="Uredi dokumente"
           onClick={() => onOpenTab('documents')}
-        />
-
-        <ControlCenterCard
-          icon={<Palette size={23} />}
-          title="Izgled radnog naloga"
-          description="Boje, logo, pečat, pozadina, raspored i PDF prikaz radnog naloga."
-          action="Uredi izgled"
-          onClick={() =>
-            onNavigate('/settings/work-orders')
-          }
         />
 
         <ControlCenterCard

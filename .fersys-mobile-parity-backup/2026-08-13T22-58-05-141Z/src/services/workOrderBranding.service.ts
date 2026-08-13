@@ -423,7 +423,10 @@ export async function saveWorkOrderLayout(
 
     [BRANDING_STORAGE_KEY]: {
       ...currentBranding,
-      layout,
+      layout:
+        layout === 'minimal'
+          ? 'custom'
+          : layout,
     },
   }
 

@@ -382,7 +382,7 @@ export function OfferDetailsPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[1450px] space-y-4 pb-10 sm:space-y-6 sm:pb-10">
+      <section className="mx-auto w-full max-w-[1450px] space-y-4 pb-24 sm:space-y-6 sm:pb-10">
         <button
           type="button"
           onClick={() =>

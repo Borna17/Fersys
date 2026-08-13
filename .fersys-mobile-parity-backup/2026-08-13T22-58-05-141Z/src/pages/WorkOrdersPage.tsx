@@ -27,9 +27,7 @@ import {
   type CloudWorkOrderStatus,
 } from '../services/workOrders.service'
 import { downloadWorkOrderPdf } from '../utils/workOrderPdf'
-import {
-  getWorkOrderBrandingFromCompanySettings,
-} from '../services/workOrderBranding.service'
+import { readBranding } from '../utils/workOrderStorage'
 
 function formatDate(date: string) {
   if (!date) return '—'
@@ -285,7 +283,7 @@ export function WorkOrdersPage() {
       [orders],
     )
 
-  async function handleDownloadPdf(
+  function handleDownloadPdf(
     order: CloudWorkOrder,
   ) {
     try {
@@ -293,16 +291,13 @@ export function WorkOrdersPage() {
         order.id,
       )
 
-      const branding =
-        await getWorkOrderBrandingFromCompanySettings()
-
-      await downloadWorkOrderPdf(
+      downloadWorkOrderPdf(
         canViewPrices
           ? order
           : redactWorkOrderPrices(
               order,
             ),
-        branding,
+        readBranding(),
       )
     } catch (error) {
       alert(
