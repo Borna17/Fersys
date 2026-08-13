@@ -12,27 +12,10 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging()
 
-messaging.onBackgroundMessage((payload) => {
-  const data = payload.data ?? {}
-  const notification = payload.notification ?? {}
-
-  self.registration.showNotification(
-    notification.title || data.title || 'FERSYS',
-    {
-      body: notification.body || data.body || data.description || 'Imate novu obavijest.',
-      icon: '/pwa-192x192.png',
-      badge: '/favicon-64x64.png',
-      tag: data.notificationKey || data.tag || undefined,
-      data: { route: data.route || '/dashboard' },
-    },
-  )
-})
-
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const route = event.notification.data?.route || '/dashboard'
   const target = new URL(route, self.location.origin).href
-
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
       for (const client of clients) {
@@ -45,4 +28,20 @@ self.addEventListener('notificationclick', (event) => {
       if (self.clients.openWindow) await self.clients.openWindow(target)
     }),
   )
+})
+
+messaging.onBackgroundMessage((payload) => {
+  const data = payload.data ?? {}
+  return self.registration.showNotification(data.title || 'FERSYS', {
+    body: data.body || data.description || 'Imate novu FERSYS obavijest.',
+    icon: '/pwa-192x192.png',
+    badge: '/favicon-64x64.png',
+    tag: data.notificationKey || data.tag || 'fersys-notification',
+    renotify: false,
+    data: {
+      route: data.route || '/dashboard',
+      notificationKey: data.notificationKey || '',
+      category: data.category || '',
+    },
+  })
 })
