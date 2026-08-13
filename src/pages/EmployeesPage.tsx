@@ -80,7 +80,7 @@ const permissionGroups: Array<{
   {
     title: 'Osnovno',
     description:
-      'Početna, investitori i kalendar.',
+      'Početna, kupci i kalendar.',
     permissions: [
       'dashboard.view',
       'customers.view',
@@ -1029,29 +1029,49 @@ export function EmployeesPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[1550px]">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 className="text-3xl font-black text-white">
-              Zaposlenici
-            </h1>
+      <section className="mx-auto w-full max-w-[1550px] space-y-4 pb-10 sm:space-y-6">
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 p-5 sm:p-6">
+          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
-            <p className="mt-2 text-slate-400">
-              Upravljaj ulogama,
-              statusom i
-              pojedinačnim
-              ovlastima svakog
-              korisnika.
-            </p>
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
+                TIM I OVLASTI
+              </p>
+
+              <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+                Zaposlenici
+              </h1>
+
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+                Upravljaj zaposlenicima, pozivnicama, ulogama, statusima i pojedinačnim ovlastima.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsInviteModalOpen(true)}
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white active:scale-95 sm:hidden"
+              aria-label="Pozovi zaposlenika"
+            >
+              <Plus size={20} />
+            </button>
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative mt-5 grid grid-cols-4 gap-2">
+            <HeroMetric label="Ukupno" value={stats.total} />
+            <HeroMetric label="Aktivni" value={stats.active} />
+            <HeroMetric label="Blokirani" value={stats.blocked} />
+            <HeroMetric label="Pozivnice" value={stats.pendingInvitations} />
+          </div>
+
+          <div className="relative mt-4 hidden gap-2 sm:flex">
             <button
               type="button"
               onClick={() =>
                 void refreshData()
               }
-              className="flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 font-bold text-white transition hover:bg-slate-700"
+              className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-bold text-white transition hover:bg-slate-700"
             >
               <RefreshCw
                 size={18}
@@ -1076,10 +1096,10 @@ export function EmployeesPage() {
               Pozovi zaposlenika
             </button>
           </div>
-        </div>
+        </section>
 
         {actionSuccess && (
-          <div className="mt-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
+          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4 text-sm text-emerald-300">
             {actionSuccess}
           </div>
         )}
@@ -1090,7 +1110,7 @@ export function EmployeesPage() {
           </div>
         )}
 
-        <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="hidden grid-cols-2 gap-3 sm:grid xl:grid-cols-4">
           <StatCard
             label="Ukupno korisnika"
             value={
@@ -1136,7 +1156,7 @@ export function EmployeesPage() {
           />
         </div>
 
-        <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-2">
+        <div className="overflow-x-auto rounded-3xl border border-slate-800 bg-slate-900 p-2">
           <div className="flex min-w-max gap-1">
             <button
               type="button"
@@ -1194,7 +1214,7 @@ export function EmployeesPage() {
           </div>
         </div>
 
-        <div className="mt-5 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
           <div className="relative">
             <Search
               size={19}
@@ -1218,7 +1238,7 @@ export function EmployeesPage() {
                   ? 'Pretraži zaposlenike...'
                   : 'Pretraži pozivnice...'
               }
-              className="h-12 w-full rounded-xl bg-slate-800 pl-12 pr-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+              className="h-12 w-full rounded-2xl bg-slate-800 pl-12 pr-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
             />
           </div>
         </div>
@@ -1311,6 +1331,25 @@ export function EmployeesPage() {
   )
 }
 
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-2 py-3 text-center">
+      <p className="truncate text-[8px] font-black uppercase tracking-wide text-slate-500 sm:text-[10px]">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-black text-white">
+        {value}
+      </p>
+    </div>
+  )
+}
+
 function EmployeesList({
   employees,
   busyId,
@@ -1345,14 +1384,14 @@ function EmployeesList({
   ) => Promise<void>
 }) {
   return (
-    <div className="mt-6 space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {employees.map(
         (employee) => (
           <article
             key={
               employee.membershipId
             }
-            className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
+            className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5"
           >
             <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div className="min-w-0 flex-1">
@@ -1440,7 +1479,7 @@ function EmployeesList({
                               .value as InvitationRole,
                           )
                         }
-                        className="h-11 w-full appearance-none rounded-xl bg-slate-800 px-3 pr-9 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
+                        className="h-11 w-full appearance-none rounded-2xl bg-slate-800 px-3 pr-9 text-sm font-bold text-white outline-none focus:ring-2 focus:ring-blue-600 disabled:opacity-50"
                       >
                         {editableRoles.map(
                           (
@@ -1740,8 +1779,8 @@ function PermissionsModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-5">
-      <div className="max-h-[94vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-end bg-black/80 backdrop-blur-sm sm:items-center sm:justify-center sm:p-5">
+      <div className="max-h-[94dvh] w-full overflow-hidden rounded-t-[2rem] border-t border-slate-700 bg-slate-900 shadow-2xl sm:max-w-4xl sm:rounded-3xl sm:border">
         <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-5 sm:px-7">
           <div>
             <div className="flex items-center gap-3">
@@ -1785,7 +1824,7 @@ function PermissionsModal({
             onClick={
               onClose
             }
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-400 transition hover:text-white"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400 transition hover:text-white"
           >
             <X
               size={20}
@@ -1948,7 +1987,7 @@ function PermissionsModal({
             onClick={
               resetToRoleDefaults
             }
-            className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 text-sm font-bold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50"
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-bold text-slate-300 transition hover:bg-slate-700 hover:text-white disabled:opacity-50"
           >
             <RefreshCw
               size={16}
@@ -1966,7 +2005,7 @@ function PermissionsModal({
               onClick={
                 onClose
               }
-              className="h-11 flex-1 rounded-xl bg-slate-800 px-5 text-sm font-bold text-white sm:flex-none"
+              className="h-11 flex-1 rounded-2xl bg-slate-800 px-5 text-sm font-bold text-white sm:flex-none"
             >
               Odustani
             </button>
@@ -2029,7 +2068,7 @@ function InvitationsList({
   ) => Promise<void>
 }) {
   return (
-    <div className="mt-6 space-y-4">
+    <div className="space-y-3 sm:space-y-4">
       {invitations.map(
         (invitation) => (
           <article
@@ -2218,7 +2257,7 @@ function InvitationsList({
             </div>
 
             {invitation.message && (
-              <div className="mt-4 rounded-xl bg-slate-800/60 p-4">
+              <div className="mt-4 rounded-2xl bg-slate-800/60 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">
                   Poruka
                 </p>
@@ -2341,8 +2380,8 @@ function InvitationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
+    <div className="fixed inset-0 z-[100] flex items-end bg-black/75 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+      <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border-t border-slate-700 bg-slate-900 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:border">
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-5 py-5 sm:px-6">
           <div>
             <h2 className="text-2xl font-black text-white">
@@ -2361,7 +2400,7 @@ function InvitationModal({
             onClick={
               onClose
             }
-            className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-400"
+            className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-400"
           >
             <X
               size={20}
@@ -2373,7 +2412,7 @@ function InvitationModal({
           onSubmit={
             submit
           }
-          className="p-5 sm:p-6"
+          className="p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:p-6"
         >
           {error && (
             <div className="mb-5 whitespace-pre-wrap rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
@@ -2381,7 +2420,7 @@ function InvitationModal({
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label>
               <span className="text-sm font-bold text-slate-300">
                 Ime i prezime
@@ -2397,7 +2436,7 @@ function InvitationModal({
                       .value,
                   )
                 }
-                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-2 h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder="Marko Horvat"
               />
             </label>
@@ -2419,7 +2458,7 @@ function InvitationModal({
                       .value,
                   )
                 }
-                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-2 h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder="marko@firma.hr"
               />
             </label>
@@ -2439,7 +2478,7 @@ function InvitationModal({
                       .value as InvitationRole,
                   )
                 }
-                className="mt-2 h-12 w-full rounded-xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-2 h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
               >
                 {invitationRoles.map(
                   (
@@ -2482,7 +2521,7 @@ function InvitationModal({
                       .value,
                   )
                 }
-                className="mt-2 w-full rounded-xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
+                className="mt-2 w-full rounded-2xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
                 placeholder="Opcionalna poruka zaposleniku..."
               />
             </label>
@@ -2497,7 +2536,7 @@ function InvitationModal({
               onClick={
                 onClose
               }
-              className="h-12 rounded-xl bg-slate-800 px-5 font-bold text-white disabled:opacity-50"
+              className="h-12 rounded-2xl bg-slate-800 px-5 font-bold text-white disabled:opacity-50"
             >
               Odustani
             </button>
@@ -2588,7 +2627,7 @@ function InfoBox({
   value: string
 }) {
   return (
-    <div className="rounded-xl bg-slate-800/60 p-3">
+    <div className="rounded-2xl bg-slate-800/60 p-3">
       <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
         {label}
       </p>
