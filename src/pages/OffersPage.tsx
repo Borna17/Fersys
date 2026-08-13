@@ -37,6 +37,7 @@ import type {
   OfferStatus,
 } from '../types/offers'
 
+
 const offerStatuses: OfferStatus[] = [
   'Nacrt',
   'Poslano',

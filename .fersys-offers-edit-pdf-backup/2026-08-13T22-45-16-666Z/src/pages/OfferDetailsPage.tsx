@@ -3,7 +3,6 @@ import {
   CircleAlert,
   ClipboardList,
   Clock3,
-  Download,
   FileText,
   Mail,
   MapPin,
@@ -33,9 +32,6 @@ import type {
   OfferItem,
   OfferStatus,
 } from '../types/offers'
-import {
-  openOfferPdf,
-} from '../utils/offerPdf'
 
 const offerStatuses: OfferStatus[] = [
   'Nacrt',
@@ -451,31 +447,18 @@ export function OfferDetailsPage() {
               />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/offers/${offer.id}/edit`,
-                  )
-                }
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white active:scale-[0.99]"
-              >
-                <Pencil size={18} />
-                Uredi
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  openOfferPdf(offer)
-                }
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99]"
-              >
-                <Download size={18} />
-                PDF
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/offers/${offer.id}/edit`,
+                )
+              }
+              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white active:scale-[0.99] sm:hidden"
+            >
+              <Pencil size={18} />
+              Uredi ponudu
+            </button>
             <div className="mt-4 hidden gap-3 sm:flex">
               <button
                 type="button"
@@ -488,17 +471,6 @@ export function OfferDetailsPage() {
               >
                 <Pencil size={18} />
                 Uredi ponudu
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  openOfferPdf(offer)
-                }
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
-              >
-                <Download size={18} />
-                Preuzmi PDF
               </button>
             </div>
           </div>
