@@ -8,6 +8,7 @@ import {
   PackageSearch,
   QrCode,
   Search,
+  Sparkles,
   X,
 } from 'lucide-react'
 import {
@@ -461,218 +462,302 @@ export function InventoryQrScannerPage() {
   }
 
   return (
-    <div className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-4xl">
-        <div className="flex items-start gap-4">
-          <button
-            type="button"
-            onClick={() => {
-              stopCamera()
-              navigate(
-                '/inventory',
-              )
-            }}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300"
-          >
-            <ArrowLeft size={20} />
-          </button>
+    <section className="mx-auto w-full max-w-4xl space-y-4 pb-10 sm:space-y-6">
+      <button
+        type="button"
+        onClick={() => {
+          stopCamera()
+          navigate(
+            '/inventory',
+          )
+        }}
+        className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
+      >
+        <ArrowLeft size={18} />
+        Skladište
+      </button>
 
-          <div>
-            <h1 className="text-2xl font-bold text-white sm:text-3xl">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-sky-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/45 p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-400">
+              SKLADIŠTE
+            </p>
+
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
               QR skener
             </h1>
 
-            <p className="mt-1 text-sm leading-6 text-slate-400">
-              Skeniraj artikl i FERSYS će odmah otvoriti
-              <b className="text-slate-200">
-                {' '}
-                Uzmi iz skladišta
-              </b>
-              .
+            <p className="mt-2 max-w-xl text-sm leading-6 text-slate-400">
+              Skeniraj artikl i FERSYS odmah otvara unos količine za izlaz iz skladišta.
             </p>
+          </div>
+
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-500/10 text-sky-300">
+            <QrCode size={22} />
           </div>
         </div>
 
-        {errorMessage && (
-          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
-            <AlertTriangle
-              size={20}
-              className="mt-0.5 shrink-0"
-            />
-
-            <p className="flex-1 text-sm leading-6">
-              {errorMessage}
-            </p>
-
-            <button
-              type="button"
-              onClick={() =>
-                setErrorMessage('')
-              }
-            >
-              <X size={17} />
-            </button>
-          </div>
-        )}
-
-        {statusMessage && (
-          <div className="mt-5 flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
-            <CheckCircle2
-              size={20}
-            />
-            <p className="text-sm font-semibold">
-              {statusMessage}
-            </p>
-          </div>
-        )}
-
-        <div className="mt-6 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-          <div className="relative aspect-[3/4] min-h-[420px] overflow-hidden bg-black sm:aspect-[4/3]">
-            <video
-              ref={videoRef}
-              muted
-              playsInline
-              className={`h-full w-full object-cover ${
-                isCameraActive
-                  ? 'block'
-                  : 'hidden'
-              }`}
-            />
-
-            {!isCameraActive && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-                <div className="grid h-20 w-20 place-items-center rounded-3xl bg-slate-800 text-sky-400">
-                  <CameraOff
-                    size={38}
-                  />
-                </div>
-
-                <h2 className="mt-5 text-xl font-semibold text-white">
-                  Kamera nije pokrenuta
-                </h2>
-
-                <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
-                  Pokreni kameru i usmjeri je prema QR kodu na artiklu ili polici.
-                </p>
-              </div>
+        <div className="relative mt-5 grid grid-cols-3 gap-2">
+          <HeroMetric
+            label="Artikli"
+            value={String(
+              items.length,
             )}
+          />
 
-            {isCameraActive && (
-              <>
-                <div className="pointer-events-none absolute inset-0 bg-black/20" />
+          <HeroMetric
+            label="Kamera"
+            value={
+              isCameraActive
+                ? 'Aktivna'
+                : 'Isključena'
+            }
+          />
 
-                <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-10">
-                  <div className="aspect-square w-full max-w-[330px] rounded-3xl border-4 border-sky-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.25)]" />
-                </div>
-              </>
-            )}
-          </div>
+          <HeroMetric
+            label="Radnja"
+            value="Izlaz robe"
+          />
+        </div>
+      </section>
 
-          <div className="p-4 sm:p-5">
-            {!isCameraActive ? (
-              <button
-                type="button"
-                disabled={
-                  isStartingCamera
-                }
-                onClick={() =>
-                  void startCamera()
-                }
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-sky-500 font-bold text-white disabled:opacity-50"
-              >
-                <Camera
-                  size={19}
-                />
+      {errorMessage && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+          <AlertTriangle
+            size={20}
+            className="mt-0.5 shrink-0"
+          />
 
-                {isStartingCamera
-                  ? 'Pokretanje kamere...'
-                  : 'Pokreni kameru'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={
-                  stopCamera
-                }
-                className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-800 font-bold text-white"
-              >
+          <p className="min-w-0 flex-1 text-sm leading-6">
+            {errorMessage}
+          </p>
+
+          <button
+            type="button"
+            onClick={() =>
+              setErrorMessage('')
+            }
+          >
+            <X size={17} />
+          </button>
+        </div>
+      )}
+
+      {statusMessage && (
+        <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-emerald-200">
+          <CheckCircle2
+            size={20}
+          />
+
+          <p className="text-sm font-black">
+            {statusMessage}
+          </p>
+        </div>
+      )}
+
+      <section className="overflow-hidden rounded-[2rem] border border-slate-800 bg-slate-900">
+        <div className="relative aspect-[4/5] min-h-[460px] overflow-hidden bg-black sm:aspect-[4/3] sm:min-h-[520px]">
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            className={`h-full w-full object-cover ${
+              isCameraActive
+                ? 'block'
+                : 'hidden'
+            }`}
+          />
+
+          {!isCameraActive && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+              <div className="grid h-24 w-24 place-items-center rounded-[2rem] bg-slate-800 text-sky-400">
                 <CameraOff
-                  size={19}
+                  size={42}
                 />
-                Zaustavi kameru
-              </button>
-            )}
-          </div>
-        </div>
+              </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-          <div className="flex items-center gap-3">
-            <Keyboard className="text-violet-400" />
-
-            <div>
-              <h2 className="font-bold text-white">
-                Ručni unos
+              <h2 className="mt-5 text-xl font-black text-white">
+                Kamera nije pokrenuta
               </h2>
 
-              <p className="text-xs text-slate-500">
-                Možeš upisati šifru, barkod ili QR vrijednost.
+              <p className="mt-2 max-w-md text-sm leading-6 text-slate-400">
+                Pokreni stražnju kameru i usmjeri je prema QR kodu artikla.
               </p>
             </div>
-          </div>
+          )}
 
-          <form
-            onSubmit={
-              handleManualSearch
-            }
-            className="mt-4 flex flex-col gap-3 sm:flex-row"
-          >
-            <div className="relative flex-1">
-              <Search
-                size={18}
-                className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-              />
+          {isCameraActive && (
+            <>
+              <div className="pointer-events-none absolute inset-0 bg-black/10" />
 
-              <input
-                value={
-                  manualValue
-                }
-                onChange={(event) =>
-                  setManualValue(
-                    event.target
-                      .value,
-                  )
-                }
-                placeholder="Npr. ART-00001"
-                className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950 pl-11 pr-4 text-white outline-none focus:border-sky-500"
-              />
-            </div>
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-8">
+                <div className="relative aspect-square w-full max-w-[330px] rounded-[2rem] border-[3px] border-sky-400 shadow-[0_0_0_9999px_rgba(0,0,0,0.38)]">
+                  <Corner className="left-[-4px] top-[-4px] border-l-4 border-t-4" />
+                  <Corner className="right-[-4px] top-[-4px] border-r-4 border-t-4" />
+                  <Corner className="bottom-[-4px] left-[-4px] border-b-4 border-l-4" />
+                  <Corner className="bottom-[-4px] right-[-4px] border-b-4 border-r-4" />
 
-            <button
-              type="submit"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 font-bold text-white"
-            >
-              <PackageSearch
-                size={18}
-              />
-              Pronađi
-            </button>
-          </form>
+                  <div className="absolute left-1/2 top-1/2 h-[2px] w-[72%] -translate-x-1/2 -translate-y-1/2 bg-sky-400/80 shadow-[0_0_16px_rgba(56,189,248,0.8)]" />
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center px-4">
+                <div className="inline-flex items-center gap-2 rounded-full bg-black/60 px-4 py-2 text-xs font-black text-white backdrop-blur">
+                  <Sparkles
+                    size={15}
+                    className="text-sky-300"
+                  />
+                  Tražim QR kod...
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
-          <div className="flex gap-3">
-            <QrCode
-              size={20}
-              className="mt-0.5 shrink-0 text-sky-300"
-            />
+        <div className="p-4 sm:p-5">
+          {!isCameraActive ? (
+            <button
+              type="button"
+              disabled={
+                isStartingCamera
+              }
+              onClick={() =>
+                void startCamera()
+              }
+              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 text-base font-black text-white active:scale-[0.99] disabled:opacity-50"
+            >
+              <Camera
+                size={21}
+              />
 
-            <p className="text-sm leading-6 text-slate-300">
-              Nakon skeniranja ne moraš dodatno tražiti gumb. FERSYS odmah otvara prozor za unos količine koju radnik uzima.
+              {isStartingCamera
+                ? 'Pokretanje kamere...'
+                : 'Pokreni kameru'}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={
+                stopCamera
+              }
+              className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 text-base font-black text-white active:scale-[0.99]"
+            >
+              <CameraOff
+                size={21}
+              />
+              Zaustavi kameru
+            </button>
+          )}
+        </div>
+      </section>
+
+      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+        <div className="flex items-center gap-3">
+          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/10 text-violet-300">
+            <Keyboard size={20} />
+          </div>
+
+          <div>
+            <h2 className="font-black text-white">
+              Ručni unos
+            </h2>
+
+            <p className="mt-1 text-xs leading-5 text-slate-500">
+              Ako kamera ne radi, upiši šifru, barkod ili QR vrijednost.
             </p>
           </div>
         </div>
-      </div>
+
+        <form
+          onSubmit={
+            handleManualSearch
+          }
+          className="mt-4 space-y-3 sm:flex sm:gap-3 sm:space-y-0"
+        >
+          <div className="relative flex-1">
+            <Search
+              size={18}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+            />
+
+            <input
+              value={
+                manualValue
+              }
+              onChange={(event) =>
+                setManualValue(
+                  event.target
+                    .value,
+                )
+              }
+              placeholder="Npr. ART-00001"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck={false}
+              className="h-14 w-full rounded-2xl border border-slate-700 bg-slate-950 pl-11 pr-4 text-base font-semibold text-white outline-none focus:border-sky-500"
+            />
+          </div>
+
+          <button
+            type="submit"
+            className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white active:scale-[0.99] sm:w-auto"
+          >
+            <PackageSearch
+              size={19}
+            />
+            Pronađi artikl
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-3xl border border-sky-500/20 bg-sky-500/10 p-4">
+        <div className="flex gap-3">
+          <QrCode
+            size={20}
+            className="mt-0.5 shrink-0 text-sky-300"
+          />
+
+          <p className="text-sm leading-6 text-slate-300">
+            Nakon uspješnog skeniranja FERSYS automatski otvara artikl i prozor <b className="text-white">Uzmi iz skladišta</b>, pa radnik samo unese količinu.
+          </p>
+        </div>
+      </section>
+    </section>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
     </div>
+  )
+}
+
+function Corner({
+  className,
+}: {
+  className: string
+}) {
+  return (
+    <span
+      className={`absolute h-10 w-10 rounded-[0.75rem] border-sky-300 ${className}`}
+    />
   )
 }
 
