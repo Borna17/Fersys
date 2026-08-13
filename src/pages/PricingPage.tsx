@@ -89,21 +89,23 @@ export function PricingPage() {
     )
 
   return (
-    <section className="mx-auto w-full max-w-[1500px] pb-10">
-      <header className="mx-auto max-w-4xl text-center">
+    <section className="mx-auto w-full max-w-[1500px] space-y-5 pb-10 sm:space-y-8">
+      <header className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 text-center sm:p-8">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+        <div className="relative">
         <div className="mx-auto inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-300">
           FERSYS paketi
         </div>
 
-        <h1 className="mt-5 text-4xl font-black text-white sm:text-5xl">
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:mt-5 sm:text-5xl">
           Odaberi paket koji prati rast tvoje tvrtke
         </h1>
 
-        <p className="mt-5 text-base leading-7 text-slate-400">
+        <p className="mx-auto mt-4 max-w-3xl text-sm leading-6 text-slate-400 sm:mt-5 sm:text-base sm:leading-7">
           Starter je za samostalni rad, Business povezuje tim, račune, skladište, AI i vozila, a FERSYS Pro uklanja ograničenja i otključava sve napredne mogućnosti.
         </p>
 
-        <div className="mx-auto mt-7 inline-flex rounded-2xl border border-slate-800 bg-slate-900 p-1.5">
+        <div className="mx-auto mt-6 grid w-full max-w-sm grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-1.5 sm:mt-7 sm:inline-flex sm:w-auto sm:max-w-none">
           <button
             type="button"
             onClick={() =>
@@ -111,7 +113,7 @@ export function PricingPage() {
                 'monthly',
               )
             }
-            className={`min-h-11 rounded-xl px-5 text-sm font-black transition ${
+            className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
               billingPeriod ===
               'monthly'
                 ? 'bg-white text-slate-950'
@@ -128,7 +130,7 @@ export function PricingPage() {
                 'yearly',
               )
             }
-            className={`min-h-11 rounded-xl px-5 text-sm font-black transition ${
+            className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
               billingPeriod ===
               'yearly'
                 ? 'bg-emerald-500 text-slate-950'
@@ -162,9 +164,10 @@ export function PricingPage() {
             Novi korisnici dobivaju {TRIAL_DAYS} dana besplatnog {plans[TRIAL_PLAN_ID].name} paketa.
           </p>
         )}
+        </div>
       </header>
 
-      <div className="mt-10 grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
         {planOrder.map(
           (planId) => {
             const plan =
@@ -192,7 +195,7 @@ export function PricingPage() {
             return (
               <article
                 key={plan.id}
-                className={`relative overflow-hidden rounded-3xl border p-6 shadow-2xl ${
+                className={`relative overflow-hidden rounded-3xl border p-5 shadow-2xl sm:p-6 ${
                   plan.recommended
                     ? 'border-blue-500/50 bg-gradient-to-b from-blue-600/15 to-slate-900 lg:-translate-y-3'
                     : plan.id ===
@@ -223,7 +226,7 @@ export function PricingPage() {
 
                 <div className="mt-6">
                   <div className="flex items-end gap-2">
-                    <span className="text-5xl font-black text-white">
+                    <span className="text-4xl font-black text-white sm:text-5xl">
                       {formatMoney(
                         shownPrice,
                       )}
@@ -269,7 +272,7 @@ export function PricingPage() {
                   disabled={
                     isCurrent
                   }
-                  className={`mt-7 min-h-12 w-full rounded-xl px-5 text-sm font-black transition ${
+                  className={`mt-6 min-h-12 w-full rounded-2xl px-5 text-sm font-black transition active:scale-[0.99] ${
                     isCurrent
                       ? 'cursor-default border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
                       : plan.recommended
@@ -315,14 +318,42 @@ export function PricingPage() {
         )}
       </div>
 
-      <section className="mt-12 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-        <div className="border-b border-slate-800 p-6">
+      <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
+        <div className="border-b border-slate-800 p-4 sm:p-6">
           <h2 className="text-2xl font-black text-white">
             Usporedba paketa
           </h2>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="space-y-3 p-4 sm:hidden">
+          <MobileComparisonRow label="Korisnici" resource="users" />
+          <MobileComparisonRow label="Kupci" resource="customers" />
+          <MobileComparisonRow label="Radni nalozi mjesečno" resource="work_orders_monthly" />
+          <MobileComparisonRow label="Ponude mjesečno" resource="offers_monthly" />
+          <MobileBooleanComparison
+            label="Vozni park"
+            values={Object.fromEntries(
+              planOrder.map((planId) => [
+                planId,
+                plans[planId].vehicles,
+              ]),
+            )}
+          />
+          {comparedFeatures.map((feature) => (
+            <MobileBooleanComparison
+              key={feature}
+              label={featureLabels[feature]}
+              values={Object.fromEntries(
+                planOrder.map((planId) => [
+                  planId,
+                  plans[planId].features[feature],
+                ]),
+              )}
+            />
+          ))}
+        </div>
+
+        <div className="hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[850px]">
             <thead>
               <tr className="border-b border-slate-800">
@@ -358,7 +389,7 @@ export function PricingPage() {
               />
 
               <LimitRow
-                label="Investitori"
+                label="Kupci"
                 resource="customers"
               />
 
@@ -441,10 +472,80 @@ export function PricingPage() {
         </div>
       </section>
 
-      <p className="mt-6 text-center text-xs leading-5 text-slate-500">
+      <p className="text-center text-xs leading-5 text-slate-500">
         Godišnje plaćanje naplaćuje se jednom godišnje. Prikazana mjesečna cijena kod godišnjeg plana služi za lakšu usporedbu. Naplatu ćemo spojiti na Stripe kada aktiviramo produkcijsko plaćanje.
       </p>
     </section>
+  )
+}
+
+function MobileComparisonRow({
+  label,
+  resource,
+}: {
+  label: string
+  resource:
+    | 'users'
+    | 'customers'
+    | 'work_orders_monthly'
+    | 'offers_monthly'
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3">
+      <p className="text-xs font-black text-slate-300">
+        {label}
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {planOrder.map((planId) => (
+          <div
+            key={planId}
+            className="rounded-xl bg-slate-800/70 p-2 text-center"
+          >
+            <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+              {plans[planId].name}
+            </p>
+            <p className="mt-1 text-xs font-black text-white">
+              {formatPlanLimit(plans[planId].limits[resource])}
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function MobileBooleanComparison({
+  label,
+  values,
+}: {
+  label: string
+  values: Record<string, boolean>
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3">
+      <p className="text-xs font-black text-slate-300">
+        {label}
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        {planOrder.map((planId) => (
+          <div
+            key={planId}
+            className="rounded-xl bg-slate-800/70 p-2 text-center"
+          >
+            <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+              {plans[planId].name}
+            </p>
+            <div className="mt-1 flex justify-center">
+              {values[planId] ? (
+                <Check size={17} className="text-emerald-400" />
+              ) : (
+                <span className="text-slate-700">—</span>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 

@@ -39,7 +39,7 @@ const categories = [
 
 const modules = [
   'Dashboard',
-  'Investitori',
+  'Kupci',
   'Radni nalozi',
   'Ponude',
   'Računi',
@@ -260,25 +260,41 @@ export function SupportPage() {
   }
 
   return (
-    <section className="mx-auto max-w-[1500px]">
-      <div>
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.15em] text-blue-300">
-          <Headphones size={15} />
-          FERSYS podrška
+    <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-10 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
+              FERSYS PODRŠKA
+            </p>
+
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Kako ti možemo pomoći?
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Pošalji zahtjev i razgovaraj s FERSYS administracijom izravno u aplikaciji.
+            </p>
+          </div>
+
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-500/10 text-blue-300">
+            <Headphones size={22} />
+          </div>
         </div>
 
-        <h1 className="mt-4 text-3xl font-black text-white sm:text-4xl">
-          Kako ti možemo pomoći?
-        </h1>
+        <div className="relative mt-5 grid grid-cols-3 gap-2">
+          <HeroMetric label="Ukupno" value={tickets.length} />
+          <HeroMetric label="Otvoreni" value={openCount} />
+          <HeroMetric
+            label="Riješeni"
+            value={tickets.filter((ticket) => ticket.status === 'resolved').length}
+          />
+        </div>
+      </section>
 
-        <p className="mt-2 max-w-2xl text-slate-400">
-          Pošalji support zahtjev i razgovaraj
-          s FERSYS administracijom izravno
-          u aplikaciji.
-        </p>
-      </div>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="hidden gap-4 sm:grid sm:grid-cols-3">
         <SummaryCard
           label="Ukupno zahtjeva"
           value={tickets.length}
@@ -318,13 +334,13 @@ export function SupportPage() {
         />
       )}
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
-        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+      <div className="grid gap-4 xl:grid-cols-[0.85fr_1.15fr] xl:gap-6">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
           <h2 className="text-xl font-black text-white">
             Novi support zahtjev
           </h2>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 space-y-4 sm:mt-6">
             <Field label="Kategorija">
               <select
                 value={category}
@@ -443,7 +459,7 @@ export function SupportPage() {
               type="button"
               disabled={submitting}
               onClick={() => void submit()}
-              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 font-black text-white transition hover:bg-blue-500 disabled:opacity-50"
+              className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white transition active:scale-[0.99] hover:bg-blue-500 disabled:opacity-50"
             >
               <Send size={18} />
               {submitting
@@ -454,7 +470,7 @@ export function SupportPage() {
         </article>
 
         <article className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
-          <div className="flex items-center justify-between border-b border-slate-800 p-5">
+          <div className="flex items-center justify-between border-b border-slate-800 p-4 sm:p-5">
             <div>
               <h2 className="text-xl font-black text-white">
                 Moji zahtjevi
@@ -468,7 +484,7 @@ export function SupportPage() {
               type="button"
               disabled={loading}
               onClick={() => void load()}
-              className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
+              className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-400"
             >
               <RefreshCw
                 size={18}
@@ -482,7 +498,7 @@ export function SupportPage() {
           </div>
 
           {selected ? (
-            <div className="p-5">
+            <div className="p-4 sm:p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-black uppercase tracking-[0.12em] text-blue-300">
@@ -498,13 +514,13 @@ export function SupportPage() {
                   onClick={() =>
                     setSelected(null)
                   }
-                  className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
+                  className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-400"
                 >
                   <X size={18} />
                 </button>
               </div>
 
-              <div className="mt-5 max-h-[470px] space-y-3 overflow-y-auto rounded-2xl bg-slate-950/50 p-4">
+              <div className="mt-4 max-h-[55dvh] space-y-3 overflow-y-auto rounded-2xl bg-slate-950/50 p-3 sm:mt-5 sm:max-h-[470px] sm:p-4">
                 {messages.map((message) => (
                   <ChatBubble
                     key={message.id}
@@ -523,7 +539,7 @@ export function SupportPage() {
                 'resolved',
                 'closed',
               ].includes(selected.status) && (
-                <div className="mt-4 flex gap-3">
+                <div className="sticky bottom-0 mt-4 flex items-end gap-2 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 backdrop-blur-xl">
                   <textarea
                     value={reply}
                     onChange={(event) =>
@@ -532,7 +548,7 @@ export function SupportPage() {
                       )
                     }
                     placeholder="Napiši poruku podršci..."
-                    className="min-h-24 flex-1 resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-white outline-none focus:border-blue-500"
+                    className="min-h-12 max-h-32 flex-1 resize-none rounded-2xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-blue-500"
                   />
 
                   <button
@@ -544,7 +560,7 @@ export function SupportPage() {
                     onClick={() =>
                       void sendReply()
                     }
-                    className="self-end rounded-xl bg-blue-600 p-4 text-white disabled:opacity-50"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white disabled:opacity-50"
                   >
                     <Send size={20} />
                   </button>
@@ -552,7 +568,7 @@ export function SupportPage() {
               )}
             </div>
           ) : (
-            <div className="max-h-[700px] overflow-y-auto">
+            <div className="max-h-[65dvh] overflow-y-auto sm:max-h-[700px]">
               {tickets.map((ticket) => (
                 <button
                   key={ticket.id}
@@ -560,7 +576,7 @@ export function SupportPage() {
                   onClick={() =>
                     setSelected(ticket)
                   }
-                  className="w-full border-b border-slate-800 p-5 text-left transition hover:bg-slate-800/40"
+                  className="w-full border-b border-slate-800 p-4 text-left transition active:bg-slate-800/40 hover:bg-slate-800/40 sm:p-5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -598,7 +614,7 @@ export function SupportPage() {
 }
 
 const inputClass =
-  'mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none placeholder:text-slate-600 focus:border-blue-500'
+  'mt-2 h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-blue-500'
 
 function Field({
   label,
@@ -632,7 +648,7 @@ function ChatBubble({
       }`}
     >
       <div
-        className={`max-w-[85%] rounded-2xl p-4 ${
+        className={`max-w-[90%] rounded-2xl p-3 sm:max-w-[85%] sm:p-4 ${
           isAdmin
             ? 'bg-violet-500/10 text-slate-200'
             : 'bg-blue-600 text-white'
@@ -671,7 +687,7 @@ function MessageBox({
 
   return (
     <div
-      className={`mt-5 flex items-start gap-3 rounded-2xl border p-4 text-sm ${
+      className={`flex items-start gap-3 rounded-2xl border p-4 text-sm ${
         isError
           ? 'border-red-500/20 bg-red-500/10 text-red-300'
           : 'border-green-500/20 bg-green-500/10 text-green-300'
@@ -679,6 +695,25 @@ function MessageBox({
     >
       <Icon size={19} />
       <span>{text}</span>
+    </div>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: number
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-2 py-3 text-center">
+      <p className="truncate text-[8px] font-black uppercase tracking-wide text-slate-500 sm:text-[10px]">
+        {label}
+      </p>
+      <p className="mt-1 text-xl font-black text-white">
+        {value}
+      </p>
     </div>
   )
 }
@@ -693,7 +728,7 @@ function SummaryCard({
   icon: ReactNode
 }) {
   return (
-    <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+    <article className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-slate-500">
