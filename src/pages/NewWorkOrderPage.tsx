@@ -1308,7 +1308,7 @@ export function NewWorkOrderPage() {
       <form
         id="mobile-work-order-form"
         onSubmit={submit}
-        className="mx-auto w-full max-w-[1500px] space-y-4 pb-24 sm:space-y-6 sm:pb-10"
+        className="mx-auto w-full max-w-[1500px] space-y-4 pb-44 sm:space-y-6 sm:pb-10"
       >
         <DraftAutosaveBadge
           state={autosaveState}
@@ -2371,7 +2371,7 @@ export function NewWorkOrderPage() {
         )}
       </form>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
         <button
           type="submit"
           form="mobile-work-order-form"

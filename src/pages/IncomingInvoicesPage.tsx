@@ -473,7 +473,7 @@ export function IncomingInvoicesPage() {
                   '/incoming-invoices/new',
                 )
               }
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-950/30 active:scale-95 sm:flex sm:w-auto sm:gap-2 sm:px-5"
+              className="hidden h-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-5 text-white shadow-lg shadow-violet-950/30 active:scale-95 sm:flex sm:gap-2"
               aria-label="Novi ulazni račun"
             >
               <Plus size={21} />
@@ -482,6 +482,15 @@ export function IncomingInvoicesPage() {
               </span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/incoming-invoices/new')}
+            className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99] sm:hidden"
+          >
+            <Plus size={20} />
+            Novi ulazni račun
+          </button>
 
           <div className="relative mt-5 grid grid-cols-4 gap-2">
             <MetricButton
@@ -847,11 +856,10 @@ export function IncomingInvoicesPage() {
                                 `/incoming-invoices/${item.id}/edit`,
                               )
                             }
-                            className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-300"
+                            className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-500/15 px-3 text-xs font-black text-violet-200"
                           >
-                            <Pencil
-                              size={17}
-                            />
+                            <Pencil size={16} />
+                            Uredi
                           </button>
 
                           <button

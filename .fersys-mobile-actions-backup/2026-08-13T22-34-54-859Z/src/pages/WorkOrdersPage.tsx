@@ -465,7 +465,7 @@ export function WorkOrdersPage() {
                   '/work-orders/new',
                 )
               }
-              className="hidden h-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 px-5 text-white shadow-lg shadow-blue-950/30 active:scale-95 sm:flex sm:gap-2"
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-950/30 active:scale-95 sm:flex sm:w-auto sm:gap-2 sm:px-5"
               aria-label="Novi radni nalog"
             >
               <Plus size={21} />
@@ -475,17 +475,6 @@ export function WorkOrdersPage() {
             </button>
           )}
         </div>
-
-        {canManageWorkOrders && (
-          <button
-            type="button"
-            onClick={() => navigate('/work-orders/new')}
-            className="relative flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-950/30 active:scale-[0.99] sm:hidden"
-          >
-            <Plus size={20} />
-            Novi radni nalog
-          </button>
-        )}
 
         <div className="relative mt-5 grid grid-cols-4 gap-2">
           {statCards.map(

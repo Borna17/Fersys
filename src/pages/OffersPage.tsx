@@ -954,7 +954,7 @@ export function OffersPage() {
                   '/offers/new',
                 )
               }
-              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white shadow-lg shadow-violet-950/30 active:scale-95 sm:flex sm:w-auto sm:gap-2 sm:px-5"
+              className="hidden h-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-5 text-white shadow-lg shadow-violet-950/30 active:scale-95 sm:flex sm:gap-2"
               aria-label="Nova ponuda"
             >
               <Plus size={21} />
@@ -963,6 +963,15 @@ export function OffersPage() {
               </span>
             </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => navigate('/offers/new')}
+            className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99] sm:hidden"
+          >
+            <Plus size={20} />
+            Nova ponuda
+          </button>
 
           <div className="relative mt-5 grid grid-cols-4 gap-2">
             <MetricButton

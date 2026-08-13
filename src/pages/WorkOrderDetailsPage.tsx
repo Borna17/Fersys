@@ -452,18 +452,7 @@ export function WorkOrderDetailsPage() {
 
               {canManageWorkOrders &&
                 canEditThisOrder && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(
-                        `/work-orders/${order.id}/edit`,
-                      )
-                    }
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-white active:scale-95 sm:hidden"
-                    aria-label="Uredi nalog"
-                  >
-                    <Pencil size={19} />
-                  </button>
+                  <div className="sm:hidden" />
                 )}
             </div>
 
@@ -516,6 +505,22 @@ export function WorkOrderDetailsPage() {
                 compact
               />
             </div>
+
+{canManageWorkOrders &&
+              canEditThisOrder && (
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  `/work-orders/${order.id}/edit`,
+                )
+              }
+              className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white active:scale-[0.99] sm:hidden"
+            >
+              <Pencil size={18} />
+              Uredi radni nalog
+            </button>
+              )}
 
             <div className="mt-4 hidden gap-3 sm:flex">
               {canManageWorkOrders &&
