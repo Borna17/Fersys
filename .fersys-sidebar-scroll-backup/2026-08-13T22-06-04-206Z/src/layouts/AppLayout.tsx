@@ -588,14 +588,14 @@ export default function AppLayout() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-slate-950 text-white">
+    <div className="flex min-h-dvh bg-slate-950 text-white">
       {canUseAi && (
         <AiClientActionRunner />
       )}
 
       <Sidebar />
 
-      <div className="flex h-dvh min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col">
         <div className="hidden md:block">
           <Topbar />
         </div>
@@ -787,7 +787,7 @@ export default function AppLayout() {
 
         <TrialBanner />
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-28 pt-3 sm:px-4 sm:pt-4 md:p-6 md:pb-6 lg:p-8">
+        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-28 pt-3 sm:px-4 sm:pt-4 md:p-6 md:pb-6 lg:p-8">
           <Outlet />
         </main>
       </div>

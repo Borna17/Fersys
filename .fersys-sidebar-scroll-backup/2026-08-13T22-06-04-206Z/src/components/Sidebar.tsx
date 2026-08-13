@@ -282,12 +282,13 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`hidden h-dvh min-h-0 shrink-0 flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${
+        className={`relative hidden min-h-dvh shrink-0 self-stretch border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:block ${
           isExpanded
             ? 'w-72'
             : 'w-[88px]'
         }`}
       >
+        <div className="sticky top-0 flex h-dvh min-h-0 flex-col overflow-hidden">
         <SidebarHeader
           expanded={
             isExpanded
@@ -340,6 +341,7 @@ export default function Sidebar() {
             branding?.logoUrl
           }
         />
+        </div>
       </aside>
 
       {!isMobileOpen && (
@@ -513,7 +515,7 @@ function Navigation({
   ) => boolean
 }) {
   return (
-    <nav className="fersys-scrollbar-hidden min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-5">
+    <nav className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-5">
       {items.map(
         (item) => {
           const Icon =

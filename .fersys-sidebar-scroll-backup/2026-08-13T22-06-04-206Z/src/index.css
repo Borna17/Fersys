@@ -78,16 +78,3 @@ select {
     padding-right: env(safe-area-inset-right);
   }
 }
-
-
-/* FERSYS: scroll ostaje aktivan, ali bez ružne vidljive scrollbar trake. */
-.fersys-scrollbar-hidden {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.fersys-scrollbar-hidden::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
