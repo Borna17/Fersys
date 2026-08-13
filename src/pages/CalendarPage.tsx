@@ -33,7 +33,7 @@ import {
   updateCalendarEvent,
   type CalendarEvent,
   type CalendarStatus,
-} from '../services/calendar.service.ts'
+} from '../services/calendar.service'
 
 type EventForm = {
   title: string
@@ -935,7 +935,7 @@ export function CalendarPage() {
                 calendarEvent.location,
               description: [
                 calendarEvent.customer
-                  ? `Investitor: ${calendarEvent.customer}`
+                  ? `Kupac: ${calendarEvent.customer}`
                   : '',
                 calendarEvent.workers
                   ? `Radnici: ${calendarEvent.workers}`
@@ -1008,29 +1008,48 @@ export function CalendarPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1700px] space-y-6">
-      <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-        <div>
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-violet-400">
-            Organizacija poslova
-          </p>
+    <section className="mx-auto w-full max-w-[1700px] space-y-4 pb-10 sm:space-y-6">
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/45 p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
 
-          <h1 className="mt-2 text-3xl font-black text-white md:text-4xl">
-            Kalendar
-          </h1>
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
+              ORGANIZACIJA POSLOVA
+            </p>
 
-          <p className="mt-2 text-slate-400">
-            Termini su spremljeni u Supabase i dostupni svim ovlaštenim korisnicima tvrtke.
-          </p>
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              Kalendar
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              Termini tvrtke, Google Kalendar i raspored radnika na jednom mjestu.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => openNewEvent()}
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-600 text-white active:scale-95 sm:hidden"
+            aria-label="Novi termin"
+          >
+            <Plus size={21} />
+          </button>
         </div>
 
-        <div className="flex flex-wrap gap-3">
+        <div className="relative mt-5 grid grid-cols-3 gap-2">
+          <HeroMetric label="Mjesec" value={`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}.`} />
+          <HeroMetric label="Termini" value={String(events.length)} />
+          <HeroMetric label="Google" value={googleAccessToken ? 'Povezan' : 'Nije povezan'} />
+        </div>
+
+        <div className="relative mt-4 hidden flex-wrap gap-2 sm:flex">
           <button
             type="button"
             onClick={() =>
               void loadEvents()
             }
-            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800"
+            className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-black text-slate-200 transition hover:bg-slate-800"
           >
             <RefreshCw size={18} />
             Osvježi
@@ -1046,7 +1065,7 @@ export function CalendarPage() {
                 disabled={
                   isGoogleLoading
                 }
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-black text-slate-200 transition hover:bg-slate-800 disabled:opacity-50"
               >
                 <RefreshCw
                   size={18}
@@ -1064,7 +1083,7 @@ export function CalendarPage() {
                 onClick={
                   disconnectGoogleCalendar
                 }
-                className="inline-flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-semibold text-red-300 transition hover:bg-red-500/20"
+                className="inline-flex items-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300 transition hover:bg-red-500/20"
               >
                 <Unlink size={18} />
                 Odspoji Google
@@ -1079,7 +1098,7 @@ export function CalendarPage() {
               disabled={
                 isGoogleLoading
               }
-              className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm font-semibold text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 py-3 text-sm font-black text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
             >
               {isGoogleLoading ? (
                 <LoaderCircle
@@ -1099,13 +1118,13 @@ export function CalendarPage() {
             onClick={() =>
               openNewEvent()
             }
-            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
+            className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-violet-950/30 transition hover:scale-[1.02]"
           >
             <Plus size={18} />
             Novi termin
           </button>
         </div>
-      </div>
+      </section>
 
       {message && (
         <div className="flex items-center justify-between rounded-2xl border border-blue-500/20 bg-blue-500/10 px-5 py-4 text-sm text-blue-200">
@@ -1145,10 +1164,10 @@ export function CalendarPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 2xl:grid-cols-[1fr_380px]">
-        <section className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-          <div className="flex flex-col gap-4 border-b border-slate-800 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_360px]">
+        <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 p-3 sm:p-5">
+            <div className="flex min-w-0 items-center gap-2">
               <button
                 type="button"
                 onClick={
@@ -1167,7 +1186,7 @@ export function CalendarPage() {
                 <ChevronRight size={20} />
               </button>
 
-              <h2 className="ml-2 text-xl font-bold text-white">
+              <h2 className="ml-1 min-w-0 truncate text-base font-black text-white sm:text-xl">
                 {
                   monthNames[
                     currentMonth.getMonth()
@@ -1180,7 +1199,7 @@ export function CalendarPage() {
             <button
               type="button"
               onClick={goToToday}
-              className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:bg-slate-800 hover:text-white"
+              className="shrink-0 rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black text-slate-300"
             >
               Danas
             </button>
@@ -1190,7 +1209,7 @@ export function CalendarPage() {
             {weekDays.map((day) => (
               <div
                 key={day}
-                className="px-2 py-3 text-center text-xs font-bold uppercase tracking-wider text-slate-500"
+                className="px-1 py-2 text-center text-[9px] font-black uppercase tracking-wider text-slate-500 sm:px-2 sm:py-3 sm:text-xs"
               >
                 {day}
               </div>
@@ -1240,7 +1259,7 @@ export function CalendarPage() {
                       day.dateString,
                     )
                   }
-                  className={`min-h-24 border-b border-r border-slate-800 p-1.5 text-left transition sm:min-h-32 sm:p-2 ${
+                  className={`min-h-[72px] border-b border-r border-slate-800 p-1 text-left transition sm:min-h-32 sm:p-2 ${
                     day.isCurrentMonth
                       ? 'bg-slate-900'
                       : 'bg-slate-950/50'
@@ -1262,9 +1281,9 @@ export function CalendarPage() {
                     {day.date.getDate()}
                   </span>
 
-                  <div className="mt-2 space-y-1">
+                  <div className="mt-1 space-y-1 sm:mt-2">
                     {dayEvents
-                      .slice(0, 3)
+                      .slice(0, 1)
                       .map(
                         (
                           calendarEvent,
@@ -1288,11 +1307,11 @@ export function CalendarPage() {
                       )}
 
                     {dayEvents.length >
-                      3 && (
+                      1 && (
                       <p className="px-1 text-[9px] font-semibold text-slate-500 sm:text-[10px]">
                         +
                         {dayEvents.length -
-                          3}{' '}
+                          1}{' '}
                         još
                       </p>
                     )}
@@ -1303,14 +1322,14 @@ export function CalendarPage() {
           </div>
         </section>
 
-        <aside className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
+        <aside className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-blue-400">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-400">
                 Odabrani dan
               </p>
 
-              <h2 className="mt-1 text-xl font-bold text-white">
+              <h2 className="mt-1 text-lg font-black text-white sm:text-xl">
                 {new Date(
                   `${selectedDate}T12:00:00`,
                 ).toLocaleDateString(
@@ -1338,7 +1357,7 @@ export function CalendarPage() {
             </button>
           </div>
 
-          <div className="mt-6 space-y-4">
+          <div className="mt-4 space-y-3 sm:mt-6 sm:space-y-4">
             {selectedEvents.length ===
             0 ? (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 p-8 text-center">
@@ -1364,7 +1383,7 @@ export function CalendarPage() {
                     key={
                       calendarEvent.id
                     }
-                    className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+                    className="rounded-2xl border border-slate-800 bg-slate-950/60 p-3 sm:p-4"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -1503,9 +1522,9 @@ export function CalendarPage() {
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-          <div className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-6 py-5">
+        <div className="fixed inset-0 z-[100] flex items-end bg-black/70 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
+          <div className="max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border-t border-slate-700 bg-slate-900 shadow-2xl sm:max-w-2xl sm:rounded-3xl sm:border">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-800 bg-slate-900 px-4 py-4 sm:px-6 sm:py-5">
               <div>
                 <p className="text-sm font-semibold text-violet-400">
                   Novi unos
@@ -1534,7 +1553,7 @@ export function CalendarPage() {
 
             <form
               onSubmit={handleSubmit}
-              className="space-y-5 p-6"
+              className="space-y-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:space-y-5 sm:p-6"
             >
               <label className="block">
                 <span className="mb-2 block text-sm font-semibold text-slate-300">
@@ -1555,14 +1574,14 @@ export function CalendarPage() {
                     )
                   }
                   placeholder="Primjer: Servis klima uređaja"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                  className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                 />
               </label>
 
               <div className="grid gap-5 sm:grid-cols-2">
                 <label>
                   <span className="mb-2 block text-sm font-semibold text-slate-300">
-                    Investitor
+                    Kupac
                   </span>
 
                   <input
@@ -1580,8 +1599,8 @@ export function CalendarPage() {
                         }),
                       )
                     }
-                    placeholder="Ime investitora ili tvrtke"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    placeholder="Ime kupca ili tvrtke"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -1603,7 +1622,7 @@ export function CalendarPage() {
                         }),
                       )
                     }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
               </div>
@@ -1629,7 +1648,7 @@ export function CalendarPage() {
                         }),
                       )
                     }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -1653,7 +1672,7 @@ export function CalendarPage() {
                         }),
                       )
                     }
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
               </div>
@@ -1680,7 +1699,7 @@ export function CalendarPage() {
                       )
                     }
                     placeholder="Adresa ili mjesto"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
 
@@ -1705,7 +1724,7 @@ export function CalendarPage() {
                       )
                     }
                     placeholder="Ime radnika"
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                    className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                   />
                 </label>
               </div>
@@ -1727,7 +1746,7 @@ export function CalendarPage() {
                       }),
                     )
                   }
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+                  className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none focus:border-blue-500"
                 >
                   <option value="Zakazano">
                     Zakazano
@@ -1815,6 +1834,17 @@ export function CalendarPage() {
         </div>
       )}
 
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+        <button
+          type="button"
+          onClick={() => openNewEvent()}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
+        >
+          <Plus size={18} />
+          Novi termin
+        </button>
+      </div>
+
       {isSaving && !isModalOpen && (
         <FersysLoader
           fullScreen
@@ -1822,5 +1852,24 @@ export function CalendarPage() {
         />
       )}
     </section>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
+    </div>
   )
 }
