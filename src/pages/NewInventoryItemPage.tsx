@@ -34,16 +34,6 @@ import {
 } from '../services/inventory.service'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
-import DraftAutosaveBadge, {
-  type DraftAutosaveState,
-} from '../components/DraftAutosaveBadge'
-import {
-  deleteUserDraft,
-  formatDraftSavedAt,
-  loadUserDraft,
-  saveUserDraft,
-} from '../services/drafts.service'
-
 const DEFAULT_CATEGORIES = [
   'Odvodnja',
   'Voda',
@@ -198,10 +188,10 @@ const INITIAL_FORM: FormState = {
 }
 
 const inputClassName =
-  'h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
+  'h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20'
 
 const textareaClassName =
-  'min-h-28 w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-6 text-white outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-500/10'
+  'min-h-28 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm leading-6 text-white outline-none placeholder:text-slate-500 focus:border-sky-500 focus:ring-2 focus:ring-sky-500/20'
 
 function parseNumber(value: string): number {
   const parsed = Number(
@@ -226,8 +216,8 @@ function FormSection({
   children: React.ReactNode
 }) {
   return (
-    <section className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 sm:p-6">
-      <h2 className="text-lg font-semibold text-white">
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+      <h2 className="text-lg font-black text-white sm:text-xl">
         {title}
       </h2>
 
@@ -252,7 +242,7 @@ function FieldLabel({
   required?: boolean
 }) {
   return (
-    <span className="mb-2 block text-sm font-medium text-slate-300">
+    <span className="mb-2 block text-sm font-black text-slate-300">
       {children}
       {required && (
         <span className="ml-1 text-red-400">
@@ -264,22 +254,6 @@ function FieldLabel({
 }
 
 export function NewInventoryItemPage() {
-
-  const [
-    autosaveState,
-    setAutosaveState,
-  ] = useState<DraftAutosaveState>('idle')
-
-  const [
-    autosaveText,
-    setAutosaveText,
-  ] = useState('')
-
-  const [
-    draftReady,
-    setDraftReady,
-  ] = useState(false)
-
   const navigate = useNavigate()
   const { id } = useParams()
   const { can } = useAuth()
@@ -426,160 +400,6 @@ export function NewInventoryItemPage() {
     }
   }, [id])
 
-
-
-  useEffect(() => {
-    if (id) {
-      setDraftReady(true)
-      return
-    }
-
-    let cancelled = false
-
-    void (async () => {
-      try {
-        const draft =
-          await loadUserDraft<any>(
-            'inventory-item',
-            'new',
-          )
-
-        if (
-          cancelled ||
-          !draft
-        ) {
-          return
-        }
-
-        const value =
-          draft.payload ?? {}
-
-        setForm({
-          ...INITIAL_FORM,
-          ...(value.form ?? {}),
-        })
-
-        setMainImage(value.mainImage ?? '')
-
-        setAdditionalImages(
-          Array.isArray(value.additionalImages)
-            ? value.additionalImages
-            : [],
-        )
-
-        if (
-          Array.isArray(
-            value.locationQuantities,
-          )
-        ) {
-          setLocationQuantities(
-            value.locationQuantities,
-          )
-        }
-
-        setAutosaveState('restored')
-        setAutosaveText(
-          `Nastavljen nedovršeni artikl · ${formatDraftSavedAt(
-            draft.updatedAt,
-          )}`,
-        )
-      } finally {
-        if (!cancelled) {
-          setDraftReady(true)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [id])
-
-  useEffect(() => {
-    if (
-      !draftReady ||
-      id
-    ) {
-      return
-    }
-
-    const hasContent =
-      Boolean(
-        form.name.trim() ||
-        form.shortName.trim() ||
-        form.barcode.trim() ||
-        form.description.trim() ||
-        mainImage ||
-        additionalImages.length ||
-        locationQuantities.some(
-          (location) =>
-            location.quantity.trim(),
-        ),
-      )
-
-    if (!hasContent) {
-      return
-    }
-
-    const timer =
-      window.setTimeout(() => {
-        void (async () => {
-          setAutosaveState('saving')
-
-          const savedAt =
-            await saveUserDraft(
-              'inventory-item',
-              'new',
-              {
-                form,
-                mainImage,
-                additionalImages,
-                locationQuantities,
-              },
-            )
-
-          setAutosaveState(
-            navigator.onLine
-              ? 'saved'
-              : 'offline',
-          )
-
-          setAutosaveText(
-            formatDraftSavedAt(
-              savedAt,
-            ),
-          )
-        })()
-      }, 1200)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [
-    draftReady,
-    id,
-    form,
-    mainImage,
-    additionalImages,
-    locationQuantities,
-  ])
-
-  async function discardInventoryDraft() {
-    if (
-      !window.confirm(
-        'Odbaciti nedovršeni artikl?',
-      )
-    ) {
-      return
-    }
-
-    await deleteUserDraft(
-      'inventory-item',
-      'new',
-    )
-
-    window.location.reload()
-  }
   const availableSubcategories = useMemo(
     () =>
       DEFAULT_SUBCATEGORIES[form.category] ?? [],
@@ -919,69 +739,80 @@ export function NewInventoryItemPage() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="min-h-full bg-slate-950 px-4 py-5 sm:px-6 lg:px-8"
+      className="mx-auto w-full max-w-[1450px] space-y-4 pb-28 sm:space-y-6 sm:pb-12"
     >
-      <DraftAutosaveBadge
-        state={autosaveState}
-        text={autosaveText}
-        onDiscard={
-          !id &&
-          autosaveState !== 'idle'
-            ? () =>
-                void discardInventoryDraft()
-            : undefined
+      <button
+        type="button"
+        onClick={() =>
+          navigate(
+            isEditMode && id
+              ? `/inventory/items/${id}`
+              : '/inventory',
+          )
         }
-      />
-      <div className="mx-auto max-w-[1300px]">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-4">
-            <button
-              type="button"
-              onClick={() =>
-                navigate(
-                  isEditMode && id
-                    ? `/inventory/items/${id}`
-                    : '/inventory',
-                )
-              }
-              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800"
-            >
-              <ArrowLeft size={20} />
-            </button>
+        className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
+      >
+        <ArrowLeft size={18} />
+        {isEditMode ? 'Artikl' : 'Skladište'}
+      </button>
 
-            <div>
-              <h1 className="text-2xl font-bold text-white sm:text-3xl">
-                {isEditMode
-                  ? 'Uredi artikl'
-                  : 'Novi artikl'}
-              </h1>
+      <section className="relative overflow-hidden rounded-[1.75rem] border border-sky-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950/45 p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-sky-500/10 blur-3xl" />
 
-              <p className="mt-1 text-sm text-slate-400">
-                {isEditMode
-                  ? 'Promijeni osnovne podatke artikla. Stanje robe mijenja se kroz ulaz/izlaz robe.'
-                  : 'Dodaj artikl u zajedničko skladište tvrtke.'}
-              </p>
-            </div>
+        <div className="relative flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-sky-400">
+              {isEditMode ? 'UREĐIVANJE ARTIKLA' : 'NOVI ARTIKL'}
+            </p>
+
+            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
+              {isEditMode
+                ? 'Uredi artikl'
+                : 'Dodaj artikl'}
+            </h1>
+
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+              {isEditMode
+                ? 'Promijeni podatke artikla. Trenutno stanje mijenja se kroz ulaz ili izlaz robe.'
+                : 'Dodaj artikl, fotografije, početno stanje i lokacije u zajedničko skladište.'}
+            </p>
           </div>
 
-          <button
-            type="submit"
-            disabled={
-              isSaving ||
-              isProcessingImage
-            }
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 font-semibold text-white disabled:opacity-50"
-          >
-            <Save size={18} />
-
-            {isSaving
-              ? 'Spremanje...'
-              : 'Spremi artikl'}
-          </button>
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-sky-500/10 text-sky-300">
+            <Package size={22} />
+          </div>
         </div>
 
+        <div className="relative mt-5 grid grid-cols-3 gap-2">
+          <HeroMetric
+            label="Šifra"
+            value={form.code || 'Automatski'}
+          />
+          <HeroMetric
+            label="Jedinica"
+            value={form.unit}
+          />
+          <HeroMetric
+            label={isEditMode ? 'Minimum' : 'Početno stanje'}
+            value={`${isEditMode ? form.minimumQuantity || '0' : locations.length > 0 ? initialQuantity : form.quantity || '0'} ${form.unit}`}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={
+            isSaving ||
+            isProcessingImage
+          }
+          className="relative mt-4 hidden h-12 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 text-sm font-black text-white disabled:opacity-50 sm:inline-flex"
+        >
+          <Save size={18} />
+          {isSaving ? 'Spremanje...' : 'Spremi artikl'}
+        </button>
+      </section>
+
         {errorMessage && (
-          <div className="mt-5 flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
+          <div className="flex items-start gap-3 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200">
             <AlertTriangle
               size={20}
               className="mt-0.5 shrink-0"
@@ -993,12 +824,12 @@ export function NewInventoryItemPage() {
           </div>
         )}
 
-        <div className="mt-6 space-y-6">
+        <div className="space-y-4 sm:space-y-6">
           <FormSection
             title="Osnovni podaci"
             description="Naziv, šifra, kategorija i opis artikla."
           >
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <label>
                 <FieldLabel required>
                   Naziv artikla
@@ -1169,7 +1000,7 @@ export function NewInventoryItemPage() {
                 />
               </label>
 
-              <label className="md:col-span-2">
+              <label className="sm:col-span-2">
                 <FieldLabel>
                   Alternativni nazivi
                 </FieldLabel>
@@ -1187,7 +1018,7 @@ export function NewInventoryItemPage() {
                 />
               </label>
 
-              <label className="md:col-span-2">
+              <label className="sm:col-span-2">
                 <FieldLabel>
                   Opis
                 </FieldLabel>
@@ -1214,7 +1045,7 @@ export function NewInventoryItemPage() {
                 : 'Postavi način praćenja i početno stanje.'
             }
           >
-            <div className="grid gap-5 md:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
               <label>
                 <FieldLabel>
                   Način praćenja
@@ -1359,7 +1190,7 @@ export function NewInventoryItemPage() {
               title="Početno stanje i lokacije"
               description="Količina će se odmah spremiti u zajedničko skladište i evidentirati kao početni ulaz robe."
             >
-              <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/55 p-4">
                 <div className="flex items-center gap-2 text-slate-300">
                   <MapPin size={18} />
                   <span className="font-semibold">
@@ -1388,7 +1219,7 @@ export function NewInventoryItemPage() {
                     onClick={() =>
                       void handleAddLocation()
                     }
-                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-800 px-4 font-semibold text-white disabled:opacity-50"
+                    className="inline-flex h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 font-black text-white disabled:opacity-50"
                   >
                     <Plus size={17} />
                     Dodaj lokaciju
@@ -1397,11 +1228,11 @@ export function NewInventoryItemPage() {
               </div>
 
               {locations.length > 0 ? (
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   {locationQuantities.map((location) => (
                     <label
                       key={location.locationId}
-                      className="rounded-xl border border-slate-800 bg-slate-950/60 p-4"
+                      className="rounded-2xl border border-slate-800 bg-slate-950/55 p-4"
                     >
                       <FieldLabel>
                         {location.locationName}
@@ -1459,7 +1290,7 @@ export function NewInventoryItemPage() {
               title="Cijene"
               description="Cijene nisu vidljive radnicima bez posebne ovlasti."
             >
-              <div className="grid gap-5 md:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-3">
                 <label>
                   <FieldLabel>
                     Nabavna cijena
@@ -1521,14 +1352,14 @@ export function NewInventoryItemPage() {
             title="Fotografije"
             description="Glavna slika i dodatne fotografije artikla."
           >
-            <div className="grid gap-5 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-2">
               <div>
                 <p className="mb-2 text-sm font-medium text-slate-300">
                   Glavna slika
                 </p>
 
-                <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-                  <div className="flex aspect-video items-center justify-center">
+                <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950">
+                  <div className="flex aspect-[4/3] items-center justify-center sm:aspect-video">
                     {mainImage ? (
                       <img
                         src={mainImage}
@@ -1544,13 +1375,14 @@ export function NewInventoryItemPage() {
                   </div>
 
                   <div className="flex gap-2 border-t border-slate-800 p-3">
-                    <label className="flex h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-500 px-4 text-sm font-semibold text-white">
+                    <label className="flex h-12 flex-1 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-sky-500 px-4 text-sm font-black text-white">
                       <ImagePlus size={17} />
                       Učitaj
 
                       <input
                         type="file"
                         accept="image/*"
+                        capture="environment"
                         onChange={handleMainImage}
                         className="hidden"
                       />
@@ -1576,7 +1408,7 @@ export function NewInventoryItemPage() {
                   Dodatne slike
                 </p>
 
-                <label className="flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 text-sm font-semibold text-slate-300">
+                <label className="flex min-h-28 cursor-pointer items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-700 bg-slate-950 text-sm font-black text-slate-300">
                   <Plus size={18} />
                   Dodaj slike
 
@@ -1626,7 +1458,7 @@ export function NewInventoryItemPage() {
           </FormSection>
 
           <FormSection title="Dodatne napomene">
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               <label>
                 <FieldLabel>
                   Opis korištenja
@@ -1664,7 +1496,7 @@ export function NewInventoryItemPage() {
           </FormSection>
         </div>
 
-        <div className="flex flex-col-reverse gap-3 py-8 sm:flex-row sm:justify-end">
+        <div className="hidden gap-3 py-4 sm:flex sm:justify-end">
           <button
             type="button"
             onClick={() =>
@@ -1674,7 +1506,7 @@ export function NewInventoryItemPage() {
                   : '/inventory',
               )
             }
-            className="h-12 rounded-xl bg-slate-800 px-5 font-semibold text-white"
+            className="h-12 rounded-2xl bg-slate-800 px-5 font-black text-white"
           >
             Odustani
           </button>
@@ -1685,7 +1517,7 @@ export function NewInventoryItemPage() {
               isSaving ||
               isProcessingImage
             }
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-sky-500 px-5 font-semibold text-white disabled:opacity-50"
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 font-black text-white disabled:opacity-50"
           >
             <Save size={18} />
 
@@ -1694,6 +1526,16 @@ export function NewInventoryItemPage() {
               : 'Spremi artikl'}
           </button>
         </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
+        <button
+          type="submit"
+          disabled={isSaving || isProcessingImage}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-sky-500 px-5 font-black text-white disabled:opacity-50"
+        >
+          <Save size={18} />
+          {isSaving ? 'Spremanje...' : 'Spremi artikl'}
+        </button>
       </div>
 
       {(isSaving ||
@@ -1708,6 +1550,26 @@ export function NewInventoryItemPage() {
         />
       )}
     </form>
+  )
+}
+
+function HeroMetric({
+  label,
+  value,
+}: {
+  label: string
+  value: string
+}) {
+  return (
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 truncate text-xs font-black text-white">
+        {value}
+      </p>
+    </div>
   )
 }
 
