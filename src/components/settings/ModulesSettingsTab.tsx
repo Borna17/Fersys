@@ -54,8 +54,10 @@ export default function ModulesSettingsTab() {
     useState<CompanyModuleKey[]>(
       enabledModules,
     )
+
   const [isSaving, setIsSaving] =
     useState(false)
+
   const [message, setMessage] =
     useState('')
 
@@ -63,20 +65,18 @@ export default function ModulesSettingsTab() {
     setSelected(enabledModules)
   }, [enabledModules])
 
-  const selectedSet =
-    useMemo(
-      () =>
-        new Set(selected),
-      [selected],
-    )
+  const selectedSet = useMemo(
+    () => new Set(selected),
+    [selected],
+  )
 
-  const canEdit =
-    role === 'owner'
+  const canEdit = role === 'owner'
 
   function toggle(
     key: CompanyModuleKey,
   ) {
     if (!canEdit) return
+
     setMessage('')
 
     setSelected((current) =>
@@ -93,7 +93,9 @@ export default function ModulesSettingsTab() {
     if (
       !canEdit ||
       isSaving
-    ) return
+    ) {
+      return
+    }
 
     if (!selected.length) {
       setMessage(
@@ -105,10 +107,12 @@ export default function ModulesSettingsTab() {
     try {
       setIsSaving(true)
       setMessage('')
+
       await save(
         selected,
         true,
       )
+
       setMessage(
         'Moduli su spremljeni. Navigacija je odmah ažurirana.',
       )
@@ -139,9 +143,11 @@ export default function ModulesSettingsTab() {
             <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
               POSTAVKE → MODULI
             </p>
+
             <h2 className="mt-2 text-2xl font-black text-white">
               Prilagodi FERSYS svojoj tvrtki
             </h2>
+
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
               Uključi ili isključi module kad god želiš.
               Isključeni moduli nestaju iz navigacije i brzih akcija,
@@ -174,6 +180,7 @@ export default function ModulesSettingsTab() {
             size={18}
             className="mt-0.5 shrink-0 text-blue-400"
           />
+
           <p className="text-xs leading-5 text-slate-400 sm:text-sm">
             Promjena modula ne briše radne naloge, investitore,
             ponude, račune ni druge spremljene podatke.
@@ -201,6 +208,7 @@ export default function ModulesSettingsTab() {
           (module) => {
             const Icon =
               icons[module.key]
+
             const active =
               selectedSet.has(
                 module.key,
@@ -251,6 +259,7 @@ export default function ModulesSettingsTab() {
                 <p className="mt-4 font-black text-white">
                   {module.label}
                 </p>
+
                 <p className="mt-1 pr-5 text-xs leading-5 text-slate-400">
                   {module.description}
                 </p>
@@ -266,23 +275,6 @@ export default function ModulesSettingsTab() {
           },
         )}
       </div>
-
-      {canEdit && (
-        <div className="sticky bottom-[5.5rem] z-20 md:hidden">
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={() =>
-              void saveChanges()
-            }
-            className="min-h-12 w-full rounded-2xl bg-blue-600 px-5 font-black text-white shadow-2xl shadow-black/50 disabled:opacity-50"
-          >
-            {isSaving
-              ? 'Spremanje...'
-              : `Spremi (${selected.length} odabrano)`}
-          </button>
-        </div>
-      )}
     </div>
   )
 }
