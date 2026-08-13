@@ -529,7 +529,7 @@ export function ResetPasswordPage() {
   ) {
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-red-500/20 bg-slate-900 p-7 text-center">
+        <div className="w-full max-w-md rounded-[1.75rem] border border-red-500/20 bg-slate-900 p-5 text-center sm:rounded-3xl sm:p-7">
           <AlertTriangle
             size={50}
             className="mx-auto text-red-400"
@@ -545,7 +545,7 @@ export function ResetPasswordPage() {
 
           <Link
             to="/login"
-            className="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-blue-600 px-5 font-bold text-white"
+            className="mt-6 flex h-14 items-center justify-center rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.99]"
           >
             Zatraži novu poveznicu
           </Link>
@@ -560,7 +560,7 @@ export function ResetPasswordPage() {
   ) {
     return (
       <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
-        <div className="w-full max-w-md rounded-3xl border border-emerald-500/20 bg-slate-900 p-7 text-center">
+        <div className="w-full max-w-md rounded-[1.75rem] border border-emerald-500/20 bg-slate-900 p-5 text-center sm:rounded-3xl sm:p-7">
           <CheckCircle2
             size={54}
             className="mx-auto text-emerald-400"
@@ -576,7 +576,7 @@ export function ResetPasswordPage() {
 
           <Link
             to="/login"
-            className="mt-6 flex min-h-12 items-center justify-center rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-bold text-white"
+            className="mt-6 flex h-14 items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-black text-white active:scale-[0.99]"
           >
             Idi na prijavu
           </Link>
@@ -586,20 +586,20 @@ export function ResetPasswordPage() {
   }
 
   return (
-    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 px-4 py-8 text-white">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 px-4 py-5 text-white sm:px-6 sm:py-8">
       <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
       <div className="absolute -bottom-48 -right-32 h-[30rem] w-[30rem] rounded-full bg-blue-600/20 blur-3xl" />
 
-      <div className="relative w-full max-w-lg rounded-3xl border border-white/10 bg-slate-900/95 p-6 shadow-2xl sm:p-8">
+      <div className="relative w-full max-w-md rounded-[1.75rem] border border-white/10 bg-slate-900/95 p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-8">
         <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
           <ShieldCheck size={27} />
         </div>
 
-        <h1 className="mt-5 text-center text-2xl font-black">
+        <h1 className="mt-5 text-center text-2xl font-black tracking-tight sm:text-3xl">
           Postavi novu lozinku
         </h1>
 
-        <p className="mt-2 text-center text-sm leading-6 text-slate-400">
+        <p className="mx-auto mt-2 max-w-md text-center text-sm leading-6 text-slate-400">
           Odaberi novu, jedinstvenu lozinku koju ne koristiš na drugim stranicama.
         </p>
 
@@ -608,7 +608,7 @@ export function ResetPasswordPage() {
           onClick={
             generatePassword
           }
-          className="mt-6 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-bold text-blue-300"
+          className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-black text-blue-300 active:scale-[0.99] sm:mt-6"
         >
           <RefreshCw size={17} />
           Generiraj jaku lozinku
@@ -618,7 +618,7 @@ export function ResetPasswordPage() {
           onSubmit={
             handleSubmit
           }
-          className="mt-6 space-y-5"
+          className="mt-5 space-y-4 sm:mt-6 sm:space-y-5"
         >
           <PasswordField
             label="Nova lozinka"
@@ -648,7 +648,7 @@ export function ResetPasswordPage() {
                   !current,
               )
             }
-            className="flex items-center gap-2 text-sm font-semibold text-slate-400"
+            className="flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
           >
             {showPassword ? (
               <EyeOff size={18} />
@@ -662,7 +662,7 @@ export function ResetPasswordPage() {
           </button>
 
           {password && (
-            <div className="grid gap-2 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-2">
+            <div className="grid gap-2 rounded-2xl border border-slate-800 bg-slate-950/50 p-3 sm:grid-cols-2 sm:p-4">
               {passwordChecks.map(
                 (check) => (
                   <div
@@ -729,7 +729,7 @@ export function ResetPasswordPage() {
               !passwordIsStrong ||
               !passwordsMatch
             }
-            className="min-h-12 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="h-14 w-full rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-black text-white active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {isSubmitting
               ? 'Spremanje...'
@@ -756,7 +756,7 @@ function PasswordField({
 }) {
   return (
     <label className="block">
-      <span className="mb-2 block text-sm font-semibold text-slate-200">
+      <span className="mb-2 block text-sm font-black text-slate-200">
         {label}
       </span>
 
@@ -779,7 +779,7 @@ function PasswordField({
               event.target.value,
             )
           }
-          className="h-13 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 pl-12 text-white outline-none focus:border-violet-500"
+          className="h-14 w-full rounded-2xl border border-white/10 bg-slate-800 px-4 pl-12 text-base text-white outline-none placeholder:text-slate-500 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20"
         />
       </div>
     </label>
