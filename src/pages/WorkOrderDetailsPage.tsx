@@ -33,6 +33,10 @@ import {
 import FersysLoader from '../components/FersysLoader'
 
 import {
+  deleteUserDraft,
+} from '../services/drafts.service'
+
+import {
   getWorkOrderById,
   redactWorkOrderPrices,
   type CloudWorkOrder,
@@ -49,6 +53,9 @@ import {
 import {
   downloadWorkOrderPdf,
 } from '../utils/workOrderPdf'
+
+const FINALIZED_DRAFT_KEY =
+  'fersys_finalized_work_order_draft_id'
 
 function money(value: number) {
   return new Intl.NumberFormat(
@@ -305,14 +312,24 @@ export function WorkOrderDetailsPage() {
       const branding =
         await getWorkOrderBrandingFromCompanySettings()
 
-      downloadWorkOrderPdf(
-        canViewPrices
-          ? order
-          : redactWorkOrderPrices(
-              order,
-            ),
-        branding,
+      await Promise.resolve(
+        downloadWorkOrderPdf(
+          canViewPrices
+            ? order
+            : redactWorkOrderPrices(
+                order,
+              ),
+          branding,
+        ),
       )
+
+      const finalizedOrderId =
+        localStorage.getItem(FINALIZED_DRAFT_KEY)
+
+      if (finalizedOrderId === order.id) {
+        await deleteUserDraft('work-order', 'new')
+        localStorage.removeItem(FINALIZED_DRAFT_KEY)
+      }
     } catch (error) {
       console.error(
         'Izrada PDF-a radnog naloga nije uspjela:',
