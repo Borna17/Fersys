@@ -29,11 +29,6 @@ import {
 } from '../services/drafts.service'
 import type { Customer as CompanyCustomer } from '../types/customer'
 import { downloadInvoicePdf } from '../utils/invoicePdf'
-import {
-  createInvoice as createCloudInvoice,
-  getInvoices as getCloudInvoices,
-  updateInvoice as updateCloudInvoice,
-} from '../services/invoices.service'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -858,7 +853,7 @@ export function NewInvoicePage() {
     )
   }
 
-  async function save(status: InvoiceStatus) {
+  function save(status: InvoiceStatus) {
     setSaveMessage('')
 
     if (!validate()) {
@@ -870,51 +865,17 @@ export function NewInvoicePage() {
     }
 
     const savedInvoice = buildInvoice(status)
+    const current = readInvoices()
 
-    try {
-      const cloudInvoice =
-        isEditing
-          ? await updateCloudInvoice(
-              savedInvoice,
-            )
-          : await createCloudInvoice(
-              savedInvoice,
-            )
+    const updated = isEditing
+      ? current.map((invoice) =>
+          invoice.id === savedInvoice.id
+            ? savedInvoice
+            : invoice,
+        )
+      : [savedInvoice, ...current]
 
-      const cloudInvoices =
-        await getCloudInvoices<Invoice>()
-
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(
-          cloudInvoices,
-        ),
-      )
-
-      savedInvoice.id =
-        cloudInvoice.id
-    } catch (error) {
-      console.error(
-        'Račun nije spremljen u cloud:',
-        error,
-      )
-
-      setErrors(
-        (current) => ({
-          ...current,
-          cloud:
-            error instanceof Error
-              ? error.message
-              : 'Račun nije moguće spremiti u cloud.',
-        }),
-      )
-
-      setSaveMessage(
-        'Račun NIJE spremljen. Provjeri cloud vezu i pokušaj ponovno.',
-      )
-
-      return
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
 
     if (!isEditing && !isDuplicating && !sourceOffer) {
       void deleteUserDraft('invoice', 'new')
@@ -1021,7 +982,7 @@ export function NewInvoicePage() {
 
             <button
               type="button"
-              onClick={() => void save('Nacrt')}
+              onClick={() => save('Nacrt')}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 text-sm font-black text-violet-200"
             >
               <Save size={18} />
@@ -1030,7 +991,7 @@ export function NewInvoicePage() {
 
             <button
               type="button"
-              onClick={() => void save('Izdano')}
+              onClick={() => save('Izdano')}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white"
             >
               <CheckCircle2 size={18} />
@@ -1577,7 +1538,7 @@ export function NewInvoicePage() {
         <div className="mx-auto grid max-w-xl grid-cols-[auto_1fr] gap-2">
           <button
             type="button"
-            onClick={() => void save('Nacrt')}
+            onClick={() => save('Nacrt')}
             className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-800 text-violet-200"
             aria-label="Spremi nacrt"
           >
@@ -1586,7 +1547,7 @@ export function NewInvoicePage() {
 
           <button
             type="button"
-            onClick={() => void save('Izdano')}
+            onClick={() => save('Izdano')}
             className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white"
           >
             <CheckCircle2 size={18} />

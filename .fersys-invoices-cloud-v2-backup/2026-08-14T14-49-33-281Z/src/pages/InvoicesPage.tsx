@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import {
   CheckCircle2,
@@ -13,12 +13,6 @@ import {
 } from 'lucide-react'
 
 import { downloadInvoicePdf } from '../utils/invoicePdf'
-import {
-  deleteInvoice as deleteCloudInvoice,
-  getInvoices as getCloudInvoices,
-  importLocalInvoices,
-  updateInvoice as updateCloudInvoice,
-} from '../services/invoices.service'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -225,75 +219,6 @@ export function InvoicesPage() {
     )
 
   const [
-    isCloudLoading,
-    setIsCloudLoading,
-  ] = useState(true)
-
-  const [
-    cloudError,
-    setCloudError,
-  ] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-
-    void (async () => {
-      try {
-        setIsCloudLoading(true)
-        setCloudError('')
-
-        const localInvoices =
-          readInvoices()
-
-        // Prvo prenesi račune koji možda postoje samo
-        // na ovom uređaju, zatim učitaj jedinstveni cloud popis.
-        await importLocalInvoices(
-          localInvoices,
-        )
-
-        const cloudInvoices =
-          await getCloudInvoices<Invoice>()
-
-        if (cancelled) {
-          return
-        }
-
-        setInvoices(
-          cloudInvoices,
-        )
-
-        localStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify(
-            cloudInvoices,
-          ),
-        )
-      } catch (error) {
-        console.error(
-          'Račune nije moguće sinkronizirati:',
-          error,
-        )
-
-        if (!cancelled) {
-          setCloudError(
-            error instanceof Error
-              ? error.message
-              : 'Račune nije moguće učitati iz clouda.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setIsCloudLoading(false)
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  const [
     search,
     setSearch,
   ] =
@@ -369,22 +294,6 @@ export function InvoicesPage() {
             setInvoices(
               updated,
             )
-
-            updated
-              .filter(
-                (invoice) =>
-                  invoice.status ===
-                  'Dospjelo',
-              )
-              .forEach(
-                (invoice) => {
-                  void updateCloudInvoice(
-                    invoice,
-                  ).catch(
-                    console.error,
-                  )
-                },
-              )
           },
           0,
         )
@@ -608,25 +517,6 @@ export function InvoicesPage() {
       )
 
     save(updated)
-
-    const paidInvoice =
-      updated.find(
-        (current) =>
-          current.id ===
-          invoice.id,
-      )
-
-    if (paidInvoice) {
-      void updateCloudInvoice(
-        paidInvoice,
-      ).catch((error) => {
-        console.error(
-          'Plaćanje nije spremljeno u cloud:',
-          error,
-        )
-      })
-    }
-
     setSelectedInvoiceId(
       null,
     )
@@ -651,15 +541,6 @@ export function InvoicesPage() {
       ),
     )
 
-    void deleteCloudInvoice(
-      invoice.id,
-    ).catch((error) => {
-      console.error(
-        'Račun nije obrisan iz clouda:',
-        error,
-      )
-    })
-
     setSelectedInvoiceId(
       null,
     )
@@ -667,17 +548,6 @@ export function InvoicesPage() {
 
   return (
     <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-10 sm:space-y-6">
-      {cloudError && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
-          Cloud sinkronizacija računa: {cloudError}
-        </div>
-      )}
-
-      {isCloudLoading && (
-        <div className="rounded-2xl border border-violet-500/15 bg-violet-500/10 px-4 py-3 text-sm font-bold text-violet-200">
-          Sinkronizacija računa...
-        </div>
-      )}
       <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/40 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
 
