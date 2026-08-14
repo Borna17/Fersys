@@ -34,7 +34,7 @@ import type {
   OfferStatus,
 } from '../types/offers'
 import {
-  downloadOfferPdf,
+  openOfferPdf,
 } from '../utils/offerPdf'
 
 const offerStatuses: OfferStatus[] = [
@@ -468,7 +468,7 @@ export function OfferDetailsPage() {
               <button
                 type="button"
                 onClick={() =>
-                  downloadOfferPdf(offer)
+                  openOfferPdf(offer)
                 }
                 className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99]"
               >
@@ -493,7 +493,7 @@ export function OfferDetailsPage() {
               <button
                 type="button"
                 onClick={() =>
-                  downloadOfferPdf(offer)
+                  openOfferPdf(offer)
                 }
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
               >

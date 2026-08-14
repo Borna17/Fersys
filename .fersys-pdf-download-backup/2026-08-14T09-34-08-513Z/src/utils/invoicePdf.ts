@@ -1,11 +1,8 @@
-import html2canvas from 'html2canvas'
-import { jsPDF } from 'jspdf'
-
 import {
   getCompanySettings,
 } from '../services/companySettings.service'
 
-export type OfferPdfItem = {
+export type InvoicePdfItem = {
   id: string
   name: string
   description: string
@@ -14,13 +11,11 @@ export type OfferPdfItem = {
   price: number
   discount: number
   vat: number
-  imageDataUrl?: string
-  imageName?: string
 }
 
-export type OfferPdfData = {
+export type InvoicePdfData = {
   id: string
-  offerNumber: string
+  invoiceNumber: string
   customerName: string
   customerType:
     | 'Fizička osoba'
@@ -31,20 +26,24 @@ export type OfferPdfData = {
   phone: string
   address: string
   city: string
-  date: string
-  validUntil: string
+  issueDate: string
+  dueDate: string
+  serviceDate: string
   status: string
   responsiblePerson: string
   description: string
   internalNote: string
-  paymentTerms: string
-  items: OfferPdfItem[]
+  paymentMethod: string
+  paymentModel: string
+  paymentReference: string
+  iban: string
+  items: InvoicePdfItem[]
   createdAt: string
   updatedAt: string
-  version: number
+  paidAt?: string
 }
 
-export type OfferPdfSettings = {
+export type InvoicePdfSettings = {
   companyName: string
   companySubtitle: string
   companyAddress: string
@@ -57,15 +56,13 @@ export type OfferPdfSettings = {
   stampDataUrl?: string
   signatureDataUrl?: string
   primaryColor: string
-  showItemImages: boolean
-  showSignature: boolean
   showStamp: boolean
   showFooter: boolean
   footerText: string
 }
 
 const DEFAULT_SETTINGS:
-OfferPdfSettings = {
+InvoicePdfSettings = {
   companyName: 'Tvrtka',
   companySubtitle: '',
   companyAddress: '',
@@ -77,13 +74,11 @@ OfferPdfSettings = {
   logoDataUrl: undefined,
   stampDataUrl: undefined,
   signatureDataUrl: undefined,
-  primaryColor: '#2563EB',
-  showItemImages: true,
-  showSignature: true,
+  primaryColor: '#0F172A',
   showStamp: true,
   showFooter: true,
   footerText:
-    'Ponuda je izrađena u sustavu FERSYS.',
+    'Račun je izrađen u sustavu FERSYS.',
 }
 
 function escapeHtml(
@@ -152,7 +147,7 @@ function formatDate(
 }
 
 function itemNet(
-  item: OfferPdfItem,
+  item: InvoicePdfItem,
 ) {
   return (
     item.quantity *
@@ -163,7 +158,7 @@ function itemNet(
 }
 
 function itemVat(
-  item: OfferPdfItem,
+  item: InvoicePdfItem,
 ) {
   return (
     itemNet(item) *
@@ -172,7 +167,7 @@ function itemVat(
 }
 
 function itemTotal(
-  item: OfferPdfItem,
+  item: InvoicePdfItem,
 ) {
   return (
     itemNet(item) +
@@ -198,7 +193,7 @@ function companySettingsFromCurrent(
         typeof getCompanySettings
       >
     >,
-): Partial<OfferPdfSettings> {
+): Partial<InvoicePdfSettings> {
   return {
     companyName:
       settings.name,
@@ -237,28 +232,26 @@ function companySettingsFromCurrent(
       undefined,
     primaryColor:
       settings.primaryColor ||
-      '#2563EB',
+      '#0F172A',
     footerText:
       settings.documentFooter,
     showStamp:
       Boolean(
         settings.stampUrl,
       ),
-    showSignature: true,
     showFooter: true,
-    showItemImages: true,
   }
 }
 
 function paginateItems(
-  items: OfferPdfItem[],
-  showImages: boolean,
+  items:
+    InvoicePdfItem[],
 ) {
   const pages:
-    OfferPdfItem[][] = []
+    InvoicePdfItem[][] = []
 
   let current:
-    OfferPdfItem[] = []
+    InvoicePdfItem[] = []
 
   let weight = 0
   let first = true
@@ -270,29 +263,15 @@ function paginateItems(
     const rowWeight =
       1 +
       Math.min(
-        1.6,
+        1.3,
         item.description.length /
-          150,
-      ) +
-      (
-        showImages &&
-        item.imageDataUrl
-          ? 1.7
-          : 0
+          170,
       )
 
     const capacity =
       first
-        ? (
-            showImages
-              ? 8.5
-              : 12
-          )
-        : (
-            showImages
-              ? 10
-              : 15
-          )
+        ? 13
+        : 17
 
     if (
       current.length > 0 &&
@@ -325,13 +304,12 @@ function documentCss(
 ) {
   return `
     :root {
-      --primary: ${primaryColor};
-      --ink: #0f172a;
+      --brand: ${primaryColor};
+      --ink: #111827;
       --text: #334155;
       --muted: #64748b;
       --border: #dbe3ee;
       --surface: #f8fafc;
-      --soft: #eef4ff;
     }
 
     * {
@@ -382,7 +360,7 @@ function documentCss(
     }
 
     .toolbar .primary {
-      background: var(--primary);
+      background: var(--ink);
       color: white;
     }
 
@@ -407,7 +385,7 @@ function documentCss(
       overflow: hidden;
       flex-direction: column;
       padding:
-        13mm 13mm 10mm;
+        12mm 13mm 10mm;
       background: white;
       box-shadow:
         0 18px 55px
@@ -418,8 +396,8 @@ function documentCss(
     .page::before {
       position: absolute;
       inset: 0 0 auto;
-      height: 4mm;
-      background: var(--primary);
+      height: 1.6mm;
+      background: var(--ink);
       content: "";
     }
 
@@ -430,8 +408,11 @@ function documentCss(
         190px;
       gap: 24px;
       align-items: start;
-      padding-top: 4mm;
+      padding-top: 3mm;
       padding-bottom: 13px;
+      border-bottom:
+        2px solid
+        var(--ink);
     }
 
     .company {
@@ -442,26 +423,26 @@ function documentCss(
 
     .logo,
     .logo-fallback {
-      width: 58px;
-      height: 58px;
-      flex: 0 0 58px;
+      width: 56px;
+      height: 56px;
+      flex: 0 0 56px;
       object-fit: contain;
     }
 
     .logo-fallback {
       display: grid;
       place-items: center;
-      border-radius: 13px;
-      background: var(--primary);
+      border-radius: 10px;
+      background: var(--ink);
       color: white;
-      font-size: 19px;
+      font-size: 18px;
       font-weight: 900;
     }
 
     .company h1 {
       margin: 0;
       color: var(--ink);
-      font-size: 21px;
+      font-size: 20px;
       line-height: 1.1;
       font-weight: 950;
     }
@@ -469,13 +450,13 @@ function documentCss(
     .subtitle {
       margin-top: 3px;
       color: var(--muted);
-      font-size: 9px;
+      font-size: 8.5px;
     }
 
     .seller-lines {
       margin-top: 6px;
       color: #475569;
-      font-size: 8.5px;
+      font-size: 8.4px;
       line-height: 1.45;
     }
 
@@ -484,8 +465,8 @@ function documentCss(
     }
 
     .kicker {
-      color: var(--primary);
-      font-size: 8px;
+      color: var(--muted);
+      font-size: 7.8px;
       font-weight: 900;
       letter-spacing: .14em;
       text-transform: uppercase;
@@ -494,19 +475,19 @@ function documentCss(
     .heading h2 {
       margin: 4px 0 0;
       color: var(--ink);
-      font-size: 31px;
+      font-size: 30px;
       line-height: 1;
       font-weight: 950;
-      letter-spacing: -.03em;
+      letter-spacing: -.02em;
     }
 
     .number {
       display: inline-flex;
       margin-top: 7px;
-      border-radius: 999px;
-      padding: 5px 10px;
-      background: var(--soft);
-      color: var(--primary);
+      border-radius: 6px;
+      padding: 5px 9px;
+      background: #f1f5f9;
+      color: var(--ink);
       font-size: 9.5px;
       font-weight: 900;
     }
@@ -516,24 +497,24 @@ function documentCss(
       grid-template-columns:
         repeat(4,1fr);
       gap: 1px;
-      margin-top: 8px;
+      margin-top: 13px;
       overflow: hidden;
       border:
         1px solid
         var(--border);
-      border-radius: 12px;
+      border-radius: 7px;
       background: var(--border);
     }
 
     .summary > div {
       padding: 9px 10px;
-      background: var(--surface);
+      background: white;
     }
 
     .summary span {
       display: block;
       color: var(--muted);
-      font-size: 7.5px;
+      font-size: 7.4px;
       font-weight: 900;
       text-transform: uppercase;
     }
@@ -542,16 +523,20 @@ function documentCss(
       display: block;
       margin-top: 3px;
       color: var(--ink);
-      font-size: 9.5px;
+      font-size: 9.4px;
     }
 
     .summary .total {
-      background: var(--soft);
+      background: var(--ink);
+    }
+
+    .summary .total span,
+    .summary .total strong {
+      color: white;
     }
 
     .summary .total strong {
-      color: var(--primary);
-      font-size: 12px;
+      font-size: 12.5px;
     }
 
     .party-grid {
@@ -563,18 +548,17 @@ function documentCss(
     }
 
     .card {
-      padding: 12px 13px;
+      padding: 11px 12px;
       border:
         1px solid
         var(--border);
-      border-radius: 12px;
-      break-inside: avoid;
+      border-radius: 7px;
     }
 
     .card h3 {
       margin: 0 0 7px;
       color: var(--muted);
-      font-size: 7.8px;
+      font-size: 7.7px;
       font-weight: 900;
       letter-spacing: .1em;
       text-transform: uppercase;
@@ -582,33 +566,31 @@ function documentCss(
 
     .party-name {
       color: var(--ink);
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 950;
     }
 
     .party-details {
       margin-top: 5px;
-      font-size: 8.5px;
+      font-size: 8.4px;
       line-height: 1.45;
     }
 
     .description {
-      margin-top: 12px;
-      padding: 10px 12px;
+      margin-top: 11px;
+      padding: 9px 11px;
       border-left:
         4px solid
-        var(--primary);
-      border-radius:
-        0 9px 9px 0;
+        var(--ink);
       background: #f8fafc;
-      font-size: 9px;
-      line-height: 1.5;
+      font-size: 8.8px;
+      line-height: 1.45;
     }
 
     .section-title {
-      margin: 15px 0 7px;
+      margin: 14px 0 7px;
       color: var(--ink);
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 950;
     }
 
@@ -617,21 +599,21 @@ function documentCss(
       border:
         1px solid
         var(--border);
-      border-radius: 10px;
+      border-radius: 6px;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       table-layout: fixed;
-      font-size: 8.4px;
+      font-size: 8.3px;
     }
 
     th {
       padding: 7px 5px;
-      background: var(--primary);
+      background: var(--ink);
       color: white;
-      font-size: 7.2px;
+      font-size: 7.1px;
       text-align: left;
       text-transform: uppercase;
     }
@@ -641,7 +623,7 @@ function documentCss(
     }
 
     th:nth-child(2) {
-      width: 37%;
+      width: 38%;
     }
 
     th:nth-child(3) {
@@ -665,7 +647,7 @@ function documentCss(
     }
 
     th:nth-child(8) {
-      width: 13%;
+      width: 12%;
     }
 
     td {
@@ -684,33 +666,16 @@ function documentCss(
       border-bottom: 0;
     }
 
-    .item-wrap {
-      display: flex;
-      gap: 7px;
-      align-items: flex-start;
-    }
-
-    .item-image {
-      width: 42px;
-      height: 42px;
-      flex: 0 0 42px;
-      border:
-        1px solid
-        var(--border);
-      border-radius: 7px;
-      object-fit: cover;
-    }
-
     td strong {
       color: var(--ink);
-      font-size: 8.6px;
+      font-size: 8.4px;
     }
 
     td p {
       margin: 2px 0 0;
       color: var(--muted);
-      font-size: 7.4px;
-      line-height: 1.35;
+      font-size: 7.3px;
+      line-height: 1.3;
     }
 
     .right {
@@ -731,32 +696,41 @@ function documentCss(
       display: grid;
       grid-template-columns:
         minmax(0,1fr)
-        235px;
-      gap: 14px;
-      margin-top: 13px;
+        245px;
+      gap: 15px;
+      margin-top: 14px;
       align-items: start;
-      break-inside: avoid;
     }
 
-    .terms-card {
+    .payment-card {
       padding: 10px 11px;
       border:
         1px solid
         var(--border);
-      border-radius: 11px;
-      background: var(--surface);
+      border-radius: 7px;
+      background: #f8fafc;
     }
 
-    .terms-card h3 {
+    .payment-card h3 {
       margin: 0 0 6px;
       color: var(--ink);
       font-size: 9px;
     }
 
-    .terms-card p {
-      margin: 4px 0;
+    .payment-row {
+      display: flex;
+      justify-content:
+        space-between;
+      gap: 10px;
+      padding: 4px 0;
+      border-bottom:
+        1px dashed
+        var(--border);
       font-size: 8.2px;
-      line-height: 1.4;
+    }
+
+    .payment-row:last-child {
+      border-bottom: 0;
     }
 
     .totals {
@@ -764,7 +738,7 @@ function documentCss(
       border:
         1px solid
         var(--border);
-      border-radius: 10px;
+      border-radius: 7px;
       background: white;
     }
 
@@ -785,44 +759,34 @@ function documentCss(
     }
 
     .total-row.grand {
-      padding: 10px 9px;
-      background: var(--primary);
+      padding: 11px 9px;
+      background: var(--ink);
       color: white;
-      font-size: 12px;
+      font-size: 12.5px;
       font-weight: 950;
     }
 
-    .signature {
-      display: grid;
-      grid-template-columns:
-        1fr 1fr;
-      gap: 48px;
-      margin-top: 18px;
+    .note {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 8px;
+      line-height: 1.4;
     }
 
-    .signature-space {
-      position: relative;
-      height: 50px;
+    .responsible {
+      display: flex;
+      justify-content:
+        space-between;
+      gap: 16px;
+      margin-top: 15px;
+      color: var(--muted);
+      font-size: 8px;
     }
 
     .stamp {
-      position: absolute;
-      left: 50%;
-      bottom: 0;
-      max-width: 140px;
-      max-height: 48px;
+      max-width: 120px;
+      max-height: 46px;
       object-fit: contain;
-      transform:
-        translateX(-50%);
-    }
-
-    .signature-line {
-      border-top:
-        1px solid
-        #94a3b8;
-      padding-top: 5px;
-      text-align: center;
-      font-size: 8px;
     }
 
     footer {
@@ -874,7 +838,7 @@ function documentCss(
 
 function companyBlock(
   settings:
-    OfferPdfSettings,
+    InvoicePdfSettings,
 ) {
   const logo =
     settings.logoDataUrl
@@ -954,22 +918,23 @@ function companyBlock(
 }
 
 function customerLines(
-  offer: OfferPdfData,
+  invoice:
+    InvoicePdfData,
 ) {
   return [
-    offer.oib
+    invoice.oib
       ? `
         <div>
           <strong>OIB:</strong>
           ${escapeHtml(
-            offer.oib,
+            invoice.oib,
           )}
         </div>
       `
       : '',
     [
-      offer.address,
-      offer.city,
+      invoice.address,
+      invoice.city,
     ]
       .filter(Boolean)
       .join(', ')
@@ -977,8 +942,8 @@ function customerLines(
         <div>
           ${escapeHtml(
             [
-              offer.address,
-              offer.city,
+              invoice.address,
+              invoice.city,
             ]
               .filter(Boolean)
               .join(', '),
@@ -986,20 +951,20 @@ function customerLines(
         </div>
       `
       : '',
-    offer.email
+    invoice.email
       ? `
         <div>
           ${escapeHtml(
-            offer.email,
+            invoice.email,
           )}
         </div>
       `
       : '',
-    offer.phone
+    invoice.phone
       ? `
         <div>
           ${escapeHtml(
-            offer.phone,
+            invoice.phone,
           )}
         </div>
       `
@@ -1010,9 +975,9 @@ function customerLines(
 }
 
 function itemRows(
-  items: OfferPdfItem[],
+  items:
+    InvoicePdfItem[],
   startIndex: number,
-  showImages: boolean,
 ) {
   if (!items.length) {
     return `
@@ -1039,45 +1004,23 @@ function itemRows(
           </td>
 
           <td>
-            <div class="item-wrap">
-              ${
-                showImages &&
-                item.imageDataUrl
-                  ? `
-                    <img
-                      class="item-image"
-                      src="${escapeHtml(
-                        item.imageDataUrl,
-                      )}"
-                      alt="${escapeHtml(
-                        item.imageName ||
-                        item.name,
-                      )}"
-                    />
-                  `
-                  : ''
-              }
+            <strong>
+              ${escapeHtml(
+                item.name,
+              )}
+            </strong>
 
-              <div>
-                <strong>
-                  ${escapeHtml(
-                    item.name,
-                  )}
-                </strong>
-
-                ${
-                  item.description
-                    ? `
-                      <p>
-                        ${multilineHtml(
-                          item.description,
-                        )}
-                      </p>
-                    `
-                    : ''
-                }
-              </div>
-            </div>
+            ${
+              item.description
+                ? `
+                  <p>
+                    ${multilineHtml(
+                      item.description,
+                    )}
+                  </p>
+                `
+                : ''
+            }
           </td>
 
           <td class="right">
@@ -1121,165 +1064,10 @@ function itemRows(
     .join('')
 }
 
-
-async function waitForPdfImages(
-  target: Document,
-) {
-  const images =
-    Array.from(
-      target.querySelectorAll('img'),
-    )
-
-  await Promise.all(
-    images.map(
-      (image) =>
-        new Promise<void>(
-          (resolve) => {
-            if (image.complete) {
-              resolve()
-              return
-            }
-
-            image.onload = () =>
-              resolve()
-
-            image.onerror = () =>
-              resolve()
-          },
-        ),
-    ),
-  )
-}
-
-async function renderHtmlPagesToPdf(
-  html: string,
-  fileName: string,
-) {
-  const iframe =
-    document.createElement('iframe')
-
-  Object.assign(
-    iframe.style,
-    {
-      position: 'fixed',
-      left: '0',
-      top: '0',
-      width: '794px',
-      height: '1123px',
-      border: '0',
-      pointerEvents: 'none',
-      zIndex: '-2147483647',
-    },
-  )
-
-  document.body.appendChild(iframe)
-
-  try {
-    const iframeDocument =
-      iframe.contentDocument
-
-    if (!iframeDocument) {
-      throw new Error(
-        'PDF renderer nije dostupan.',
-      )
-    }
-
-    iframeDocument.open()
-    iframeDocument.write(html)
-    iframeDocument.close()
-
-    await new Promise<void>(
-      (resolve) =>
-        window.setTimeout(resolve, 100),
-    )
-
-    await iframeDocument.fonts?.ready
-    await waitForPdfImages(
-      iframeDocument,
-    )
-
-    const toolbar =
-      iframeDocument.querySelector(
-        '.toolbar',
-      ) as HTMLElement | null
-
-    if (toolbar) {
-      toolbar.style.display = 'none'
-    }
-
-    const pages =
-      Array.from(
-        iframeDocument.querySelectorAll(
-          '.page',
-        ),
-      ) as HTMLElement[]
-
-    if (!pages.length) {
-      throw new Error(
-        'PDF nema stranica za izradu.',
-      )
-    }
-
-    const doc =
-      new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      })
-
-    for (
-      let index = 0;
-      index < pages.length;
-      index += 1
-    ) {
-      pages[index].style.margin = '0'
-      pages[index].style.boxShadow = 'none'
-
-      const canvas =
-        await html2canvas(
-          pages[index],
-          {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            useCORS: true,
-            allowTaint: false,
-            logging: false,
-          },
-        )
-
-      const image =
-        canvas.toDataURL(
-          'image/jpeg',
-          0.94,
-        )
-
-      if (index > 0) {
-        doc.addPage()
-      }
-
-      doc.addImage(
-        image,
-        'JPEG',
-        0,
-        0,
-        210,
-        297,
-        undefined,
-        'FAST',
-      )
-    }
-
-    doc.save(fileName)
-  } finally {
-    iframe.remove()
-  }
-}
-
-export function buildOfferPdfHtml(
-  offer: OfferPdfData,
+export function buildInvoicePdfHtml(
+  invoice: InvoicePdfData,
   customSettings:
-    Partial<OfferPdfSettings> = {},
+    Partial<InvoicePdfSettings> = {},
 ) {
   const settings = {
     ...DEFAULT_SETTINGS,
@@ -1287,7 +1075,7 @@ export function buildOfferPdfHtml(
   }
 
   const items =
-    offer.items.filter(
+    invoice.items.filter(
       (item) =>
         item.name.trim(),
     )
@@ -1322,10 +1110,7 @@ export function buildOfferPdfHtml(
     net + vat
 
   const pages =
-    paginateItems(
-      items,
-      settings.showItemImages,
-    )
+    paginateItems(items)
 
   let rowIndex = 0
 
@@ -1374,16 +1159,16 @@ export function buildOfferPdfHtml(
                   <div class="kicker">
                     ${
                       first
-                        ? 'Ponuda za izvođenje radova / usluga'
-                        : 'Nastavak ponude'
+                        ? 'Dokument za plaćanje'
+                        : 'Nastavak računa'
                     }
                   </div>
 
-                  <h2>PONUDA</h2>
+                  <h2>RAČUN</h2>
 
                   <div class="number">
                     ${escapeHtml(
-                      offer.offerNumber,
+                      invoice.invoiceNumber,
                     )}
                   </div>
                 </div>
@@ -1394,35 +1179,34 @@ export function buildOfferPdfHtml(
                   ? `
                     <section class="summary">
                       <div>
-                        <span>Datum</span>
+                        <span>Datum izdavanja</span>
                         <strong>
                           ${formatDate(
-                            offer.date,
+                            invoice.issueDate,
                           )}
                         </strong>
                       </div>
 
                       <div>
-                        <span>Vrijedi do</span>
+                        <span>Datum usluge</span>
                         <strong>
                           ${formatDate(
-                            offer.validUntil,
+                            invoice.serviceDate,
                           )}
                         </strong>
                       </div>
 
                       <div>
-                        <span>Odgovorna osoba</span>
+                        <span>Dospijeće</span>
                         <strong>
-                          ${escapeHtml(
-                            offer.responsiblePerson ||
-                            '—',
+                          ${formatDate(
+                            invoice.dueDate,
                           )}
                         </strong>
                       </div>
 
                       <div class="total">
-                        <span>Vrijednost ponude</span>
+                        <span>Za platiti</span>
                         <strong>
                           ${formatCurrency(
                             total,
@@ -1434,54 +1218,68 @@ export function buildOfferPdfHtml(
                     <section class="party-grid">
                       <article class="card">
                         <h3>
-                          Za naručitelja
+                          Izdavatelj
                         </h3>
 
                         <div class="party-name">
                           ${escapeHtml(
-                            offer.customerName,
+                            settings.companyName,
                           )}
                         </div>
 
                         <div class="party-details">
-                          ${customerLines(
-                            offer,
-                          )}
+                          ${
+                            settings.companyOib
+                              ? `
+                                <div>
+                                  <strong>OIB:</strong>
+                                  ${escapeHtml(
+                                    settings.companyOib,
+                                  )}
+                                </div>
+                              `
+                              : ''
+                          }
+
+                          ${
+                            settings.companyAddress
+                              ? `
+                                <div>
+                                  ${escapeHtml(
+                                    settings.companyAddress,
+                                  )}
+                                </div>
+                              `
+                              : ''
+                          }
                         </div>
                       </article>
 
                       <article class="card">
                         <h3>
-                          Podaci ponude
+                          Kupac / primatelj računa
                         </h3>
 
+                        <div class="party-name">
+                          ${escapeHtml(
+                            invoice.customerName,
+                          )}
+                        </div>
+
                         <div class="party-details">
-                          <div>
-                            <strong>Status:</strong>
-                            ${escapeHtml(
-                              offer.status,
-                            )}
-                          </div>
-
-                          <div>
-                            <strong>Verzija:</strong>
-                            ${offer.version || 1}
-                          </div>
-
-                          <div>
-                            <strong>Broj stavki:</strong>
-                            ${items.length}
-                          </div>
+                          ${customerLines(
+                            invoice,
+                          )}
                         </div>
                       </article>
                     </section>
 
                     ${
-                      offer.description
+                      invoice.description
                         ? `
                           <section class="description">
                             ${multilineHtml(
-                              offer.description,
+                              invoice.description,
                             )}
                           </section>
                         `
@@ -1490,13 +1288,13 @@ export function buildOfferPdfHtml(
                   `
                   : `
                     <div class="continuation">
-                      Nastavak stavki ponude
+                      Nastavak stavki računa
                     </div>
                   `
               }
 
               <div class="section-title">
-                Stavke ponude
+                Stavke računa
               </div>
 
               <div class="table-wrap">
@@ -1525,7 +1323,7 @@ export function buildOfferPdfHtml(
                         PDV
                       </th>
                       <th class="right">
-                        Ukupno
+                        Iznos
                       </th>
                     </tr>
                   </thead>
@@ -1534,7 +1332,6 @@ export function buildOfferPdfHtml(
                     ${itemRows(
                       pageItems,
                       startIndex,
-                      settings.showItemImages,
                     )}
                   </tbody>
                 </table>
@@ -1544,38 +1341,51 @@ export function buildOfferPdfHtml(
                 final
                   ? `
                     <section class="bottom">
-                      <article class="terms-card">
+                      <article class="payment-card">
                         <h3>
-                          Uvjeti i napomene
+                          Podaci za plaćanje
                         </h3>
 
-                        <p>
-                          ${multilineHtml(
-                            offer.paymentTerms ||
-                            'Plaćanje prema dogovoru.',
-                          )}
-                        </p>
-
-                        <p>
-                          Ponuda vrijedi do
+                        <div class="payment-row">
+                          <span>Način plaćanja</span>
                           <strong>
-                            ${formatDate(
-                              offer.validUntil,
+                            ${escapeHtml(
+                              invoice.paymentMethod ||
+                              'Transakcijski račun',
                             )}
-                          </strong>.
-                        </p>
+                          </strong>
+                        </div>
 
-                        ${
-                          offer.internalNote
-                            ? `
-                              <p>
-                                ${multilineHtml(
-                                  offer.internalNote,
-                                )}
-                              </p>
-                            `
-                            : ''
-                        }
+                        <div class="payment-row">
+                          <span>IBAN</span>
+                          <strong>
+                            ${escapeHtml(
+                              invoice.iban ||
+                              settings.companyIban ||
+                              '—',
+                            )}
+                          </strong>
+                        </div>
+
+                        <div class="payment-row">
+                          <span>Model</span>
+                          <strong>
+                            ${escapeHtml(
+                              invoice.paymentModel ||
+                              'HR00',
+                            )}
+                          </strong>
+                        </div>
+
+                        <div class="payment-row">
+                          <span>Poziv na broj</span>
+                          <strong>
+                            ${escapeHtml(
+                              invoice.paymentReference ||
+                              invoice.invoiceNumber,
+                            )}
+                          </strong>
+                        </div>
                       </article>
 
                       <div class="totals">
@@ -1623,7 +1433,7 @@ export function buildOfferPdfHtml(
                         </div>
 
                         <div class="total-row grand">
-                          <span>UKUPNO</span>
+                          <span>ZA PLATITI</span>
                           <span>
                             ${formatCurrency(
                               total,
@@ -1634,45 +1444,30 @@ export function buildOfferPdfHtml(
                     </section>
 
                     ${
-                      settings.showSignature
+                      invoice.internalNote
                         ? `
-                          <section class="signature">
-                            <div>
-                              <div class="signature-space">
-                                ${stamp}
-                              </div>
-
-                              <div class="signature-line">
-                                <span>
-                                  Ponudu pripremio
-                                </span>
-                                <br>
-                                <strong>
-                                  ${escapeHtml(
-                                    offer.responsiblePerson ||
-                                    settings.companyName,
-                                  )}
-                                </strong>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div class="signature-space"></div>
-
-                              <div class="signature-line">
-                                <span>
-                                  Prihvaćam ponudu
-                                </span>
-                                <br>
-                                <strong>
-                                  Investitor / naručitelj
-                                </strong>
-                              </div>
-                            </div>
-                          </section>
+                          <div class="note">
+                            ${multilineHtml(
+                              invoice.internalNote,
+                            )}
+                          </div>
                         `
                         : ''
                     }
+
+                    <div class="responsible">
+                      <span>
+                        Račun izdao:
+                        <strong>
+                          ${escapeHtml(
+                            invoice.responsiblePerson ||
+                            settings.companyName,
+                          )}
+                        </strong>
+                      </span>
+
+                      ${stamp}
+                    </div>
                   `
                   : ''
               }
@@ -1689,7 +1484,7 @@ export function buildOfferPdfHtml(
 
                       <span>
                         ${escapeHtml(
-                          offer.offerNumber,
+                          invoice.invoiceNumber,
                         )}
                         ·
                         ${pageIndex + 1}/${pages.length}
@@ -1715,7 +1510,7 @@ export function buildOfferPdfHtml(
 
   <title>
     ${escapeHtml(
-      offer.offerNumber,
+      invoice.invoiceNumber,
     )}
   </title>
 
@@ -1751,11 +1546,11 @@ export function buildOfferPdfHtml(
     document.title =
       ${JSON.stringify(
         `${safeFileName(
-          offer.offerNumber ||
-          'Ponuda',
+          invoice.invoiceNumber ||
+          'Racun',
         )}-${safeFileName(
-          offer.customerName ||
-          'Investitor',
+          invoice.customerName ||
+          'Kupac',
         )}`,
       )};
   </script>
@@ -1763,10 +1558,10 @@ export function buildOfferPdfHtml(
 </html>`
 }
 
-export function openOfferPdf(
-  offer: OfferPdfData,
+export function openInvoicePdf(
+  invoice: InvoicePdfData,
   customSettings:
-    Partial<OfferPdfSettings> = {},
+    Partial<InvoicePdfSettings> = {},
 ) {
   const previewWindow =
     window.open(
@@ -1782,7 +1577,7 @@ export function openOfferPdf(
   }
 
   previewWindow.document.write(
-    '<p style="font-family:system-ui;padding:24px">Priprema ponude...</p>',
+    '<p style="font-family:system-ui;padding:24px">Priprema računa...</p>',
   )
 
   void (async () => {
@@ -1791,8 +1586,8 @@ export function openOfferPdf(
         await getCompanySettings()
 
       const html =
-        buildOfferPdfHtml(
-          offer,
+        buildInvoicePdfHtml(
+          invoice,
           {
             ...companySettingsFromCurrent(
               company,
@@ -1811,57 +1606,9 @@ export function openOfferPdf(
 
       previewWindow.document.open()
       previewWindow.document.write(
-        '<p style="font-family:system-ui;padding:24px">PDF ponude nije moguće izraditi.</p>',
+        '<p style="font-family:system-ui;padding:24px">PDF računa nije moguće izraditi.</p>',
       )
       previewWindow.document.close()
     }
   })()
-}
-
-
-export async function downloadOfferPdf(
-  data: OfferPdfData,
-  customSettings:
-    Partial<OfferPdfSettings> = {},
-) {
-  try {
-    const company =
-      await getCompanySettings()
-
-    const html =
-      buildOfferPdfHtml(
-        data,
-        {
-          ...companySettingsFromCurrent(
-            company,
-          ),
-          ...customSettings,
-        },
-      )
-
-    const fileName =
-      `${safeFileName(
-        data.offerNumber ||
-        'Ponuda',
-      )}-${safeFileName(
-        data.customerName ||
-        'Investitor',
-      )}.pdf`
-
-    await renderHtmlPagesToPdf(
-      html,
-      fileName,
-    )
-  } catch (error) {
-    console.error(
-      'downloadOfferPdf error:',
-      error,
-    )
-
-    window.alert(
-      error instanceof Error
-        ? `PDF nije moguće izraditi: ${error.message}`
-        : 'PDF nije moguće izraditi.',
-    )
-  }
 }

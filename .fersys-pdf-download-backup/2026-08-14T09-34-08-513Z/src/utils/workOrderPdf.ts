@@ -375,7 +375,12 @@ function commonCss(
       margin-top: 8px;
       border-radius: 999px;
       padding: 5px 10px;
-      background: #eef4ff;
+      background:
+        color-mix(
+          in srgb,
+          ${primary} 9%,
+          white
+        );
       color: ${primary};
       font-size: 10px;
       font-weight: 900;
@@ -599,7 +604,12 @@ function commonCss(
       margin-top: 3px;
       border-radius: 8px;
       padding: 9px 11px;
-      background: #eef4ff;
+      background:
+        color-mix(
+          in srgb,
+          ${primary} 8%,
+          white
+        );
       color: ${primary};
       font-size: 13px;
       font-weight: 950;
@@ -781,7 +791,12 @@ function commonCss(
     }
 
     .layout-modern .info-card.muted {
-      background: #f8fafc;
+      background:
+        color-mix(
+          in srgb,
+          ${primary} 6%,
+          white
+        );
     }
 
     .layout-modern .description-box,
@@ -824,7 +839,12 @@ function commonCss(
     }
 
     .layout-custom .info-card {
-      border: 2px solid ${primary};
+      border: 2px solid
+        color-mix(
+          in srgb,
+          ${primary} 30%,
+          white
+        );
     }
 
     .layout-custom .section-title {
@@ -950,7 +970,7 @@ function commonCss(
     }
 
     .workorder-workers {
-      background: #f8fafc;
+      background: color-mix(in srgb, ${primary} 5%, white);
     }
 
     .workorder-investor .customer-name {
@@ -1096,7 +1116,7 @@ function commonCss(
     }
 
     .layout-modern .workorder-meta-strip {
-      border-color: ${primary};
+      border-color: color-mix(in srgb, ${primary} 24%, ${border});
       box-shadow: 0 5px 15px rgba(15,23,42,.045);
     }
 
@@ -1130,11 +1150,11 @@ function commonCss(
     }
 
     .layout-custom .workorder-meta-strip {
-      border: 2px solid ${primary};
+      border: 2px solid color-mix(in srgb, ${primary} 35%, white);
     }
 
     .layout-custom .workorder-workers {
-      background: #eef4ff;
+      background: color-mix(in srgb, ${primary} 9%, white);
     }
 
     ${
@@ -1888,12 +1908,11 @@ function buildDocument(
       data-fersys-work-order
       style="
         position: fixed;
-        left: 0;
+        left: -100000px;
         top: 0;
         width: 794px;
         background: #fff;
-        pointer-events: none;
-        z-index: -2147483647;
+        z-index: -1;
       "
     >
       <style>

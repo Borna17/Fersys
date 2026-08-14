@@ -28,7 +28,7 @@ import {
   saveUserDraft,
 } from '../services/drafts.service'
 import type { Customer as CompanyCustomer } from '../types/customer'
-import { downloadInvoicePdf } from '../utils/invoicePdf'
+import { openInvoicePdf } from '../utils/invoicePdf'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -846,7 +846,7 @@ export function NewInvoicePage() {
       return
     }
 
-    downloadInvoicePdf(
+    openInvoicePdf(
       buildInvoice(
         editingInvoice?.status ?? 'Nacrt',
       ),

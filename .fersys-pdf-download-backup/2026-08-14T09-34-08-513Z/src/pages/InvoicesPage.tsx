@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react'
 
-import { downloadInvoicePdf } from '../utils/invoicePdf'
+import { openInvoicePdf } from '../utils/invoicePdf'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -921,7 +921,7 @@ export function InvoicesPage() {
                         <button
                           type="button"
                           onClick={() =>
-                            downloadInvoicePdf(
+                            openInvoicePdf(
                               invoice,
                             )
                           }
@@ -1090,7 +1090,7 @@ export function InvoicesPage() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  downloadInvoicePdf(
+                                  openInvoicePdf(
                                     invoice,
                                   )
                                 }
@@ -1259,7 +1259,7 @@ export function InvoicesPage() {
               <button
                 type="button"
                 onClick={() =>
-                  downloadInvoicePdf(
+                  openInvoicePdf(
                     selectedInvoice,
                   )
                 }

@@ -1,3 +1,6 @@
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
+
 import {
   getCompanySettings,
 } from '../services/companySettings.service'
@@ -1064,6 +1067,161 @@ function itemRows(
     .join('')
 }
 
+
+async function waitForPdfImages(
+  target: Document,
+) {
+  const images =
+    Array.from(
+      target.querySelectorAll('img'),
+    )
+
+  await Promise.all(
+    images.map(
+      (image) =>
+        new Promise<void>(
+          (resolve) => {
+            if (image.complete) {
+              resolve()
+              return
+            }
+
+            image.onload = () =>
+              resolve()
+
+            image.onerror = () =>
+              resolve()
+          },
+        ),
+    ),
+  )
+}
+
+async function renderHtmlPagesToPdf(
+  html: string,
+  fileName: string,
+) {
+  const iframe =
+    document.createElement('iframe')
+
+  Object.assign(
+    iframe.style,
+    {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '794px',
+      height: '1123px',
+      border: '0',
+      pointerEvents: 'none',
+      zIndex: '-2147483647',
+    },
+  )
+
+  document.body.appendChild(iframe)
+
+  try {
+    const iframeDocument =
+      iframe.contentDocument
+
+    if (!iframeDocument) {
+      throw new Error(
+        'PDF renderer nije dostupan.',
+      )
+    }
+
+    iframeDocument.open()
+    iframeDocument.write(html)
+    iframeDocument.close()
+
+    await new Promise<void>(
+      (resolve) =>
+        window.setTimeout(resolve, 100),
+    )
+
+    await iframeDocument.fonts?.ready
+    await waitForPdfImages(
+      iframeDocument,
+    )
+
+    const toolbar =
+      iframeDocument.querySelector(
+        '.toolbar',
+      ) as HTMLElement | null
+
+    if (toolbar) {
+      toolbar.style.display = 'none'
+    }
+
+    const pages =
+      Array.from(
+        iframeDocument.querySelectorAll(
+          '.page',
+        ),
+      ) as HTMLElement[]
+
+    if (!pages.length) {
+      throw new Error(
+        'PDF nema stranica za izradu.',
+      )
+    }
+
+    const doc =
+      new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      })
+
+    for (
+      let index = 0;
+      index < pages.length;
+      index += 1
+    ) {
+      pages[index].style.margin = '0'
+      pages[index].style.boxShadow = 'none'
+
+      const canvas =
+        await html2canvas(
+          pages[index],
+          {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+          },
+        )
+
+      const image =
+        canvas.toDataURL(
+          'image/jpeg',
+          0.94,
+        )
+
+      if (index > 0) {
+        doc.addPage()
+      }
+
+      doc.addImage(
+        image,
+        'JPEG',
+        0,
+        0,
+        210,
+        297,
+        undefined,
+        'FAST',
+      )
+    }
+
+    doc.save(fileName)
+  } finally {
+    iframe.remove()
+  }
+}
+
 export function buildInvoicePdfHtml(
   invoice: InvoicePdfData,
   customSettings:
@@ -1611,4 +1769,52 @@ export function openInvoicePdf(
       previewWindow.document.close()
     }
   })()
+}
+
+
+export async function downloadInvoicePdf(
+  data: InvoicePdfData,
+  customSettings:
+    Partial<InvoicePdfSettings> = {},
+) {
+  try {
+    const company =
+      await getCompanySettings()
+
+    const html =
+      buildInvoicePdfHtml(
+        data,
+        {
+          ...companySettingsFromCurrent(
+            company,
+          ),
+          ...customSettings,
+        },
+      )
+
+    const fileName =
+      `${safeFileName(
+        data.invoiceNumber ||
+        'Racun',
+      )}-${safeFileName(
+        data.customerName ||
+        'Kupac',
+      )}.pdf`
+
+    await renderHtmlPagesToPdf(
+      html,
+      fileName,
+    )
+  } catch (error) {
+    console.error(
+      'downloadInvoicePdf error:',
+      error,
+    )
+
+    window.alert(
+      error instanceof Error
+        ? `PDF nije moguće izraditi: ${error.message}`
+        : 'PDF nije moguće izraditi.',
+    )
+  }
 }

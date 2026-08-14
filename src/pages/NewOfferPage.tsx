@@ -56,7 +56,7 @@ import type {
   OfferHistoryItem,
   OfferItem,
 } from '../types/offers'
-import { openOfferPdf } from '../utils/offerPdf'
+import { downloadOfferPdf } from '../utils/offerPdf'
 
 type CustomerSuggestion = {
   id: string
@@ -459,7 +459,7 @@ async function openOfferEmailDraft(
     )
     .join('\n')
 
-  openOfferPdf(offer)
+  downloadOfferPdf(offer)
 
   const mailtoUrl =
     `mailto:${encodeURIComponent(
@@ -1635,7 +1635,7 @@ export function NewOfferPage() {
     const now =
       new Date().toISOString()
 
-    openOfferPdf({
+    downloadOfferPdf({
       id:
         editingOffer?.id ??
         'preview',
