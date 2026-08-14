@@ -1078,18 +1078,6 @@ function DocumentPreview({
   appearance: DocumentAppearance
   company: CompanySettings | null
 }) {
-  const classic =
-    appearance.preset === 'classic'
-  const minimal =
-    appearance.preset === 'minimal'
-
-  const alignClass =
-    appearance.headerAlignment === 'center'
-      ? 'items-center text-center'
-      : appearance.headerAlignment === 'right'
-        ? 'items-end text-right'
-        : 'items-start text-left'
-
   return (
     <section className="rounded-3xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
       <div className="flex items-center justify-between gap-3">
@@ -1112,247 +1100,547 @@ function DocumentPreview({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl bg-slate-950 p-3">
-        <div
-          className="mx-auto aspect-[210/297] w-full max-w-[390px] overflow-hidden rounded-xl shadow-2xl"
-          style={{
-            backgroundColor:
-              appearance.backgroundColor,
-            color:
-              appearance.textColor,
-          }}
-        >
-          {!minimal && (
-            <div
-              className={
-                classic
-                  ? 'h-1'
-                  : 'h-2'
-              }
-              style={{
-                backgroundColor:
-                  appearance.primaryColor,
-              }}
-            />
-          )}
-
-          <div
-            className={`flex h-full flex-col ${
-              appearance.density === 'compact'
-                ? 'p-4'
-                : 'p-5'
-            }`}
-          >
-            <div
-              className={`flex flex-col ${alignClass}`}
-            >
-              <div className="flex items-center gap-2">
-                {appearance.showLogo && (
-                  <div className="grid h-10 w-12 place-items-center rounded-lg bg-slate-100 text-[8px] font-black text-slate-500">
-                    {company?.logoUrl ? (
-                      <img
-                        src={company.logoUrl}
-                        alt="Logo"
-                        className="h-full w-full object-contain p-1"
-                      />
-                    ) : (
-                      'LOGO'
-                    )}
-                  </div>
-                )}
-
-                <div>
-                  <p className="text-[10px] font-black">
-                    {company?.name ||
-                      'Vaša tvrtka'}
-                  </p>
-                  <p className="text-[6px] opacity-55">
-                    {company?.address ||
-                      'Adresa tvrtke'}
-                  </p>
-                </div>
-              </div>
-
-              <h3
-                className={`${
-                  classic
-                    ? 'font-serif'
-                    : ''
-                } mt-4 text-lg font-black tracking-tight`}
-              >
-                {appearance.documentTitle}
-              </h3>
-              <p
-                className="mt-1 text-[7px] font-black uppercase tracking-widest"
-                style={{
-                  color:
-                    appearance.primaryColor,
-                }}
-              >
-                {kind === 'workOrder'
-                  ? 'RN-2026-001'
-                  : kind === 'offer'
-                    ? 'P-2026-001'
-                    : 'R-2026-001'}
-              </p>
-            </div>
-
-            <PreviewSectionTitle
-              appearance={appearance}
-              label={
-                kind === 'workOrder'
-                  ? 'Podaci o kupcu i nalogu'
-                  : kind === 'offer'
-                    ? 'Podaci o naručitelju'
-                    : 'Podaci o računu'
-              }
-            />
-
-            <div
-              className={`grid grid-cols-2 gap-2 ${
-                appearance.infoStyle === 'cards'
-                  ? ''
-                  : 'border-y py-2'
-              }`}
-              style={{
-                borderColor:
-                  appearance.borderColor,
-              }}
-            >
-              {[
-                'Kupac',
-                'Datum',
-                'Adresa',
-                'OIB',
-              ].map((item) => (
-                <div
-                  key={item}
-                  className={
-                    appearance.infoStyle === 'cards'
-                      ? 'rounded-md border p-2'
-                      : 'py-1'
-                  }
-                  style={{
-                    borderColor:
-                      appearance.borderColor,
-                  }}
-                >
-                  <p className="text-[5px] font-black uppercase opacity-45">
-                    {item}
-                  </p>
-                  <div
-                    className="mt-1 h-1.5 rounded-full opacity-25"
-                    style={{
-                      backgroundColor:
-                        appearance.secondaryColor,
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-
-            <PreviewSectionTitle
-              appearance={appearance}
-              label={
-                kind === 'workOrder'
-                  ? 'Opis radova'
-                  : kind === 'offer'
-                    ? 'Stavke ponude'
-                    : 'Stavke računa'
-              }
-            />
-
-            <div
-              className="overflow-hidden rounded-md border"
-              style={{
-                borderColor:
-                  appearance.borderColor,
-              }}
-            >
-              <div
-                className="grid grid-cols-4 gap-1 px-2 py-2 text-[5px] font-black uppercase"
-                style={{
-                  backgroundColor:
-                    appearance.tableStyle === 'minimal'
-                      ? appearance.backgroundColor
-                      : appearance.tableStyle === 'soft'
-                        ? `${appearance.primaryColor}18`
-                        : appearance.primaryColor,
-                  color:
-                    appearance.tableStyle === 'solid'
-                      ? '#FFFFFF'
-                      : appearance.textColor,
-                }}
-              >
-                <span>Opis</span>
-                <span>Kol.</span>
-                <span>Cijena</span>
-                <span>Ukupno</span>
-              </div>
-
-              {[0, 1, 2].map(
-                (row) => (
-                  <div
-                    key={row}
-                    className="grid grid-cols-4 gap-1 border-t px-2 py-2"
-                    style={{
-                      borderColor:
-                        appearance.borderColor,
-                    }}
-                  >
-                    {[0, 1, 2, 3].map(
-                      (cell) => (
-                        <span
-                          key={cell}
-                          className="h-1.5 rounded-full opacity-20"
-                          style={{
-                            backgroundColor:
-                              appearance.textColor,
-                          }}
-                        />
-                      ),
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <div
-                className="h-14 rounded-lg border"
-                style={{
-                  borderColor:
-                    appearance.borderColor,
-                }}
-              />
-              <div
-                className="h-14 rounded-lg border"
-                style={{
-                  borderColor:
-                    appearance.borderColor,
-                }}
-              />
-            </div>
-
-            <div className="mt-auto flex items-end justify-between gap-3 border-t pt-2 text-[5px] opacity-45"
-              style={{
-                borderColor:
-                  appearance.borderColor,
-              }}
-            >
-              <span>
-                {appearance.showFooter
-                  ? appearance.footerText
-                  : ''}
-              </span>
-              <span>1 / 1</span>
-            </div>
-          </div>
-        </div>
+        {kind === 'workOrder' ? (
+          <WorkOrderPreviewSheet
+            appearance={appearance}
+            company={company}
+          />
+        ) : kind === 'offer' ? (
+          <OfferPreviewSheet
+            appearance={appearance}
+            company={company}
+          />
+        ) : (
+          <InvoicePreviewSheet
+            appearance={appearance}
+            company={company}
+          />
+        )}
       </div>
     </section>
   )
 }
 
+function PreviewPaper({
+  appearance,
+  children,
+}: {
+  appearance: DocumentAppearance
+  children: ReactNode
+}) {
+  return (
+    <div
+      className="mx-auto aspect-[210/297] w-full max-w-[390px] overflow-hidden rounded-xl shadow-2xl"
+      style={{
+        backgroundColor:
+          appearance.backgroundColor,
+        color:
+          appearance.textColor,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function PreviewCompany({
+  appearance,
+  company,
+}: {
+  appearance: DocumentAppearance
+  company: CompanySettings | null
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      {appearance.showLogo && (
+        <div className="grid h-9 w-11 shrink-0 place-items-center rounded-lg bg-slate-100 text-[7px] font-black text-slate-500">
+          {company?.logoUrl ? (
+            <img
+              src={company.logoUrl}
+              alt="Logo"
+              className="h-full w-full object-contain p-1"
+            />
+          ) : (
+            'LOGO'
+          )}
+        </div>
+      )}
+
+      <div className="min-w-0">
+        <p className="truncate text-[9px] font-black">
+          {company?.name ||
+            'Vaša tvrtka'}
+        </p>
+        <p className="truncate text-[5px] opacity-50">
+          {company?.address ||
+            'Adresa tvrtke'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function WorkOrderPreviewSheet({
+  appearance,
+  company,
+}: {
+  appearance: DocumentAppearance
+  company: CompanySettings | null
+}) {
+  return (
+    <PreviewPaper appearance={appearance}>
+      <div
+        className="h-1.5"
+        style={{
+          backgroundColor:
+            appearance.primaryColor,
+        }}
+      />
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-3">
+          <PreviewCompany
+            appearance={appearance}
+            company={company}
+          />
+
+          <div className="text-right">
+            <p className="text-[5px] font-black uppercase tracking-widest opacity-45">
+              Servisni dokument
+            </p>
+            <p className="mt-1 text-[14px] font-black">
+              RADNI NALOG
+            </p>
+          </div>
+        </div>
+
+        <div
+          className="mt-3 grid grid-cols-3 overflow-hidden rounded-md border"
+          style={{
+            borderColor:
+              appearance.borderColor,
+          }}
+        >
+          {[
+            ['Broj', 'RN-2026-001'],
+            ['Datum', '14.08.2026.'],
+            ['Vrijeme', '08:00–10:30'],
+            ['Trajanje', '2 h 30 min'],
+            ['Status', 'Završen'],
+            ['Str.', '1'],
+          ].map(([label, value]) => (
+            <div
+              key={label}
+              className="border-b border-r px-1.5 py-1.5"
+              style={{
+                borderColor:
+                  appearance.borderColor,
+              }}
+            >
+              <p className="text-[4px] font-black uppercase opacity-35">
+                {label}
+              </p>
+              <p className="mt-0.5 truncate text-[5px] font-black">
+                {value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-2 grid grid-cols-[1fr_34%] gap-2">
+          <div
+            className="rounded-md border p-2"
+            style={{
+              borderColor:
+                appearance.borderColor,
+            }}
+          >
+            <p className="text-[4px] font-black uppercase opacity-40">
+              Investitor
+            </p>
+            <p className="mt-1 text-[7px] font-black">
+              Primjer kupca d.o.o.
+            </p>
+            <p className="mt-1 text-[4.5px] opacity-50">
+              Primjer ulica 1 · OIB 12345678901
+            </p>
+          </div>
+
+          <div
+            className="rounded-md border p-2"
+            style={{
+              borderColor:
+                appearance.borderColor,
+              backgroundColor:
+                appearance.primaryColor +
+                '0D',
+            }}
+          >
+            <p className="text-[4px] font-black uppercase opacity-40">
+              Izvršitelji
+            </p>
+            <p className="mt-1 text-[5px] font-black">
+              Borna · Dinko
+            </p>
+          </div>
+        </div>
+
+        <PreviewSectionTitle
+          appearance={appearance}
+          label="Opis radova"
+        />
+
+        <div
+          className="rounded-md border p-2"
+          style={{
+            borderColor:
+              appearance.borderColor,
+          }}
+        >
+          <div className="h-1.5 w-full rounded-full bg-slate-300" />
+          <div className="mt-1 h-1.5 w-[84%] rounded-full bg-slate-300" />
+        </div>
+
+        <PreviewSectionTitle
+          appearance={appearance}
+          label="Utrošeni materijal"
+        />
+
+        <PreviewTable
+          appearance={appearance}
+          rows={5}
+        />
+
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          <SignaturePlaceholder
+            label="Izvođač / pečat"
+            appearance={appearance}
+          />
+          <SignaturePlaceholder
+            label="Potpis investitora"
+            appearance={appearance}
+          />
+        </div>
+
+        <PreviewFooter
+          appearance={appearance}
+        />
+      </div>
+    </PreviewPaper>
+  )
+}
+
+function OfferPreviewSheet({
+  appearance,
+  company,
+}: {
+  appearance: DocumentAppearance
+  company: CompanySettings | null
+}) {
+  return (
+    <PreviewPaper appearance={appearance}>
+      <div className="p-4">
+        <PreviewCompany
+          appearance={appearance}
+          company={company}
+        />
+
+        <div className="mt-5 flex items-end justify-between gap-3">
+          <div>
+            <p
+              className="text-[5px] font-black uppercase tracking-widest"
+              style={{
+                color:
+                  appearance.primaryColor,
+              }}
+            >
+              Komercijalna ponuda
+            </p>
+            <p className="mt-1 text-[17px] font-black">
+              PONUDA
+            </p>
+          </div>
+
+          <div className="text-right text-[5px]">
+            <p className="font-black">
+              P-2026-001
+            </p>
+            <p className="mt-1 opacity-45">
+              Vrijedi do 29.08.2026.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {['Naručitelj', 'Podaci ponude'].map(
+            (title) => (
+              <div
+                key={title}
+                className="min-h-16 rounded-md border p-2"
+                style={{
+                  borderColor:
+                    appearance.borderColor,
+                }}
+              >
+                <p className="text-[4px] font-black uppercase opacity-40">
+                  {title}
+                </p>
+                <div className="mt-2 h-1.5 rounded-full bg-slate-300" />
+                <div className="mt-1 h-1.5 w-2/3 rounded-full bg-slate-200" />
+              </div>
+            ),
+          )}
+        </div>
+
+        <PreviewSectionTitle
+          appearance={appearance}
+          label="Stavke ponude"
+        />
+
+        <PreviewTable
+          appearance={appearance}
+          rows={6}
+        />
+
+        <div
+          className="mt-3 ml-auto w-1/2 rounded-md border p-2"
+          style={{
+            borderColor:
+              appearance.borderColor,
+          }}
+        >
+          <p className="text-[5px] opacity-45">
+            Vrijednost ponude
+          </p>
+          <p className="mt-1 text-right text-[10px] font-black">
+            1.250,00 €
+          </p>
+        </div>
+
+        <PreviewFooter
+          appearance={appearance}
+        />
+      </div>
+    </PreviewPaper>
+  )
+}
+
+function InvoicePreviewSheet({
+  appearance,
+  company,
+}: {
+  appearance: DocumentAppearance
+  company: CompanySettings | null
+}) {
+  return (
+    <PreviewPaper appearance={appearance}>
+      <div className="grid h-full grid-cols-[38%_1fr]">
+        <div
+          className="p-4"
+          style={{
+            backgroundColor:
+              appearance.secondaryColor,
+            color: '#FFFFFF',
+          }}
+        >
+          <PreviewCompany
+            appearance={appearance}
+            company={company}
+          />
+
+          <p className="mt-8 text-[18px] font-black">
+            RAČUN
+          </p>
+          <p className="mt-1 text-[6px] font-black opacity-70">
+            R-2026-001
+          </p>
+
+          <div className="mt-6 space-y-3 text-[5px]">
+            <div>
+              <p className="uppercase opacity-50">
+                Datum izdavanja
+              </p>
+              <p className="mt-1 font-black">
+                14.08.2026.
+              </p>
+            </div>
+            <div>
+              <p className="uppercase opacity-50">
+                Dospijeće
+              </p>
+              <p className="mt-1 font-black">
+                29.08.2026.
+              </p>
+            </div>
+            <div>
+              <p className="uppercase opacity-50">
+                IBAN
+              </p>
+              <p className="mt-1 font-black">
+                HR00 0000 0000
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4">
+          <p className="text-[4px] font-black uppercase opacity-40">
+            Kupac
+          </p>
+          <p className="mt-1 text-[9px] font-black">
+            Primjer kupca d.o.o.
+          </p>
+
+          <PreviewSectionTitle
+            appearance={appearance}
+            label="Stavke računa"
+          />
+
+          <PreviewTable
+            appearance={appearance}
+            rows={6}
+          />
+
+          <div
+            className="mt-4 border-t pt-3 text-right"
+            style={{
+              borderColor:
+                appearance.borderColor,
+            }}
+          >
+            <p className="text-[5px] opacity-45">
+              UKUPNO ZA PLATITI
+            </p>
+            <p
+              className="mt-1 text-[15px] font-black"
+              style={{
+                color:
+                  appearance.primaryColor,
+              }}
+            >
+              1.562,50 €
+            </p>
+          </div>
+
+          <PreviewFooter
+            appearance={appearance}
+          />
+        </div>
+      </div>
+    </PreviewPaper>
+  )
+}
+
+function PreviewTable({
+  appearance,
+  rows,
+}: {
+  appearance: DocumentAppearance
+  rows: number
+}) {
+  return (
+    <div
+      className="overflow-hidden rounded-md border"
+      style={{
+        borderColor:
+          appearance.borderColor,
+      }}
+    >
+      <div
+        className="grid grid-cols-4 gap-1 px-2 py-2 text-[4px] font-black uppercase"
+        style={{
+          backgroundColor:
+            appearance.tableStyle === 'minimal'
+              ? appearance.backgroundColor
+              : appearance.tableStyle === 'soft'
+                ? appearance.primaryColor +
+                  '18'
+                : appearance.primaryColor,
+          color:
+            appearance.tableStyle === 'solid'
+              ? '#FFFFFF'
+              : appearance.textColor,
+        }}
+      >
+        <span>Opis</span>
+        <span>Kol.</span>
+        <span>Cijena</span>
+        <span>Ukupno</span>
+      </div>
+
+      {Array.from({
+        length: rows,
+      }).map((_, row) => (
+        <div
+          key={row}
+          className="grid grid-cols-4 gap-1 border-t px-2 py-1.5"
+          style={{
+            borderColor:
+              appearance.borderColor,
+          }}
+        >
+          {[0, 1, 2, 3].map(
+            (cell) => (
+              <span
+                key={cell}
+                className="h-1 rounded-full opacity-20"
+                style={{
+                  backgroundColor:
+                    appearance.textColor,
+                }}
+              />
+            ),
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SignaturePlaceholder({
+  label,
+  appearance,
+}: {
+  label: string
+  appearance: DocumentAppearance
+}) {
+  return (
+    <div
+      className="h-12 rounded-md border"
+      style={{
+        borderColor:
+          appearance.borderColor,
+      }}
+    >
+      <p className="pt-8 text-center text-[4px] opacity-40">
+        {label}
+      </p>
+    </div>
+  )
+}
+
+function PreviewFooter({
+  appearance,
+}: {
+  appearance: DocumentAppearance
+}) {
+  return (
+    <div
+      className="mt-4 flex items-end justify-between gap-3 border-t pt-2 text-[4px] opacity-40"
+      style={{
+        borderColor:
+          appearance.borderColor,
+      }}
+    >
+      <span>
+        {appearance.showFooter
+          ? appearance.footerText
+          : ''}
+      </span>
+      <span>1 / 1</span>
+    </div>
+  )
+}
 function PreviewSectionTitle({
   appearance,
   label,

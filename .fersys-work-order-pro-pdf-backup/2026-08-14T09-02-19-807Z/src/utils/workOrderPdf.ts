@@ -140,7 +140,9 @@ function paginateOrder(
   order: WorkOrder,
 ): LogicalPage[] {
   const pages: LogicalPage[] = []
-  const firstMaterialLimit = 12
+
+  const firstMaterialLimit =
+    order.images.length > 0 ? 6 : 9
 
   pages.push({
     materials:
@@ -169,14 +171,10 @@ function paginateOrder(
     const materials =
       order.materials.slice(
         materialIndex,
-        materialIndex + 18,
+        materialIndex + 15,
       )
 
     materialIndex += materials.length
-
-    const isLastMaterialPage =
-      materialIndex >=
-      order.materials.length
 
     pages.push({
       materials,
@@ -184,9 +182,11 @@ function paginateOrder(
       showInfo: false,
       showDescription: false,
       showTotals:
-        isLastMaterialPage,
+        materialIndex >=
+        order.materials.length,
       showSignature:
-        isLastMaterialPage &&
+        materialIndex >=
+          order.materials.length &&
         order.images.length === 0,
     })
   }
@@ -203,7 +203,7 @@ function paginateOrder(
           index + 4,
         )
 
-      const isLastPhotoPage =
+      const isLast =
         index + 4 >=
         order.images.length
 
@@ -214,7 +214,21 @@ function paginateOrder(
         showDescription: false,
         showTotals: false,
         showSignature:
-          isLastPhotoPage,
+          isLast && photos.length <= 2,
+      })
+    }
+
+    const last =
+      pages[pages.length - 1]
+
+    if (!last.showSignature) {
+      pages.push({
+        materials: [],
+        photos: [],
+        showInfo: false,
+        showDescription: false,
+        showTotals: false,
+        showSignature: true,
       })
     }
   }
@@ -861,302 +875,6 @@ function commonCss(
     }
 
 
-
-    /* FERSYS Work Order PRO V2 */
-    .workorder-header {
-      display: block;
-      padding: 22px 42px 12px;
-    }
-
-    .workorder-topline {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 24px;
-    }
-
-    .workorder-topline .company-wrap {
-      flex: 1 1 auto;
-      max-width: 72%;
-    }
-
-    .workorder-topline .logo,
-    .workorder-topline .logo-fallback {
-      width: 54px;
-      height: 54px;
-      flex-basis: 54px;
-    }
-
-    .workorder-topline .company-name {
-      font-size: 20px;
-    }
-
-    .workorder-topline .company-details {
-      margin-top: 4px;
-      font-size: 9px;
-      line-height: 1.32;
-    }
-
-    .workorder-topline .document-heading {
-      flex: 0 0 auto;
-      min-width: 180px;
-      text-align: right;
-    }
-
-    .workorder-topline .document-title {
-      margin-top: 3px;
-      font-size: 24px;
-    }
-
-    .workorder-meta-strip {
-      display: grid;
-      grid-template-columns: 1.25fr 1fr 1.35fr .95fr 1fr .55fr;
-      gap: 0;
-      margin-top: 14px;
-      overflow: hidden;
-      border: 1px solid ${border};
-      border-radius: 9px;
-      background: #fff;
-    }
-
-    .workorder-meta-strip > div {
-      min-width: 0;
-      padding: 8px 9px;
-      border-right: 1px solid ${border};
-    }
-
-    .workorder-meta-strip > div:last-child {
-      border-right: 0;
-    }
-
-    .workorder-meta-strip span {
-      display: block;
-      color: #94a3b8;
-      font-size: 7.2px;
-      font-weight: 900;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-    }
-
-    .workorder-meta-strip strong {
-      display: block;
-      overflow: hidden;
-      margin-top: 3px;
-      color: ${secondary};
-      font-size: 9.3px;
-      font-weight: 900;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .page-content {
-      padding: 0 42px;
-    }
-
-    .workorder-info-strip {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) 245px;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-
-    .workorder-investor,
-    .workorder-workers {
-      min-width: 0;
-      border: 1px solid ${border};
-      border-radius: 9px;
-      padding: 10px 12px;
-      background: #fff;
-    }
-
-    .workorder-workers {
-      background: color-mix(in srgb, ${primary} 5%, white);
-    }
-
-    .workorder-investor .customer-name {
-      margin-top: 4px;
-      font-size: 13px;
-    }
-
-    .workorder-inline-details {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 10px;
-      margin-top: 5px;
-      color: #64748b;
-      font-size: 8.8px;
-      line-height: 1.3;
-    }
-
-    .workorder-inline-details span + span::before {
-      margin-right: 8px;
-      color: #cbd5e1;
-      content: "•";
-    }
-
-    .workorder-workers strong {
-      display: block;
-      margin-top: 6px;
-      color: ${secondary};
-      font-size: 9.5px;
-      line-height: 1.35;
-    }
-
-    .section {
-      margin-top: 10px;
-    }
-
-    .section-title {
-      margin-bottom: 5px;
-      font-size: 11.5px;
-    }
-
-    .section-title::before {
-      width: 3px;
-      height: 16px;
-    }
-
-    .description-box {
-      padding: 8px 10px;
-    }
-
-    .work-title {
-      margin-bottom: 3px;
-      font-size: 10.2px;
-    }
-
-    .normal-text {
-      font-size: 9.2px;
-      line-height: 1.32;
-    }
-
-    table {
-      font-size: 8.7px;
-    }
-
-    th {
-      padding: 5px 6px;
-      font-size: 7.8px;
-    }
-
-    td {
-      padding: 4.5px 6px;
-    }
-
-    .totals-wrap {
-      margin-top: 8px;
-    }
-
-    .totals {
-      width: 250px;
-    }
-
-    .total-row {
-      padding: 3px;
-      font-size: 8.7px;
-    }
-
-    .grand-total {
-      padding: 7px 9px;
-      font-size: 11.5px;
-    }
-
-    .photo-grid {
-      gap: 10px;
-    }
-
-    .photo-card img {
-      height: 205px;
-    }
-
-    .signature-section {
-      margin-top: auto;
-      padding: 10px 42px 14px;
-    }
-
-    .signature-title {
-      margin-bottom: 7px;
-      font-size: 10px;
-    }
-
-    .signature-grid {
-      gap: 48px;
-    }
-
-    .signature-space {
-      height: 48px;
-    }
-
-    .signature-space img {
-      max-width: 170px;
-      max-height: 47px;
-    }
-
-    .signature-line {
-      padding-top: 4px;
-    }
-
-    .signature-line strong {
-      font-size: 9px;
-    }
-
-    .signature-line span {
-      font-size: 7.5px;
-    }
-
-    .footer {
-      margin: 0 42px 8px;
-      padding-top: 4px;
-      font-size: 6.8px;
-    }
-
-    .continuation-note {
-      margin-bottom: 8px;
-      font-size: 8px;
-    }
-
-    .layout-modern .workorder-meta-strip {
-      border-color: color-mix(in srgb, ${primary} 24%, ${border});
-      box-shadow: 0 5px 15px rgba(15,23,42,.045);
-    }
-
-    .layout-classic .workorder-header {
-      margin-bottom: 10px;
-      padding-top: 18px;
-      padding-bottom: 15px;
-      background: ${secondary};
-    }
-
-    .layout-classic .workorder-meta-strip {
-      border-color: rgba(255,255,255,.16);
-      background: rgba(255,255,255,.07);
-    }
-
-    .layout-classic .workorder-meta-strip > div {
-      border-color: rgba(255,255,255,.13);
-    }
-
-    .layout-classic .workorder-meta-strip span {
-      color: #94a3b8;
-    }
-
-    .layout-classic .workorder-meta-strip strong {
-      color: #fff;
-    }
-
-    .layout-classic .workorder-investor,
-    .layout-classic .workorder-workers {
-      border-radius: 2px;
-    }
-
-    .layout-custom .workorder-meta-strip {
-      border: 2px solid color-mix(in srgb, ${primary} 35%, white);
-    }
-
-    .layout-custom .workorder-workers {
-      background: color-mix(in srgb, ${primary} 9%, white);
-    }
-
     ${
       branding.showBackgroundImage &&
       branding.backgroundImage
@@ -1270,98 +988,52 @@ function headerHtml(
   return `
     <div class="accent-line"></div>
 
-    <header class="header workorder-header">
-      <div class="workorder-topline">
-        <div class="company-wrap">
-          ${companyLogoHtml(
-            branding,
-          )}
+    <header class="header">
+      <div class="company-wrap">
+        ${companyLogoHtml(
+          branding,
+        )}
 
-          <div class="company-copy">
-            <div class="company-name">
-              ${escapeHtml(
-                branding.companyName,
-              )}
-            </div>
-
-            <div class="company-details">
-              ${companyLines}
-            </div>
-          </div>
-        </div>
-
-        <div class="document-heading">
-          <div class="document-kicker">
-            Servisni dokument
+        <div>
+          <div class="company-name">
+            ${escapeHtml(
+              branding.companyName,
+            )}
           </div>
 
-          <div class="document-title">
-            ${escapeHtml(title)}
+          <div class="company-details">
+            ${companyLines}
           </div>
         </div>
       </div>
 
-      <div class="workorder-meta-strip">
-        <div>
-          <span>Broj naloga</span>
-          <strong>
-            ${escapeHtml(
-              order.orderNumber,
-            )}
-          </strong>
+      <div class="document-heading">
+        <div class="document-kicker">
+          Servis / evidencija rada
         </div>
 
-        <div>
-          <span>Datum</span>
-          <strong>
-            ${escapeHtml(
-              formatDate(order.date),
-            )}
-          </strong>
+        <div class="document-title">
+          ${escapeHtml(title)}
         </div>
 
-        <div>
-          <span>Dolazak / odlazak</span>
-          <strong>
-            ${escapeHtml(
-              order.arrivalTime ||
-              '—',
-            )}
-            –
-            ${escapeHtml(
-              order.departureTime ||
-              '—',
-            )}
-          </strong>
+        <div class="document-number">
+          ${escapeHtml(
+            order.orderNumber,
+          )}
         </div>
 
-        <div>
-          <span>Trajanje</span>
-          <strong>
-            ${escapeHtml(
-              durationLabel(order),
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>Status</span>
-          <strong>
-            ${escapeHtml(
-              order.status ||
-              '—',
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>Stranica</span>
-          <strong>
-            ${pageNumber}
-          </strong>
+        <div class="document-meta">
+          Datum:
+          ${escapeHtml(
+            formatDate(order.date),
+          )}
+          <br>
+          Stranica ${pageNumber}
         </div>
       </div>
     </header>
+
+    <div class="divider"></div>
   `
 }
 
@@ -1369,10 +1041,10 @@ function infoHtml(
   order: WorkOrder,
 ) {
   return `
-    <section class="workorder-info-strip">
-      <article class="workorder-investor">
+    <section class="info-grid">
+      <article class="info-card">
         <div class="eyebrow">
-          Investitor / naručitelj
+          Investitor
         </div>
 
         <div class="customer-name">
@@ -1383,65 +1055,96 @@ function infoHtml(
           )}
         </div>
 
-        <div class="workorder-inline-details">
-          <span>
-            ${escapeHtml(
-              order.address ||
-              '—',
-            )}
-          </span>
-
-          ${
-            order.customerOib
-              ? `
-                <span>
-                  OIB:
-                  ${escapeHtml(
-                    order.customerOib,
-                  )}
-                </span>
-              `
-              : ''
-          }
-
-          ${
-            order.customerPhone
-              ? `
-                <span>
-                  ${escapeHtml(
-                    order.customerPhone,
-                  )}
-                </span>
-              `
-              : ''
-          }
-
-          ${
-            order.customerEmail
-              ? `
-                <span>
-                  ${escapeHtml(
-                    order.customerEmail,
-                  )}
-                </span>
-              `
-              : ''
-          }
+        <div class="info-line">
+          ${escapeHtml(
+            order.address || '—',
+          )}
         </div>
+
+        ${
+          order.customerOib
+            ? `
+              <div class="info-line">
+                OIB:
+                ${escapeHtml(
+                  order.customerOib,
+                )}
+              </div>
+            `
+            : ''
+        }
+
+        ${
+          order.customerPhone ||
+          order.customerEmail
+            ? `
+              <div class="info-line">
+                ${escapeHtml(
+                  [
+                    order.customerPhone,
+                    order.customerEmail,
+                  ]
+                    .filter(Boolean)
+                    .join(' • '),
+                )}
+              </div>
+            `
+            : ''
+        }
       </article>
 
-      <article class="workorder-workers">
+      <article class="info-card muted">
         <div class="eyebrow">
-          Izvršitelji
+          Evidencija rada
         </div>
 
-        <strong>
+        <div class="meta-row">
+          <span>Dolazak</span>
+          <strong>
+            ${escapeHtml(
+              order.arrivalTime ||
+              '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Odlazak</span>
+          <strong>
+            ${escapeHtml(
+              order.departureTime ||
+              '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Radnici</span>
+          <strong>
+            ${escapeHtml(
+              order.assignedWorkers
+                .join(', ') ||
+              '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Status</span>
+          <strong>
+            ${escapeHtml(
+              order.status ||
+              '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="duration">
+          Ukupno zadržavanje:
           ${escapeHtml(
-            order.assignedWorkers
-              .join(', ') ||
-            '—',
+            durationLabel(order),
           )}
-        </strong>
+        </div>
       </article>
     </section>
   `
