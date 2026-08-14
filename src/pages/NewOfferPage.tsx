@@ -1562,12 +1562,26 @@ export function NewOfferPage() {
   }
 
   function addItem() {
+    const newItem =
+      createEmptyItem()
+
     setItems(
       (current) => [
         ...current,
-        createEmptyItem(),
+        newItem,
       ],
     )
+
+    window.setTimeout(() => {
+      document
+        .getElementById(
+          `offer-item-${newItem.id}`,
+        )
+        ?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+    }, 80)
   }
 
   function duplicateItem(
@@ -2587,8 +2601,9 @@ export function NewOfferPage() {
             {items.map(
               (item, index) => (
                 <article
+                  id={`offer-item-${item.id}`}
                   key={item.id}
-                  className="rounded-3xl border border-slate-800 bg-slate-950/45 p-4"
+                  className="scroll-mt-24 rounded-3xl border border-slate-800 bg-slate-950/45 p-4"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
@@ -2922,6 +2937,17 @@ export function NewOfferPage() {
                 </article>
               ),
             )}
+
+            <div className="pt-1 sm:flex sm:justify-end">
+              <button
+                type="button"
+                onClick={addItem}
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500 px-5 text-sm font-black text-slate-950 shadow-lg shadow-emerald-950/20 transition active:scale-[0.99] sm:w-auto sm:min-w-52"
+              >
+                <Plus size={18} />
+                Dodaj novu stavku
+              </button>
+            </div>
           </div>
         </MobileSection>
 
