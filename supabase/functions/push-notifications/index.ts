@@ -294,7 +294,7 @@ async function sendFcm(
                   icon:
                     '/pwa-192x192.png',
                   badge:
-                    '/favicon-64x64.png',
+  '/notification-badge-96.png',
                   tag:
                     `fersys-${event.id}`,
                   renotify:

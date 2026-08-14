@@ -14,34 +14,89 @@ const messaging = firebase.messaging()
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const route = event.notification.data?.route || '/dashboard'
-  const target = new URL(route, self.location.origin).href
+
+  const route =
+    event.notification.data?.route ||
+    '/dashboard'
+
+  const target =
+    new URL(
+      route,
+      self.location.origin,
+    ).href
+
   event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clients) => {
-      for (const client of clients) {
-        if (new URL(client.url).origin === self.location.origin) {
-          await client.focus()
-          if ('navigate' in client) await client.navigate(target)
-          return
+    self.clients
+      .matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      })
+      .then(async (clients) => {
+        for (const client of clients) {
+          if (
+            new URL(client.url).origin ===
+            self.location.origin
+          ) {
+            await client.focus()
+
+            if ('navigate' in client) {
+              await client.navigate(target)
+            }
+
+            return
+          }
         }
-      }
-      if (self.clients.openWindow) await self.clients.openWindow(target)
-    }),
+
+        if (self.clients.openWindow) {
+          await self.clients.openWindow(
+            target,
+          )
+        }
+      }),
   )
 })
 
-messaging.onBackgroundMessage((payload) => {
-  const data = payload.data ?? {}
-  return self.registration.showNotification(data.title || 'FERSYS', {
-    body: data.body || data.description || 'Imate novu FERSYS obavijest.',
-    icon: '/pwa-192x192.png',
-    badge: '/favicon-64x64.png',
-    tag: data.notificationKey || data.tag || 'fersys-notification',
-    renotify: false,
-    data: {
-      route: data.route || '/dashboard',
-      notificationKey: data.notificationKey || '',
-      category: data.category || '',
-    },
-  })
-})
+messaging.onBackgroundMessage(
+  (payload) => {
+    const data =
+      payload.data ?? {}
+
+    return self.registration
+      .showNotification(
+        data.title || 'FERSYS',
+        {
+          body:
+            data.body ||
+            data.description ||
+            'Imate novu FERSYS obavijest.',
+
+          icon:
+            '/pwa-192x192.png',
+
+          badge:
+            '/notification-badge-96.png',
+
+          tag:
+            data.notificationKey ||
+            data.tag ||
+            'fersys-notification',
+
+          renotify: false,
+
+          data: {
+            route:
+              data.route ||
+              '/dashboard',
+
+            notificationKey:
+              data.notificationKey ||
+              '',
+
+            category:
+              data.category ||
+              '',
+          },
+        },
+      )
+  },
+)
