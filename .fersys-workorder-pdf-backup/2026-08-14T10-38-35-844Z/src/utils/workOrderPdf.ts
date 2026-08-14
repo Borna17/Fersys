@@ -140,63 +140,83 @@ function paginateOrder(
   order: WorkOrder,
 ): LogicalPage[] {
   const pages: LogicalPage[] = []
-  const firstMaterialLimit = 10
-  const descriptionLength =
-    (order.description || '').length +
-    (order.title || '').length
-
-  const canFitPhotosOnFirstPage =
-    order.materials.length <= 6 &&
-    descriptionLength <= 1150
-
-  const firstPagePhotoCount =
-    canFitPhotosOnFirstPage
-      ? Math.min(3, order.images.length)
-      : 0
-
-  const firstPageHasAllPhotos =
-    firstPagePhotoCount === order.images.length
+  const firstMaterialLimit = 12
 
   pages.push({
-    materials: order.materials.slice(0, firstMaterialLimit),
-    photos: order.images.slice(0, firstPagePhotoCount),
+    materials:
+      order.materials.slice(
+        0,
+        firstMaterialLimit,
+      ),
+    photos: [],
     showInfo: true,
     showDescription: true,
-    showTotals: order.materials.length <= firstMaterialLimit,
+    showTotals:
+      order.materials.length <=
+      firstMaterialLimit,
     showSignature:
-      order.materials.length <= firstMaterialLimit &&
-      firstPageHasAllPhotos,
+      order.materials.length <=
+        firstMaterialLimit &&
+      order.images.length === 0,
   })
 
   let materialIndex = firstMaterialLimit
 
-  while (materialIndex < order.materials.length) {
-    const materials = order.materials.slice(materialIndex, materialIndex + 18)
+  while (
+    materialIndex <
+    order.materials.length
+  ) {
+    const materials =
+      order.materials.slice(
+        materialIndex,
+        materialIndex + 18,
+      )
+
     materialIndex += materials.length
-    const isLastMaterialPage = materialIndex >= order.materials.length
+
+    const isLastMaterialPage =
+      materialIndex >=
+      order.materials.length
 
     pages.push({
       materials,
       photos: [],
       showInfo: false,
       showDescription: false,
-      showTotals: isLastMaterialPage,
-      showSignature: isLastMaterialPage && order.images.length === 0,
+      showTotals:
+        isLastMaterialPage,
+      showSignature:
+        isLastMaterialPage &&
+        order.images.length === 0,
     })
   }
 
-  for (let index = firstPagePhotoCount; index < order.images.length; index += 4) {
-    const photos = order.images.slice(index, index + 4)
-    const isLastPhotoPage = index + 4 >= order.images.length
+  if (order.images.length > 0) {
+    for (
+      let index = 0;
+      index < order.images.length;
+      index += 4
+    ) {
+      const photos =
+        order.images.slice(
+          index,
+          index + 4,
+        )
 
-    pages.push({
-      materials: [],
-      photos,
-      showInfo: false,
-      showDescription: false,
-      showTotals: false,
-      showSignature: isLastPhotoPage,
-    })
+      const isLastPhotoPage =
+        index + 4 >=
+        order.images.length
+
+      pages.push({
+        materials: [],
+        photos,
+        showInfo: false,
+        showDescription: false,
+        showTotals: false,
+        showSignature:
+          isLastPhotoPage,
+      })
+    }
   }
 
   return pages
@@ -870,7 +890,7 @@ function commonCss(
 
     .workorder-meta-strip {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: 1.25fr 1fr 1.35fr .95fr 1fr .55fr;
       gap: 0;
       margin-top: 14px;
       overflow: hidden;
@@ -881,24 +901,18 @@ function commonCss(
 
     .workorder-meta-strip > div {
       min-width: 0;
-      min-height: 43px;
-      padding: 7px 10px;
+      padding: 8px 9px;
       border-right: 1px solid ${border};
-      border-bottom: 1px solid ${border};
     }
 
-    .workorder-meta-strip > div:nth-child(3n) {
+    .workorder-meta-strip > div:last-child {
       border-right: 0;
-    }
-
-    .workorder-meta-strip > div:nth-last-child(-n + 3) {
-      border-bottom: 0;
     }
 
     .workorder-meta-strip span {
       display: block;
       color: #94a3b8;
-      font-size: 7.6px;
+      font-size: 7.2px;
       font-weight: 900;
       letter-spacing: .06em;
       text-transform: uppercase;
@@ -906,12 +920,13 @@ function commonCss(
 
     .workorder-meta-strip strong {
       display: block;
+      overflow: hidden;
       margin-top: 3px;
       color: ${secondary};
-      font-size: 10.4px;
-      line-height: 1.2;
+      font-size: 9.3px;
       font-weight: 900;
-      overflow-wrap: anywhere;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .page-content {
@@ -1033,14 +1048,6 @@ function commonCss(
     .photo-card img {
       height: 205px;
     }
-
-    .photo-grid.first-page.photo-count-1 { grid-template-columns: 1fr; }
-    .photo-grid.first-page.photo-count-1 .photo-card img { height: 245px; }
-    .photo-grid.first-page.photo-count-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .photo-grid.first-page.photo-count-2 .photo-card img { height: 180px; }
-    .photo-grid.first-page.photo-count-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .photo-grid.first-page.photo-count-3 .photo-card img { height: 155px; }
-    .photo-grid.first-page .photo-name { font-size: 7.7px; }
 
     .signature-section {
       margin-top: auto;
@@ -1644,7 +1651,6 @@ function photosHtml(
     WorkOrderImage[],
   branding:
     WorkOrderBranding,
-  firstPage = false,
 ) {
   if (!photos.length) return ''
 
@@ -1684,7 +1690,7 @@ function photosHtml(
         ${escapeHtml(label)}
       </h2>
 
-      <div class="photo-grid ${firstPage ? 'first-page photo-count-' + photos.length : ''}">
+      <div class="photo-grid">
         ${items}
       </div>
     </section>
@@ -1851,7 +1857,6 @@ function pageHtml(
           ${photosHtml(
             page.photos,
             branding,
-            page.showInfo,
           )}
         </main>
 
@@ -2012,7 +2017,7 @@ async function buildPdfDocument(
         await html2canvas(
           pageElements[index],
           {
-            scale: 1.7,
+            scale: 2,
             backgroundColor:
               '#ffffff',
             useCORS: true,
