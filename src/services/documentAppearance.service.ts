@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase'
+
 import {
   createPresetAppearance,
   defaultDocumentAppearanceSettings,
@@ -6,8 +8,6 @@ import {
   type DocumentKind,
   type DocumentPreset,
 } from '../types/documentAppearance'
-
-let supabase: any
 
 const STORAGE_KEY =
   'documentAppearanceV1'
