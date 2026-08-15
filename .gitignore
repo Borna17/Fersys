@@ -7,12 +7,34 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies / builds
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# Environment files
+.env
+.env.*
+!.env.example
+
+# FERSYS local backups / one-off generated files
+.fersys-*
+*.bak
+*.backup
+*.tmp
+
+# Supabase CLI temporary state
+supabase/.temp/
+
+# Local reports / generated archives
+build-errors.txt
+FERSYS_MOBILE_AUDIT_REPORT.txt
+FERSYS_MOBILE_AUDIT_REVIEWED.txt
+POPRAVCI.txt
+FIXED_README.txt
+
+# Editor / OS
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +44,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+Thumbs.db
