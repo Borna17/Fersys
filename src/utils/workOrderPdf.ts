@@ -557,51 +557,35 @@ function signatureHtml(
       )}
 
       <div class="signature-grid">
-        <div class="signature-column executor-signature-wrap">
+        <div class="signature-column">
           <div class="signature-label">
             Izvršitelj / odgovorna osoba
           </div>
-
-          <div class="signature-space">
-            <div class="executor-stamp">
-              ${stamp}
-            </div>
-          </div>
-
+          <div class="signature-space"></div>
           <div class="signature-line">
             ${esc(
               order.assignedWorkers[0] ||
-                '—',
-            )}
-
-            <div class="signature-subline">
-              ${esc(
                 branding.companyName ||
                 '—',
-              )}
-            </div>
+            )}
           </div>
         </div>
+
+        <div class="stamp-column">${stamp}</div>
 
         <div class="signature-column">
           <div class="signature-label">
             Investitor / naručitelj
           </div>
-
           <div class="signature-space">
             ${investorSignature}
           </div>
-
           <div class="signature-line">
             ${esc(
               order.investorName ||
                 order.customerName ||
-                '—',
+                'Potpis investitora',
             )}
-
-            <div class="signature-subline">
-              Investitor / naručitelj
-            </div>
           </div>
         </div>
       </div>
@@ -652,82 +636,58 @@ function paginate(
   order: WorkOrder,
   appearance: DocumentAppearance,
 ): PdfPage[] {
+  const compact = appearance.density === 'compact'
+  const firstMaterialLimit = compact ? 8 : 6
+  const nextMaterialLimit = compact ? 13 : 10
+
   const pages: PdfPage[] = []
 
-  /*
-   * Radni nalog zadržava sav glavni sadržaj na prvoj stranici:
-   * investitor, podaci naloga, opis radova i materijal.
-   *
-   * Fotografije se na prvoj stranici prikazuju samo kada za njih
-   * ima dovoljno sigurnog prostora. Ako nema, sve fotografije
-   * prelaze na sljedeću stranicu bez promjene veličine.
-   */
-  const compact =
-    appearance.density === 'compact'
+  const firstMaterials = order.materials.slice(
+    0,
+    firstMaterialLimit,
+  )
 
-  const textIsShort =
-    order.description.length <=
-      (
-        compact
-          ? 650
-          : 500
-      )
+  let materialIndex = firstMaterials.length
 
-  const materialIsShort =
-    order.materials.length <=
-      (
-        compact
-          ? 4
-          : 3
-      )
-
-  const canFitPhotosOnFirstPage =
+  const showPhotosOnFirst =
     order.images.length > 0 &&
-    textIsShort &&
-    materialIsShort
+    firstMaterials.length <= 2 &&
+    order.description.length < 500
 
-  const firstPhotoCount =
-    canFitPhotosOnFirstPage
-      ? Math.min(
-          2,
-          order.images.length,
-        )
-      : 0
+  const firstPhotos = showPhotosOnFirst
+    ? order.images.slice(0, 2)
+    : []
 
-  const firstPhotos =
-    order.images.slice(
-      0,
-      firstPhotoCount,
-    )
-
-  let photoIndex =
-    firstPhotos.length
+  let photoIndex = firstPhotos.length
 
   pages.push({
-    materials: order.materials,
+    materials: firstMaterials,
     photos: firstPhotos,
     first: true,
     last: false,
     showTotals: false,
   })
 
-  /*
-   * Svaka nastavna stranica dobiva najviše 2 fotografije.
-   * Jedna fotografija se NE rasteže preko cijele stranice:
-   * CSS zadržava isti dvostupčani raspored i istu fiksnu visinu.
-   */
-  while (
-    photoIndex <
-    order.images.length
-  ) {
-    const photos =
-      order.images.slice(
-        photoIndex,
-        photoIndex + 2,
-      )
+  while (materialIndex < order.materials.length) {
+    const materials = order.materials.slice(
+      materialIndex,
+      materialIndex + nextMaterialLimit,
+    )
 
-    photoIndex +=
-      photos.length
+    materialIndex += materials.length
+
+    pages.push({
+      materials,
+      photos: [],
+      first: false,
+      last: false,
+      showTotals: false,
+    })
+  }
+
+  while (photoIndex < order.images.length) {
+    const photos = order.images.slice(photoIndex, photoIndex + 4)
+    photoIndex += photos.length
 
     pages.push({
       materials: [],
@@ -738,28 +698,28 @@ function paginate(
     })
   }
 
-  /*
-   * Ukupno, potpis izvršitelja, pečat i potpis investitora
-   * uvijek idu na zadnju stranicu.
-   *
-   * Ako nema nastavne stranice, ostaju na prvoj.
-   * Ako fotografije prijeđu na drugu/treću stranicu,
-   * završni blok automatski prelazi s njima na zadnju.
-   */
-  const lastPage =
-    pages[
-      pages.length - 1
-    ]
+  const last = pages[pages.length - 1]
 
-  lastPage.showTotals = true
+  const lastTooBusy =
+    last.photos.length >= 4 ||
+    last.materials.length >= (compact ? 11 : 8)
 
-  pages.forEach(
-    (page, index) => {
-      page.last =
-        index ===
-        pages.length - 1
-    },
-  )
+  if (lastTooBusy) {
+    pages.push({
+      materials: [],
+      photos: [],
+      first: false,
+      last: true,
+      showTotals: true,
+    })
+  } else {
+    last.showTotals = true
+    last.last = true
+  }
+
+  pages.forEach((page, index) => {
+    page.last = index === pages.length - 1
+  })
 
   return pages
 }
@@ -914,7 +874,7 @@ function css(
     .company-details {
       margin-top: 8px;
       color: ${alpha(text, '98')};
-      font-size: ${compact ? 8.6 : 9.4}px;
+      font-size: ${compact ? 7.2 : 7.8}px;
       line-height: 1.45;
     }
 
@@ -984,7 +944,7 @@ function css(
     .info-title {
       margin-bottom: 7px;
       color: ${primary};
-      font-size: ${compact ? 9.5 : 10.8}px;
+      font-size: ${compact ? 7.5 : 8.2}px;
       font-weight: 950;
       letter-spacing: .07em;
       text-transform: uppercase;
@@ -992,7 +952,7 @@ function css(
 
     .investor-name {
       color: ${text};
-      font-size: ${compact ? 11.5 : 13}px;
+      font-size: ${compact ? 10 : 11}px;
       font-weight: 950;
     }
 
@@ -1009,7 +969,7 @@ function css(
       gap: 14px;
       padding: 3px 0;
       border-bottom: 1px solid ${alpha(border, '80')};
-      font-size: ${compact ? 8.4 : 9.1}px;
+      font-size: ${compact ? 7.1 : 7.6}px;
     }
 
     .meta-row:last-child { border-bottom: 0; }
@@ -1022,7 +982,7 @@ function css(
         0
         ${compact ? 5 : 7}px;
       color: ${text};
-      font-size: ${compact ? 10 : 11}px;
+      font-size: ${compact ? 8.1 : 8.8}px;
       font-weight: 950;
       letter-spacing: .035em;
       text-transform: uppercase;
@@ -1037,7 +997,7 @@ function css(
 
     .section-line {
       border-bottom: 1px solid ${primary};
-      padding-bottom: 3px;
+      padding-bottom: 5px;
       color: ${primary};
     }
 
@@ -1051,7 +1011,7 @@ function css(
 
     .work-title {
       color: ${text};
-      font-size: ${compact ? 10.5 : 11.5}px;
+      font-size: ${compact ? 8.8 : 9.5}px;
       line-height: 1.3;
       font-weight: 950;
     }
@@ -1059,8 +1019,8 @@ function css(
     .work-description {
       margin-top: 3px;
       color: ${alpha(text, 'B0')};
-      font-size: ${compact ? 8.8 : 9.6}px;
-      line-height: ${compact ? 1.42 : 1.48};
+      font-size: ${compact ? 7.2 : 7.8}px;
+      line-height: ${compact ? 1.38 : 1.45};
       overflow-wrap: anywhere;
     }
 
@@ -1186,7 +1146,7 @@ function css(
       gap: ${compact ? 8 : 10}px;
     }
 
-    .photos-1,
+    .photos-1 { grid-template-columns: 1fr; }
     .photos-2 { grid-template-columns: repeat(2,1fr); }
 
     .photos-3,
@@ -1206,7 +1166,7 @@ function css(
     .photo-card img {
       display: block;
       width: 100%;
-      height: ${compact ? 145 : 158}px;
+      height: ${compact ? 142 : 154}px;
       object-fit: contain;
       background: ${alpha(border, '18')};
     }
@@ -1219,30 +1179,25 @@ function css(
     }
 
     .signature-section {
-      margin-top: ${compact ? 8 : 10}px;
+      margin-top: ${compact ? 12 : 16}px;
       break-inside: avoid;
     }
 
     .signature-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 34px;
+      grid-template-columns: 1fr 105px 1fr;
+      gap: 22px;
       align-items: end;
-    }
-
-    .executor-signature-wrap {
-      position: relative;
     }
 
     .signature-label {
       color: ${alpha(text, '8A')};
-      font-size: 8.2px;
-      font-weight: 750;
+      font-size: 6.8px;
     }
 
     .signature-space {
       display: flex;
-      height: ${compact ? 46 : 52}px;
+      height: ${compact ? 41 : 48}px;
       align-items: flex-end;
       justify-content: center;
     }
@@ -1256,37 +1211,23 @@ function css(
 
     .signature-line {
       border-top: 1px solid ${text};
-      padding-top: 7px;
+      padding-top: 4px;
       color: ${text};
-      font-size: 9.4px;
-      line-height: 1.2;
-      font-weight: 900;
+      font-size: 7px;
+      font-weight: 750;
     }
 
-    .signature-subline {
-      margin-top: 3px;
-      color: ${alpha(text, '8F')};
-      font-size: 7.4px;
-      font-weight: 650;
-    }
-
-    .executor-stamp {
-      position: absolute;
-      left: 50%;
-      bottom: 5px;
+    .stamp-column {
       display: flex;
-      width: 120px;
-      height: ${compact ? 54 : 62}px;
+      min-height: ${compact ? 62 : 72}px;
       align-items: center;
       justify-content: center;
-      transform: translateX(-50%);
-      pointer-events: none;
     }
 
     .stamp-image {
       display: block;
-      max-width: 118px;
-      max-height: ${compact ? 54 : 62}px;
+      max-width: ${compact ? 92 : 103}px;
+      max-height: ${compact ? 62 : 72}px;
       object-fit: contain;
     }
 
@@ -1484,20 +1425,20 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 3,
+        scale: 2,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
         logging: false,
       })
 
-      const image = canvas.toDataURL('image/png')
+      const image = canvas.toDataURL('image/jpeg', 0.96)
 
       if (index > 0) doc.addPage()
 
       doc.addImage(
         image,
-        'PNG',
+        'JPEG',
         0,
         0,
         210,
