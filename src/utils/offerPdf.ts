@@ -5,6 +5,15 @@ import {
   getCompanySettings,
 } from '../services/companySettings.service'
 
+import {
+  getDocumentAppearanceSettings,
+} from '../services/documentAppearance.service'
+
+import {
+  createPresetAppearance,
+  type DocumentAppearance,
+} from '../types/documentAppearance'
+
 export type OfferPdfItem = {
   id: string
   name: string
@@ -56,13 +65,54 @@ export type OfferPdfSettings = {
   logoDataUrl?: string
   stampDataUrl?: string
   signatureDataUrl?: string
+
   primaryColor: string
+  secondaryColor: string
+  accentColor: string
+  textColor: string
+  borderColor: string
+  backgroundColor: string
+
+  headerAlignment:
+    | 'left'
+    | 'center'
+    | 'right'
+
+  density:
+    | 'comfortable'
+    | 'compact'
+
+  infoStyle:
+    | 'cards'
+    | 'lines'
+
+  tableStyle:
+    | 'solid'
+    | 'soft'
+    | 'minimal'
+
+  sectionStyle:
+    | 'bar'
+    | 'line'
+    | 'plain'
+
+  showLogo: boolean
   showItemImages: boolean
   showSignature: boolean
   showStamp: boolean
   showFooter: boolean
+  showWatermark: boolean
+
+  documentTitle: string
   footerText: string
+  watermarkText: string
 }
+
+const DEFAULT_APPEARANCE =
+  createPresetAppearance(
+    'offer',
+    'modern',
+  )
 
 const DEFAULT_SETTINGS:
 OfferPdfSettings = {
@@ -77,13 +127,56 @@ OfferPdfSettings = {
   logoDataUrl: undefined,
   stampDataUrl: undefined,
   signatureDataUrl: undefined,
-  primaryColor: '#2563EB',
-  showItemImages: true,
-  showSignature: true,
-  showStamp: true,
-  showFooter: true,
-  footerText:
-    'Ponuda je izrađena u sustavu FERSYS.',
+
+  primaryColor:
+    DEFAULT_APPEARANCE.primaryColor,
+  secondaryColor:
+    DEFAULT_APPEARANCE.secondaryColor,
+  accentColor:
+    DEFAULT_APPEARANCE.accentColor,
+  textColor:
+    DEFAULT_APPEARANCE.textColor,
+  borderColor:
+    DEFAULT_APPEARANCE.borderColor,
+  backgroundColor:
+    DEFAULT_APPEARANCE.backgroundColor,
+
+  headerAlignment:
+    DEFAULT_APPEARANCE.headerAlignment,
+
+  density:
+    DEFAULT_APPEARANCE.density,
+
+  infoStyle:
+    DEFAULT_APPEARANCE.infoStyle,
+
+  tableStyle:
+    DEFAULT_APPEARANCE.tableStyle,
+
+  sectionStyle:
+    DEFAULT_APPEARANCE.sectionStyle,
+
+  showLogo:
+    DEFAULT_APPEARANCE.showLogo,
+  showItemImages:
+    DEFAULT_APPEARANCE.showItemImages,
+  showSignature:
+    DEFAULT_APPEARANCE.showSignature,
+  showStamp:
+    DEFAULT_APPEARANCE.showStamp,
+  showFooter:
+    DEFAULT_APPEARANCE.showFooter,
+  showWatermark:
+    DEFAULT_APPEARANCE.showWatermark,
+
+  documentTitle:
+    DEFAULT_APPEARANCE.documentTitle,
+
+  // Namjerno bez FERSYS potpisa/brendinga.
+  footerText: '',
+
+  watermarkText:
+    DEFAULT_APPEARANCE.watermarkText,
 }
 
 function escapeHtml(
@@ -144,9 +237,20 @@ function formatDate(
 ) {
   if (!value) return '—'
 
-  return new Date(
-    `${value}T12:00:00`,
-  ).toLocaleDateString(
+  const date =
+    new Date(
+      `${value}T12:00:00`,
+    )
+
+  if (
+    Number.isNaN(
+      date.getTime(),
+    )
+  ) {
+    return value
+  }
+
+  return date.toLocaleDateString(
     'hr-HR',
   )
 }
@@ -157,8 +261,10 @@ function itemNet(
   return (
     item.quantity *
     item.price *
-    (1 -
-      item.discount / 100)
+    (
+      1 -
+      item.discount / 100
+    )
   )
 }
 
@@ -191,6 +297,17 @@ function safeFileName(
     .replace(/\s+/g, '-')
 }
 
+function alphaColor(
+  color: string,
+  alpha: string,
+) {
+  return /^#[0-9A-Fa-f]{6}$/.test(
+    color,
+  )
+    ? `${color}${alpha}`
+    : color
+}
+
 function companySettingsFromCurrent(
   settings:
     Awaited<
@@ -202,8 +319,10 @@ function companySettingsFromCurrent(
   return {
     companyName:
       settings.name,
+
     companySubtitle:
       settings.documentWatermark,
+
     companyAddress:
       [
         settings.address,
@@ -216,122 +335,344 @@ function companySettingsFromCurrent(
       ]
         .filter(Boolean)
         .join(', '),
+
     companyOib:
       settings.oib,
+
     companyIban:
       settings.iban,
+
     companyEmail:
       settings.email,
+
     companyPhone:
       settings.phone,
+
     companyWebsite:
       settings.website,
+
     logoDataUrl:
       settings.logoUrl ||
       undefined,
+
     stampDataUrl:
       settings.stampUrl ||
       undefined,
+
     signatureDataUrl:
       settings.signatureUrl ||
       undefined,
-    primaryColor:
-      settings.primaryColor ||
-      '#2563EB',
-    footerText:
-      settings.documentFooter,
-    showStamp:
-      Boolean(
-        settings.stampUrl,
-      ),
-    showSignature: true,
-    showFooter: true,
-    showItemImages: true,
   }
+}
+
+function appearanceToPdfSettings(
+  appearance:
+    DocumentAppearance,
+): Partial<OfferPdfSettings> {
+  return {
+    primaryColor:
+      appearance.primaryColor,
+
+    secondaryColor:
+      appearance.secondaryColor,
+
+    accentColor:
+      appearance.accentColor,
+
+    textColor:
+      appearance.textColor,
+
+    borderColor:
+      appearance.borderColor,
+
+    backgroundColor:
+      appearance.backgroundColor,
+
+    headerAlignment:
+      appearance.headerAlignment,
+
+    density:
+      appearance.density,
+
+    infoStyle:
+      appearance.infoStyle,
+
+    tableStyle:
+      appearance.tableStyle,
+
+    sectionStyle:
+      appearance.sectionStyle,
+
+    showLogo:
+      appearance.showLogo,
+
+    showStamp:
+      appearance.showStamp,
+
+    showSignature:
+      appearance.showSignature,
+
+    showFooter:
+      appearance.showFooter,
+
+    showWatermark:
+      appearance.showWatermark,
+
+    showItemImages:
+      appearance.showItemImages,
+
+    documentTitle:
+      appearance.documentTitle ||
+      'PONUDA',
+
+    // Footer iz postavki ostaje podržan,
+    // ali ako korisnik ostavi stari FERSYS tekst
+    // ne prikazujemo ga.
+    footerText:
+      /fersys/i.test(
+        appearance.footerText || '',
+      )
+        ? ''
+        : appearance.footerText,
+
+    watermarkText:
+      appearance.watermarkText,
+  }
+}
+
+function estimateItemWeight(
+  item: OfferPdfItem,
+  showImages: boolean,
+  density:
+    OfferPdfSettings['density'],
+) {
+  const textWeight =
+    Math.min(
+      1.25,
+      (
+        item.name.length +
+        item.description.length
+      ) / 180,
+    )
+
+  const imageWeight =
+    showImages &&
+    item.imageDataUrl
+      ? 1.55
+      : 0
+
+  const densityWeight =
+    density === 'compact'
+      ? -0.15
+      : 0
+
+  return Math.max(
+    0.85,
+    1 +
+      textWeight +
+      imageWeight +
+      densityWeight,
+  )
+}
+
+type OfferPage = {
+  items: OfferPdfItem[]
+  first: boolean
+  final: boolean
 }
 
 function paginateItems(
   items: OfferPdfItem[],
-  showImages: boolean,
+  settings: OfferPdfSettings,
 ) {
   const pages:
-    OfferPdfItem[][] = []
+    OfferPage[] = []
 
   let current:
     OfferPdfItem[] = []
 
-  let weight = 0
-  let first = true
+  let currentWeight = 0
+  let firstPage = true
 
-  for (
-    const item
-    of items
-  ) {
-    const rowWeight =
-      1 +
-      Math.min(
-        1.6,
-        item.description.length /
-          150,
-      ) +
-      (
-        showImages &&
-        item.imageDataUrl
-          ? 1.7
-          : 0
+  const capacityForPage =
+    (first: boolean) => {
+      if (
+        settings.density ===
+        'compact'
+      ) {
+        return first
+          ? 7.9
+          : 11.3
+      }
+
+      return first
+        ? 6.8
+        : 9.7
+    }
+
+  for (const item of items) {
+    const itemWeight =
+      estimateItemWeight(
+        item,
+        settings.showItemImages,
+        settings.density,
       )
 
     const capacity =
-      first
-        ? (
-            showImages
-              ? 8.5
-              : 12
-          )
-        : (
-            showImages
-              ? 10
-              : 15
-          )
+      capacityForPage(
+        firstPage,
+      )
 
     if (
       current.length > 0 &&
-      weight +
-        rowWeight >
+      currentWeight +
+        itemWeight >
         capacity
     ) {
-      pages.push(current)
+      pages.push({
+        items: current,
+        first: firstPage,
+        final: false,
+      })
+
       current = []
-      weight = 0
-      first = false
+      currentWeight = 0
+      firstPage = false
     }
 
     current.push(item)
-    weight += rowWeight
+    currentWeight += itemWeight
   }
 
   if (
     current.length > 0 ||
     pages.length === 0
   ) {
-    pages.push(current)
+    pages.push({
+      items: current,
+      first: firstPage,
+      final: false,
+    })
+  }
+
+  /*
+   * Zadnji blok (napomena, ukupno, potpisi) treba
+   * rezervirati dosta prostora. Ako je zadnja stranica
+   * puna stavkama, dodajemo zasebnu završnu stranicu.
+   */
+  const lastIndex =
+    pages.length - 1
+
+  const lastWeight =
+    pages[lastIndex].items.reduce(
+      (sum, item) =>
+        sum +
+        estimateItemWeight(
+          item,
+          settings.showItemImages,
+          settings.density,
+        ),
+      0,
+    )
+
+  const finalSafeLimit =
+    pages[lastIndex].first
+      ? (
+          settings.density ===
+          'compact'
+            ? 5.4
+            : 4.7
+        )
+      : (
+          settings.density ===
+          'compact'
+            ? 7.5
+            : 6.4
+        )
+
+  if (
+    lastWeight >
+      finalSafeLimit &&
+    pages[lastIndex].items.length > 0
+  ) {
+    pages.push({
+      items: [],
+      first: false,
+      final: true,
+    })
+  } else {
+    pages[lastIndex].final = true
   }
 
   return pages
 }
 
-function documentCss(
-  primaryColor: string,
+function sectionTitleHtml(
+  title: string,
+  settings: OfferPdfSettings,
 ) {
   return `
+    <div
+      class="section-heading
+        section-${escapeHtml(
+          settings.sectionStyle,
+        )}"
+    >
+      <span>
+        ${escapeHtml(title)}
+      </span>
+    </div>
+  `
+}
+
+function documentCss(
+  settings: OfferPdfSettings,
+) {
+  const primary =
+    settings.primaryColor
+
+  const secondary =
+    settings.secondaryColor
+
+  const accent =
+    settings.accentColor
+
+  const text =
+    settings.textColor
+
+  const border =
+    settings.borderColor
+
+  const background =
+    settings.backgroundColor
+
+  const compact =
+    settings.density ===
+    'compact'
+
+  return `
     :root {
-      --primary: ${primaryColor};
-      --ink: #0f172a;
-      --text: #334155;
-      --muted: #64748b;
-      --border: #dbe3ee;
-      --surface: #f8fafc;
-      --soft: #eef4ff;
+      --primary: ${primary};
+      --secondary: ${secondary};
+      --accent: ${accent};
+      --ink: ${text};
+      --border: ${border};
+      --background: ${background};
+      --soft:
+        ${alphaColor(
+          primary,
+          '12',
+        )};
+      --soft-strong:
+        ${alphaColor(
+          primary,
+          '1D',
+        )};
+      --muted:
+        ${alphaColor(
+          text,
+          '9A',
+        )};
     }
 
     * {
@@ -342,7 +683,7 @@ function documentCss(
     body {
       margin: 0;
       background: #dfe5ec;
-      color: var(--text);
+      color: var(--ink);
       font-family:
         Inter,
         -apple-system,
@@ -407,442 +748,658 @@ function documentCss(
       overflow: hidden;
       flex-direction: column;
       padding:
-        13mm 13mm 10mm;
-      background: white;
+        ${compact ? '10mm 11mm 9mm' : '11mm 12mm 9mm'};
+      background: var(--background);
       box-shadow:
         0 18px 55px
         rgba(15,23,42,.18);
       break-after: page;
     }
 
-    .page::before {
+    .page-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      min-height: 0;
+      flex: 1;
+      flex-direction: column;
+    }
+
+    .watermark {
       position: absolute;
-      inset: 0 0 auto;
-      height: 4mm;
-      background: var(--primary);
-      content: "";
+      left: 50%;
+      top: 53%;
+      z-index: 0;
+      transform:
+        translate(-50%, -50%)
+        rotate(-31deg);
+      color: var(--primary);
+      font-size: 64px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      opacity: .035;
+      white-space: nowrap;
+      pointer-events: none;
     }
 
     .header {
       display: grid;
       grid-template-columns:
-        minmax(0,1fr)
-        190px;
-      gap: 24px;
+        minmax(0, 1fr)
+        ${compact ? '205px' : '220px'};
+      gap: ${compact ? 22 : 28}px;
       align-items: start;
-      padding-top: 4mm;
-      padding-bottom: 13px;
+      padding-bottom:
+        ${compact ? 12 : 15}px;
+      border-bottom:
+        2px solid
+        var(--primary);
+    }
+
+    .header.align-center {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .header.align-center
+    .company {
+      justify-content: center;
+    }
+
+    .header.align-center
+    .document-heading {
+      text-align: center;
+    }
+
+    .header.align-right {
+      grid-template-columns:
+        ${compact ? '205px' : '220px'}
+        minmax(0, 1fr);
+    }
+
+    .header.align-right
+    .company {
+      order: 2;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .header.align-right
+    .document-heading {
+      order: 1;
+      text-align: left;
     }
 
     .company {
       display: flex;
-      gap: 12px;
       min-width: 0;
+      align-items: flex-start;
+      gap: 11px;
     }
 
-    .logo,
-    .logo-fallback {
-      width: 58px;
-      height: 58px;
-      flex: 0 0 58px;
+    .logo {
+      display: block;
+      width: ${compact ? 55 : 62}px;
+      height: ${compact ? 55 : 62}px;
+      flex:
+        0 0
+        ${compact ? 55 : 62}px;
       object-fit: contain;
     }
 
-    .logo-fallback {
-      display: grid;
-      place-items: center;
-      border-radius: 13px;
-      background: var(--primary);
-      color: white;
-      font-size: 19px;
-      font-weight: 900;
+    .company-copy {
+      min-width: 0;
     }
 
-    .company h1 {
-      margin: 0;
+    .company-name {
       color: var(--ink);
-      font-size: 21px;
-      line-height: 1.1;
+      font-size:
+        ${compact ? 17 : 19}px;
+      line-height: 1.08;
       font-weight: 950;
+      letter-spacing: -.02em;
     }
 
-    .subtitle {
+    .company-subtitle {
       margin-top: 3px;
       color: var(--muted);
-      font-size: 9px;
+      font-size: 8px;
+      font-weight: 650;
     }
 
-    .seller-lines {
-      margin-top: 6px;
-      color: #475569;
-      font-size: 8.5px;
+    .company-lines {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size:
+        ${compact ? 7.1 : 7.6}px;
       line-height: 1.45;
     }
 
-    .heading {
+    .company-lines div {
+      margin-top: 1px;
+    }
+
+    .document-heading {
       text-align: right;
     }
 
-    .kicker {
+    .document-title {
+      margin: 0;
       color: var(--primary);
-      font-size: 8px;
-      font-weight: 900;
-      letter-spacing: .14em;
-      text-transform: uppercase;
-    }
-
-    .heading h2 {
-      margin: 4px 0 0;
-      color: var(--ink);
-      font-size: 31px;
-      line-height: 1;
+      font-size:
+        ${compact ? 29 : 34}px;
+      line-height: .98;
       font-weight: 950;
-      letter-spacing: -.03em;
-    }
-
-    .number {
-      display: inline-flex;
-      margin-top: 7px;
-      border-radius: 999px;
-      padding: 5px 10px;
-      background: var(--soft);
-      color: var(--primary);
-      font-size: 9.5px;
-      font-weight: 900;
-    }
-
-    .summary {
-      display: grid;
-      grid-template-columns:
-        repeat(4,1fr);
-      gap: 1px;
-      margin-top: 8px;
-      overflow: hidden;
-      border:
-        1px solid
-        var(--border);
-      border-radius: 12px;
-      background: var(--border);
-    }
-
-    .summary > div {
-      padding: 9px 10px;
-      background: var(--surface);
-    }
-
-    .summary span {
-      display: block;
-      color: var(--muted);
-      font-size: 7.5px;
-      font-weight: 900;
+      letter-spacing: -.04em;
       text-transform: uppercase;
     }
 
-    .summary strong {
-      display: block;
-      margin-top: 3px;
+    .document-number {
+      margin-top:
+        ${compact ? 9 : 11}px;
       color: var(--ink);
-      font-size: 9.5px;
+      font-size:
+        ${compact ? 13 : 15}px;
+      font-weight: 950;
     }
 
-    .summary .total {
-      background: var(--soft);
+    .document-number span {
+      margin-right: 5px;
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
     }
 
-    .summary .total strong {
-      color: var(--primary);
-      font-size: 12px;
+    .document-date {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 8px;
+      font-weight: 700;
     }
 
-    .party-grid {
+    .info-grid {
       display: grid;
       grid-template-columns:
         1fr 1fr;
-      gap: 12px;
-      margin-top: 13px;
+      gap: ${compact ? 16 : 20}px;
+      margin-top:
+        ${compact ? 11 : 14}px;
     }
 
-    .card {
-      padding: 12px 13px;
+    .info-grid.cards
+    .info-block {
+      padding:
+        ${compact ? 10 : 12}px;
       border:
         1px solid
         var(--border);
-      border-radius: 12px;
-      break-inside: avoid;
+      border-radius: 8px;
+      background:
+        ${alphaColor(
+          background,
+          'F2',
+        )};
     }
 
-    .card h3 {
-      margin: 0 0 7px;
-      color: var(--muted);
-      font-size: 7.8px;
-      font-weight: 900;
-      letter-spacing: .1em;
+    .info-grid.lines
+    .info-block {
+      padding:
+        ${compact ? '3px 0 7px' : '4px 0 9px'};
+      border-bottom:
+        1px solid
+        var(--border);
+    }
+
+    .info-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 7px;
+      color: var(--primary);
+      font-size:
+        ${compact ? 7.6 : 8.2}px;
+      font-weight: 950;
+      letter-spacing: .08em;
       text-transform: uppercase;
     }
 
-    .party-name {
+    .investor-name {
       color: var(--ink);
-      font-size: 13px;
+      font-size:
+        ${compact ? 10 : 11}px;
       font-weight: 950;
     }
 
-    .party-details {
+    .info-lines {
       margin-top: 5px;
-      font-size: 8.5px;
+      color: var(--ink);
+      font-size:
+        ${compact ? 7.5 : 8}px;
+      line-height: 1.42;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1fr)
+        auto;
+      gap: 14px;
+      padding: 3px 0;
+      border-bottom:
+        1px solid
+        ${alphaColor(
+          border,
+          '80',
+        )};
+      font-size:
+        ${compact ? 7.3 : 7.8}px;
+    }
+
+    .meta-row:last-child {
+      border-bottom: 0;
+    }
+
+    .meta-row span {
+      color: var(--muted);
+    }
+
+    .meta-row strong {
+      color: var(--ink);
+      text-align: right;
+    }
+
+    .offer-description {
+      margin-top:
+        ${compact ? 8 : 10}px;
+      padding:
+        ${compact ? '7px 9px' : '8px 10px'};
+      border-left:
+        2px solid
+        var(--primary);
+      background:
+        var(--soft);
+      color: var(--ink);
+      font-size:
+        ${compact ? 7.5 : 8}px;
       line-height: 1.45;
     }
 
-    .description {
-      margin-top: 12px;
-      padding: 10px 12px;
-      border-left:
-        4px solid
-        var(--primary);
-      border-radius:
-        0 9px 9px 0;
-      background: #f8fafc;
-      font-size: 9px;
-      line-height: 1.5;
-    }
-
-    .section-title {
-      margin: 15px 0 7px;
+    .section-heading {
+      margin:
+        ${compact ? 10 : 13}px
+        0
+        ${compact ? 5 : 7}px;
       color: var(--ink);
-      font-size: 11px;
+      font-size:
+        ${compact ? 8.2 : 9}px;
       font-weight: 950;
+      letter-spacing: .035em;
+      text-transform: uppercase;
     }
 
-    .table-wrap {
+    .section-heading span {
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .section-bar {
+      border-radius: 5px;
+      padding: 6px 8px;
+      background: var(--primary);
+      color: white;
+    }
+
+    .section-line {
+      border-bottom:
+        1px solid
+        var(--primary);
+      padding-bottom: 5px;
+      color: var(--primary);
+    }
+
+    .section-plain {
+      color: var(--ink);
+    }
+
+    .items {
+      border-top:
+        1px solid
+        var(--border);
+    }
+
+    .item-row {
+      display: grid;
+      grid-template-columns:
+        28px
+        ${settings.showItemImages ? '78px' : '0px'}
+        minmax(0, 1fr)
+        68px
+        78px
+        90px;
+      min-height:
+        ${compact ? 48 : 55}px;
+      align-items: center;
+      column-gap:
+        ${compact ? 8 : 10}px;
+      padding:
+        ${compact ? '5px 0' : '6px 0'};
+      border-bottom:
+        1px solid
+        var(--border);
+      break-inside: avoid;
+    }
+
+    .item-row.no-image-column {
+      grid-template-columns:
+        28px
+        minmax(0, 1fr)
+        68px
+        78px
+        90px;
+    }
+
+    .item-index {
+      color: var(--primary);
+      font-size:
+        ${compact ? 8 : 9}px;
+      font-weight: 950;
+      text-align: center;
+    }
+
+    .item-image-wrap {
+      display: grid;
+      width: 78px;
+      height:
+        ${compact ? 48 : 55}px;
+      place-items: center;
       overflow: hidden;
       border:
         1px solid
         var(--border);
-      border-radius: 10px;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 8.4px;
-    }
-
-    th {
-      padding: 7px 5px;
-      background: var(--primary);
-      color: white;
-      font-size: 7.2px;
-      text-align: left;
-      text-transform: uppercase;
-    }
-
-    th:nth-child(1) {
-      width: 5%;
-    }
-
-    th:nth-child(2) {
-      width: 37%;
-    }
-
-    th:nth-child(3) {
-      width: 8%;
-    }
-
-    th:nth-child(4) {
-      width: 7%;
-    }
-
-    th:nth-child(5) {
-      width: 13%;
-    }
-
-    th:nth-child(6) {
-      width: 9%;
-    }
-
-    th:nth-child(7) {
-      width: 8%;
-    }
-
-    th:nth-child(8) {
-      width: 13%;
-    }
-
-    td {
-      padding: 6px 5px;
-      border-bottom:
-        1px solid
-        #e9eef5;
-      vertical-align: middle;
-    }
-
-    tbody tr:nth-child(even) td {
-      background: #fbfdff;
-    }
-
-    tbody tr:last-child td {
-      border-bottom: 0;
-    }
-
-    .item-wrap {
-      display: flex;
-      gap: 7px;
-      align-items: flex-start;
+      border-radius: 5px;
+      background:
+        ${alphaColor(
+          border,
+          '18',
+        )};
     }
 
     .item-image {
-      width: 42px;
-      height: 42px;
-      flex: 0 0 42px;
-      border:
-        1px solid
-        var(--border);
-      border-radius: 7px;
-      object-fit: cover;
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: white;
     }
 
-    td strong {
-      color: var(--ink);
-      font-size: 8.6px;
-    }
-
-    td p {
-      margin: 2px 0 0;
+    .item-image-placeholder {
       color: var(--muted);
-      font-size: 7.4px;
+      font-size: 6.5px;
+      font-weight: 700;
+      text-align: center;
+      opacity: .55;
+    }
+
+    .item-main {
+      min-width: 0;
+    }
+
+    .item-name {
+      color: var(--ink);
+      font-size:
+        ${compact ? 8.1 : 8.8}px;
+      line-height: 1.25;
+      font-weight: 950;
+    }
+
+    .item-description {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size:
+        ${compact ? 6.8 : 7.2}px;
       line-height: 1.35;
     }
 
-    .right {
-      text-align: right;
-      white-space: nowrap;
-    }
-
-    .center {
-      text-align: center;
-    }
-
-    .strong {
+    .item-data {
+      min-width: 0;
+      padding-left: 7px;
+      border-left:
+        1px solid
+        var(--border);
       color: var(--ink);
-      font-weight: 900;
+      font-size:
+        ${compact ? 7.2 : 7.7}px;
+      text-align: right;
     }
 
-    .bottom {
+    .item-data small {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 5.8px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .item-total {
+      color: var(--ink);
+      font-size:
+        ${compact ? 8 : 8.6}px;
+      font-weight: 950;
+    }
+
+    .item-discount {
+      margin-top: 2px;
+      color: var(--muted);
+      font-size: 5.8px;
+    }
+
+    .table-solid
+    .items {
+      border:
+        1px solid
+        var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .table-solid
+    .item-row {
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    .table-soft
+    .item-row:nth-child(even) {
+      background: var(--soft);
+    }
+
+    .table-minimal
+    .items {
+      border-top:
+        1px solid
+        var(--ink);
+    }
+
+    .final-grid {
       display: grid;
       grid-template-columns:
-        minmax(0,1fr)
-        235px;
-      gap: 14px;
-      margin-top: 13px;
+        minmax(0, 1fr)
+        ${compact ? 245 : 265}px;
+      gap:
+        ${compact ? 18 : 22}px;
+      margin-top:
+        ${compact ? 11 : 14}px;
       align-items: start;
       break-inside: avoid;
     }
 
-    .terms-card {
-      padding: 10px 11px;
-      border:
+    .notes {
+      min-width: 0;
+    }
+
+    .note-title {
+      color: var(--primary);
+      font-size:
+        ${compact ? 7.7 : 8.2}px;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .note-body {
+      margin-top: 6px;
+      color: var(--ink);
+      font-size:
+        ${compact ? 7.1 : 7.6}px;
+      line-height: 1.48;
+    }
+
+    .note-body + .note-body {
+      margin-top: 7px;
+      padding-top: 7px;
+      border-top:
         1px solid
         var(--border);
-      border-radius: 11px;
-      background: var(--surface);
-    }
-
-    .terms-card h3 {
-      margin: 0 0 6px;
-      color: var(--ink);
-      font-size: 9px;
-    }
-
-    .terms-card p {
-      margin: 4px 0;
-      font-size: 8.2px;
-      line-height: 1.4;
     }
 
     .totals {
-      overflow: hidden;
-      border:
-        1px solid
-        var(--border);
-      border-radius: 10px;
-      background: white;
+      width: 100%;
     }
 
     .total-row {
       display: flex;
       justify-content:
         space-between;
-      gap: 10px;
-      padding: 6px 8px;
+      gap: 12px;
+      padding:
+        ${compact ? '4px 6px' : '5px 7px'};
       border-bottom:
         1px solid
-        #e9eef5;
-      font-size: 8.2px;
+        var(--border);
+      color: var(--ink);
+      font-size:
+        ${compact ? 7.4 : 8}px;
     }
 
-    .total-row:last-child {
-      border-bottom: 0;
+    .total-row span:first-child {
+      color: var(--muted);
     }
 
     .total-row.grand {
-      padding: 10px 9px;
-      background: var(--primary);
-      color: white;
-      font-size: 12px;
+      margin-top: 5px;
+      border: 0;
+      border-radius: 5px;
+      padding:
+        ${compact ? '8px 9px' : '9px 10px'};
+      background:
+        var(--soft-strong);
+      color: var(--primary);
+      font-size:
+        ${compact ? 10.5 : 12}px;
       font-weight: 950;
     }
 
-    .signature {
+    .total-row.grand
+    span:first-child {
+      color: var(--primary);
+    }
+
+    .signature-grid {
       display: grid;
       grid-template-columns:
-        1fr 1fr;
-      gap: 48px;
-      margin-top: 18px;
+        1fr 96px 1fr;
+      gap: 22px;
+      align-items: end;
+      margin-top:
+        ${compact ? 14 : 18}px;
+      break-inside: avoid;
+    }
+
+    .signature-column {
+      min-width: 0;
+    }
+
+    .signature-label {
+      color: var(--muted);
+      font-size: 7px;
     }
 
     .signature-space {
       position: relative;
-      height: 50px;
+      display: flex;
+      height:
+        ${compact ? 39 : 46}px;
+      align-items: flex-end;
+      justify-content: center;
     }
 
-    .stamp {
-      position: absolute;
-      left: 50%;
-      bottom: 0;
-      max-width: 140px;
-      max-height: 48px;
+    .signature-image {
+      display: block;
+      max-width: 135px;
+      max-height:
+        ${compact ? 34 : 41}px;
       object-fit: contain;
-      transform:
-        translateX(-50%);
     }
 
     .signature-line {
       border-top:
         1px solid
-        #94a3b8;
-      padding-top: 5px;
-      text-align: center;
-      font-size: 8px;
-    }
-
-    footer {
-      display: flex;
-      justify-content:
-        space-between;
-      gap: 16px;
-      margin-top: auto;
-      padding-top: 7px;
-      border-top:
-        1px solid
-        var(--border);
-      color: #94a3b8;
+        var(--ink);
+      padding-top: 4px;
+      color: var(--ink);
       font-size: 7px;
     }
 
-    .continuation {
-      margin-bottom: 10px;
+    .signature-line strong {
+      display: block;
+      margin-top: 2px;
+      font-size: 7.5px;
+    }
+
+    .stamp-column {
+      display: flex;
+      min-height:
+        ${compact ? 58 : 68}px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stamp-image {
+      display: block;
+      max-width:
+        ${compact ? 86 : 96}px;
+      max-height:
+        ${compact ? 58 : 68}px;
+      object-fit: contain;
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns:
+        1fr auto;
+      gap: 18px;
+      align-items: end;
+      margin-top: auto;
+      border-top:
+        1px solid
+        var(--primary);
+      padding-top: 6px;
       color: var(--muted);
-      font-size: 8px;
+      font-size: 6.5px;
+    }
+
+    .footer-center {
+      text-align: right;
+    }
+
+    .continuation {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 7px;
+      font-weight: 750;
+      text-transform: uppercase;
     }
 
     @media print {
@@ -877,6 +1434,7 @@ function companyBlock(
     OfferPdfSettings,
 ) {
   const logo =
+    settings.showLogo &&
     settings.logoDataUrl
       ? `
         <img
@@ -884,33 +1442,29 @@ function companyBlock(
           src="${escapeHtml(
             settings.logoDataUrl,
           )}"
-          alt="Logo"
+          alt="Logo tvrtke"
         />
       `
-      : `
-        <div class="logo-fallback">
-          ${escapeHtml(
-            settings.companyName
-              .slice(0, 2)
-              .toUpperCase(),
-          )}
-        </div>
-      `
+      : ''
 
   const companyLines = [
     settings.companyAddress,
+
     settings.companyOib
       ? `OIB: ${settings.companyOib}`
       : '',
+
     settings.companyIban
       ? `IBAN: ${settings.companyIban}`
       : '',
+
     [
       settings.companyPhone,
       settings.companyEmail,
     ]
       .filter(Boolean)
-      .join(' • '),
+      .join('  •  '),
+
     settings.companyWebsite,
   ]
     .filter(Boolean)
@@ -926,17 +1480,19 @@ function companyBlock(
     <div class="company">
       ${logo}
 
-      <div>
-        <h1>
+      <div class="company-copy">
+        <div class="company-name">
           ${escapeHtml(
             settings.companyName,
           )}
-        </h1>
+        </div>
 
         ${
           settings.companySubtitle
             ? `
-              <div class="subtitle">
+              <div
+                class="company-subtitle"
+              >
                 ${escapeHtml(
                   settings.companySubtitle,
                 )}
@@ -945,7 +1501,7 @@ function companyBlock(
             : ''
         }
 
-        <div class="seller-lines">
+        <div class="company-lines">
           ${companyLines}
         </div>
       </div>
@@ -956,36 +1512,34 @@ function companyBlock(
 function customerLines(
   offer: OfferPdfData,
 ) {
-  return [
-    offer.oib
-      ? `
-        <div>
-          <strong>OIB:</strong>
-          ${escapeHtml(
-            offer.oib,
-          )}
-        </div>
-      `
-      : '',
+  const address =
     [
       offer.address,
       offer.city,
     ]
       .filter(Boolean)
       .join(', ')
+
+  return [
+    address
       ? `
         <div>
+          ${escapeHtml(address)}
+        </div>
+      `
+      : '',
+
+    offer.oib
+      ? `
+        <div>
+          OIB:
           ${escapeHtml(
-            [
-              offer.address,
-              offer.city,
-            ]
-              .filter(Boolean)
-              .join(', '),
+            offer.oib,
           )}
         </div>
       `
       : '',
+
     offer.email
       ? `
         <div>
@@ -995,6 +1549,7 @@ function customerLines(
         </div>
       `
       : '',
+
     offer.phone
       ? `
         <div>
@@ -1009,22 +1564,91 @@ function customerLines(
     .join('')
 }
 
+function infoGridHtml(
+  offer: OfferPdfData,
+  settings: OfferPdfSettings,
+) {
+  return `
+    <section
+      class="info-grid
+        ${escapeHtml(
+          settings.infoStyle,
+        )}"
+    >
+      <article class="info-block">
+        <div class="info-title">
+          INVESTITOR
+        </div>
+
+        <div class="investor-name">
+          ${escapeHtml(
+            offer.customerName,
+          )}
+        </div>
+
+        <div class="info-lines">
+          ${customerLines(offer)}
+        </div>
+      </article>
+
+      <article class="info-block">
+        <div class="info-title">
+          PODACI PONUDE
+        </div>
+
+        <div class="meta-row">
+          <span>Datum ponude</span>
+          <strong>
+            ${formatDate(
+              offer.date,
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Vrijedi do</span>
+          <strong>
+            ${formatDate(
+              offer.validUntil,
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Status</span>
+          <strong>
+            ${escapeHtml(
+              offer.status,
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Izradio</span>
+          <strong>
+            ${escapeHtml(
+              offer.responsiblePerson ||
+              '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Valuta</span>
+          <strong>EUR</strong>
+        </div>
+      </article>
+    </section>
+  `
+}
+
 function itemRows(
   items: OfferPdfItem[],
   startIndex: number,
-  showImages: boolean,
+  settings: OfferPdfSettings,
 ) {
   if (!items.length) {
-    return `
-      <tr>
-        <td
-          colspan="8"
-          class="center"
-        >
-          Nema unesenih stavki.
-        </td>
-      </tr>
-    `
+    return ''
   }
 
   return items
@@ -1032,102 +1656,369 @@ function itemRows(
       (
         item,
         index,
-      ) => `
-        <tr>
-          <td class="center">
-            ${startIndex + index + 1}
-          </td>
+      ) => {
+        const showImageColumn =
+          settings.showItemImages
 
-          <td>
-            <div class="item-wrap">
-              ${
-                showImages &&
-                item.imageDataUrl
+        const image =
+          showImageColumn &&
+          item.imageDataUrl
+            ? `
+              <div
+                class="item-image-wrap"
+              >
+                <img
+                  class="item-image"
+                  src="${escapeHtml(
+                    item.imageDataUrl,
+                  )}"
+                  alt="${escapeHtml(
+                    item.imageName ||
+                    item.name,
+                  )}"
+                />
+              </div>
+            `
+            : (
+                showImageColumn
                   ? `
-                    <img
-                      class="item-image"
-                      src="${escapeHtml(
-                        item.imageDataUrl,
-                      )}"
-                      alt="${escapeHtml(
-                        item.imageName ||
-                        item.name,
-                      )}"
-                    />
+                    <div
+                      class="item-image-wrap"
+                    >
+                      <div
+                        class="item-image-placeholder"
+                      >
+                        bez slike
+                      </div>
+                    </div>
+                  `
+                  : ''
+              )
+
+        return `
+          <article
+            class="item-row
+              ${
+                showImageColumn
+                  ? ''
+                  : 'no-image-column'
+              }"
+          >
+            <div class="item-index">
+              ${String(
+                startIndex +
+                index +
+                1,
+              ).padStart(2, '0')}
+            </div>
+
+            ${image}
+
+            <div class="item-main">
+              <div class="item-name">
+                ${escapeHtml(
+                  item.name,
+                )}
+              </div>
+
+              ${
+                item.description
+                  ? `
+                    <div
+                      class="item-description"
+                    >
+                      ${multilineHtml(
+                        item.description,
+                      )}
+                    </div>
                   `
                   : ''
               }
-
-              <div>
-                <strong>
-                  ${escapeHtml(
-                    item.name,
-                  )}
-                </strong>
-
-                ${
-                  item.description
-                    ? `
-                      <p>
-                        ${multilineHtml(
-                          item.description,
-                        )}
-                      </p>
-                    `
-                    : ''
-                }
-              </div>
             </div>
-          </td>
 
-          <td class="right">
-            ${formatNumber(
-              item.quantity,
-            )}
-          </td>
+            <div class="item-data">
+              <small>Količina</small>
+              ${formatNumber(
+                item.quantity,
+              )}
+              ${escapeHtml(
+                item.unit,
+              )}
+            </div>
 
-          <td class="center">
-            ${escapeHtml(
-              item.unit,
-            )}
-          </td>
+            <div class="item-data">
+              <small>Jed. cijena</small>
+              ${formatCurrency(
+                item.price,
+              )}
 
-          <td class="right">
-            ${formatCurrency(
-              item.price,
-            )}
-          </td>
+              ${
+                item.discount > 0
+                  ? `
+                    <div
+                      class="item-discount"
+                    >
+                      Popust
+                      ${formatNumber(
+                        item.discount,
+                      )}%
+                    </div>
+                  `
+                  : ''
+              }
+            </div>
 
-          <td class="right">
-            ${formatNumber(
-              item.discount,
-            )}%
-          </td>
-
-          <td class="right">
-            ${formatNumber(
-              item.vat,
-            )}%
-          </td>
-
-          <td class="right strong">
-            ${formatCurrency(
-              itemTotal(item),
-            )}
-          </td>
-        </tr>
-      `,
+            <div
+              class="item-data
+                item-total"
+            >
+              <small>Ukupno</small>
+              ${formatCurrency(
+                itemTotal(item),
+              )}
+            </div>
+          </article>
+        `
+      },
     )
     .join('')
 }
 
+function finalBlockHtml(
+  offer: OfferPdfData,
+  settings: OfferPdfSettings,
+  base: number,
+  net: number,
+  vat: number,
+  discount: number,
+  total: number,
+) {
+  const notes: string[] = []
+
+  if (
+    offer.description.trim()
+  ) {
+    notes.push(
+      `
+        <div class="note-body">
+          ${multilineHtml(
+            offer.description,
+          )}
+        </div>
+      `,
+    )
+  }
+
+  if (
+    offer.paymentTerms.trim()
+  ) {
+    notes.push(
+      `
+        <div class="note-body">
+          ${multilineHtml(
+            offer.paymentTerms,
+          )}
+        </div>
+      `,
+    )
+  }
+
+  if (
+    offer.internalNote.trim()
+  ) {
+    notes.push(
+      `
+        <div class="note-body">
+          ${multilineHtml(
+            offer.internalNote,
+          )}
+        </div>
+      `,
+    )
+  }
+
+  const signatureImage =
+    settings.signatureDataUrl
+      ? `
+        <img
+          class="signature-image"
+          src="${escapeHtml(
+            settings.signatureDataUrl,
+          )}"
+          alt="Potpis"
+        />
+      `
+      : ''
+
+  const stamp =
+    settings.showStamp &&
+    settings.stampDataUrl
+      ? `
+        <img
+          class="stamp-image"
+          src="${escapeHtml(
+            settings.stampDataUrl,
+          )}"
+          alt="Pečat"
+        />
+      `
+      : ''
+
+  return `
+    <section class="final-grid">
+      <div class="notes">
+        <div class="note-title">
+          NAPOMENA I UVJETI
+        </div>
+
+        ${
+          notes.length
+            ? notes.join('')
+            : `
+              <div class="note-body">
+                Ponuda vrijedi do
+                <strong>
+                  ${formatDate(
+                    offer.validUntil,
+                  )}
+                </strong>.
+              </div>
+            `
+        }
+      </div>
+
+      <div class="totals">
+        <div class="total-row">
+          <span>Međuzbroj</span>
+          <strong>
+            ${formatCurrency(base)}
+          </strong>
+        </div>
+
+        ${
+          discount > 0
+            ? `
+              <div class="total-row">
+                <span>Popust</span>
+                <strong>
+                  −
+                  ${formatCurrency(
+                    discount,
+                  )}
+                </strong>
+              </div>
+            `
+            : ''
+        }
+
+        <div class="total-row">
+          <span>Osnovica</span>
+          <strong>
+            ${formatCurrency(net)}
+          </strong>
+        </div>
+
+        <div class="total-row">
+          <span>PDV</span>
+          <strong>
+            ${formatCurrency(vat)}
+          </strong>
+        </div>
+
+        <div
+          class="total-row grand"
+        >
+          <span>
+            UKUPNO ZA UPLATU
+          </span>
+
+          <span>
+            ${formatCurrency(total)}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    ${
+      settings.showSignature
+        ? `
+          <section
+            class="signature-grid"
+          >
+            <div
+              class="signature-column"
+            >
+              <div
+                class="signature-label"
+              >
+                Ponudu izradio:
+              </div>
+
+              <div
+                class="signature-space"
+              >
+                ${signatureImage}
+              </div>
+
+              <div
+                class="signature-line"
+              >
+                <strong>
+                  ${escapeHtml(
+                    offer.responsiblePerson ||
+                    settings.companyName,
+                  )}
+                </strong>
+
+                ${escapeHtml(
+                  settings.companyName,
+                )}
+              </div>
+            </div>
+
+            <div
+              class="stamp-column"
+            >
+              ${stamp}
+            </div>
+
+            <div
+              class="signature-column"
+            >
+              <div
+                class="signature-label"
+              >
+                Ovlaštena osoba /
+                investitor:
+              </div>
+
+              <div
+                class="signature-space"
+              ></div>
+
+              <div
+                class="signature-line"
+              >
+                <strong>
+                  Potpis / pečat
+                </strong>
+              </div>
+            </div>
+          </section>
+        `
+        : ''
+    }
+  `
+}
 
 async function waitForPdfImages(
   target: Document,
 ) {
   const images =
     Array.from(
-      target.querySelectorAll('img'),
+      target.querySelectorAll(
+        'img',
+      ),
     )
 
   await Promise.all(
@@ -1140,11 +2031,11 @@ async function waitForPdfImages(
               return
             }
 
-            image.onload = () =>
-              resolve()
+            image.onload =
+              () => resolve()
 
-            image.onerror = () =>
-              resolve()
+            image.onerror =
+              () => resolve()
           },
         ),
     ),
@@ -1154,9 +2045,12 @@ async function waitForPdfImages(
 async function renderHtmlPagesToPdf(
   html: string,
   fileName: string,
+  backgroundColor: string,
 ) {
   const iframe =
-    document.createElement('iframe')
+    document.createElement(
+      'iframe',
+    )
 
   Object.assign(
     iframe.style,
@@ -1167,12 +2061,16 @@ async function renderHtmlPagesToPdf(
       width: '794px',
       height: '1123px',
       border: '0',
-      pointerEvents: 'none',
-      zIndex: '-2147483647',
+      pointerEvents:
+        'none',
+      zIndex:
+        '-2147483647',
     },
   )
 
-  document.body.appendChild(iframe)
+  document.body.appendChild(
+    iframe,
+  )
 
   try {
     const iframeDocument =
@@ -1185,15 +2083,22 @@ async function renderHtmlPagesToPdf(
     }
 
     iframeDocument.open()
-    iframeDocument.write(html)
+    iframeDocument.write(
+      html,
+    )
     iframeDocument.close()
 
     await new Promise<void>(
       (resolve) =>
-        window.setTimeout(resolve, 100),
+        window.setTimeout(
+          resolve,
+          120,
+        ),
     )
 
-    await iframeDocument.fonts?.ready
+    await iframeDocument
+      .fonts?.ready
+
     await waitForPdfImages(
       iframeDocument,
     )
@@ -1204,7 +2109,8 @@ async function renderHtmlPagesToPdf(
       ) as HTMLElement | null
 
     if (toolbar) {
-      toolbar.style.display = 'none'
+      toolbar.style.display =
+        'none'
     }
 
     const pages =
@@ -1222,7 +2128,8 @@ async function renderHtmlPagesToPdf(
 
     const doc =
       new jsPDF({
-        orientation: 'portrait',
+        orientation:
+          'portrait',
         unit: 'mm',
         format: 'a4',
         compress: true,
@@ -1233,15 +2140,18 @@ async function renderHtmlPagesToPdf(
       index < pages.length;
       index += 1
     ) {
-      pages[index].style.margin = '0'
-      pages[index].style.boxShadow = 'none'
+      pages[index].style.margin =
+        '0'
+
+      pages[index].style.boxShadow =
+        'none'
 
       const canvas =
         await html2canvas(
           pages[index],
           {
             scale: 2,
-            backgroundColor: '#ffffff',
+            backgroundColor,
             useCORS: true,
             allowTaint: false,
             logging: false,
@@ -1251,7 +2161,7 @@ async function renderHtmlPagesToPdf(
       const image =
         canvas.toDataURL(
           'image/jpeg',
-          0.94,
+          0.96,
         )
 
       if (index > 0) {
@@ -1281,10 +2191,11 @@ export function buildOfferPdfHtml(
   customSettings:
     Partial<OfferPdfSettings> = {},
 ) {
-  const settings = {
-    ...DEFAULT_SETTINGS,
-    ...customSettings,
-  }
+  const settings:
+    OfferPdfSettings = {
+      ...DEFAULT_SETTINGS,
+      ...customSettings,
+    }
 
   const items =
     offer.items.filter(
@@ -1297,21 +2208,23 @@ export function buildOfferPdfHtml(
       (sum, item) =>
         sum +
         item.quantity *
-          item.price,
+        item.price,
       0,
     )
 
   const net =
     items.reduce(
       (sum, item) =>
-        sum + itemNet(item),
+        sum +
+        itemNet(item),
       0,
     )
 
   const vat =
     items.reduce(
       (sum, item) =>
-        sum + itemVat(item),
+        sum +
+        itemVat(item),
       0,
     )
 
@@ -1324,7 +2237,7 @@ export function buildOfferPdfHtml(
   const pages =
     paginateItems(
       items,
-      settings.showItemImages,
+      settings,
     )
 
   let rowIndex = 0
@@ -1333,371 +2246,174 @@ export function buildOfferPdfHtml(
     pages
       .map(
         (
-          pageItems,
+          page,
           pageIndex,
         ) => {
-          const first =
-            pageIndex === 0
-
-          const final =
-            pageIndex ===
-            pages.length - 1
-
           const startIndex =
             rowIndex
 
           rowIndex +=
-            pageItems.length
-
-          const stamp =
-            settings.showStamp &&
-            settings.stampDataUrl
-              ? `
-                <img
-                  class="stamp"
-                  src="${escapeHtml(
-                    settings.stampDataUrl,
-                  )}"
-                  alt="Pečat"
-                />
-              `
-              : ''
+            page.items.length
 
           return `
             <section class="page">
-              <header class="header">
-                ${companyBlock(
-                  settings,
-                )}
-
-                <div class="heading">
-                  <div class="kicker">
-                    ${
-                      first
-                        ? 'Ponuda za izvođenje radova / usluga'
-                        : 'Nastavak ponude'
-                    }
-                  </div>
-
-                  <h2>PONUDA</h2>
-
-                  <div class="number">
-                    ${escapeHtml(
-                      offer.offerNumber,
-                    )}
-                  </div>
-                </div>
-              </header>
-
               ${
-                first
+                settings.showWatermark &&
+                settings.watermarkText
                   ? `
-                    <section class="summary">
-                      <div>
-                        <span>Datum</span>
-                        <strong>
-                          ${formatDate(
-                            offer.date,
-                          )}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>Vrijedi do</span>
-                        <strong>
-                          ${formatDate(
-                            offer.validUntil,
-                          )}
-                        </strong>
-                      </div>
-
-                      <div>
-                        <span>Odgovorna osoba</span>
-                        <strong>
-                          ${escapeHtml(
-                            offer.responsiblePerson ||
-                            '—',
-                          )}
-                        </strong>
-                      </div>
-
-                      <div class="total">
-                        <span>Vrijednost ponude</span>
-                        <strong>
-                          ${formatCurrency(
-                            total,
-                          )}
-                        </strong>
-                      </div>
-                    </section>
-
-                    <section class="party-grid">
-                      <article class="card">
-                        <h3>
-                          Za naručitelja
-                        </h3>
-
-                        <div class="party-name">
-                          ${escapeHtml(
-                            offer.customerName,
-                          )}
-                        </div>
-
-                        <div class="party-details">
-                          ${customerLines(
-                            offer,
-                          )}
-                        </div>
-                      </article>
-
-                      <article class="card">
-                        <h3>
-                          Podaci ponude
-                        </h3>
-
-                        <div class="party-details">
-                          <div>
-                            <strong>Status:</strong>
-                            ${escapeHtml(
-                              offer.status,
-                            )}
-                          </div>
-
-                          <div>
-                            <strong>Verzija:</strong>
-                            ${offer.version || 1}
-                          </div>
-
-                          <div>
-                            <strong>Broj stavki:</strong>
-                            ${items.length}
-                          </div>
-                        </div>
-                      </article>
-                    </section>
-
-                    ${
-                      offer.description
-                        ? `
-                          <section class="description">
-                            ${multilineHtml(
-                              offer.description,
-                            )}
-                          </section>
-                        `
-                        : ''
-                    }
-                  `
-                  : `
-                    <div class="continuation">
-                      Nastavak stavki ponude
+                    <div
+                      class="watermark"
+                    >
+                      ${escapeHtml(
+                        settings.watermarkText,
+                      )}
                     </div>
-                  `
-              }
-
-              <div class="section-title">
-                Stavke ponude
-              </div>
-
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th class="center">
-                        #
-                      </th>
-                      <th>
-                        Opis
-                      </th>
-                      <th class="right">
-                        Kol.
-                      </th>
-                      <th class="center">
-                        JM
-                      </th>
-                      <th class="right">
-                        Cijena
-                      </th>
-                      <th class="right">
-                        Popust
-                      </th>
-                      <th class="right">
-                        PDV
-                      </th>
-                      <th class="right">
-                        Ukupno
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    ${itemRows(
-                      pageItems,
-                      startIndex,
-                      settings.showItemImages,
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              ${
-                final
-                  ? `
-                    <section class="bottom">
-                      <article class="terms-card">
-                        <h3>
-                          Uvjeti i napomene
-                        </h3>
-
-                        <p>
-                          ${multilineHtml(
-                            offer.paymentTerms ||
-                            'Plaćanje prema dogovoru.',
-                          )}
-                        </p>
-
-                        <p>
-                          Ponuda vrijedi do
-                          <strong>
-                            ${formatDate(
-                              offer.validUntil,
-                            )}
-                          </strong>.
-                        </p>
-
-                        ${
-                          offer.internalNote
-                            ? `
-                              <p>
-                                ${multilineHtml(
-                                  offer.internalNote,
-                                )}
-                              </p>
-                            `
-                            : ''
-                        }
-                      </article>
-
-                      <div class="totals">
-                        <div class="total-row">
-                          <span>Vrijednost</span>
-                          <strong>
-                            ${formatCurrency(
-                              base,
-                            )}
-                          </strong>
-                        </div>
-
-                        ${
-                          discount > 0
-                            ? `
-                              <div class="total-row">
-                                <span>Popust</span>
-                                <strong>
-                                  −
-                                  ${formatCurrency(
-                                    discount,
-                                  )}
-                                </strong>
-                              </div>
-                            `
-                            : ''
-                        }
-
-                        <div class="total-row">
-                          <span>Osnovica</span>
-                          <strong>
-                            ${formatCurrency(
-                              net,
-                            )}
-                          </strong>
-                        </div>
-
-                        <div class="total-row">
-                          <span>PDV</span>
-                          <strong>
-                            ${formatCurrency(
-                              vat,
-                            )}
-                          </strong>
-                        </div>
-
-                        <div class="total-row grand">
-                          <span>UKUPNO</span>
-                          <span>
-                            ${formatCurrency(
-                              total,
-                            )}
-                          </span>
-                        </div>
-                      </div>
-                    </section>
-
-                    ${
-                      settings.showSignature
-                        ? `
-                          <section class="signature">
-                            <div>
-                              <div class="signature-space">
-                                ${stamp}
-                              </div>
-
-                              <div class="signature-line">
-                                <span>
-                                  Ponudu pripremio
-                                </span>
-                                <br>
-                                <strong>
-                                  ${escapeHtml(
-                                    offer.responsiblePerson ||
-                                    settings.companyName,
-                                  )}
-                                </strong>
-                              </div>
-                            </div>
-
-                            <div>
-                              <div class="signature-space"></div>
-
-                              <div class="signature-line">
-                                <span>
-                                  Prihvaćam ponudu
-                                </span>
-                                <br>
-                                <strong>
-                                  Investitor / naručitelj
-                                </strong>
-                              </div>
-                            </div>
-                          </section>
-                        `
-                        : ''
-                    }
                   `
                   : ''
               }
 
-              ${
-                settings.showFooter
-                  ? `
-                    <footer>
-                      <span>
-                        ${escapeHtml(
-                          settings.footerText,
-                        )}
-                      </span>
+              <div
+                class="page-content"
+              >
+                <header
+                  class="header
+                    align-${escapeHtml(
+                      settings.headerAlignment,
+                    )}"
+                >
+                  ${companyBlock(
+                    settings,
+                  )}
 
-                      <span>
+                  <div
+                    class="document-heading"
+                  >
+                    <h1
+                      class="document-title"
+                    >
+                      ${escapeHtml(
+                        settings.documentTitle ||
+                        'PONUDA',
+                      )}
+                    </h1>
+
+                    <div
+                      class="document-number"
+                    >
+                      <span>BR.</span>
+                      ${escapeHtml(
+                        offer.offerNumber,
+                      )}
+                    </div>
+
+                    <div
+                      class="document-date"
+                    >
+                      Datum:
+                      ${formatDate(
+                        offer.date,
+                      )}
+                    </div>
+                  </div>
+                </header>
+
+                ${
+                  page.first
+                    ? `
+                      ${infoGridHtml(
+                        offer,
+                        settings,
+                      )}
+
+                      ${
+                        offer.description
+                          ? `
+                            <div
+                              class="offer-description"
+                            >
+                              ${multilineHtml(
+                                offer.description,
+                              )}
+                            </div>
+                          `
+                          : ''
+                      }
+                    `
+                    : `
+                      <div
+                        class="continuation"
+                      >
+                        Nastavak ponude
                         ${escapeHtml(
                           offer.offerNumber,
                         )}
-                        ·
-                        ${pageIndex + 1}/${pages.length}
-                      </span>
-                    </footer>
-                  `
-                  : ''
-              }
+                      </div>
+                    `
+                }
+
+                ${
+                  page.items.length > 0
+                    ? `
+                      ${sectionTitleHtml(
+                        'Popis stavki',
+                        settings,
+                      )}
+
+                      <div
+                        class="table-${escapeHtml(
+                          settings.tableStyle,
+                        )}"
+                      >
+                        <div class="items">
+                          ${itemRows(
+                            page.items,
+                            startIndex,
+                            settings,
+                          )}
+                        </div>
+                      </div>
+                    `
+                    : ''
+                }
+
+                ${
+                  page.final
+                    ? finalBlockHtml(
+                        offer,
+                        settings,
+                        base,
+                        net,
+                        vat,
+                        discount,
+                        total,
+                      )
+                    : ''
+                }
+
+                ${
+                  settings.showFooter
+                    ? `
+                      <footer
+                        class="footer"
+                      >
+                        <span>
+                          ${escapeHtml(
+                            settings.footerText,
+                          )}
+                        </span>
+
+                        <span
+                          class="footer-center"
+                        >
+                          ${pageIndex + 1}
+                          /
+                          ${pages.length}
+                        </span>
+                      </footer>
+                    `
+                    : ''
+                }
+              </div>
             </section>
           `
         },
@@ -1708,6 +2424,7 @@ export function buildOfferPdfHtml(
 <html lang="hr">
 <head>
   <meta charset="utf-8" />
+
   <meta
     name="viewport"
     content="width=device-width,initial-scale=1"
@@ -1721,7 +2438,7 @@ export function buildOfferPdfHtml(
 
   <style>
     ${documentCss(
-      settings.primaryColor,
+      settings,
     )}
   </style>
 </head>
@@ -1763,6 +2480,34 @@ export function buildOfferPdfHtml(
 </html>`
 }
 
+async function resolvedPdfSettings(
+  customSettings:
+    Partial<OfferPdfSettings>,
+) {
+  const [
+    company,
+    appearanceResult,
+  ] =
+    await Promise.all([
+      getCompanySettings(),
+      getDocumentAppearanceSettings(),
+    ])
+
+  const appearance =
+    appearanceResult.settings.offer
+
+  return {
+    ...DEFAULT_SETTINGS,
+    ...companySettingsFromCurrent(
+      company,
+    ),
+    ...appearanceToPdfSettings(
+      appearance,
+    ),
+    ...customSettings,
+  } satisfies OfferPdfSettings
+}
+
 export function openOfferPdf(
   offer: OfferPdfData,
   customSettings:
@@ -1787,18 +2532,15 @@ export function openOfferPdf(
 
   void (async () => {
     try {
-      const company =
-        await getCompanySettings()
+      const settings =
+        await resolvedPdfSettings(
+          customSettings,
+        )
 
       const html =
         buildOfferPdfHtml(
           offer,
-          {
-            ...companySettingsFromCurrent(
-              company,
-            ),
-            ...customSettings,
-          },
+          settings,
         )
 
       previewWindow.document.open()
@@ -1818,25 +2560,21 @@ export function openOfferPdf(
   })()
 }
 
-
 export async function downloadOfferPdf(
   data: OfferPdfData,
   customSettings:
     Partial<OfferPdfSettings> = {},
 ) {
   try {
-    const company =
-      await getCompanySettings()
+    const settings =
+      await resolvedPdfSettings(
+        customSettings,
+      )
 
     const html =
       buildOfferPdfHtml(
         data,
-        {
-          ...companySettingsFromCurrent(
-            company,
-          ),
-          ...customSettings,
-        },
+        settings,
       )
 
     const fileName =
@@ -1851,6 +2589,8 @@ export async function downloadOfferPdf(
     await renderHtmlPagesToPdf(
       html,
       fileName,
+      settings.backgroundColor ||
+      '#FFFFFF',
     )
   } catch (error) {
     console.error(
