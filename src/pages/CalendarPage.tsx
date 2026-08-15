@@ -1008,7 +1008,7 @@ export function CalendarPage() {
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1700px] space-y-4 pb-10 sm:space-y-6">
+    <section className="mx-auto w-full max-w-[1700px] space-y-4 pb-24 sm:space-y-6 sm:pb-10">
       <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/45 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
 
@@ -1026,25 +1026,100 @@ export function CalendarPage() {
               Termini tvrtke, Google Kalendar i raspored radnika na jednom mjestu.
             </p>
           </div>
-
-          <div className="sm:hidden" />
         </div>
 
         <div className="relative mt-5 grid grid-cols-3 gap-2">
-          <HeroMetric label="Mjesec" value={`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}.`} />
-          <HeroMetric label="Termini" value={String(events.length)} />
-          <HeroMetric label="Google" value={googleAccessToken ? 'Povezan' : 'Nije povezan'} />
+          <HeroMetric
+            label="Mjesec"
+            value={`${monthNames[currentMonth.getMonth()]} ${currentMonth.getFullYear()}.`}
+          />
+          <HeroMetric
+            label="Termini"
+            value={String(events.length)}
+          />
+          <HeroMetric
+            label="Google"
+            value={
+              googleAccessToken
+                ? 'Povezan'
+                : 'Nije povezan'
+            }
+          />
         </div>
 
-        <button
-          type="button"
-          onClick={() => openNewEvent()}
-          className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99] sm:hidden"
-        >
-          <Plus size={20} />
-          Novi termin
-        </button>
+        {/* MOBITEL: Google kontrole sada su vidljive i na malim ekranima */}
+        <div className="relative mt-4 grid grid-cols-1 gap-2 sm:hidden">
+          {googleAccessToken ? (
+            <>
+              <button
+                type="button"
+                onClick={() =>
+                  void importFromGoogle()
+                }
+                disabled={
+                  isGoogleLoading
+                }
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-blue-500/25 bg-blue-500/10 px-4 text-sm font-black text-blue-300 active:scale-[0.99] disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={18}
+                  className={
+                    isGoogleLoading
+                      ? 'animate-spin'
+                      : ''
+                  }
+                />
+                Sinkroniziraj Google
+              </button>
 
+              <button
+                type="button"
+                onClick={
+                  disconnectGoogleCalendar
+                }
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 text-sm font-black text-red-300 active:scale-[0.99]"
+              >
+                <Unlink size={18} />
+                Odspoji Google
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() =>
+                void connectGoogleCalendar()
+              }
+              disabled={
+                isGoogleLoading
+              }
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-blue-500/30 bg-blue-500/10 px-4 text-sm font-black text-blue-300 active:scale-[0.99] disabled:opacity-50"
+            >
+              {isGoogleLoading ? (
+                <LoaderCircle
+                  size={18}
+                  className="animate-spin"
+                />
+              ) : (
+                <Link2 size={18} />
+              )}
+
+              Poveži Google Kalendar
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() =>
+              openNewEvent()
+            }
+            className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99]"
+          >
+            <Plus size={20} />
+            Novi termin
+          </button>
+        </div>
+
+        {/* DESKTOP */}
         <div className="relative mt-4 hidden flex-wrap gap-2 sm:flex">
           <button
             type="button"
@@ -1839,7 +1914,9 @@ export function CalendarPage() {
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
         <button
           type="button"
-          onClick={() => openNewEvent()}
+          onClick={() =>
+            openNewEvent()
+          }
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
         >
           <Plus size={18} />
