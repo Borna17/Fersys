@@ -11,6 +11,9 @@ import {
   createPresetAppearance,
   type DocumentAppearance,
 } from '../types/documentAppearance'
+import {
+  createHub3Pdf417DataUrl,
+} from './hub3Barcode'
 
 export type OfferPdfItem = {
   id: string
@@ -63,6 +66,8 @@ export type OfferPdfSettings = {
   companyName: string
   companySubtitle: string
   companyAddress: string
+  companyStreetAddress: string
+  companyPostalCity: string
   companyOib: string
   companyIban: string
   companyBankName: string
@@ -72,6 +77,7 @@ export type OfferPdfSettings = {
   logoDataUrl?: string
   stampDataUrl?: string
   signatureDataUrl?: string
+  quickPayBarcodeDataUrl?: string
 
   preset: DocumentAppearance['preset']
   primaryColor: string
@@ -119,6 +125,8 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
   companyName: 'Tvrtka',
   companySubtitle: '',
   companyAddress: '',
+  companyStreetAddress: '',
+  companyPostalCity: '',
   companyOib: '',
   companyIban: '',
   companyBankName: '',
@@ -128,6 +136,7 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
   logoDataUrl: undefined,
   stampDataUrl: undefined,
   signatureDataUrl: undefined,
+  quickPayBarcodeDataUrl: undefined,
 
   preset: DEFAULT_APPEARANCE.preset,
   primaryColor: DEFAULT_APPEARANCE.primaryColor,
@@ -303,6 +312,15 @@ function companySettingsFromCurrent(
     ]
       .filter(Boolean)
       .join(', '),
+    companyStreetAddress:
+      settings.address,
+    companyPostalCity:
+      [
+        settings.postalCode,
+        settings.city,
+      ]
+        .filter(Boolean)
+        .join(' '),
     companyOib: settings.oib,
     companyIban: settings.iban,
     companyBankName:
@@ -656,7 +674,6 @@ function headingHtml(
 
 function clientHtml(
   offer: OfferPdfData,
-  _settings: OfferPdfSettings,
 ) {
   const address = [
     offer.address,
@@ -934,7 +951,6 @@ function itemRows(
 
 function notesAndTotalsHtml(
   offer: OfferPdfData,
-  _settings: OfferPdfSettings,
   base: number,
   net: number,
   vat: number,
@@ -1092,6 +1108,31 @@ function signatureAndPaymentHtml(
       Boolean(value),
   )
 
+  const quickPay =
+    settings.quickPayBarcodeDataUrl
+      ? `
+        <div class="offer-quick-pay">
+          <div class="quick-pay-label">
+            BRZO PLAĆANJE
+          </div>
+
+          <div class="quick-pay-copy">
+            Skeniraj 2D barkod mobilnim bankarstvom
+          </div>
+
+          <div class="quick-pay-barcode-wrap">
+            <img
+              class="quick-pay-barcode"
+              src="${esc(
+                settings.quickPayBarcodeDataUrl,
+              )}"
+              alt="HUB3 PDF417 barkod za brzo plaćanje"
+            />
+          </div>
+        </div>
+      `
+      : ''
+
   return `
     <section class="closing-grid">
       <div class="signature-area">
@@ -1159,6 +1200,8 @@ function signatureAndPaymentHtml(
                   `,
                 )
                 .join('')}
+
+              ${quickPay}
             </div>
           `
           : ''
@@ -1869,6 +1912,50 @@ function css(
         ${cardRadius}px;
     }
 
+    .offer-quick-pay {
+      margin-top: 8px;
+      padding-top: 7px;
+      border-top:
+        1px solid ${alpha(
+          b,
+          'AA',
+        )};
+    }
+
+    .quick-pay-label {
+      color: ${p};
+      font-size: 6.6px;
+      font-weight: 950;
+      letter-spacing: .05em;
+    }
+
+    .quick-pay-copy {
+      margin-top: 2px;
+      color: ${alpha(
+        t,
+        '82',
+      )};
+      font-size: 5.8px;
+      line-height: 1.25;
+    }
+
+    .quick-pay-barcode-wrap {
+      display: grid;
+      place-items: center;
+      margin-top: 5px;
+      padding: 3px;
+      background: #fff;
+    }
+
+    .quick-pay-barcode {
+      display: block;
+      width: 47mm;
+      max-width: 100%;
+      max-height: 21mm;
+      height: auto;
+      object-fit: contain;
+    }
+
     .payment-line {
       display: grid;
       grid-template-columns:
@@ -2011,7 +2098,6 @@ function buildFirstOrOnlyPage(
               )}">
                 ${clientHtml(
                   offer,
-                  settings,
                 )}
               </div>
             `
@@ -2059,7 +2145,6 @@ function buildFirstOrOnlyPage(
             ? `
               ${notesAndTotalsHtml(
                 offer,
-                settings,
                 totals.base,
                 totals.net,
                 totals.vat,
@@ -2238,6 +2323,112 @@ async function resolvedPdfSettings(
     ),
     ...customSettings,
   } satisfies OfferPdfSettings
+}
+
+async function prepareOfferPdfSettings(
+  offer: OfferPdfData,
+  customSettings:
+    Partial<OfferPdfSettings>,
+) {
+  const settings =
+    await resolvedPdfSettings(
+      customSettings,
+    )
+
+  const items =
+    offer.items.filter(
+      (item) =>
+        item.name.trim(),
+    )
+
+  const total =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemTotal(item),
+      0,
+    )
+
+  const iban =
+    settings.companyIban
+      .replace(
+        /\s+/g,
+        '',
+      )
+      .toUpperCase()
+
+  if (
+    !iban ||
+    total <= 0
+  ) {
+    return settings
+  }
+
+  try {
+    const paymentReference =
+      offer.offerNumber
+        .replace(
+          /\D/g,
+          '',
+        )
+        .slice(0, 22)
+
+    const barcode =
+      createHub3Pdf417DataUrl(
+        {
+          amount: total,
+
+          payerName:
+            offer.customerName,
+
+          payerStreet:
+            offer.address,
+
+          payerPostalCity:
+            offer.city,
+
+          recipientName:
+            settings.companyName,
+
+          recipientStreet:
+            settings.companyStreetAddress,
+
+          recipientPostalCity:
+            settings.companyPostalCity,
+
+          iban,
+
+          model:
+            'HR00',
+
+          reference:
+            paymentReference,
+
+          purposeCode:
+            'OTHR',
+
+          description:
+            `Ponuda ${offer.offerNumber}`,
+        },
+      )
+
+    return {
+      ...settings,
+      quickPayBarcodeDataUrl:
+        barcode,
+    }
+  } catch (error) {
+    console.warn(
+      'HUB3 barkod ponude nije generiran:',
+      error,
+    )
+
+    return {
+      ...settings,
+      quickPayBarcodeDataUrl:
+        undefined,
+    }
+  }
 }
 
 async function waitForImages(
@@ -2434,7 +2625,8 @@ export function openOfferPdf(
   void (async () => {
     try {
       const settings =
-        await resolvedPdfSettings(
+        await prepareOfferPdfSettings(
+          offer,
           customSettings,
         )
 
@@ -2468,7 +2660,8 @@ export async function downloadOfferPdf(
 ) {
   try {
     const settings =
-      await resolvedPdfSettings(
+      await prepareOfferPdfSettings(
+        data,
         customSettings,
       )
 
