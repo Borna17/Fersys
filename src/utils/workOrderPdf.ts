@@ -571,9 +571,15 @@ function signatureHtml(
           <div class="signature-line">
             ${esc(
               order.assignedWorkers[0] ||
-                branding.companyName ||
                 '—',
             )}
+
+            <div class="signature-subline">
+              ${esc(
+                branding.companyName ||
+                '—',
+              )}
+            </div>
           </div>
         </div>
 
@@ -590,8 +596,12 @@ function signatureHtml(
             ${esc(
               order.investorName ||
                 order.customerName ||
-                'Potpis investitora',
+                '—',
             )}
+
+            <div class="signature-subline">
+              Investitor / naručitelj
+            </div>
           </div>
         </div>
       </div>
@@ -1226,7 +1236,8 @@ function css(
 
     .signature-label {
       color: ${alpha(text, '8A')};
-      font-size: 6.8px;
+      font-size: 8.2px;
+      font-weight: 750;
     }
 
     .signature-space {
@@ -1245,10 +1256,18 @@ function css(
 
     .signature-line {
       border-top: 1px solid ${text};
-      padding-top: 4px;
+      padding-top: 7px;
       color: ${text};
-      font-size: 7px;
-      font-weight: 750;
+      font-size: 9.4px;
+      line-height: 1.2;
+      font-weight: 900;
+    }
+
+    .signature-subline {
+      margin-top: 3px;
+      color: ${alpha(text, '8F')};
+      font-size: 7.4px;
+      font-weight: 650;
     }
 
     .executor-stamp {
