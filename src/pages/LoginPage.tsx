@@ -1,4 +1,6 @@
-import type { FormEvent } from 'react'
+import type {
+  FormEvent,
+} from 'react'
 import {
   Eye,
   EyeOff,
@@ -8,6 +10,7 @@ import {
 } from 'lucide-react'
 import {
   useEffect,
+  useRef,
   useState,
 } from 'react'
 import {
@@ -15,76 +18,169 @@ import {
   useNavigate,
 } from 'react-router'
 
-import { supabase } from '../lib/supabase'
+import {
+  FersysTurnstile,
+  type FersysTurnstileRef,
+} from '../components/security/FersysTurnstile'
 import { useAuth } from '../auth/AuthProvider'
+import { supabase } from '../lib/supabase'
 
 export function LoginPage() {
-  const navigate = useNavigate()
-  const { session, isLoading } = useAuth()
+  const navigate =
+    useNavigate()
 
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] =
-    useState(false)
-  const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
-  const [isSubmitting, setIsSubmitting] =
-    useState(false)
-  const [isSendingReset, setIsSendingReset] =
-    useState(false)
+  const {
+    session,
+    isLoading,
+  } = useAuth()
+
+  const turnstileRef =
+    useRef<FersysTurnstileRef | null>(
+      null,
+    )
+
+  const [email, setEmail] =
+    useState('')
+
+  const [
+    password,
+    setPassword,
+  ] = useState('')
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false)
+
+  const [
+    captchaToken,
+    setCaptchaToken,
+  ] = useState('')
+
+  const [error, setError] =
+    useState('')
+
+  const [
+    message,
+    setMessage,
+  ] = useState('')
+
+  const [
+    isSubmitting,
+    setIsSubmitting,
+  ] = useState(false)
+
+  const [
+    isSendingReset,
+    setIsSendingReset,
+  ] = useState(false)
 
   useEffect(() => {
-    if (!isLoading && session) {
-      navigate('/dashboard', {
-        replace: true,
-      })
+    if (
+      !isLoading &&
+      session
+    ) {
+      navigate(
+        '/dashboard',
+        {
+          replace: true,
+        },
+      )
     }
-  }, [isLoading, session, navigate])
+  }, [
+    isLoading,
+    session,
+    navigate,
+  ])
+
+  function resetCaptcha() {
+    turnstileRef.current?.reset()
+  }
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
+
     setError('')
     setMessage('')
 
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase()
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase()
 
-    if (!normalizedEmail || !password) {
-      setError('Upiši e-mail adresu i lozinku.')
+    if (
+      !normalizedEmail ||
+      !password
+    ) {
+      setError(
+        'Upiši e-mail adresu i lozinku.',
+      )
+      return
+    }
+
+    if (!captchaToken) {
+      setError(
+        'Potvrdi sigurnosnu provjeru prije prijave.',
+      )
       return
     }
 
     setIsSubmitting(true)
 
-    const { error: signInError } =
-      await supabase.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      })
+    try {
+      const {
+        error:
+          signInError,
+      } =
+        await supabase.auth.signInWithPassword(
+          {
+            email:
+              normalizedEmail,
+            password,
+            options: {
+              captchaToken,
+            },
+          },
+        )
 
-    if (signInError) {
-      setError(
-        signInError.message ===
-        'Invalid login credentials'
-          ? 'E-mail adresa ili lozinka nisu ispravni.'
-          : signInError.message,
+      if (signInError) {
+        throw signInError
+      }
+
+      navigate(
+        '/dashboard',
+        {
+          replace: true,
+        },
       )
-      setIsSubmitting(false)
-      return
-    }
+    } catch (
+      signInError
+    ) {
+      const message =
+        signInError instanceof Error
+          ? signInError.message
+          : 'Prijava nije uspjela.'
 
-    navigate('/dashboard', {
-      replace: true,
-    })
+      setError(
+        message ===
+          'Invalid login credentials'
+          ? 'E-mail adresa ili lozinka nisu ispravni.'
+          : message,
+      )
+
+      resetCaptcha()
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   async function handlePasswordReset() {
-    const normalizedEmail = email
-      .trim()
-      .toLowerCase()
+    const normalizedEmail =
+      email
+        .trim()
+        .toLowerCase()
 
     setError('')
     setMessage('')
@@ -96,25 +192,48 @@ export function LoginPage() {
       return
     }
 
-    setIsSendingReset(true)
-
-    const { error: resetError } =
-      await supabase.auth.resetPasswordForEmail(
-        normalizedEmail,
-        {
-          redirectTo: `${window.location.origin}/reset-password`,
-        },
+    if (!captchaToken) {
+      setError(
+        'Potvrdi sigurnosnu provjeru prije slanja poveznice.',
       )
-
-    if (resetError) {
-      setError(resetError.message)
-    } else {
-      setMessage(
-        'Poslana je poruka za obnovu lozinke. Provjeri e-mail.',
-      )
+      return
     }
 
-    setIsSendingReset(false)
+    setIsSendingReset(true)
+
+    try {
+      const {
+        error:
+          resetError,
+      } =
+        await supabase.auth.resetPasswordForEmail(
+          normalizedEmail,
+          {
+            redirectTo:
+              `${window.location.origin}/reset-password`,
+            captchaToken,
+          },
+        )
+
+      if (resetError) {
+        throw resetError
+      }
+
+      setMessage(
+        'Ako račun s tom e-mail adresom postoji, poslana je poruka za obnovu lozinke.',
+      )
+    } catch (
+      resetError
+    ) {
+      setError(
+        resetError instanceof Error
+          ? resetError.message
+          : 'Zahtjev za obnovu lozinke nije moguće poslati.',
+      )
+    } finally {
+      setIsSendingReset(false)
+      resetCaptcha()
+    }
   }
 
   return (
@@ -151,14 +270,11 @@ export function LoginPage() {
             </div>
 
             <h1 className="text-5xl font-black leading-tight">
-              Sve što trebaš za vođenje poslovanja na
-              jednom mjestu.
+              Sve što trebaš za vođenje poslovanja na jednom mjestu.
             </h1>
 
             <p className="mt-6 max-w-lg text-lg leading-8 text-slate-400">
-              Upravljaj kupcima, radnim nalozima,
-              ponudama, računima, skladištem i radnicima
-              kroz jedan sustav.
+              Upravljaj kupcima, radnim nalozima, ponudama, računima, skladištem i radnicima kroz jedan sustav.
             </p>
           </div>
 
@@ -177,7 +293,9 @@ export function LoginPage() {
               </div>
 
               <div>
-                <p className="font-black">FERSYS</p>
+                <p className="font-black">
+                  FERSYS
+                </p>
                 <p className="text-xs text-slate-400">
                   Business Management System
                 </p>
@@ -201,7 +319,9 @@ export function LoginPage() {
 
               <form
                 className="space-y-5"
-                onSubmit={handleSubmit}
+                onSubmit={
+                  handleSubmit
+                }
               >
                 <div>
                   <label
@@ -222,8 +342,14 @@ export function LoginPage() {
                       type="email"
                       autoComplete="email"
                       value={email}
-                      onChange={(event) =>
-                        setEmail(event.target.value)
+                      onChange={(
+                        event,
+                      ) =>
+                        setEmail(
+                          event
+                            .target
+                            .value,
+                        )
                       }
                       placeholder="ime@tvrtka.hr"
                       className="h-13 w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-12 pr-4 text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
@@ -242,8 +368,12 @@ export function LoginPage() {
 
                     <button
                       type="button"
-                      disabled={isSendingReset}
-                      onClick={handlePasswordReset}
+                      disabled={
+                        isSendingReset
+                      }
+                      onClick={
+                        handlePasswordReset
+                      }
                       className="text-xs font-semibold text-violet-400 transition hover:text-violet-300 disabled:opacity-50"
                     >
                       {isSendingReset
@@ -266,9 +396,17 @@ export function LoginPage() {
                           : 'password'
                       }
                       autoComplete="current-password"
-                      value={password}
-                      onChange={(event) =>
-                        setPassword(event.target.value)
+                      value={
+                        password
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setPassword(
+                          event
+                            .target
+                            .value,
+                        )
                       }
                       placeholder="Upiši lozinku"
                       className="h-13 w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3 pl-12 pr-12 text-white outline-none transition placeholder:text-slate-600 focus:border-violet-500 focus:ring-4 focus:ring-violet-500/10"
@@ -278,7 +416,10 @@ export function LoginPage() {
                       type="button"
                       onClick={() =>
                         setShowPassword(
-                          (current) => !current,
+                          (
+                            current,
+                          ) =>
+                            !current,
                         )
                       }
                       aria-label={
@@ -289,13 +430,26 @@ export function LoginPage() {
                       className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 transition hover:text-white"
                     >
                       {showPassword ? (
-                        <EyeOff size={19} />
+                        <EyeOff
+                          size={19}
+                        />
                       ) : (
-                        <Eye size={19} />
+                        <Eye
+                          size={19}
+                        />
                       )}
                     </button>
                   </div>
                 </div>
+
+                <FersysTurnstile
+                  ref={
+                    turnstileRef
+                  }
+                  onTokenChange={
+                    setCaptchaToken
+                  }
+                />
 
                 {error && (
                   <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -311,7 +465,10 @@ export function LoginPage() {
 
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={
+                    isSubmitting ||
+                    !captchaToken
+                  }
                   className="flex h-13 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-violet-600/20 transition hover:shadow-violet-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isSubmitting
@@ -343,4 +500,3 @@ export function LoginPage() {
     </main>
   )
 }
-
