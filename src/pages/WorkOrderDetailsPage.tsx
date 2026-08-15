@@ -22,6 +22,7 @@ import {
   Navigation,
   Pencil,
   Phone,
+  Trash2,
   UserRound,
   UsersRound,
 } from 'lucide-react'
@@ -37,6 +38,7 @@ import {
 } from '../services/drafts.service'
 
 import {
+  deleteWorkOrder,
   getWorkOrderById,
   redactWorkOrderPrices,
   type CloudWorkOrder,
@@ -208,6 +210,12 @@ export function WorkOrderDetailsPage() {
     useState(false)
 
   const [
+    isDeleting,
+    setIsDeleting,
+  ] =
+    useState(false)
+
+  const [
     canEditThisOrder,
     setCanEditThisOrder,
   ] =
@@ -343,6 +351,45 @@ export function WorkOrderDetailsPage() {
       )
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  async function handleDeleteOrder() {
+    if (
+      !order ||
+      isDeleting
+    ) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        `Jeste li sigurni da želite obrisati radni nalog ${order.orderNumber}? Ova radnja se ne može poništiti.`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+
+      await deleteWorkOrder(
+        order.id,
+      )
+
+      navigate(
+        '/work-orders',
+        { replace: true },
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Radni nalog nije moguće obrisati.',
+      )
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -533,7 +580,8 @@ export function WorkOrderDetailsPage() {
                         `/work-orders/${order.id}/edit`,
                       )
                     }
-                    className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99]"
+                    disabled={isDeleting}
+                    className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99] disabled:opacity-50"
                   >
                     <Pencil size={18} />
                     Uredi
@@ -544,13 +592,29 @@ export function WorkOrderDetailsPage() {
 
               <button
                 type="button"
-                disabled={isDownloading}
+                disabled={isDownloading || isDeleting}
                 onClick={handleDownloadPdf}
                 className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white active:scale-[0.99] disabled:opacity-50"
               >
                 <Download size={18} />
                 {isDownloading ? 'PDF...' : 'PDF'}
               </button>
+
+              {canManageWorkOrders && (
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() =>
+                    void handleDeleteOrder()
+                  }
+                  className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300 active:scale-[0.99] disabled:opacity-50"
+                >
+                  <Trash2 size={18} />
+                  {isDeleting
+                    ? 'Brisanje...'
+                    : 'Obriši radni nalog'}
+                </button>
+              )}
             </div>
 
             <div className="mt-4 hidden gap-3 sm:flex">
@@ -563,7 +627,8 @@ export function WorkOrderDetailsPage() {
                         `/work-orders/${order.id}/edit`,
                       )
                     }
-                    className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white"
+                    disabled={isDeleting}
+                    className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white disabled:opacity-50"
                   >
                     <Pencil size={18} />
                     Uredi nalog
@@ -572,7 +637,7 @@ export function WorkOrderDetailsPage() {
 
               <button
                 type="button"
-                disabled={isDownloading}
+                disabled={isDownloading || isDeleting}
                 onClick={handleDownloadPdf}
                 className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
               >
@@ -581,6 +646,22 @@ export function WorkOrderDetailsPage() {
                   ? 'Izrada PDF-a...'
                   : 'Preuzmi PDF'}
               </button>
+
+              {canManageWorkOrders && (
+                <button
+                  type="button"
+                  disabled={isDeleting}
+                  onClick={() =>
+                    void handleDeleteOrder()
+                  }
+                  className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 font-black text-red-300 disabled:opacity-50"
+                >
+                  <Trash2 size={18} />
+                  {isDeleting
+                    ? 'Brisanje...'
+                    : 'Obriši nalog'}
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -989,7 +1070,8 @@ export function WorkOrderDetailsPage() {
                     `/work-orders/${order.id}/edit`,
                   )
                 }
-                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-white"
+                disabled={isDeleting}
+                className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-white disabled:opacity-50"
                 aria-label="Uredi nalog"
               >
                 <Pencil size={18} />
@@ -998,7 +1080,7 @@ export function WorkOrderDetailsPage() {
 
           <button
             type="button"
-            disabled={isDownloading}
+            disabled={isDownloading || isDeleting}
             onClick={handleDownloadPdf}
             className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50"
           >
@@ -1007,6 +1089,21 @@ export function WorkOrderDetailsPage() {
               ? 'Izrada PDF-a...'
               : 'Preuzmi PDF'}
           </button>
+
+          {canManageWorkOrders && (
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() =>
+                void handleDeleteOrder()
+              }
+              className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-red-400/20 bg-red-500/10 text-red-300 disabled:opacity-50"
+              aria-label="Obriši radni nalog"
+              title="Obriši radni nalog"
+            >
+              <Trash2 size={18} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -1014,6 +1111,13 @@ export function WorkOrderDetailsPage() {
         <FersysLoader
           fullScreen
           text="Izrada PDF dokumenta..."
+        />
+      )}
+
+      {isDeleting && (
+        <FersysLoader
+          fullScreen
+          text="Brisanje radnog naloga..."
         />
       )}
     </>

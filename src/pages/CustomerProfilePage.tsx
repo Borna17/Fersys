@@ -35,6 +35,7 @@ import {
 
 import FersysLoader from '../components/FersysLoader'
 import {
+  deleteCustomer,
   getCustomerById,
   updateCustomer,
 } from '../services/customers.service'
@@ -171,6 +172,8 @@ export function CustomerProfilePage() {
   const [loadError, setLoadError] =
     useState('')
   const [isSaving, setIsSaving] =
+    useState(false)
+  const [isDeleting, setIsDeleting] =
     useState(false)
 
   const [activeTab, setActiveTab] =
@@ -412,6 +415,42 @@ export function CustomerProfilePage() {
     }
   }
 
+  async function handleDeleteCustomer() {
+    if (!customer || isDeleting) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        `Jeste li sigurni da želite obrisati investitora „${customer.name}“? Ova radnja se ne može poništiti.`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+
+      await deleteCustomer(
+        customer.id,
+      )
+
+      navigate(
+        '/customers',
+        { replace: true },
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Investitora nije moguće obrisati.',
+      )
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <FersysLoader text="Učitavanje investitora..." />
@@ -524,14 +563,30 @@ export function CustomerProfilePage() {
                     </h1>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={openEditModal}
-                    className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
-                    aria-label="Uredi investitora"
-                  >
-                    <Edit3 size={18} />
-                  </button>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={openEditModal}
+                      disabled={isDeleting}
+                      className="grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95 disabled:opacity-50"
+                      aria-label="Uredi investitora"
+                    >
+                      <Edit3 size={18} />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleDeleteCustomer()
+                      }
+                      disabled={isDeleting}
+                      className="grid h-11 w-11 place-items-center rounded-2xl border border-red-400/20 bg-red-500/10 text-red-300 active:scale-95 disabled:opacity-50"
+                      aria-label="Obriši investitora"
+                      title="Obriši investitora"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -696,16 +751,35 @@ export function CustomerProfilePage() {
                     </h2>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={openEditModal}
-                    className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300 sm:flex sm:w-auto sm:gap-2 sm:px-4"
-                  >
-                    <Edit3 size={16} />
-                    <span className="hidden text-xs font-black sm:inline">
-                      Uredi
-                    </span>
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={openEditModal}
+                      disabled={isDeleting}
+                      className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300 disabled:opacity-50 sm:flex sm:w-auto sm:gap-2 sm:px-4"
+                    >
+                      <Edit3 size={16} />
+                      <span className="hidden text-xs font-black sm:inline">
+                        Uredi
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void handleDeleteCustomer()
+                      }
+                      disabled={isDeleting}
+                      className="grid h-10 w-10 place-items-center rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 disabled:opacity-50 sm:flex sm:w-auto sm:gap-2 sm:px-4"
+                    >
+                      <Trash2 size={16} />
+                      <span className="hidden text-xs font-black sm:inline">
+                        {isDeleting
+                          ? 'Brisanje...'
+                          : 'Obriši'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

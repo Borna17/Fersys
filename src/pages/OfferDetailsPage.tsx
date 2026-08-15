@@ -10,6 +10,7 @@ import {
   Pencil,
   Phone,
   ReceiptText,
+  Trash2,
   UserRound,
 } from 'lucide-react'
 import {
@@ -25,6 +26,7 @@ import {
 
 import FersysLoader from '../components/FersysLoader'
 import {
+  deleteOffer,
   getOfferById,
   updateOfferStatus,
 } from '../services/offers.service'
@@ -202,6 +204,12 @@ export function OfferDetailsPage() {
     useState(false)
 
   const [
+    isDeleting,
+    setIsDeleting,
+  ] =
+    useState(false)
+
+  const [
     loadError,
     setLoadError,
   ] =
@@ -302,6 +310,45 @@ export function OfferDetailsPage() {
       )
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleDeleteOffer() {
+    if (
+      !offer ||
+      isDeleting
+    ) {
+      return
+    }
+
+    const confirmed =
+      window.confirm(
+        `Jeste li sigurni da želite obrisati ponudu ${offer.offerNumber}? Ova radnja se ne može poništiti.`,
+      )
+
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setIsDeleting(true)
+
+      await deleteOffer(
+        offer.id,
+      )
+
+      navigate(
+        '/offers',
+        { replace: true },
+      )
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Ponudu nije moguće obrisati.',
+      )
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -454,12 +501,13 @@ export function OfferDetailsPage() {
             <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() =>
                   navigate(
                     `/offers/${offer.id}/edit`,
                   )
                 }
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white active:scale-[0.99]"
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white active:scale-[0.99] disabled:opacity-50"
               >
                 <Pencil size={18} />
                 Uredi
@@ -467,24 +515,41 @@ export function OfferDetailsPage() {
 
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() =>
                   downloadOfferPdf(offer)
                 }
-                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99]"
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white active:scale-[0.99] disabled:opacity-50"
               >
                 <Download size={18} />
                 PDF
               </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() =>
+                  void handleDeleteOffer()
+                }
+                className="col-span-2 flex h-14 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300 active:scale-[0.99] disabled:opacity-50"
+              >
+                <Trash2 size={18} />
+                {isDeleting
+                  ? 'Brisanje...'
+                  : 'Obriši ponudu'}
+              </button>
             </div>
+
             <div className="mt-4 hidden gap-3 sm:flex">
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() =>
                   navigate(
                     `/offers/${offer.id}/edit`,
                   )
                 }
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white"
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white disabled:opacity-50"
               >
                 <Pencil size={18} />
                 Uredi ponudu
@@ -492,13 +557,28 @@ export function OfferDetailsPage() {
 
               <button
                 type="button"
+                disabled={isDeleting}
                 onClick={() =>
                   downloadOfferPdf(offer)
                 }
-                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white disabled:opacity-50"
               >
                 <Download size={18} />
                 Preuzmi PDF
+              </button>
+
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() =>
+                  void handleDeleteOffer()
+                }
+                className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-5 font-black text-red-300 disabled:opacity-50"
+              >
+                <Trash2 size={18} />
+                {isDeleting
+                  ? 'Brisanje...'
+                  : 'Obriši ponudu'}
               </button>
             </div>
           </div>
@@ -566,7 +646,7 @@ export function OfferDetailsPage() {
                 <button
                   key={status}
                   type="button"
-                  disabled={isSaving}
+                  disabled={isSaving || isDeleting}
                   onClick={() =>
                     void handleStatusChange(
                       status,
@@ -879,24 +959,47 @@ export function OfferDetailsPage() {
       </section>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-800 bg-slate-950/95 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:hidden">
-        <button
-          type="button"
-          onClick={() =>
-            navigate(
-              `/offers/${offer.id}/edit`,
-            )
-          }
-          className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white"
-        >
-          <Pencil size={18} />
-          Uredi ponudu
-        </button>
+        <div className="mx-auto flex max-w-xl gap-2">
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={() =>
+              navigate(
+                `/offers/${offer.id}/edit`,
+              )
+            }
+            className="flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white disabled:opacity-50"
+          >
+            <Pencil size={18} />
+            Uredi ponudu
+          </button>
+
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={() =>
+              void handleDeleteOffer()
+            }
+            className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-red-400/20 bg-red-500/10 text-red-300 disabled:opacity-50"
+            aria-label="Obriši ponudu"
+            title="Obriši ponudu"
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </div>
 
       {isSaving && (
         <FersysLoader
           fullScreen
           text="Spremanje statusa..."
+        />
+      )}
+
+      {isDeleting && (
+        <FersysLoader
+          fullScreen
+          text="Brisanje ponude..."
         />
       )}
     </>
