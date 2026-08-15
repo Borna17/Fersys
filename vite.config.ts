@@ -42,6 +42,7 @@ export default defineConfig({
         background_color: '#020617',
 
         display: 'standalone',
+
         display_override: [
           'window-controls-overlay',
           'standalone',
@@ -125,15 +126,12 @@ export default defineConfig({
         clientsClaim: true,
         skipWaiting: true,
 
-        /*
-         * Workbox i dalje generira postojeći service worker,
-         * a ovaj dodatni script dodaje samo push/click handlere.
-         */
         importScripts: [
           '/firebase-messaging-sw.js',
         ],
 
-        navigateFallback: '/index.html',
+        navigateFallback:
+          '/index.html',
 
         globPatterns: [
           '**/*.{js,css,html,ico,png,svg,webp,woff,woff2}',
@@ -141,66 +139,100 @@ export default defineConfig({
 
         runtimeCaching: [
           {
-            urlPattern: ({ request }) =>
-              request.mode === 'navigate',
+            urlPattern: ({
+              request,
+            }) =>
+              request.mode ===
+              'navigate',
 
-            handler: 'NetworkFirst',
+            handler:
+              'NetworkFirst',
 
             options: {
-              cacheName: 'fersys-pages',
+              cacheName:
+                'fersys-pages',
 
-              networkTimeoutSeconds: 5,
+              networkTimeoutSeconds:
+                5,
 
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds:
-                  60 * 60 * 24 * 7,
+                  60 *
+                  60 *
+                  24 *
+                  7,
               },
 
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [
+                  0,
+                  200,
+                ],
               },
             },
           },
 
           {
-            urlPattern: ({ request }) =>
-              request.destination === 'image',
+            urlPattern: ({
+              request,
+            }) =>
+              request.destination ===
+              'image',
 
-            handler: 'CacheFirst',
+            handler:
+              'CacheFirst',
 
             options: {
-              cacheName: 'fersys-images',
+              cacheName:
+                'fersys-images',
 
               expiration: {
                 maxEntries: 100,
                 maxAgeSeconds:
-                  60 * 60 * 24 * 30,
+                  60 *
+                  60 *
+                  24 *
+                  30,
               },
 
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [
+                  0,
+                  200,
+                ],
               },
             },
           },
 
           {
-            urlPattern: ({ request }) =>
-              request.destination === 'font',
+            urlPattern: ({
+              request,
+            }) =>
+              request.destination ===
+              'font',
 
-            handler: 'CacheFirst',
+            handler:
+              'CacheFirst',
 
             options: {
-              cacheName: 'fersys-fonts',
+              cacheName:
+                'fersys-fonts',
 
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds:
-                  60 * 60 * 24 * 365,
+                  60 *
+                  60 *
+                  24 *
+                  365,
               },
 
               cacheableResponse: {
-                statuses: [0, 200],
+                statuses: [
+                  0,
+                  200,
+                ],
               },
             },
           },
@@ -212,6 +244,114 @@ export default defineConfig({
       },
     }),
   ],
+
+  /*
+   * Vite 8 koristi Rolldown.
+   * Velike biblioteke držimo u zasebnim, stabilnim chunkovima.
+   *
+   * Prednosti:
+   * - manji početni application chunk
+   * - browser može dugoročno cacheirati vendor datoteke
+   * - PDF/XLSX/Firebase ne moraju biti dio osnovnog UI bundlea
+   * - promjena jedne FERSYS stranice ne invalidira sve biblioteke
+   */
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'react-core',
+              test:
+                /node_modules[\\/](react|react-dom|react-router|react-router-dom)[\\/]/,
+              priority: 100,
+            },
+
+            {
+              name: 'supabase',
+              test:
+                /node_modules[\\/](@supabase)[\\/]/,
+              priority: 90,
+            },
+
+            {
+              name: 'firebase',
+              test:
+                /node_modules[\\/](firebase|@firebase)[\\/]/,
+              priority: 90,
+            },
+
+            {
+              name: 'jspdf',
+              test:
+                /node_modules[\\/]jspdf[\\/]/,
+              priority: 85,
+            },
+
+            {
+              name: 'html2canvas',
+              test:
+                /node_modules[\\/]html2canvas[\\/]/,
+              priority: 85,
+            },
+
+            {
+              name: 'pdf-support',
+              test:
+                /node_modules[\\/](canvg|dompurify|fflate)[\\/]/,
+              priority: 80,
+              maxSize:
+                220 * 1024,
+            },
+
+            {
+              name: 'excel-tools',
+              test:
+                /node_modules[\\/]xlsx[\\/]/,
+              priority: 80,
+            },
+
+            {
+              name: 'icons',
+              test:
+                /node_modules[\\/]lucide-react[\\/]/,
+              priority: 70,
+            },
+
+            {
+              name: 'qr-tools',
+              test:
+                /node_modules[\\/]qrcode[\\/]/,
+              priority: 70,
+            },
+
+            {
+              name: 'vendor',
+              test:
+                /node_modules[\\/]/,
+
+              /*
+               * Nemoj spajati svaki dependency u jedan ogroman vendor.js.
+               * Rolldown ga dijeli prema entryjima koji ga stvarno koriste.
+               */
+              entriesAware: true,
+              entriesAwareMergeThreshold:
+                20 * 1024,
+
+              /*
+               * Velike preostale vendor grupe razdijeli približno
+               * do 250 kB gdje Rolldown to može napraviti sigurno.
+               */
+              maxSize:
+                220 * 1024,
+
+              priority: 10,
+            },
+          ],
+        },
+      },
+    },
+  },
 
   server: {
     host: '0.0.0.0',
