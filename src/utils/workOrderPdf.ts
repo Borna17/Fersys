@@ -640,37 +640,84 @@ function watermarkHtml(
 
 function paginate(
   order: WorkOrder,
-  _appearance: DocumentAppearance,
+  appearance: DocumentAppearance,
 ): PdfPage[] {
   const pages: PdfPage[] = []
 
-  const canFitTwoPhotosOnFirstPage =
+  /*
+   * Radni nalog zadržava sav glavni sadržaj na prvoj stranici:
+   * investitor, podaci naloga, opis radova i materijal.
+   *
+   * Fotografije se na prvoj stranici prikazuju samo kada za njih
+   * ima dovoljno sigurnog prostora. Ako nema, sve fotografije
+   * prelaze na sljedeću stranicu bez promjene veličine.
+   */
+  const compact =
+    appearance.density === 'compact'
+
+  const textIsShort =
+    order.description.length <=
+      (
+        compact
+          ? 650
+          : 500
+      )
+
+  const materialIsShort =
+    order.materials.length <=
+      (
+        compact
+          ? 4
+          : 3
+      )
+
+  const canFitPhotosOnFirstPage =
     order.images.length > 0 &&
-    order.materials.length <= 2 &&
-    order.description.length <= 420
+    textIsShort &&
+    materialIsShort
+
+  const firstPhotoCount =
+    canFitPhotosOnFirstPage
+      ? Math.min(
+          2,
+          order.images.length,
+        )
+      : 0
 
   const firstPhotos =
-    canFitTwoPhotosOnFirstPage
-      ? order.images.slice(0, 2)
-      : []
+    order.images.slice(
+      0,
+      firstPhotoCount,
+    )
+
+  let photoIndex =
+    firstPhotos.length
 
   pages.push({
     materials: order.materials,
     photos: firstPhotos,
     first: true,
     last: false,
-    showTotals: true,
+    showTotals: false,
   })
 
-  let photoIndex = firstPhotos.length
+  /*
+   * Svaka nastavna stranica dobiva najviše 2 fotografije.
+   * Jedna fotografija se NE rasteže preko cijele stranice:
+   * CSS zadržava isti dvostupčani raspored i istu fiksnu visinu.
+   */
+  while (
+    photoIndex <
+    order.images.length
+  ) {
+    const photos =
+      order.images.slice(
+        photoIndex,
+        photoIndex + 2,
+      )
 
-  while (photoIndex < order.images.length) {
-    const photos = order.images.slice(
-      photoIndex,
-      photoIndex + 2,
-    )
-
-    photoIndex += photos.length
+    photoIndex +=
+      photos.length
 
     pages.push({
       materials: [],
@@ -681,9 +728,28 @@ function paginate(
     })
   }
 
-  pages.forEach((page, index) => {
-    page.last = index === pages.length - 1
-  })
+  /*
+   * Ukupno, potpis izvršitelja, pečat i potpis investitora
+   * uvijek idu na zadnju stranicu.
+   *
+   * Ako nema nastavne stranice, ostaju na prvoj.
+   * Ako fotografije prijeđu na drugu/treću stranicu,
+   * završni blok automatski prelazi s njima na zadnju.
+   */
+  const lastPage =
+    pages[
+      pages.length - 1
+    ]
+
+  lastPage.showTotals = true
+
+  pages.forEach(
+    (page, index) => {
+      page.last =
+        index ===
+        pages.length - 1
+    },
+  )
 
   return pages
 }
@@ -961,7 +1027,7 @@ function css(
 
     .section-line {
       border-bottom: 1px solid ${primary};
-      padding-bottom: 5px;
+      padding-bottom: 3px;
       color: ${primary};
     }
 
@@ -1110,7 +1176,7 @@ function css(
       gap: ${compact ? 8 : 10}px;
     }
 
-    .photos-1 { grid-template-columns: 1fr; }
+    .photos-1,
     .photos-2 { grid-template-columns: repeat(2,1fr); }
 
     .photos-3,
@@ -1130,7 +1196,7 @@ function css(
     .photo-card img {
       display: block;
       width: 100%;
-      height: ${compact ? 205 : 220}px;
+      height: ${compact ? 145 : 158}px;
       object-fit: contain;
       background: ${alpha(border, '18')};
     }
@@ -1143,7 +1209,7 @@ function css(
     }
 
     .signature-section {
-      margin-top: ${compact ? 12 : 16}px;
+      margin-top: ${compact ? 8 : 10}px;
       break-inside: avoid;
     }
 
@@ -1165,7 +1231,7 @@ function css(
 
     .signature-space {
       display: flex;
-      height: ${compact ? 41 : 48}px;
+      height: ${compact ? 46 : 52}px;
       align-items: flex-end;
       justify-content: center;
     }
@@ -1275,7 +1341,7 @@ function pageHtml(
         ${page.showTotals ? totalsHtml(order) : ''}
 
         ${
-          page.first
+          page.last
             ? signatureHtml(order, branding, appearance)
             : ''
         }
