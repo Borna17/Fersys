@@ -557,11 +557,17 @@ function signatureHtml(
       )}
 
       <div class="signature-grid">
-        <div class="signature-column">
+        <div class="signature-column executor-signature-wrap">
           <div class="signature-label">
             Izvršitelj / odgovorna osoba
           </div>
-          <div class="signature-space"></div>
+
+          <div class="signature-space">
+            <div class="executor-stamp">
+              ${stamp}
+            </div>
+          </div>
+
           <div class="signature-line">
             ${esc(
               order.assignedWorkers[0] ||
@@ -571,15 +577,15 @@ function signatureHtml(
           </div>
         </div>
 
-        <div class="stamp-column">${stamp}</div>
-
         <div class="signature-column">
           <div class="signature-label">
             Investitor / naručitelj
           </div>
+
           <div class="signature-space">
             ${investorSignature}
           </div>
+
           <div class="signature-line">
             ${esc(
               order.investorName ||
@@ -634,59 +640,36 @@ function watermarkHtml(
 
 function paginate(
   order: WorkOrder,
-  appearance: DocumentAppearance,
+  _appearance: DocumentAppearance,
 ): PdfPage[] {
-  const compact = appearance.density === 'compact'
-  const firstMaterialLimit = compact ? 8 : 6
-  const nextMaterialLimit = compact ? 13 : 10
-
   const pages: PdfPage[] = []
 
-  const firstMaterials = order.materials.slice(
-    0,
-    firstMaterialLimit,
-  )
-
-  let materialIndex = firstMaterials.length
-
-  const showPhotosOnFirst =
+  const canFitTwoPhotosOnFirstPage =
     order.images.length > 0 &&
-    firstMaterials.length <= 2 &&
-    order.description.length < 500
+    order.materials.length <= 2 &&
+    order.description.length <= 420
 
-  const firstPhotos = showPhotosOnFirst
-    ? order.images.slice(0, 2)
-    : []
-
-  let photoIndex = firstPhotos.length
+  const firstPhotos =
+    canFitTwoPhotosOnFirstPage
+      ? order.images.slice(0, 2)
+      : []
 
   pages.push({
-    materials: firstMaterials,
+    materials: order.materials,
     photos: firstPhotos,
     first: true,
     last: false,
-    showTotals: false,
+    showTotals: true,
   })
 
-  while (materialIndex < order.materials.length) {
-    const materials = order.materials.slice(
-      materialIndex,
-      materialIndex + nextMaterialLimit,
-    )
-
-    materialIndex += materials.length
-
-    pages.push({
-      materials,
-      photos: [],
-      first: false,
-      last: false,
-      showTotals: false,
-    })
-  }
+  let photoIndex = firstPhotos.length
 
   while (photoIndex < order.images.length) {
-    const photos = order.images.slice(photoIndex, photoIndex + 4)
+    const photos = order.images.slice(
+      photoIndex,
+      photoIndex + 2,
+    )
+
     photoIndex += photos.length
 
     pages.push({
@@ -696,25 +679,6 @@ function paginate(
       last: false,
       showTotals: false,
     })
-  }
-
-  const last = pages[pages.length - 1]
-
-  const lastTooBusy =
-    last.photos.length >= 4 ||
-    last.materials.length >= (compact ? 11 : 8)
-
-  if (lastTooBusy) {
-    pages.push({
-      materials: [],
-      photos: [],
-      first: false,
-      last: true,
-      showTotals: true,
-    })
-  } else {
-    last.showTotals = true
-    last.last = true
   }
 
   pages.forEach((page, index) => {
@@ -874,7 +838,7 @@ function css(
     .company-details {
       margin-top: 8px;
       color: ${alpha(text, '98')};
-      font-size: ${compact ? 7.2 : 7.8}px;
+      font-size: ${compact ? 8.6 : 9.4}px;
       line-height: 1.45;
     }
 
@@ -944,7 +908,7 @@ function css(
     .info-title {
       margin-bottom: 7px;
       color: ${primary};
-      font-size: ${compact ? 7.5 : 8.2}px;
+      font-size: ${compact ? 9.5 : 10.8}px;
       font-weight: 950;
       letter-spacing: .07em;
       text-transform: uppercase;
@@ -952,7 +916,7 @@ function css(
 
     .investor-name {
       color: ${text};
-      font-size: ${compact ? 10 : 11}px;
+      font-size: ${compact ? 11.5 : 13}px;
       font-weight: 950;
     }
 
@@ -969,7 +933,7 @@ function css(
       gap: 14px;
       padding: 3px 0;
       border-bottom: 1px solid ${alpha(border, '80')};
-      font-size: ${compact ? 7.1 : 7.6}px;
+      font-size: ${compact ? 8.4 : 9.1}px;
     }
 
     .meta-row:last-child { border-bottom: 0; }
@@ -982,7 +946,7 @@ function css(
         0
         ${compact ? 5 : 7}px;
       color: ${text};
-      font-size: ${compact ? 8.1 : 8.8}px;
+      font-size: ${compact ? 10 : 11}px;
       font-weight: 950;
       letter-spacing: .035em;
       text-transform: uppercase;
@@ -1011,7 +975,7 @@ function css(
 
     .work-title {
       color: ${text};
-      font-size: ${compact ? 8.8 : 9.5}px;
+      font-size: ${compact ? 10.5 : 11.5}px;
       line-height: 1.3;
       font-weight: 950;
     }
@@ -1019,8 +983,8 @@ function css(
     .work-description {
       margin-top: 3px;
       color: ${alpha(text, 'B0')};
-      font-size: ${compact ? 7.2 : 7.8}px;
-      line-height: ${compact ? 1.38 : 1.45};
+      font-size: ${compact ? 8.8 : 9.6}px;
+      line-height: ${compact ? 1.42 : 1.48};
       overflow-wrap: anywhere;
     }
 
@@ -1166,7 +1130,7 @@ function css(
     .photo-card img {
       display: block;
       width: 100%;
-      height: ${compact ? 142 : 154}px;
+      height: ${compact ? 205 : 220}px;
       object-fit: contain;
       background: ${alpha(border, '18')};
     }
@@ -1185,9 +1149,13 @@ function css(
 
     .signature-grid {
       display: grid;
-      grid-template-columns: 1fr 105px 1fr;
-      gap: 22px;
+      grid-template-columns: 1fr 1fr;
+      gap: 34px;
       align-items: end;
+    }
+
+    .executor-signature-wrap {
+      position: relative;
     }
 
     .signature-label {
@@ -1217,17 +1185,23 @@ function css(
       font-weight: 750;
     }
 
-    .stamp-column {
+    .executor-stamp {
+      position: absolute;
+      left: 50%;
+      bottom: 5px;
       display: flex;
-      min-height: ${compact ? 62 : 72}px;
+      width: 120px;
+      height: ${compact ? 54 : 62}px;
       align-items: center;
       justify-content: center;
+      transform: translateX(-50%);
+      pointer-events: none;
     }
 
     .stamp-image {
       display: block;
-      max-width: ${compact ? 92 : 103}px;
-      max-height: ${compact ? 62 : 72}px;
+      max-width: 118px;
+      max-height: ${compact ? 54 : 62}px;
       object-fit: contain;
     }
 
@@ -1301,7 +1275,7 @@ function pageHtml(
         ${page.showTotals ? totalsHtml(order) : ''}
 
         ${
-          page.last
+          page.first
             ? signatureHtml(order, branding, appearance)
             : ''
         }
@@ -1425,20 +1399,20 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 2,
+        scale: 3,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
         logging: false,
       })
 
-      const image = canvas.toDataURL('image/jpeg', 0.96)
+      const image = canvas.toDataURL('image/png')
 
       if (index > 0) doc.addPage()
 
       doc.addImage(
         image,
-        'JPEG',
+        'PNG',
         0,
         0,
         210,
