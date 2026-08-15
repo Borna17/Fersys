@@ -155,13 +155,15 @@ export const plans: Record<
     yearlyPrice: 150,
 
     description:
-      'Za obrtnike i samostalne korisnike koji trebaju osnovne poslovne alate.',
+      'Za obrtnike i samostalne korisnike koji trebaju osnovne poslovne alate uz jasne mjesečne limite.',
+
+    recommended: false,
 
     limits: {
       users: 1,
       customers: 10,
-      work_orders_monthly: 50,
-      offers_monthly: 50,
+      work_orders_monthly: 30,
+      offers_monthly: 30,
     },
 
     features: starterFeatures,
@@ -170,12 +172,12 @@ export const plans: Record<
 
     highlights: [
       '1 korisnik',
-      '10 investitora',
-      '50 radnih naloga mjesečno',
-      '50 ponuda mjesečno',
+      'Do 10 investitora',
+      '30 radnih naloga mjesečno',
+      '30 ponuda mjesečno',
       'Kalendar',
       'Osnovni PDF dokumenti',
-      'Bez skladišta, AI-a i vozila',
+      'Idealno za samostalni rad',
     ],
   },
 
@@ -183,20 +185,20 @@ export const plans: Record<
     id: 'business',
     name: 'Business',
 
-    price: 25,
-    monthlyPrice: 25,
-    yearlyPrice: 250,
+    price: 30,
+    monthlyPrice: 30,
+    yearlyPrice: 300,
 
     description:
-      'Za male i srednje tvrtke koje žele povezati tim, dokumente, skladište i vozila.',
+      'Za male i srednje tvrtke kojima trebaju tim, računi, skladište, AI i veći mjesečni kapacitet.',
 
-    recommended: true,
+    recommended: false,
 
     limits: {
       users: 5,
-      customers: 250,
-      work_orders_monthly: 500,
-      offers_monthly: 250,
+      customers: 30,
+      work_orders_monthly: 60,
+      offers_monthly: 60,
     },
 
     features: businessFeatures,
@@ -205,12 +207,11 @@ export const plans: Record<
 
     highlights: [
       'Do 5 korisnika',
-      '250 investitora',
-      '500 radnih naloga mjesečno',
-      '250 ponuda mjesečno',
+      'Do 30 investitora',
+      '60 radnih naloga mjesečno',
+      '60 ponuda mjesečno',
       'Računi i ulazni računi',
-      'Skladište',
-      'Vozni park',
+      'Skladište i vozni park',
       'Zaposlenici i prava pristupa',
       'AI pomoćnik',
       'Napredni PDF dokumenti',
@@ -221,12 +222,14 @@ export const plans: Record<
     id: 'pro',
     name: 'FERSYS Pro',
 
-    price: 45,
-    monthlyPrice: 45,
-    yearlyPrice: 450,
+    price: 50,
+    monthlyPrice: 50,
+    yearlyPrice: 500,
 
     description:
-      'Za tvrtke koje žele sve FERSYS mogućnosti bez ograničenja.',
+      'Za tvrtke koje žele puni FERSYS bez mjesečnih ograničenja i bez razmišljanja o limitima.',
+
+    recommended: true,
 
     limits: {
       users: -1,
@@ -242,7 +245,8 @@ export const plans: Record<
     highlights: [
       'Neograničeno korisnika',
       'Neograničeno investitora',
-      'Neograničeni nalozi i ponude',
+      'Neograničeni radni nalozi',
+      'Neograničene ponude',
       'Skladište i vozni park',
       'Sve FERSYS funkcije',
       'Napredna analiza i AI',
@@ -381,4 +385,26 @@ export function planIncludesVehicles(
 ) {
   return plans[planId]
     .vehicles
+}
+
+export function getNextPlan(
+  planId: PlanId,
+): PlanId | null {
+  if (planId === 'starter') {
+    return 'business'
+  }
+
+  if (planId === 'business') {
+    return 'pro'
+  }
+
+  return null
+}
+
+export function getRecommendedUpgradePlan(
+  planId: PlanId,
+): PlanId | null {
+  return planId === 'pro'
+    ? null
+    : 'pro'
 }

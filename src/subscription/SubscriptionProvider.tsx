@@ -1,4 +1,3 @@
-
 import type {
   ReactNode,
 } from 'react'
@@ -12,13 +11,16 @@ import {
 } from 'react'
 
 import { useAuth } from '../auth/AuthProvider'
+import LimitReachedModal from '../components/subscription/LimitReachedModal'
 import {
   getSubscriptionContext,
+  SUBSCRIPTION_LIMIT_EVENT,
   type SubscriptionContext,
+  type SubscriptionLimitEventDetail,
 } from './subscription.service'
 import {
   featureRequiredPlan,
-  plans,
+  getNextPlan,
   resourceLabels,
   type PlanId,
   type SubscriptionFeature,
@@ -117,6 +119,14 @@ export function SubscriptionProvider({
   const [error, setError] =
     useState('')
 
+  const [
+    limitModal,
+    setLimitModal,
+  ] =
+    useState<SubscriptionLimitEventDetail | null>(
+      null,
+    )
+
   const refreshSubscription =
     useCallback(async () => {
       if (
@@ -161,6 +171,44 @@ export function SubscriptionProvider({
     isAccessLoading,
     refreshSubscription,
   ])
+
+  /*
+   * Globalni limit modal.
+   * Bilo koja funkcija koja koristi assertCanCreate()
+   * automatski otvara ovaj prozor kada tvrtka dosegne limit.
+   */
+  useEffect(() => {
+    function handleLimitReached(
+      event: Event,
+    ) {
+      const customEvent =
+        event as CustomEvent<
+          SubscriptionLimitEventDetail
+        >
+
+      if (!customEvent.detail) {
+        return
+      }
+
+      setLimitModal(
+        customEvent.detail,
+      )
+
+      void refreshSubscription()
+    }
+
+    window.addEventListener(
+      SUBSCRIPTION_LIMIT_EVENT,
+      handleLimitReached,
+    )
+
+    return () => {
+      window.removeEventListener(
+        SUBSCRIPTION_LIMIT_EVENT,
+        handleLimitReached,
+      )
+    }
+  }, [refreshSubscription])
 
   const isTrialing =
     subscription?.status ===
@@ -256,7 +304,7 @@ export function SubscriptionProvider({
             current,
             limit,
             reason:
-              'Zaposlenici su dostupni u Business paketu.',
+              'Zaposlenici su dostupni od Business paketa.',
             requiredPlan:
               'business',
           }
@@ -266,21 +314,10 @@ export function SubscriptionProvider({
           limit !== -1 &&
           current >= limit
         ) {
-          const currentPlan =
-            plans[
-              subscription.planId
-            ]
-
-          const nextPlan:
-            | PlanId
-            | null =
-            currentPlan.id ===
-            'starter'
-              ? 'business'
-              : currentPlan.id ===
-                  'business'
-                ? 'pro'
-                : null
+          const nextPlan =
+            getNextPlan(
+              subscription.planId,
+            )
 
           return {
             allowed: false,
@@ -341,6 +378,34 @@ export function SubscriptionProvider({
   return (
     <Context.Provider value={value}>
       {children}
+
+      <LimitReachedModal
+        isOpen={Boolean(limitModal)}
+        onClose={() =>
+          setLimitModal(null)
+        }
+        title={
+          limitModal?.title ??
+          'Dosegnut je limit paketa'
+        }
+        description={
+          limitModal?.description ??
+          ''
+        }
+        requiredPlan={
+          limitModal?.requiredPlan ??
+          'business'
+        }
+        recommendedPlan={
+          limitModal?.recommendedPlan ??
+          'pro'
+        }
+        currentPlan={
+          limitModal?.currentPlan ??
+          subscription?.planId ??
+          'starter'
+        }
+      />
     </Context.Provider>
   )
 }

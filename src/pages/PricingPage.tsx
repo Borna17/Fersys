@@ -64,13 +64,38 @@ function formatMoney(
     {
       style: 'currency',
       currency: 'EUR',
-      minimumFractionDigits:
-        Number.isInteger(value)
-          ? 0
-          : 2,
+      minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     },
   ).format(value)
+}
+
+function planBadge(
+  planId: string,
+) {
+  if (planId === 'pro') {
+    return 'NAJBOLJI IZBOR'
+  }
+
+  if (planId === 'business') {
+    return 'ZA MALE TIMOVE'
+  }
+
+  return 'ZA SAMOSTALNI RAD'
+}
+
+function planSubline(
+  planId: string,
+) {
+  if (planId === 'pro') {
+    return 'Bez limita. Sve FERSYS funkcije.'
+  }
+
+  if (planId === 'business') {
+    return 'Više kapaciteta za tim i poslovanje.'
+  }
+
+  return 'Sve osnovno za digitalni početak.'
 }
 
 export function PricingPage() {
@@ -92,78 +117,79 @@ export function PricingPage() {
     <section className="mx-auto w-full max-w-[1500px] space-y-5 pb-10 sm:space-y-8">
       <header className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 text-center sm:p-8">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
+
         <div className="relative">
-        <div className="mx-auto inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-300">
-          FERSYS paketi
-        </div>
-
-        <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:mt-5 sm:text-5xl">
-          Odaberi paket koji prati rast tvoje tvrtke
-        </h1>
-
-        <p className="mx-auto mt-4 max-w-3xl text-sm leading-6 text-slate-400 sm:mt-5 sm:text-base sm:leading-7">
-          Starter je za samostalni rad, Business povezuje tim, račune, skladište, AI i vozila, a FERSYS Pro uklanja ograničenja i otključava sve napredne mogućnosti.
-        </p>
-
-        <div className="mx-auto mt-6 grid w-full max-w-sm grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-1.5 sm:mt-7 sm:inline-flex sm:w-auto sm:max-w-none">
-          <button
-            type="button"
-            onClick={() =>
-              setBillingPeriod(
-                'monthly',
-              )
-            }
-            className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
-              billingPeriod ===
-              'monthly'
-                ? 'bg-white text-slate-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Mjesečno
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              setBillingPeriod(
-                'yearly',
-              )
-            }
-            className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
-              billingPeriod ===
-              'yearly'
-                ? 'bg-emerald-500 text-slate-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            Godišnje
-            <span className="ml-2 rounded-full bg-slate-950/15 px-2 py-0.5 text-[10px]">
-              2 mj. gratis
-            </span>
-          </button>
-        </div>
-
-        {isTrialing && (
-          <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-violet-500/25 bg-violet-500/10 p-4 text-left">
-            <p className="font-black text-violet-200">
-              Trenutno koristiš besplatni Business trial.
-            </p>
-
-            <p className="mt-1 text-sm leading-6 text-violet-200/70">
-              Trial traje {TRIAL_DAYS} dana i uključuje Business funkcije, uključujući skladište, AI, račune, zaposlenike i vozni park.
-              {trialDaysRemaining > 0
-                ? ` Preostalo ti je još ${trialDaysRemaining} dana.`
-                : ''}
-            </p>
+          <div className="mx-auto inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-2 text-xs font-black uppercase tracking-[0.18em] text-blue-300">
+            FERSYS paketi
           </div>
-        )}
 
-        {!isTrialing && (
-          <p className="mt-5 text-sm text-slate-500">
-            Novi korisnici dobivaju {TRIAL_DAYS} dana besplatnog {plans[TRIAL_PLAN_ID].name} paketa.
+          <h1 className="mt-4 text-3xl font-black tracking-tight text-white sm:mt-5 sm:text-5xl">
+            Odaberi paket koji prati rast tvoje tvrtke
+          </h1>
+
+          <p className="mx-auto mt-4 max-w-3xl text-sm leading-6 text-slate-400 sm:mt-5 sm:text-base sm:leading-7">
+            Starter pokriva osnovni rad, Business je za mali tim, a FERSYS Pro je najbolji izbor za tvrtke koje žele raditi bez mjesečnih ograničenja.
           </p>
-        )}
+
+          <div className="mx-auto mt-6 grid w-full max-w-sm grid-cols-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-1.5 sm:mt-7 sm:inline-flex sm:w-auto sm:max-w-none">
+            <button
+              type="button"
+              onClick={() =>
+                setBillingPeriod(
+                  'monthly',
+                )
+              }
+              className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
+                billingPeriod ===
+                'monthly'
+                  ? 'bg-white text-slate-950'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Mjesečno
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setBillingPeriod(
+                  'yearly',
+                )
+              }
+              className={`min-h-11 rounded-xl px-3 text-xs font-black transition sm:px-5 sm:text-sm ${
+                billingPeriod ===
+                'yearly'
+                  ? 'bg-emerald-500 text-slate-950'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              Godišnje
+              <span className="ml-2 rounded-full bg-slate-950/15 px-2 py-0.5 text-[10px]">
+                povoljnije
+              </span>
+            </button>
+          </div>
+
+          {isTrialing && (
+            <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-violet-500/25 bg-violet-500/10 p-4 text-left">
+              <p className="font-black text-violet-200">
+                Trenutno koristiš besplatni Business trial.
+              </p>
+
+              <p className="mt-1 text-sm leading-6 text-violet-200/70">
+                Trial traje {TRIAL_DAYS} dana i uključuje Business funkcije.
+                {trialDaysRemaining > 0
+                  ? ` Preostalo ti je još ${trialDaysRemaining} dana.`
+                  : ''}
+              </p>
+            </div>
+          )}
+
+          {!isTrialing && (
+            <p className="mt-5 text-sm text-slate-500">
+              Novi korisnici dobivaju {TRIAL_DAYS} dana besplatnog {plans[TRIAL_PLAN_ID].name} paketa.
+            </p>
+          )}
         </div>
       </header>
 
@@ -196,32 +222,47 @@ export function PricingPage() {
               <article
                 key={plan.id}
                 className={`relative overflow-hidden rounded-3xl border p-5 shadow-2xl sm:p-6 ${
-                  plan.recommended
-                    ? 'border-blue-500/50 bg-gradient-to-b from-blue-600/15 to-slate-900 lg:-translate-y-3'
-                    : plan.id ===
-                        'pro'
-                      ? 'border-violet-500/35 bg-gradient-to-b from-violet-600/15 to-slate-900'
+                  plan.id === 'pro'
+                    ? 'border-violet-400/60 bg-gradient-to-b from-violet-600/20 via-slate-900 to-slate-900 lg:-translate-y-4 lg:scale-[1.02]'
+                    : plan.id === 'business'
+                      ? 'border-blue-500/35 bg-gradient-to-b from-blue-600/10 to-slate-900'
                       : 'border-slate-800 bg-slate-900'
                 }`}
               >
-                {plan.recommended && (
-                  <div className="absolute right-5 top-5 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-white">
-                    Najpopularniji
-                  </div>
-                )}
+                <div
+                  className={`absolute right-5 top-5 rounded-full px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] ${
+                    plan.id === 'pro'
+                      ? 'bg-violet-500 text-white'
+                      : plan.id === 'business'
+                        ? 'bg-blue-500/15 text-blue-300'
+                        : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {planBadge(planId)}
+                </div>
 
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/5 text-blue-300">
-                  <Icon
-                    size={24}
-                  />
+                <div className={`grid h-12 w-12 place-items-center rounded-2xl ${
+                  plan.id === 'pro'
+                    ? 'bg-violet-500/15 text-violet-300'
+                    : 'bg-white/5 text-blue-300'
+                }`}>
+                  <Icon size={24} />
                 </div>
 
                 <h2 className="mt-5 text-2xl font-black text-white">
                   {plan.name}
                 </h2>
 
-                <p className="mt-2 min-h-16 text-sm leading-6 text-slate-400">
+                <p className="mt-2 min-h-14 text-sm font-semibold leading-6 text-slate-300">
                   {plan.description}
+                </p>
+
+                <p className={`mt-2 text-xs ${
+                  plan.id === 'pro'
+                    ? 'font-black text-violet-300'
+                    : 'text-slate-500'
+                }`}>
+                  {planSubline(planId)}
                 </p>
 
                 <div className="mt-6">
@@ -262,7 +303,7 @@ export function PricingPage() {
                         plan.monthlyPrice *
                           12,
                       )}{' '}
-                      ako se plaća 12 mjeseci mjesečno
+                      kroz 12 mjesečnih uplata
                     </p>
                   )}
                 </div>
@@ -275,16 +316,20 @@ export function PricingPage() {
                   className={`mt-6 min-h-12 w-full rounded-2xl px-5 text-sm font-black transition active:scale-[0.99] ${
                     isCurrent
                       ? 'cursor-default border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                      : plan.recommended
-                        ? 'bg-blue-600 text-white hover:bg-blue-500'
-                        : 'border border-slate-700 bg-slate-800 text-white hover:bg-slate-700'
+                      : plan.id === 'pro'
+                        ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg shadow-violet-950/30 hover:brightness-110'
+                        : plan.id === 'business'
+                          ? 'bg-blue-600 text-white hover:bg-blue-500'
+                          : 'border border-slate-700 bg-slate-800 text-white hover:bg-slate-700'
                   }`}
                 >
                   {isCurrent
                     ? 'Trenutni paket'
-                    : yearly
-                      ? 'Odaberi godišnje'
-                      : 'Odaberi mjesečno'}
+                    : plan.id === 'pro'
+                      ? 'Odaberi FERSYS Pro'
+                      : yearly
+                        ? 'Odaberi godišnje'
+                        : 'Odaberi mjesečno'}
                 </button>
 
                 <div className="mt-7 space-y-3">
@@ -327,18 +372,9 @@ export function PricingPage() {
 
         <div className="space-y-3 p-4 sm:hidden">
           <MobileComparisonRow label="Korisnici" resource="users" />
-          <MobileComparisonRow label="Kupci" resource="customers" />
+          <MobileComparisonRow label="Investitori" resource="customers" />
           <MobileComparisonRow label="Radni nalozi mjesečno" resource="work_orders_monthly" />
           <MobileComparisonRow label="Ponude mjesečno" resource="offers_monthly" />
-          <MobileBooleanComparison
-            label="Vozni park"
-            values={Object.fromEntries(
-              planOrder.map((planId) => [
-                planId,
-                plans[planId].vehicles,
-              ]),
-            )}
-          />
           {comparedFeatures.map((feature) => (
             <MobileBooleanComparison
               key={feature}
@@ -369,7 +405,11 @@ export function PricingPage() {
                       key={
                         planId
                       }
-                      className="px-6 py-4 text-center text-sm font-black text-white"
+                      className={`px-6 py-4 text-center text-sm font-black ${
+                        planId === 'pro'
+                          ? 'text-violet-300'
+                          : 'text-white'
+                      }`}
                     >
                       {
                         plans[
@@ -389,7 +429,7 @@ export function PricingPage() {
               />
 
               <LimitRow
-                label="Kupci"
+                label="Investitori"
                 resource="customers"
               />
 
@@ -401,22 +441,6 @@ export function PricingPage() {
               <LimitRow
                 label="Ponude mjesečno"
                 resource="offers_monthly"
-              />
-
-              <BooleanRow
-                label="Vozni park"
-                values={Object.fromEntries(
-                  planOrder.map(
-                    (
-                      planId,
-                    ) => [
-                      planId,
-                      plans[
-                        planId
-                      ].vehicles,
-                    ],
-                  ),
-                )}
               />
 
               {comparedFeatures.map(
@@ -445,7 +469,11 @@ export function PricingPage() {
                           key={
                             planId
                           }
-                          className="px-6 py-4 text-center"
+                          className={`px-6 py-4 text-center ${
+                            planId === 'pro'
+                              ? 'bg-violet-500/[0.035]'
+                              : ''
+                          }`}
                         >
                           {plans[
                             planId
@@ -454,7 +482,11 @@ export function PricingPage() {
                           ] ? (
                             <Check
                               size={19}
-                              className="mx-auto text-emerald-400"
+                              className={`mx-auto ${
+                                planId === 'pro'
+                                  ? 'text-violet-300'
+                                  : 'text-emerald-400'
+                              }`}
                             />
                           ) : (
                             <span className="text-slate-700">
@@ -471,10 +503,6 @@ export function PricingPage() {
           </table>
         </div>
       </section>
-
-      <p className="text-center text-xs leading-5 text-slate-500">
-        Godišnje plaćanje naplaćuje se jednom godišnje. Prikazana mjesečna cijena kod godišnjeg plana služi za lakšu usporedbu. Naplatu ćemo spojiti na Stripe kada aktiviramo produkcijsko plaćanje.
-      </p>
     </section>
   )
 }
@@ -499,7 +527,11 @@ function MobileComparisonRow({
         {planOrder.map((planId) => (
           <div
             key={planId}
-            className="rounded-xl bg-slate-800/70 p-2 text-center"
+            className={`rounded-xl p-2 text-center ${
+              planId === 'pro'
+                ? 'border border-violet-500/20 bg-violet-500/10'
+                : 'bg-slate-800/70'
+            }`}
           >
             <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
               {plans[planId].name}
@@ -526,67 +558,39 @@ function MobileBooleanComparison({
       <p className="text-xs font-black text-slate-300">
         {label}
       </p>
+
       <div className="mt-3 grid grid-cols-3 gap-2">
         {planOrder.map((planId) => (
           <div
             key={planId}
-            className="rounded-xl bg-slate-800/70 p-2 text-center"
+            className={`rounded-xl p-2 text-center ${
+              planId === 'pro'
+                ? 'border border-violet-500/20 bg-violet-500/10'
+                : 'bg-slate-800/70'
+            }`}
           >
             <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
               {plans[planId].name}
             </p>
-            <div className="mt-1 flex justify-center">
-              {values[planId] ? (
-                <Check size={17} className="text-emerald-400" />
-              ) : (
-                <span className="text-slate-700">—</span>
-              )}
-            </div>
+
+            {values[planId] ? (
+              <Check
+                size={17}
+                className={`mx-auto mt-1 ${
+                  planId === 'pro'
+                    ? 'text-violet-300'
+                    : 'text-emerald-400'
+                }`}
+              />
+            ) : (
+              <span className="mt-1 block text-slate-700">
+                —
+              </span>
+            )}
           </div>
         ))}
       </div>
     </div>
-  )
-}
-
-function BooleanRow({
-  label,
-  values,
-}: {
-  label: string
-  values:
-    Record<string, boolean>
-}) {
-  return (
-    <tr className="border-b border-slate-800/70">
-      <td className="px-6 py-4 text-sm font-semibold text-slate-300">
-        {label}
-      </td>
-
-      {planOrder.map(
-        (
-          planId,
-        ) => (
-          <td
-            key={planId}
-            className="px-6 py-4 text-center"
-          >
-            {values[
-              planId
-            ] ? (
-              <Check
-                size={19}
-                className="mx-auto text-emerald-400"
-              />
-            ) : (
-              <span className="text-slate-700">
-                —
-              </span>
-            )}
-          </td>
-        ),
-      )}
-    </tr>
   )
 }
 
@@ -608,19 +612,20 @@ function LimitRow({
       </td>
 
       {planOrder.map(
-        (
-          planId,
-        ) => (
+        (planId) => (
           <td
             key={planId}
-            className="px-6 py-4 text-center text-sm font-bold text-white"
+            className={`px-6 py-4 text-center text-sm font-black ${
+              planId === 'pro'
+                ? 'bg-violet-500/[0.035] text-violet-200'
+                : 'text-white'
+            }`}
           >
             {formatPlanLimit(
-              plans[
-                planId
-              ].limits[
-                resource
-              ],
+              plans[planId]
+                .limits[
+                  resource
+                ],
             )}
           </td>
         ),
