@@ -7,11 +7,9 @@ import type {
   WorkOrderImage,
   WorkOrderMaterial,
 } from '../types/workOrder'
-
 import type {
   DocumentAppearance,
 } from '../types/documentAppearance'
-
 import {
   getDocumentAppearanceSettings,
 } from '../services/documentAppearance.service'
@@ -21,35 +19,39 @@ type PdfPage = {
   photos: WorkOrderImage[]
   first: boolean
   last: boolean
+  showTotals: boolean
 }
 
-function escapeHtml(value: unknown) {
-  return String(value ?? '')
+const esc = (value: unknown) =>
+  String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;')
-}
 
-function multilineHtml(value: string) {
-  return escapeHtml(value).replace(/\r?\n/g, '<br>')
-}
+const multi = (value: string) =>
+  esc(value).replace(/\r?\n/g, '<br>')
 
 function formatDate(value: string) {
   if (!value) return '—'
-
   const date = new Date(`${value}T00:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-
-  return new Intl.DateTimeFormat('hr-HR').format(date)
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat('hr-HR').format(date)
 }
 
-function formatMoney(value: number) {
+function money(value: number) {
   return new Intl.NumberFormat('hr-HR', {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: 2,
+  }).format(Number.isFinite(value) ? value : 0)
+}
+
+function number(value: number) {
+  return new Intl.NumberFormat('hr-HR', {
+    maximumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0)
 }
 
@@ -62,21 +64,14 @@ function durationFromTimes(
   const [ah, am] = arrivalTime.split(':').map(Number)
   const [dh, dm] = departureTime.split(':').map(Number)
 
-  if (
-    [ah, am, dh, dm].some(
-      (value) => !Number.isFinite(value),
-    )
-  ) {
+  if ([ah, am, dh, dm].some((v) => !Number.isFinite(v))) {
     return 0
   }
 
   const start = ah * 60 + am
   let end = dh * 60 + dm
 
-  if (end < start) {
-    end += 24 * 60
-  }
-
+  if (end < start) end += 24 * 60
   return Math.max(0, end - start)
 }
 
@@ -84,66 +79,42 @@ function durationLabel(order: WorkOrder) {
   const minutes =
     order.durationMinutes > 0
       ? order.durationMinutes
-      : durationFromTimes(
-          order.arrivalTime,
-          order.departureTime,
-        )
+      : durationFromTimes(order.arrivalTime, order.departureTime)
 
   if (!minutes) return '—'
 
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
 
-  if (hours && rest) {
-    return `${hours} h ${rest} min`
-  }
-
+  if (hours && rest) return `${hours} h ${rest} min`
   if (hours) return `${hours} h`
-
   return `${rest} min`
 }
 
-function materialTotal(item: WorkOrderMaterial) {
-  return (
-    Number(item.quantity || 0) *
-    Number(item.unitPrice || 0)
-  )
-}
+const materialTotal = (item: WorkOrderMaterial) =>
+  Number(item.quantity || 0) * Number(item.unitPrice || 0)
 
-function calculatedTotals(order: WorkOrder) {
-  const materialFromRows =
-    order.materials.reduce(
-      (sum, item) =>
-        sum + materialTotal(item),
-      0,
-    )
+function totals(order: WorkOrder) {
+  const materialRows = order.materials.reduce(
+    (sum, item) => sum + materialTotal(item),
+    0,
+  )
 
   const material =
-    materialFromRows > 0
-      ? materialFromRows
+    materialRows > 0
+      ? materialRows
       : Number(order.materialPrice || 0)
 
-  const labour =
-    Number(order.labourPrice || 0)
-
-  const base =
-    material + labour
-
-  const vat =
-    base *
-    (Number(order.vatRate || 0) / 100)
+  const labour = Number(order.labourPrice || 0)
+  const base = material + labour
+  const vat = base * (Number(order.vatRate || 0) / 100)
 
   const total =
     Number(order.totalPrice || 0) > 0
       ? Number(order.totalPrice)
       : base + vat
 
-  return {
-    material,
-    labour,
-    vat,
-    total,
-  }
+  return { material, labour, vat, total }
 }
 
 function safeFileName(value: string) {
@@ -153,126 +124,119 @@ function safeFileName(value: string) {
     .replace(/\s+/g, '-')
 }
 
-function alphaHex(
-  color: string,
-  alpha: string,
-) {
+function alpha(color: string, opacity: string) {
   return /^#[0-9A-Fa-f]{6}$/.test(color)
-    ? `${color}${alpha}`
+    ? `${color}${opacity}`
     : color
 }
 
-function companyLogoHtml(
+function legacyAppearance(
   branding: WorkOrderBranding,
-  appearance: DocumentAppearance,
+): DocumentAppearance {
+  return {
+    preset: branding.layout === 'minimal' ? 'minimal' : branding.layout,
+    primaryColor: branding.primaryColor,
+    secondaryColor: branding.secondaryColor,
+    accentColor: branding.accentColor,
+    textColor: branding.textColor,
+    borderColor: branding.borderColor,
+    backgroundColor: branding.backgroundColor,
+    headerAlignment: branding.headerAlignment,
+    density: 'comfortable',
+    infoStyle:
+      branding.customInfoStyle === 'cards' ? 'cards' : 'lines',
+    tableStyle:
+      branding.customMaterialStyle === 'list' ? 'minimal' : 'solid',
+    sectionStyle:
+      branding.layout === 'classic'
+        ? 'line'
+        : branding.layout === 'minimal'
+          ? 'plain'
+          : 'bar',
+    showLogo: branding.showLogo,
+    showStamp: branding.showStamp,
+    showSignature: true,
+    showFooter: Boolean(branding.footerText),
+    showWatermark: Boolean(branding.watermarkText),
+    showItemImages: false,
+    documentTitle:
+      branding.customDocumentTitle || 'RADNI NALOG',
+    footerText: /fersys/i.test(branding.footerText || '')
+      ? ''
+      : branding.footerText,
+    watermarkText: branding.watermarkText,
+  }
+}
+
+async function resolveAppearance(
+  branding: WorkOrderBranding,
 ) {
-  if (
-    appearance.showLogo &&
-    branding.logo
-  ) {
-    return `
-      <div class="company-logo-box">
-        <img
-          class="company-logo"
-          src="${escapeHtml(
-            branding.logo,
-          )}"
-          alt=""
-        />
-      </div>
-    `
-  }
+  try {
+    const result = await getDocumentAppearanceSettings()
+    const stored = result.settings.workOrder
 
-  if (!appearance.showLogo) {
-    return ''
-  }
-
-  const fallback =
-    (
-      branding.companyName ||
-      'FY'
+    return {
+      ...stored,
+      footerText: /fersys/i.test(stored.footerText || '')
+        ? ''
+        : stored.footerText,
+    }
+  } catch (error) {
+    console.error(
+      'Izgled radnog naloga nije moguće učitati, koristi se zadani izgled:',
+      error,
     )
-      .slice(0, 2)
-      .toUpperCase()
-
-  return `
-    <div class="company-logo-fallback">
-      ${escapeHtml(fallback)}
-    </div>
-  `
+    return legacyAppearance(branding)
+  }
 }
 
 function companyHtml(
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
-  const details: string[] = []
+  const logo =
+    appearance.showLogo && branding.logo
+      ? `<img class="company-logo" src="${esc(
+          branding.logo,
+        )}" alt="Logo tvrtke" />`
+      : ''
+
+  const lines: string[] = []
 
   if (branding.companyAddress) {
-    details.push(branding.companyAddress)
+    lines.push(branding.companyAddress)
+  }
+
+  if (branding.showCompanyOib && branding.companyOib) {
+    lines.push(`OIB: ${branding.companyOib}`)
+  }
+
+  if (branding.showCompanyIban && branding.companyIban) {
+    lines.push(`IBAN: ${branding.companyIban}`)
   }
 
   const contact = [
-    branding.showCompanyPhone
-      ? branding.companyPhone
-      : '',
-    branding.showCompanyEmail
-      ? branding.companyEmail
-      : '',
+    branding.showCompanyPhone ? branding.companyPhone : '',
+    branding.showCompanyEmail ? branding.companyEmail : '',
+    branding.showCompanyWebsite ? branding.companyWebsite : '',
   ]
     .filter(Boolean)
-    .join(' · ')
+    .join('  •  ')
 
-  if (contact) {
-    details.push(contact)
-  }
-
-  const business = [
-    branding.showCompanyOib &&
-    branding.companyOib
-      ? `OIB: ${branding.companyOib}`
-      : '',
-    branding.showCompanyIban &&
-    branding.companyIban
-      ? `IBAN: ${branding.companyIban}`
-      : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-
-  if (business) {
-    details.push(business)
-  }
+  if (contact) lines.push(contact)
 
   return `
-    <div class="company-block">
-      ${companyLogoHtml(
-        branding,
-        appearance,
-      )}
-
+    <div class="company">
+      ${logo}
       <div class="company-copy">
         <div class="company-name">
-          ${escapeHtml(
-            branding.companyName ||
-            'Vaša tvrtka',
-          )}
+          ${esc(branding.companyName || 'Vaša tvrtka')}
         </div>
-
         ${
-          details.length
-            ? `
-              <div class="company-details">
-                ${details
-                  .map(
-                    (line) =>
-                      `<div>${escapeHtml(
-                        line,
-                      )}</div>`,
-                  )
-                  .join('')}
-              </div>
-            `
+          lines.length
+            ? `<div class="company-details">${lines
+                .map((line) => `<div>${esc(line)}</div>`)
+                .join('')}</div>`
             : ''
         }
       </div>
@@ -280,113 +244,39 @@ function companyHtml(
   `
 }
 
-function documentHeaderHtml(
+function headerHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
+  continuation: boolean,
 ) {
-  const alignment =
-    appearance.headerAlignment
-
   return `
-    <div class="top-accent"></div>
+    <header class="document-header header-${esc(
+      appearance.headerAlignment,
+    )}">
+      ${companyHtml(branding, appearance)}
 
-    <header
-      class="document-header header-${escapeHtml(
-        alignment,
-      )}"
-    >
-      <div class="header-row">
-        ${companyHtml(
-          branding,
-          appearance,
-        )}
+      <div class="document-heading">
+        ${
+          continuation
+            ? `<div class="continuation-label">NASTAVAK DOKUMENTA</div>`
+            : ''
+        }
 
-        <div class="document-heading">
-          <div class="document-kicker">
-            SERVISNI DOKUMENT
-          </div>
+        <h1>${esc(
+          appearance.documentTitle || 'RADNI NALOG',
+        )}</h1>
 
-          <div class="document-title">
-            ${escapeHtml(
-              appearance.documentTitle ||
-              'RADNI NALOG',
-            )}
-          </div>
+        <div class="document-number">
+          <span>BR.</span>
+          ${esc(order.orderNumber || '—')}
+        </div>
+
+        <div class="document-date">
+          Datum: ${formatDate(order.date)}
         </div>
       </div>
-
-      ${metaGridHtml(order)}
     </header>
-  `
-}
-
-function continuationHeaderHtml(
-  order: WorkOrder,
-  branding: WorkOrderBranding,
-  appearance: DocumentAppearance,
-  pageNumber: number,
-) {
-  return `
-    <div class="top-accent"></div>
-
-    <header class="continuation-header">
-      ${companyHtml(
-        branding,
-        appearance,
-      )}
-
-      <div class="continuation-right">
-        <strong>
-          ${escapeHtml(
-            appearance.documentTitle ||
-            'RADNI NALOG',
-          )}
-        </strong>
-
-        <span>
-          ${escapeHtml(
-            order.orderNumber,
-          )} · ${pageNumber}
-        </span>
-      </div>
-    </header>
-  `
-}
-
-function metaGridHtml(order: WorkOrder) {
-  const items = [
-    ['Broj naloga', order.orderNumber || '—'],
-    ['Datum', formatDate(order.date)],
-    [
-      'Dolazak / odlazak',
-      `${order.arrivalTime || '—'} – ${
-        order.departureTime || '—'
-      }`,
-    ],
-    ['Trajanje', durationLabel(order)],
-    ['Status', order.status || '—'],
-    ['Stranica', '1'],
-  ]
-
-  return `
-    <div class="meta-grid">
-      ${items
-        .map(
-          ([label, value]) => `
-            <div class="meta-cell">
-              <div class="meta-label">
-                ${escapeHtml(label)}
-              </div>
-
-              <div class="meta-value">
-                ${escapeHtml(value)}
-              </div>
-            </div>
-          `,
-        )
-        .join('')}
-    </div>
   `
 }
 
@@ -401,156 +291,102 @@ function infoHtml(
 
   const details = [
     order.address,
-    order.customerOib
-      ? `OIB: ${order.customerOib}`
-      : '',
+    order.customerOib ? `OIB: ${order.customerOib}` : '',
     order.customerPhone,
     order.customerEmail,
   ].filter(Boolean)
 
   const workers =
-    order.assignedWorkers.join(' · ') ||
-    '—'
-
-  if (appearance.infoStyle === 'lines') {
-    return `
-      <section class="info-lines">
-        <div class="info-line-row">
-          <span>Investitor / naručitelj</span>
-          <strong>
-            ${escapeHtml(customer)}
-          </strong>
-        </div>
-
-        ${
-          details.length
-            ? `
-              <div class="info-line-row info-line-small">
-                <span>Podaci</span>
-                <strong>
-                  ${escapeHtml(
-                    details.join(' · '),
-                  )}
-                </strong>
-              </div>
-            `
-            : ''
-        }
-
-        <div class="info-line-row">
-          <span>Izvršitelji</span>
-          <strong>
-            ${escapeHtml(workers)}
-          </strong>
-        </div>
-      </section>
-    `
-  }
+    order.assignedWorkers.filter(Boolean).join(', ') || '—'
 
   return `
-    <section class="info-cards">
-      <article class="info-card investor-card">
-        <div class="eyebrow">
-          Investitor / naručitelj
-        </div>
-
-        <div class="customer-name">
-          ${escapeHtml(customer)}
-        </div>
-
+    <section class="info-grid ${esc(appearance.infoStyle)}">
+      <article class="info-block">
+        <div class="info-title">INVESTITOR / NARUČITELJ</div>
+        <div class="investor-name">${esc(customer)}</div>
         ${
           details.length
-            ? `
-              <div class="customer-details">
-                ${details
-                  .map(
-                    (item) =>
-                      `<span>${escapeHtml(
-                        item,
-                      )}</span>`,
-                  )
-                  .join('')}
-              </div>
-            `
+            ? `<div class="info-lines">${details
+                .map((item) => `<div>${esc(item)}</div>`)
+                .join('')}</div>`
             : ''
         }
       </article>
 
-      <article class="info-card workers-card">
-        <div class="eyebrow">
-          Izvršitelji
+      <article class="info-block">
+        <div class="info-title">PODACI NALOGA</div>
+
+        <div class="meta-row">
+          <span>Dolazak / odlazak</span>
+          <strong>
+            ${esc(
+              `${order.arrivalTime || '—'} – ${
+                order.departureTime || '—'
+              }`,
+            )}
+          </strong>
         </div>
 
-        <div class="workers-value">
-          ${escapeHtml(workers)}
+        <div class="meta-row">
+          <span>Trajanje</span>
+          <strong>${esc(durationLabel(order))}</strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Status</span>
+          <strong>${esc(order.status || '—')}</strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Prioritet</span>
+          <strong>${esc(order.priority || '—')}</strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Izvršitelji</span>
+          <strong>${esc(workers)}</strong>
         </div>
       </article>
     </section>
   `
 }
 
-function sectionTitleHtml(
+function sectionTitle(
   label: string,
   appearance: DocumentAppearance,
 ) {
-  if (
-    appearance.sectionStyle === 'bar'
-  ) {
-    return `
-      <div class="section-title section-title-bar">
-        ${escapeHtml(label)}
-      </div>
-    `
-  }
-
-  if (
-    appearance.sectionStyle === 'line'
-  ) {
-    return `
-      <div class="section-title section-title-line">
-        ${escapeHtml(label)}
-      </div>
-    `
-  }
-
   return `
-    <div class="section-title section-title-plain">
-      ${escapeHtml(label)}
+    <div class="section-heading section-${esc(
+      appearance.sectionStyle,
+    )}">
+      <span>${esc(label)}</span>
     </div>
   `
 }
 
 function descriptionHtml(
   order: WorkOrder,
+  branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
   return `
-    <section class="content-section">
-      ${sectionTitleHtml(
-        'Opis radova',
+    <section>
+      ${sectionTitle(
+        branding.customDescriptionLabel || 'Opis radova',
         appearance,
       )}
 
-      <div class="description-box">
+      <div class="description-block">
         ${
           order.title
-            ? `
-              <div class="work-title">
-                ${escapeHtml(
-                  order.title,
-                )}
-              </div>
-            `
+            ? `<div class="work-title">${esc(order.title)}</div>`
             : ''
         }
-
-        <div class="description-text">
+        <div class="work-description">
           ${
             order.description
-              ? multilineHtml(
-                  order.description,
-                )
-              : 'Nema dodatnog opisa.'
+              ? multi(order.description)
+              : 'Nema dodatnog opisa radova.'
           }
         </div>
       </div>
@@ -558,231 +394,129 @@ function descriptionHtml(
   `
 }
 
-function emptyMaterialRowHtml() {
-  return `
-    <tr class="empty-row">
-      <td colspan="4">
-        Nema evidentiranog materijala.
-      </td>
-    </tr>
-  `
-}
-
-function materialsTableHtml(
+function materialsHtml(
   materials: WorkOrderMaterial[],
+  branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
-  const rows =
-    materials.length > 0
-      ? materials
-          .map(
-            (material) => `
-              <tr>
-                <td>
-                  <strong>
-                    ${escapeHtml(
-                      material.name,
-                    )}
-                  </strong>
-                </td>
-
-                <td class="center">
-                  ${escapeHtml(
-                    `${material.quantity} ${material.unit}`,
-                  )}
-                </td>
-
-                <td class="right">
-                  ${escapeHtml(
-                    formatMoney(
-                      material.unitPrice,
-                    ),
-                  )}
-                </td>
-
-                <td class="right">
-                  <strong>
-                    ${escapeHtml(
-                      formatMoney(
-                        materialTotal(
-                          material,
-                        ),
-                      ),
-                    )}
-                  </strong>
-                </td>
-              </tr>
-            `,
-          )
-          .join('')
-      : emptyMaterialRowHtml()
+  if (!materials.length) return ''
 
   return `
-    <div
-      class="material-table-wrap table-${escapeHtml(
-        appearance.tableStyle,
-      )}"
-    >
-      <table class="material-table">
-        <thead>
-          <tr>
-            <th>Opis</th>
-            <th class="center">Kol.</th>
-            <th class="right">Cijena</th>
-            <th class="right">Ukupno</th>
-          </tr>
-        </thead>
+    <section>
+      ${sectionTitle(
+        branding.customMaterialsLabel || 'Utrošeni materijal',
+        appearance,
+      )}
 
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    </div>
+      <div class="materials table-${esc(appearance.tableStyle)}">
+        ${materials
+          .map(
+            (material, index) => `
+              <article class="material-row">
+                <div class="material-index">
+                  ${String(index + 1).padStart(2, '0')}
+                </div>
+
+                <div class="material-main">
+                  <div class="material-name">
+                    ${esc(material.name)}
+                  </div>
+                </div>
+
+                <div class="material-data">
+                  <small>Količina</small>
+                  ${number(material.quantity)} ${esc(material.unit)}
+                </div>
+
+                <div class="material-data">
+                  <small>Jed. cijena</small>
+                  ${money(material.unitPrice)}
+                </div>
+
+                <div class="material-data material-total">
+                  <small>Ukupno</small>
+                  ${money(materialTotal(material))}
+                </div>
+              </article>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
   `
 }
 
 function totalsHtml(order: WorkOrder) {
-  const totals =
-    calculatedTotals(order)
+  const value = totals(order)
 
-  const hasPriceData =
-    totals.material !== 0 ||
-    totals.labour !== 0 ||
-    totals.vat !== 0 ||
-    totals.total !== 0 ||
+  const hasPrices =
+    value.material !== 0 ||
+    value.labour !== 0 ||
+    value.vat !== 0 ||
+    value.total !== 0 ||
     Boolean(order.priceNote)
 
-  if (!hasPriceData) {
-    return ''
-  }
+  if (!hasPrices) return ''
 
   return `
-    <div class="totals-row">
-      <div class="totals-spacer"></div>
-
-      <div class="totals-box">
-        <div>
-          <span>Materijal</span>
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                totals.material,
-              ),
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>Rad</span>
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                totals.labour,
-              ),
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            PDV ${escapeHtml(
-              order.vatRate,
-            )}%
-          </span>
-
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                totals.vat,
-              ),
-            )}
-          </strong>
-        </div>
-
-        <div class="grand-total">
-          <span>UKUPNO</span>
-          <strong>
-            ${escapeHtml(
-              formatMoney(
-                totals.total,
-              ),
-            )}
-          </strong>
-        </div>
-
-        ${
-          order.priceNote
-            ? `
-              <div class="price-note">
-                ${multilineHtml(
-                  order.priceNote,
-                )}
-              </div>
-            `
-            : ''
-        }
+    <section class="totals-section">
+      <div class="price-note">
+        ${order.priceNote ? multi(order.priceNote) : ''}
       </div>
-    </div>
-  `
-}
 
-function materialsHtml(
-  materials: WorkOrderMaterial[],
-  order: WorkOrder,
-  appearance: DocumentAppearance,
-  showTotals: boolean,
-) {
-  return `
-    <section class="content-section">
-      ${sectionTitleHtml(
-        'Utrošeni materijal',
-        appearance,
-      )}
+      <div class="totals">
+        <div class="total-row">
+          <span>Materijal</span>
+          <strong>${money(value.material)}</strong>
+        </div>
 
-      ${materialsTableHtml(
-        materials,
-        appearance,
-      )}
+        <div class="total-row">
+          <span>Rad</span>
+          <strong>${money(value.labour)}</strong>
+        </div>
 
-      ${
-        showTotals
-          ? totalsHtml(order)
-          : ''
-      }
+        <div class="total-row">
+          <span>PDV ${number(order.vatRate)}%</span>
+          <strong>${money(value.vat)}</strong>
+        </div>
+
+        <div class="total-row grand">
+          <span>UKUPNO</span>
+          <span>${money(value.total)}</span>
+        </div>
+      </div>
     </section>
   `
 }
 
 function photosHtml(
   photos: WorkOrderImage[],
+  branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
   if (!photos.length) return ''
 
   return `
-    <section class="content-section photos-section">
-      ${sectionTitleHtml(
-        'Fotografije',
+    <section>
+      ${sectionTitle(
+        branding.customPhotosLabel || 'Fotografije',
         appearance,
       )}
 
-      <div class="photo-grid">
+      <div class="photo-grid photos-${Math.min(photos.length, 4)}">
         ${photos
           .map(
-            (image) => `
+            (photo) => `
               <figure class="photo-card">
                 <img
-                  src="${escapeHtml(
-                    image.dataUrl,
-                  )}"
-                  alt=""
+                  src="${esc(photo.dataUrl)}"
+                  alt="${esc(photo.name)}"
                 />
-
-                <figcaption>
-                  ${escapeHtml(
-                    image.name,
-                  )}
-                </figcaption>
+                ${
+                  photo.name
+                    ? `<figcaption>${esc(photo.name)}</figcaption>`
+                    : ''
+                }
               </figure>
             `,
           )
@@ -792,74 +526,92 @@ function photosHtml(
   `
 }
 
-function signatureBoxHtml(
-  title: string,
-  subtitle: string,
-  image: string,
-) {
-  return `
-    <div class="signature-box">
-      <div class="signature-image-space">
-        ${
-          image
-            ? `
-              <img
-                src="${escapeHtml(image)}"
-                alt=""
-              />
-            `
-            : ''
-        }
-      </div>
-
-      <div class="signature-caption">
-        <strong>
-          ${escapeHtml(title)}
-        </strong>
-
-        <span>
-          ${escapeHtml(subtitle)}
-        </span>
-      </div>
-    </div>
-  `
-}
-
 function signatureHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
-  if (!appearance.showSignature) {
-    return ''
-  }
+  if (!appearance.showSignature) return ''
 
   const stamp =
-    appearance.showStamp
-      ? branding.stamp
+    appearance.showStamp &&
+    branding.showStamp &&
+    branding.stamp
+      ? `<img class="stamp-image" src="${esc(
+          branding.stamp,
+        )}" alt="Pečat tvrtke" />`
       : ''
 
-  const investor =
-    order.investorSignature || ''
+  const investorSignature =
+    order.investorSignature
+      ? `<img class="signature-image" src="${esc(
+          order.investorSignature,
+        )}" alt="Potpis investitora" />`
+      : ''
 
   return `
-    <section class="signature-grid">
-      ${signatureBoxHtml(
-        'Izvođač radova',
-        appearance.showStamp
-          ? 'Pečat / potpis'
-          : 'Potpis',
-        stamp,
+    <section class="signature-section">
+      ${sectionTitle(
+        branding.customSignatureLabel || 'Potpis i ovjera',
+        appearance,
       )}
 
-      ${signatureBoxHtml(
-        order.investorName ||
-          order.customerName ||
-          'Investitor',
-        'Potpis investitora',
-        investor,
-      )}
+      <div class="signature-grid">
+        <div class="signature-column">
+          <div class="signature-label">
+            Izvršitelj / odgovorna osoba
+          </div>
+          <div class="signature-space"></div>
+          <div class="signature-line">
+            ${esc(
+              order.assignedWorkers[0] ||
+                branding.companyName ||
+                '—',
+            )}
+          </div>
+        </div>
+
+        <div class="stamp-column">${stamp}</div>
+
+        <div class="signature-column">
+          <div class="signature-label">
+            Investitor / naručitelj
+          </div>
+          <div class="signature-space">
+            ${investorSignature}
+          </div>
+          <div class="signature-line">
+            ${esc(
+              order.investorName ||
+                order.customerName ||
+                'Potpis investitora',
+            )}
+          </div>
+        </div>
+      </div>
     </section>
+  `
+}
+
+function footerHtml(
+  order: WorkOrder,
+  appearance: DocumentAppearance,
+  page: number,
+  totalPages: number,
+) {
+  if (!appearance.showFooter) return ''
+
+  const footerText = /fersys/i.test(
+    appearance.footerText || '',
+  )
+    ? ''
+    : appearance.footerText
+
+  return `
+    <footer class="footer">
+      <span>${esc(footerText)}</span>
+      <span>${esc(order.orderNumber)} · ${page}/${totalPages}</span>
+    </footer>
   `
 }
 
@@ -875,116 +627,99 @@ function watermarkHtml(
 
   return `
     <div class="watermark">
-      ${escapeHtml(
-        appearance.watermarkText,
-      )}
+      ${esc(appearance.watermarkText)}
     </div>
   `
 }
 
-function footerHtml(
+function paginate(
   order: WorkOrder,
   appearance: DocumentAppearance,
-  pageNumber: number,
-  totalPages: number,
-) {
-  if (!appearance.showFooter) {
-    return ''
-  }
+): PdfPage[] {
+  const compact = appearance.density === 'compact'
+  const firstMaterialLimit = compact ? 8 : 6
+  const nextMaterialLimit = compact ? 13 : 10
 
-  return `
-    <footer class="document-footer">
-      <span>
-        ${escapeHtml(
-          appearance.footerText || '',
-        )}
-      </span>
-
-      <span>
-        ${escapeHtml(
-          order.orderNumber,
-        )} · ${pageNumber} / ${totalPages}
-      </span>
-    </footer>
-  `
-}
-
-function paginate(order: WorkOrder): PdfPage[] {
   const pages: PdfPage[] = []
 
-  const firstMaterialLimit = 8
-  const continuationMaterialLimit = 16
+  const firstMaterials = order.materials.slice(
+    0,
+    firstMaterialLimit,
+  )
 
-  const firstMaterials =
-    order.materials.slice(
-      0,
-      firstMaterialLimit,
-    )
+  let materialIndex = firstMaterials.length
+
+  const showPhotosOnFirst =
+    order.images.length > 0 &&
+    firstMaterials.length <= 2 &&
+    order.description.length < 500
+
+  const firstPhotos = showPhotosOnFirst
+    ? order.images.slice(0, 2)
+    : []
+
+  let photoIndex = firstPhotos.length
 
   pages.push({
     materials: firstMaterials,
-    photos: [],
+    photos: firstPhotos,
     first: true,
     last: false,
+    showTotals: false,
   })
 
-  let materialIndex =
-    firstMaterials.length
+  while (materialIndex < order.materials.length) {
+    const materials = order.materials.slice(
+      materialIndex,
+      materialIndex + nextMaterialLimit,
+    )
 
-  while (
-    materialIndex <
-    order.materials.length
-  ) {
-    const materials =
-      order.materials.slice(
-        materialIndex,
-        materialIndex +
-          continuationMaterialLimit,
-      )
-
-    materialIndex +=
-      materials.length
+    materialIndex += materials.length
 
     pages.push({
       materials,
       photos: [],
       first: false,
       last: false,
+      showTotals: false,
     })
   }
 
-  for (
-    let index = 0;
-    index < order.images.length;
-    index += 4
-  ) {
+  while (photoIndex < order.images.length) {
+    const photos = order.images.slice(photoIndex, photoIndex + 4)
+    photoIndex += photos.length
+
     pages.push({
       materials: [],
-      photos:
-        order.images.slice(
-          index,
-          index + 4,
-        ),
+      photos,
       first: false,
       last: false,
+      showTotals: false,
     })
   }
 
-  if (!pages.length) {
+  const last = pages[pages.length - 1]
+
+  const lastTooBusy =
+    last.photos.length >= 4 ||
+    last.materials.length >= (compact ? 11 : 8)
+
+  if (lastTooBusy) {
     pages.push({
       materials: [],
       photos: [],
-      first: true,
+      first: false,
       last: true,
+      showTotals: true,
     })
+  } else {
+    last.showTotals = true
+    last.last = true
   }
 
-  pages.forEach(
-    (page, index) => {
-      page.last =
-        index === pages.length - 1
-    },
-  )
+  pages.forEach((page, index) => {
+    page.last = index === pages.length - 1
+  })
 
   return pages
 }
@@ -994,821 +729,528 @@ function css(
   appearance: DocumentAppearance,
 ) {
   const primary =
-    appearance.primaryColor || '#2563EB'
-
-
-  const accent =
-    appearance.accentColor || '#38BDF8'
-
+    appearance.primaryColor || branding.primaryColor || '#2563EB'
   const text =
-    appearance.textColor || '#0F172A'
-
+    appearance.textColor || branding.textColor || '#0F172A'
   const border =
-    appearance.borderColor || '#CBD5E1'
-
+    appearance.borderColor || branding.borderColor || '#CBD5E1'
   const background =
-    appearance.backgroundColor || '#FFFFFF'
-
-  const compact =
-    appearance.density === 'compact'
-
-  const outerPadding =
-    compact ? 38 : 42
-
-  const sectionGap =
-    compact ? 8 : 11
-
-  const bodyText =
-    compact ? 8.7 : 9.4
-
-  const rowPadding =
-    compact ? '4px 6px' : '5px 7px'
+    appearance.backgroundColor || branding.backgroundColor || '#FFFFFF'
+  const compact = appearance.density === 'compact'
 
   return `
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       background: #dfe5ec;
       color: ${text};
       font-family:
-        Inter,
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        Arial,
-        sans-serif;
+        Inter, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
-      text-rendering: optimizeLegibility;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
     .pdf-page {
       position: relative;
+      display: flex;
       width: 794px;
       height: 1123px;
       overflow: hidden;
+      flex-direction: column;
       background: ${background};
       page-break-after: always;
     }
 
     .page-inner {
       position: relative;
-      z-index: 1;
+      z-index: 2;
       display: flex;
+      min-height: 0;
       height: 100%;
       flex-direction: column;
-    }
-
-    .top-accent {
-      flex: 0 0 auto;
-      height: 7px;
-      background: ${primary};
-    }
-
-    .document-header {
-      flex: 0 0 auto;
-      padding:
-        ${compact ? 17 : 20}px
-        ${outerPadding}px
-        ${compact ? 10 : 12}px;
-    }
-
-    .header-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 24px;
-    }
-
-    .company-block {
-      display: flex;
-      min-width: 0;
-      max-width: 68%;
-      align-items: flex-start;
-      gap: 12px;
-    }
-
-    .company-logo-box,
-    .company-logo-fallback {
-      width: 74px;
-      height: 74px;
-      flex: 0 0 74px;
-    }
-
-    .company-logo-box {
-      display: grid;
-      place-items: center;
-      background: transparent;
-    }
-
-    .company-logo {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
-
-    .company-logo-fallback {
-      display: grid;
-      place-items: center;
-      border-radius: 10px;
-      background: ${alphaHex(
-        primary,
-        '12',
-      )};
-      color: ${primary};
-      font-size: 18px;
-      font-weight: 950;
-    }
-
-    .company-copy {
-      min-width: 0;
-      padding-top: 7px;
-    }
-
-    .company-name {
-      color: ${text};
-      font-size: 19px;
-      line-height: 1.12;
-      font-weight: 950;
-    }
-
-    .company-details {
-      margin-top: 6px;
-      color: ${text};
-      font-size: 8.6px;
-      line-height: 1.35;
-      opacity: .52;
-    }
-
-    .document-heading {
-      min-width: 205px;
-      padding-top: 8px;
-      text-align: right;
-    }
-
-    .header-center .header-row {
-      display: grid;
-      grid-template-columns: 1fr;
-      justify-items: center;
-      text-align: center;
-    }
-
-    .header-center .company-block {
-      max-width: 100%;
-      justify-content: center;
-    }
-
-    .header-center .document-heading {
-      min-width: 0;
-      padding-top: 2px;
-      text-align: center;
-    }
-
-    .header-right .header-row {
-      flex-direction: row-reverse;
-    }
-
-    .header-right .document-heading {
-      text-align: left;
-    }
-
-    .document-kicker {
-      color: ${primary};
-      font-size: 7.2px;
-      font-weight: 950;
-      letter-spacing: .19em;
-      text-transform: uppercase;
-    }
-
-    .document-title {
-      margin-top: 8px;
-      color: ${primary};
-      font-size: 25px;
-      line-height: 1;
-      font-weight: 950;
-    }
-
-    .meta-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(3, minmax(0, 1fr));
-      margin-top: 15px;
-      overflow: hidden;
-      border: 1px solid ${border};
-      border-radius: 10px;
-    }
-
-    .meta-cell {
-      min-width: 0;
-      min-height: ${compact ? 37 : 42}px;
-      padding:
-        ${compact ? 6 : 8}px
-        9px;
-      border-right:
-        1px solid ${border};
-      border-bottom:
-        1px solid ${border};
-    }
-
-    .meta-cell:nth-child(3n) {
-      border-right: 0;
-    }
-
-    .meta-cell:nth-last-child(-n + 3) {
-      border-bottom: 0;
-    }
-
-    .meta-label {
-      color: ${text};
-      font-size: 6.8px;
-      font-weight: 950;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-      opacity: .38;
-    }
-
-    .meta-value {
-      margin-top: 4px;
-      color: ${text};
-      font-size: 9.5px;
-      line-height: 1.22;
-      font-weight: 950;
-      overflow-wrap: anywhere;
-    }
-
-    .page-content {
-      flex: 1 1 auto;
-      min-height: 0;
-      padding:
-        0 ${outerPadding}px;
-    }
-
-    .info-cards {
-      display: grid;
-      grid-template-columns:
-        minmax(0, 1fr)
-        31%;
-      gap: 10px;
-      margin-bottom: ${sectionGap}px;
-    }
-
-    .info-card {
-      min-width: 0;
-      min-height: ${compact ? 62 : 70}px;
-      border: 1px solid ${border};
-      border-radius: 10px;
-      padding:
-        ${compact ? 8 : 10}px
-        11px;
-      background: ${background};
-    }
-
-    .workers-card {
-      background: ${alphaHex(
-        primary,
-        '0D',
-      )};
-    }
-
-    .eyebrow {
-      color: ${text};
-      font-size: 6.8px;
-      font-weight: 950;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-      opacity: .38;
-    }
-
-    .customer-name,
-    .workers-value {
-      margin-top: 7px;
-      color: ${text};
-      font-size: 11px;
-      line-height: 1.25;
-      font-weight: 950;
-    }
-
-    .customer-details {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px 10px;
-      margin-top: 5px;
-      color: ${text};
-      font-size: 7.4px;
-      line-height: 1.3;
-      opacity: .52;
-    }
-
-    .customer-details span + span::before {
-      margin-right: 8px;
-      content: "·";
-      opacity: .45;
-    }
-
-    .info-lines {
-      margin-bottom: ${sectionGap}px;
-      border-top: 1px solid ${border};
-      border-bottom: 1px solid ${border};
-    }
-
-    .info-line-row {
-      display: grid;
-      grid-template-columns: 170px 1fr;
-      gap: 18px;
-      padding: 7px 0;
-      border-bottom: 1px solid ${border};
-      font-size: 8.8px;
-    }
-
-    .info-line-row:last-child {
-      border-bottom: 0;
-    }
-
-    .info-line-row span {
-      font-weight: 900;
-      text-transform: uppercase;
-      opacity: .42;
-    }
-
-    .info-line-row strong {
-      min-width: 0;
-      text-align: right;
-      overflow-wrap: anywhere;
-    }
-
-    .info-line-small {
-      font-size: 7.7px;
-    }
-
-    .content-section {
-      margin-top: ${sectionGap}px;
-    }
-
-    .section-title {
-      margin:
-        ${compact ? 8 : 11}px
-        0
-        ${compact ? 6 : 8}px;
-      font-size: 8.5px;
-      line-height: 1.2;
-      font-weight: 950;
-      text-transform: uppercase;
-    }
-
-    .section-title-bar {
-      border-radius: 7px;
-      padding: 7px 9px;
-      background: ${primary};
-      color: #fff;
-    }
-
-    .section-title-line {
-      border-bottom:
-        1.5px solid ${primary};
-      padding-bottom: 5px;
-      color: ${primary};
-    }
-
-    .section-title-plain {
-      color: ${text};
-    }
-
-    .description-box {
-      border: 1px solid ${border};
-      border-radius: 9px;
-      padding:
-        ${compact ? 7 : 9}px
-        10px;
-      background: ${background};
-    }
-
-    .work-title {
-      color: ${text};
-      font-size: ${compact ? 9 : 9.6}px;
-      line-height: 1.28;
-      font-weight: 950;
-    }
-
-    .description-text {
-      margin-top: 5px;
-      color: ${text};
-      font-size: ${bodyText}px;
-      line-height: ${compact ? 1.26 : 1.34};
-      overflow-wrap: anywhere;
-      opacity: .78;
-    }
-
-    .material-table-wrap {
-      overflow: hidden;
-      border: 1px solid ${border};
-      border-radius: 8px;
-    }
-
-    .material-table {
-      width: 100%;
-      border-collapse: collapse;
-      table-layout: fixed;
-      font-size: ${compact ? 7.8 : 8.4}px;
-    }
-
-    .material-table th {
-      padding:
-        ${compact ? '5px 6px' : '6px 7px'};
-      font-size: 6.8px;
-      font-weight: 950;
-      text-align: left;
-      text-transform: uppercase;
-    }
-
-    .material-table th:nth-child(1) {
-      width: 46%;
-    }
-
-    .material-table th:nth-child(2) {
-      width: 16%;
-    }
-
-    .material-table th:nth-child(3) {
-      width: 18%;
-    }
-
-    .material-table th:nth-child(4) {
-      width: 20%;
-    }
-
-    .table-solid thead {
-      background: ${primary};
-      color: #fff;
-    }
-
-    .table-soft thead {
-      background: ${alphaHex(
-        primary,
-        '18',
-      )};
-      color: ${text};
-    }
-
-    .table-minimal thead {
-      background: ${background};
-      color: ${text};
-    }
-
-    .material-table td {
-      padding: ${rowPadding};
-      border-top:
-        1px solid ${border};
-      color: ${text};
-      vertical-align: middle;
-      overflow-wrap: anywhere;
-    }
-
-    .table-minimal {
-      border-left: 0;
-      border-right: 0;
-      border-radius: 0;
-    }
-
-    .table-minimal .material-table th,
-    .table-minimal .material-table td {
-      padding-left: 0;
-      padding-right: 0;
-    }
-
-    .center {
-      text-align: center !important;
-    }
-
-    .right {
-      text-align: right !important;
-      white-space: nowrap;
-    }
-
-    .empty-row td {
-      height: 31px;
-      text-align: center;
-      opacity: .38;
-    }
-
-    .totals-row {
-      display: grid;
-      grid-template-columns:
-        1fr 235px;
-      gap: 18px;
-      margin-top: 8px;
-    }
-
-    .totals-box {
-      font-size: 7.7px;
-    }
-
-    .totals-box > div {
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 2px 3px;
-    }
-
-    .totals-box > div > span {
-      opacity: .55;
-    }
-
-    .totals-box .grand-total {
-      margin-top: 3px;
-      border-radius: 7px;
-      padding: 7px 9px;
-      background: ${primary};
-      color: #fff;
-      font-size: 10.3px;
-      font-weight: 950;
-    }
-
-    .totals-box .price-note {
-      display: block;
-      margin-top: 5px;
-      color: ${text};
-      font-size: 7px;
-      line-height: 1.3;
-      opacity: .55;
-    }
-
-    .signature-grid {
-      display: grid;
-      grid-template-columns:
-        1fr 1fr;
-      gap: 18px;
-      margin-top: 13px;
-    }
-
-    .signature-box {
-      height: ${compact ? 85 : 92}px;
-      overflow: hidden;
-      border: 1px solid ${border};
-      border-radius: 9px;
-      background: ${background};
-    }
-
-    .signature-image-space {
-      display: flex;
-      height: ${compact ? 58 : 64}px;
-      align-items: center;
-      justify-content: center;
-      padding: 3px 8px;
-    }
-
-    .signature-image-space img {
-      display: block;
-      max-width: 225px;
-      max-height: ${compact ? 56 : 62}px;
-      object-fit: contain;
-    }
-
-    .signature-caption {
-      border-top:
-        1px solid ${border};
-      padding: 5px 8px;
-      text-align: center;
-    }
-
-    .signature-caption strong {
-      display: block;
-      color: ${text};
-      font-size: 7.7px;
-      line-height: 1.1;
-    }
-
-    .signature-caption span {
-      display: block;
-      margin-top: 2px;
-      color: ${text};
-      font-size: 6.4px;
-      opacity: .42;
-    }
-
-    .photo-grid {
-      display: grid;
-      grid-template-columns:
-        repeat(2, minmax(0, 1fr));
-      gap: 12px;
-    }
-
-    .photo-card {
-      margin: 0;
-      overflow: hidden;
-      border: 1px solid ${border};
-      border-radius: 9px;
-      background: ${background};
-    }
-
-    .photo-card img {
-      display: block;
-      width: 100%;
-      height: 305px;
-      object-fit: contain;
-      background: #fff;
-    }
-
-    .photo-card figcaption {
-      overflow: hidden;
-      border-top:
-        1px solid ${border};
-      padding: 5px 7px;
-      color: ${text};
-      font-size: 7px;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      opacity: .48;
-    }
-
-    .continuation-header {
-      display: flex;
-      flex: 0 0 auto;
-      align-items: center;
-      justify-content: space-between;
-      gap: 20px;
-      margin: 0 ${outerPadding}px;
-      border-bottom:
-        1px solid ${border};
-      padding:
-        ${compact ? 12 : 15}px
-        0
-        ${compact ? 9 : 11}px;
-    }
-
-    .continuation-header .company-block {
-      max-width: 65%;
-    }
-
-    .continuation-header
-    .company-logo-box,
-    .continuation-header
-    .company-logo-fallback {
-      width: 42px;
-      height: 42px;
-      flex-basis: 42px;
-    }
-
-    .continuation-header
-    .company-copy {
-      padding-top: 2px;
-    }
-
-    .continuation-header
-    .company-name {
-      font-size: 12px;
-    }
-
-    .continuation-header
-    .company-details {
-      display: none;
-    }
-
-    .continuation-right {
-      text-align: right;
-    }
-
-    .continuation-right strong {
-      display: block;
-      color: ${primary};
-      font-size: 13px;
-      font-weight: 950;
-    }
-
-    .continuation-right span {
-      display: block;
-      margin-top: 3px;
-      font-size: 7px;
-      opacity: .42;
-    }
-
-    .continuation-note {
-      margin-top: 10px;
-      font-size: 7px;
-      font-weight: 800;
-      text-transform: uppercase;
-      opacity: .32;
-    }
-
-    .document-footer {
-      display: flex;
-      flex: 0 0 auto;
-      align-items: flex-end;
-      justify-content: space-between;
-      gap: 18px;
-      margin:
-        10px
-        ${outerPadding}px
-        12px;
-      border-top:
-        1px solid ${border};
-      padding-top: 6px;
-      color: ${text};
-      font-size: 6.2px;
-      opacity: .4;
-    }
-
-    .watermark {
-      position: absolute;
-      left: 50%;
-      top: 52%;
-      z-index: 0;
-      transform:
-        translate(-50%, -50%)
-        rotate(-32deg);
-      color: ${primary};
-      font-size: 76px;
-      line-height: 1;
-      font-weight: 950;
-      letter-spacing: .03em;
-      opacity: .045;
-      white-space: nowrap;
-      pointer-events: none;
+      padding: ${
+        compact ? '39px 43px 34px' : '43px 47px 36px'
+      };
     }
 
     ${
-      branding.showBackgroundImage &&
-      branding.backgroundImage
+      branding.showBackgroundImage && branding.backgroundImage
         ? `
           .pdf-page::before {
             position: absolute;
             inset: 0;
             z-index: 0;
             background:
-              url("${escapeHtml(
-                branding.backgroundImage,
-              )}")
-              center / cover
-              no-repeat;
-            opacity: .05;
+              url("${esc(branding.backgroundImage)}")
+              center / cover no-repeat;
+            opacity: .035;
             content: "";
           }
         `
         : ''
     }
 
-    .preset-classic .document-title,
-    .preset-classic .document-kicker {
+    .watermark {
+      position: absolute;
+      left: 50%;
+      top: 55%;
+      z-index: 0;
+      transform: translate(-50%, -50%) rotate(-31deg);
+      color: ${primary};
+      font-size: 68px;
+      font-weight: 950;
+      letter-spacing: .06em;
+      opacity: .032;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .document-header {
+      display: grid;
+      grid-template-columns:
+        minmax(0,1fr)
+        ${compact ? '210px' : '230px'};
+      gap: ${compact ? 22 : 28}px;
+      align-items: start;
+      padding-bottom: ${compact ? 14 : 17}px;
+      border-bottom: 3px solid ${primary};
+    }
+
+    .header-center {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      text-align: center;
+    }
+
+    .header-center .company { justify-content: center; }
+    .header-center .document-heading { text-align: center; }
+
+    .header-right {
+      grid-template-columns:
+        ${compact ? '210px' : '230px'}
+        minmax(0,1fr);
+    }
+
+    .header-right .company {
+      order: 2;
+      justify-content: flex-end;
+      text-align: right;
+    }
+
+    .header-right .document-heading {
+      order: 1;
+      text-align: left;
+    }
+
+    .company {
+      display: flex;
+      min-width: 0;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .company-logo {
+      display: block;
+      width: ${compact ? 60 : 68}px;
+      height: ${compact ? 60 : 68}px;
+      flex: 0 0 ${compact ? 60 : 68}px;
+      object-fit: contain;
+    }
+
+    .company-copy { min-width: 0; }
+
+    .company-name {
+      color: ${text};
+      font-size: ${compact ? 18 : 20}px;
+      line-height: 1.08;
+      font-weight: 950;
+      letter-spacing: -.02em;
+    }
+
+    .company-details {
+      margin-top: 8px;
+      color: ${alpha(text, '98')};
+      font-size: ${compact ? 7.2 : 7.8}px;
+      line-height: 1.45;
+    }
+
+    .company-details div { margin-top: 1px; }
+
+    .document-heading { text-align: right; }
+
+    .continuation-label {
+      margin-bottom: 3px;
+      color: ${alpha(text, '82')};
+      font-size: 6px;
+      font-weight: 850;
+      letter-spacing: .1em;
+      text-transform: uppercase;
+    }
+
+    .document-heading h1 {
+      margin: 0;
+      color: ${primary};
+      font-size: ${compact ? 29 : 34}px;
+      line-height: .98;
+      font-weight: 950;
+      letter-spacing: -.04em;
+      text-transform: uppercase;
+    }
+
+    .document-number {
+      margin-top: ${compact ? 9 : 11}px;
+      color: ${text};
+      font-size: ${compact ? 13 : 15}px;
+      font-weight: 950;
+    }
+
+    .document-number span {
+      margin-right: 5px;
+      color: ${alpha(text, '85')};
+      font-size: 7px;
+      font-weight: 800;
+    }
+
+    .document-date {
+      margin-top: 7px;
+      color: ${alpha(text, '8A')};
+      font-size: 7.5px;
+      font-weight: 700;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: ${compact ? 16 : 20}px;
+      margin-top: ${compact ? 13 : 16}px;
+    }
+
+    .info-grid.cards .info-block {
+      padding: ${compact ? 10 : 12}px;
+      border: 1px solid ${border};
+      border-radius: 8px;
+      background: ${alpha(background, 'F4')};
+    }
+
+    .info-grid.lines .info-block {
+      padding: ${compact ? '4px 0 8px' : '5px 0 10px'};
+      border-bottom: 1px solid ${border};
+    }
+
+    .info-title {
+      margin-bottom: 7px;
+      color: ${primary};
+      font-size: ${compact ? 7.5 : 8.2}px;
+      font-weight: 950;
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .investor-name {
+      color: ${text};
+      font-size: ${compact ? 10 : 11}px;
+      font-weight: 950;
+    }
+
+    .info-lines {
+      margin-top: 5px;
+      color: ${alpha(text, 'B4')};
+      font-size: ${compact ? 7.2 : 7.8}px;
+      line-height: 1.42;
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: minmax(0,1fr) auto;
+      gap: 14px;
+      padding: 3px 0;
+      border-bottom: 1px solid ${alpha(border, '80')};
+      font-size: ${compact ? 7.1 : 7.6}px;
+    }
+
+    .meta-row:last-child { border-bottom: 0; }
+    .meta-row span { color: ${alpha(text, '88')}; }
+    .meta-row strong { color: ${text}; text-align: right; }
+
+    .section-heading {
+      margin:
+        ${compact ? 10 : 13}px
+        0
+        ${compact ? 5 : 7}px;
+      color: ${text};
+      font-size: ${compact ? 8.1 : 8.8}px;
+      font-weight: 950;
+      letter-spacing: .035em;
+      text-transform: uppercase;
+    }
+
+    .section-bar {
+      border-radius: 5px;
+      padding: 6px 8px;
+      background: ${primary};
+      color: white;
+    }
+
+    .section-line {
+      border-bottom: 1px solid ${primary};
+      padding-bottom: 5px;
       color: ${primary};
     }
 
-    .preset-classic .company-name {
-      font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-      font-weight: 700;
+    .section-plain { color: ${text}; }
+
+    .description-block {
+      padding: ${compact ? '8px 9px' : '10px 11px'};
+      border-left: 2px solid ${primary};
+      background: ${alpha(primary, '0C')};
     }
 
-    .preset-classic .document-title {
-      font-family:
-        Georgia,
-        "Times New Roman",
-        serif;
-      font-weight: 700;
-    }
-
-    .preset-minimal .top-accent {
-      height: 2px;
-    }
-
-    .preset-minimal .document-title {
+    .work-title {
       color: ${text};
+      font-size: ${compact ? 8.8 : 9.5}px;
+      line-height: 1.3;
+      font-weight: 950;
     }
 
-    .preset-minimal .document-kicker {
+    .work-description {
+      margin-top: 3px;
+      color: ${alpha(text, 'B0')};
+      font-size: ${compact ? 7.2 : 7.8}px;
+      line-height: ${compact ? 1.38 : 1.45};
+      overflow-wrap: anywhere;
+    }
+
+    .materials { border-top: 1px solid ${border}; }
+
+    .material-row {
+      display: grid;
+      grid-template-columns:
+        28px minmax(0,1fr) 75px 92px 98px;
+      min-height: ${compact ? 38 : 43}px;
+      align-items: center;
+      column-gap: ${compact ? 8 : 10}px;
+      padding: ${compact ? '4px 0' : '5px 0'};
+      border-bottom: 1px solid ${border};
+      break-inside: avoid;
+    }
+
+    .material-index {
+      color: ${primary};
+      font-size: ${compact ? 7.6 : 8.4}px;
+      font-weight: 950;
+      text-align: center;
+    }
+
+    .material-main { min-width: 0; }
+
+    .material-name {
       color: ${text};
-      opacity: .48;
+      font-size: ${compact ? 7.8 : 8.5}px;
+      line-height: 1.25;
+      font-weight: 900;
     }
 
-    .preset-minimal .workers-card {
-      background: ${background};
+    .material-data {
+      padding-left: 7px;
+      border-left: 1px solid ${border};
+      color: ${text};
+      font-size: ${compact ? 7 : 7.6}px;
+      text-align: right;
+      white-space: nowrap;
     }
 
-    .preset-minimal .signature-box,
-    .preset-minimal .description-box,
-    .preset-minimal .info-card,
-    .preset-minimal .meta-grid {
-      border-radius: 3px;
+    .material-data small {
+      display: block;
+      margin-bottom: 2px;
+      color: ${alpha(text, '78')};
+      font-size: 5.6px;
+      font-weight: 800;
+      text-transform: uppercase;
     }
 
-    .preset-custom .top-accent {
-      background:
-        linear-gradient(
-          90deg,
-          ${primary},
-          ${accent}
-        );
+    .material-total { font-weight: 950; }
+
+    .table-solid.materials {
+      overflow: hidden;
+      border: 1px solid ${border};
+      border-radius: 5px;
+    }
+
+    .table-solid .material-row {
+      padding-left: 6px;
+      padding-right: 6px;
+    }
+
+    .table-soft .material-row:nth-child(even) {
+      background: ${alpha(primary, '09')};
+    }
+
+    .table-minimal.materials {
+      border-top: 1px solid ${text};
+    }
+
+    .totals-section {
+      display: grid;
+      grid-template-columns:
+        minmax(0,1fr)
+        ${compact ? 240 : 260}px;
+      gap: ${compact ? 18 : 22}px;
+      margin-top: ${compact ? 11 : 14}px;
+      align-items: start;
+      break-inside: avoid;
+    }
+
+    .price-note {
+      color: ${alpha(text, 'A2')};
+      font-size: ${compact ? 7 : 7.5}px;
+      line-height: 1.45;
+    }
+
+    .totals { width: 100%; }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: ${compact ? '4px 6px' : '5px 7px'};
+      border-bottom: 1px solid ${border};
+      color: ${text};
+      font-size: ${compact ? 7.3 : 7.9}px;
+    }
+
+    .total-row span:first-child {
+      color: ${alpha(text, '90')};
+    }
+
+    .total-row.grand {
+      margin-top: 5px;
+      border: 0;
+      border-radius: 5px;
+      padding: ${compact ? '8px 9px' : '9px 10px'};
+      background: ${alpha(primary, '1A')};
+      color: ${primary};
+      font-size: ${compact ? 10.5 : 11.8}px;
+      font-weight: 950;
+    }
+
+    .total-row.grand span:first-child {
+      color: ${primary};
+    }
+
+    .photo-grid {
+      display: grid;
+      gap: ${compact ? 8 : 10}px;
+    }
+
+    .photos-1 { grid-template-columns: 1fr; }
+    .photos-2 { grid-template-columns: repeat(2,1fr); }
+
+    .photos-3,
+    .photos-4 {
+      grid-template-columns: repeat(2,1fr);
+    }
+
+    .photo-card {
+      margin: 0;
+      overflow: hidden;
+      border: 1px solid ${border};
+      border-radius: 6px;
+      background: white;
+      break-inside: avoid;
+    }
+
+    .photo-card img {
+      display: block;
+      width: 100%;
+      height: ${compact ? 142 : 154}px;
+      object-fit: contain;
+      background: ${alpha(border, '18')};
+    }
+
+    .photo-card figcaption {
+      border-top: 1px solid ${border};
+      padding: 4px 6px;
+      color: ${alpha(text, '8C')};
+      font-size: 6px;
+    }
+
+    .signature-section {
+      margin-top: ${compact ? 12 : 16}px;
+      break-inside: avoid;
+    }
+
+    .signature-grid {
+      display: grid;
+      grid-template-columns: 1fr 105px 1fr;
+      gap: 22px;
+      align-items: end;
+    }
+
+    .signature-label {
+      color: ${alpha(text, '8A')};
+      font-size: 6.8px;
+    }
+
+    .signature-space {
+      display: flex;
+      height: ${compact ? 41 : 48}px;
+      align-items: flex-end;
+      justify-content: center;
+    }
+
+    .signature-image {
+      display: block;
+      max-width: 145px;
+      max-height: ${compact ? 35 : 42}px;
+      object-fit: contain;
+    }
+
+    .signature-line {
+      border-top: 1px solid ${text};
+      padding-top: 4px;
+      color: ${text};
+      font-size: 7px;
+      font-weight: 750;
+    }
+
+    .stamp-column {
+      display: flex;
+      min-height: ${compact ? 62 : 72}px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stamp-image {
+      display: block;
+      max-width: ${compact ? 92 : 103}px;
+      max-height: ${compact ? 62 : 72}px;
+      object-fit: contain;
+    }
+
+    .footer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      align-items: end;
+      margin-top: auto;
+      border-top: 1px solid ${primary};
+      padding-top: 6px;
+      color: ${alpha(text, '7D')};
+      font-size: 6.3px;
     }
 
     @media print {
-      html,
-      body {
-        background: #fff;
+      @page { size: A4; margin: 0; }
+
+      html, body { background: white; }
+
+      .pdf-page {
+        margin: 0;
+        box-shadow: none;
       }
     }
   `
@@ -1822,109 +1264,47 @@ function pageHtml(
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
-  const presetClass =
-    `preset-${appearance.preset}`
-
-
-  const noMaterialContinuation =
-    order.materials.length <= 8
-
-  const showTotals =
-    page.first
-      ? noMaterialContinuation
-      : (
-          page.materials.length > 0 &&
-          (
-            pageNumber ===
-            Math.ceil(
-              Math.max(
-                order.materials.length - 8,
-                0,
-              ) / 16,
-            ) + 1
-          )
-        )
-
-  const showSignature =
-    page.last ||
-    (
-      order.images.length === 0 &&
-      showTotals
-    )
-
   return `
     <article
-      class="pdf-page ${presetClass}"
+      class="pdf-page preset-${esc(appearance.preset)}"
       data-pdf-page
     >
       ${watermarkHtml(appearance)}
 
       <div class="page-inner">
+        ${headerHtml(
+          order,
+          branding,
+          appearance,
+          !page.first,
+        )}
+
         ${
           page.first
-            ? documentHeaderHtml(
-                order,
-                branding,
-                appearance,
-              )
-            : continuationHeaderHtml(
-                order,
-                branding,
-                appearance,
-                pageNumber,
-              )
+            ? infoHtml(order, appearance) +
+              descriptionHtml(order, branding, appearance)
+            : ''
         }
 
-        <main class="page-content">
-          ${
-            page.first
-              ? infoHtml(
-                  order,
-                  appearance,
-                )
-              : `
-                <div class="continuation-note">
-                  Nastavak dokumenta
-                </div>
-              `
-          }
+        ${materialsHtml(
+          page.materials,
+          branding,
+          appearance,
+        )}
 
-          ${
-            page.first
-              ? descriptionHtml(
-                  order,
-                  appearance,
-                )
-              : ''
-          }
+        ${photosHtml(
+          page.photos,
+          branding,
+          appearance,
+        )}
 
-          ${
-            page.first ||
-            page.materials.length > 0
-              ? materialsHtml(
-                  page.materials,
-                  order,
-                  appearance,
-                  showTotals,
-                )
-              : ''
-          }
+        ${page.showTotals ? totalsHtml(order) : ''}
 
-          ${photosHtml(
-            page.photos,
-            appearance,
-          )}
-
-          ${
-            showSignature
-              ? signatureHtml(
-                  order,
-                  branding,
-                  appearance,
-                )
-              : ''
-          }
-        </main>
+        ${
+          page.last
+            ? signatureHtml(order, branding, appearance)
+            : ''
+        }
 
         ${footerHtml(
           order,
@@ -1942,8 +1322,7 @@ function buildDocument(
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
 ) {
-  const pages =
-    paginate(order)
+  const pages = paginate(order, appearance)
 
   return `
     <div
@@ -1958,24 +1337,18 @@ function buildDocument(
         z-index: -2147483647;
       "
     >
-      <style>
-        ${css(
-          branding,
-          appearance,
-        )}
-      </style>
+      <style>${css(branding, appearance)}</style>
 
       ${pages
-        .map(
-          (page, index) =>
-            pageHtml(
-              page,
-              index + 1,
-              pages.length,
-              order,
-              branding,
-              appearance,
-            ),
+        .map((page, index) =>
+          pageHtml(
+            page,
+            index + 1,
+            pages.length,
+            order,
+            branding,
+            appearance,
+          ),
         )
         .join('')}
     </div>
@@ -1985,136 +1358,41 @@ function buildDocument(
 async function waitForImages(
   target: HTMLElement,
 ) {
-  const images =
-    Array.from(
-      target.querySelectorAll('img'),
-    )
+  const images = Array.from(
+    target.querySelectorAll('img'),
+  )
 
   await Promise.all(
     images.map(
       (image) =>
-        new Promise<void>(
-          (resolve) => {
-            if (image.complete) {
-              resolve()
-              return
-            }
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve()
+            return
+          }
 
-            image.onload =
-              () => resolve()
-
-            image.onerror =
-              () => resolve()
-          },
-        ),
+          image.onload = () => resolve()
+          image.onerror = () => resolve()
+        }),
     ),
   )
-}
-
-async function resolveAppearance() {
-  try {
-    const result =
-      await getDocumentAppearanceSettings()
-
-    return result.settings.workOrder
-  } catch (error) {
-    console.error(
-      'Izgled radnog naloga nije moguće učitati, koristi se zadani izgled:',
-      error,
-    )
-
-    return null
-  }
-}
-
-function legacyAppearance(
-  branding: WorkOrderBranding,
-): DocumentAppearance {
-  return {
-    preset:
-      branding.layout === 'minimal'
-        ? 'minimal'
-        : branding.layout,
-    primaryColor:
-      branding.primaryColor,
-    secondaryColor:
-      branding.secondaryColor,
-    accentColor:
-      branding.accentColor,
-    textColor:
-      branding.textColor,
-    borderColor:
-      branding.borderColor,
-    backgroundColor:
-      branding.backgroundColor,
-    headerAlignment:
-      branding.headerAlignment,
-    density: 'comfortable',
-    infoStyle:
-      branding.customInfoStyle ===
-      'cards'
-        ? 'cards'
-        : 'lines',
-    tableStyle:
-      branding.customMaterialStyle ===
-      'list'
-        ? 'minimal'
-        : 'solid',
-    sectionStyle:
-      branding.layout === 'classic'
-        ? 'line'
-        : branding.layout === 'minimal'
-          ? 'plain'
-          : 'bar',
-    showLogo:
-      branding.showLogo,
-    showStamp:
-      branding.showStamp,
-    showSignature: true,
-    showFooter:
-      Boolean(
-        branding.footerText,
-      ),
-    showWatermark:
-      Boolean(
-        branding.watermarkText,
-      ),
-    showItemImages: false,
-    documentTitle:
-      branding.customDocumentTitle ||
-      'RADNI NALOG',
-    footerText:
-      branding.footerText,
-    watermarkText:
-      branding.watermarkText,
-  }
 }
 
 async function buildPdfDocument(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const storedAppearance =
-    await resolveAppearance()
+  const appearance = await resolveAppearance(branding)
 
-  const appearance =
-    storedAppearance ||
-    legacyAppearance(branding)
-
-  const wrapper =
-    document.createElement('div')
-
-  wrapper.innerHTML =
-    buildDocument(
-      order,
-      branding,
-      appearance,
-    )
+  const wrapper = document.createElement('div')
+  wrapper.innerHTML = buildDocument(
+    order,
+    branding,
+    appearance,
+  )
 
   const target =
-    wrapper.firstElementChild as
-      | HTMLElement
-      | null
+    wrapper.firstElementChild as HTMLElement | null
 
   if (!target) {
     throw new Error(
@@ -2128,57 +1406,35 @@ async function buildPdfDocument(
     await document.fonts?.ready
     await waitForImages(target)
 
-    const pageElements =
-      Array.from(
-        target.querySelectorAll(
-          '[data-pdf-page]',
-        ),
-      ) as HTMLElement[]
+    const pages = Array.from(
+      target.querySelectorAll('[data-pdf-page]'),
+    ) as HTMLElement[]
 
-    if (
-      pageElements.length === 0
-    ) {
+    if (!pages.length) {
       throw new Error(
         'PDF nema stranica za prikaz.',
       )
     }
 
-    const doc =
-      new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+      compress: true,
+    })
+
+    for (let index = 0; index < pages.length; index += 1) {
+      const canvas = await html2canvas(pages[index], {
+        scale: 2,
+        backgroundColor:
+          appearance.backgroundColor || '#ffffff',
+        useCORS: true,
+        logging: false,
       })
 
-    for (
-      let index = 0;
-      index <
-      pageElements.length;
-      index += 1
-    ) {
-      const canvas =
-        await html2canvas(
-          pageElements[index],
-          {
-            scale: 1.8,
-            backgroundColor:
-              appearance.backgroundColor ||
-              '#ffffff',
-            useCORS: true,
-            logging: false,
-          },
-        )
+      const image = canvas.toDataURL('image/jpeg', 0.96)
 
-      const image =
-        canvas.toDataURL(
-          'image/jpeg',
-          0.95,
-        )
-
-      if (index > 0) {
-        doc.addPage()
-      }
+      if (index > 0) doc.addPage()
 
       doc.addImage(
         image,
@@ -2198,26 +1454,22 @@ async function buildPdfDocument(
   }
 }
 
-export function
-buildWorkOrderPdfHtml(
+export function buildWorkOrderPdfHtml(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const appearance =
-    legacyAppearance(branding)
+  const appearance = legacyAppearance(branding)
 
-  const hiddenDocument =
-    buildDocument(
-      order,
-      branding,
-      appearance,
-    )
+  const hiddenDocument = buildDocument(
+    order,
+    branding,
+    appearance,
+  )
 
-  const visibleDocument =
-    hiddenDocument.replace(
-      /style="[\s\S]*?position:\s*fixed;[\s\S]*?z-index:\s*-2147483647;[\s\S]*?"/,
-      'style="width:794px;margin:0 auto;background:#fff;"',
-    )
+  const visibleDocument = hiddenDocument.replace(
+    /style="[\s\S]*?position:\s*fixed;[\s\S]*?z-index:\s*-2147483647;[\s\S]*?"/,
+    'style="width:794px;margin:0 auto;background:#fff;"',
+  )
 
   return `<!doctype html>
 <html lang="hr">
@@ -2229,8 +1481,7 @@ buildWorkOrderPdfHtml(
   />
 
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       overflow-x: hidden;
@@ -2259,49 +1510,31 @@ buildWorkOrderPdfHtml(
 </html>`
 }
 
-export async function
-downloadWorkOrderPdf(
+export async function downloadWorkOrderPdf(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const doc =
-    await buildPdfDocument(
-      order,
-      branding,
-    )
+  const doc = await buildPdfDocument(order, branding)
 
   doc.save(
     `${safeFileName(
-      order.orderNumber ||
-      'radni-nalog',
+      order.orderNumber || 'radni-nalog',
     )}.pdf`,
   )
 }
 
-export async function
-getWorkOrderPdfBlob(
+export async function getWorkOrderPdfBlob(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const doc =
-    await buildPdfDocument(
-      order,
-      branding,
-    )
-
+  const doc = await buildPdfDocument(order, branding)
   return doc.output('blob')
 }
 
-export async function
-getWorkOrderPdfBlobUrl(
+export async function getWorkOrderPdfBlobUrl(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const blob =
-    await getWorkOrderPdfBlob(
-      order,
-      branding,
-    )
-
+  const blob = await getWorkOrderPdfBlob(order, branding)
   return URL.createObjectURL(blob)
 }
