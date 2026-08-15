@@ -454,70 +454,177 @@ function paginateItems(
 
   const hasImages =
     settings.showItemImages &&
-    items.some(
-      (item) =>
-        Boolean(
-          item.imageDataUrl,
-        ),
+    items.some((item) =>
+      Boolean(item.imageDataUrl),
     )
 
-  const pages: OfferPage[] = []
+  const unitsOf = (
+    list: OfferPdfItem[],
+  ) =>
+    list.reduce(
+      (sum, item) =>
+        sum +
+        estimatedRowUnits(
+          item,
+          settings,
+        ),
+      0,
+    )
 
-  let current: OfferPdfItem[] =
-    []
-  let units = 0
-  let first = true
+  /**
+   * Završni blok (napomene + iznosi + potpisi +
+   * podaci za plaćanje + HUB3 barkod) mora ostati
+   * cijeli na zadnjoj stranici.
+   *
+   * Zato zadnja stranica ima manji kapacitet za stavke.
+   * Običnih 1–8 standardnih stavki ostaje na jednoj
+   * stranici. Kod većeg broja stavki nastavak se radi
+   * bez razvlačenja elemenata.
+   */
+  const firstFinalCapacity =
+    hasImages ? 5.2 : 8.5
 
-  for (const item of items) {
-    const nextUnits =
-      estimatedRowUnits(
-        item,
-        settings,
-      )
+  const continuationFinalCapacity =
+    hasImages ? 6.2 : 9.0
 
-    /**
-     * Na zadnjoj stranici mora ostati prostor za:
-     * napomene, zbrojeve, potpise i podatke za plaćanje.
-     *
-     * Bez slika 8 standardnih stavki sigurno stane na
-     * prvu stranicu. Sa slikama kapacitet je manji.
-     */
-    const capacity = hasImages
-      ? first
-        ? 9.4
-        : 12.4
-      : first
-        ? 12.5
-        : 16
+  const firstRegularCapacity =
+    hasImages ? 9.2 : 12.5
 
-    if (
-      current.length > 0 &&
-      units + nextUnits >
-        capacity
-    ) {
-      pages.push({
-        items: current,
-        first,
-        final: false,
-      })
+  const continuationRegularCapacity =
+    hasImages ? 12.2 : 16
 
-      current = []
-      units = 0
-      first = false
-    }
+  const minimumFinalUnits =
+    hasImages ? 2.2 : 3
 
-    current.push(item)
-    units += nextUnits
+  const totalUnits =
+    unitsOf(items)
+
+  if (
+    totalUnits <=
+    firstFinalCapacity
+  ) {
+    return [
+      {
+        items,
+        first: true,
+        final: true,
+      },
+    ]
   }
 
-  pages.push({
-    items: current,
-    first,
-    final: true,
-  })
+  const pages: OfferPage[] =
+    []
+
+  let cursor = 0
+  let first = true
+
+  while (
+    cursor < items.length
+  ) {
+    const remaining =
+      items.slice(cursor)
+
+    const remainingUnits =
+      unitsOf(remaining)
+
+    const finalCapacity =
+      first
+        ? firstFinalCapacity
+        : continuationFinalCapacity
+
+    if (
+      remainingUnits <=
+      finalCapacity
+    ) {
+      pages.push({
+        items: remaining,
+        first,
+        final: true,
+      })
+
+      break
+    }
+
+    const regularCapacity =
+      first
+        ? firstRegularCapacity
+        : continuationRegularCapacity
+
+    /**
+     * Ako bi nakon ove stranice ostatak već mogao
+     * stati uz završni blok, ostavi barem nekoliko
+     * redaka na zadnjoj stranici da ne dobijemo
+     * gotovo praznu završnu stranicu.
+     */
+    const shouldReserveForFinal =
+      remainingUnits -
+        regularCapacity <=
+      continuationFinalCapacity
+
+    const targetUnits =
+      Math.max(
+        1,
+        Math.min(
+          regularCapacity,
+          shouldReserveForFinal
+            ? remainingUnits -
+                minimumFinalUnits
+            : regularCapacity,
+        ),
+      )
+
+    const pageItems:
+      OfferPdfItem[] = []
+
+    let pageUnits = 0
+
+    while (
+      cursor < items.length
+    ) {
+      const item =
+        items[cursor]
+
+      const itemUnits =
+        estimatedRowUnits(
+          item,
+          settings,
+        )
+
+      if (
+        pageItems.length > 0 &&
+        pageUnits +
+          itemUnits >
+          targetUnits
+      ) {
+        break
+      }
+
+      pageItems.push(item)
+      pageUnits += itemUnits
+      cursor += 1
+    }
+
+    if (!pageItems.length) {
+      pageItems.push(
+        items[cursor],
+      )
+      cursor += 1
+    }
+
+    pages.push({
+      items: pageItems,
+      first,
+      final: false,
+    })
+
+    first = false
+  }
 
   pages.forEach(
     (page, index) => {
+      page.first =
+        index === 0
+
       page.final =
         index ===
         pages.length - 1
@@ -1769,6 +1876,7 @@ function css(
       gap: 22px;
       align-items: start;
       margin-top: 14px;
+      break-inside: avoid;
     }
 
     .notes-card {
@@ -1853,6 +1961,8 @@ function css(
         minmax(0, .9fr);
       gap: 18px;
       margin-top: 13px;
+      align-items: start;
+      break-inside: avoid;
     }
 
     .signature-area {
@@ -1860,10 +1970,12 @@ function css(
       grid-template-columns:
         repeat(2, minmax(0,1fr));
       gap: 9px;
+      align-self: start;
     }
 
     .signature-card {
-      min-height: 92px;
+      height: 112px;
+      min-height: 112px;
       padding: 9px 11px;
       border:
         1px solid ${alpha(
@@ -1901,8 +2013,10 @@ function css(
     }
 
     .payment-card {
-      min-height: 92px;
+      min-height: 112px;
       padding: 9px 11px;
+      align-self: start;
+      break-inside: avoid;
       border:
         1px solid ${alpha(
           p,
@@ -1949,11 +2063,12 @@ function css(
 
     .quick-pay-barcode {
       display: block;
-      width: 47mm;
+      width: 55mm;
       max-width: 100%;
-      max-height: 21mm;
+      max-height: 25mm;
       height: auto;
       object-fit: contain;
+      image-rendering: auto;
     }
 
     .payment-line {
@@ -2561,10 +2676,10 @@ async function renderHtmlPagesToPdf(
           page,
           {
             /**
-             * 3.35 daje osjetno čišći tekst od starog PDF-a,
-             * bez nepotrebnog 4x memorijskog opterećenja.
+             * 4x render daje čišći tekst, linije i fotografije
+             * na A4 PDF-u bez promjene fizičke veličine elemenata.
              */
-            scale: 3.35,
+            scale: 4,
             backgroundColor,
             useCORS: true,
             allowTaint: false,

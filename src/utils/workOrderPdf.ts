@@ -1425,20 +1425,20 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 2,
+        scale: 4,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
         logging: false,
       })
 
-      const image = canvas.toDataURL('image/jpeg', 0.96)
+      const image = canvas.toDataURL('image/png')
 
       if (index > 0) doc.addPage()
 
       doc.addImage(
         image,
-        'JPEG',
+        'PNG',
         0,
         0,
         210,
