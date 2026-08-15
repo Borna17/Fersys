@@ -49,6 +49,14 @@ export type OfferPdfData = {
   createdAt: string
   updatedAt: string
   version: number
+
+  /**
+   * Opcionalna polja za buduće proširenje ponude.
+   * Postojeći pozivi ne moraju ih slati.
+   */
+  deliveryPlace?: string
+  deliveryMethod?: string
+  deliveryPeriod?: string
 }
 
 export type OfferPdfSettings = {
@@ -57,6 +65,7 @@ export type OfferPdfSettings = {
   companyAddress: string
   companyOib: string
   companyIban: string
+  companyBankName: string
   companyEmail: string
   companyPhone: string
   companyWebsite: string
@@ -112,6 +121,7 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
   companyAddress: '',
   companyOib: '',
   companyIban: '',
+  companyBankName: '',
   companyEmail: '',
   companyPhone: '',
   companyWebsite: '',
@@ -127,26 +137,37 @@ const DEFAULT_SETTINGS: OfferPdfSettings = {
   borderColor: DEFAULT_APPEARANCE.borderColor,
   backgroundColor: DEFAULT_APPEARANCE.backgroundColor,
 
-  headerAlignment: DEFAULT_APPEARANCE.headerAlignment,
+  headerAlignment:
+    DEFAULT_APPEARANCE.headerAlignment,
   density: DEFAULT_APPEARANCE.density,
   infoStyle: DEFAULT_APPEARANCE.infoStyle,
   tableStyle: DEFAULT_APPEARANCE.tableStyle,
   sectionStyle: DEFAULT_APPEARANCE.sectionStyle,
 
   showLogo: DEFAULT_APPEARANCE.showLogo,
-  showItemImages: DEFAULT_APPEARANCE.showItemImages,
-  showSignature: DEFAULT_APPEARANCE.showSignature,
+  showItemImages:
+    DEFAULT_APPEARANCE.showItemImages,
+  showSignature:
+    DEFAULT_APPEARANCE.showSignature,
   showStamp: DEFAULT_APPEARANCE.showStamp,
   showFooter: DEFAULT_APPEARANCE.showFooter,
-  showWatermark: DEFAULT_APPEARANCE.showWatermark,
+  showWatermark:
+    DEFAULT_APPEARANCE.showWatermark,
 
-  documentTitle: DEFAULT_APPEARANCE.documentTitle,
-  footerText: DEFAULT_APPEARANCE.footerText,
-  watermarkText: DEFAULT_APPEARANCE.watermarkText,
+  documentTitle:
+    DEFAULT_APPEARANCE.documentTitle,
+  footerText:
+    DEFAULT_APPEARANCE.footerText,
+  watermarkText:
+    DEFAULT_APPEARANCE.watermarkText,
 }
 
 const esc = (
-  value: string | number | null | undefined,
+  value:
+    | string
+    | number
+    | null
+    | undefined,
 ) =>
   String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -156,78 +177,149 @@ const esc = (
     .replaceAll("'", '&#039;')
 
 const multi = (value: string) =>
-  esc(value).replace(/\r?\n/g, '<br />')
+  esc(value).replace(
+    /\r?\n/g,
+    '<br />',
+  )
 
-function alpha(color: string, opacity: string) {
-  return /^#[0-9A-Fa-f]{6}$/.test(color)
+function alpha(
+  color: string,
+  opacity: string,
+) {
+  return /^#[0-9A-Fa-f]{6}$/.test(
+    color,
+  )
     ? `${color}${opacity}`
     : color
 }
 
 function currency(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-    minimumFractionDigits: 2,
-  }).format(Number.isFinite(value) ? value : 0)
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 2,
+    },
+  ).format(
+    Number.isFinite(value)
+      ? value
+      : 0,
+  )
 }
 
 function number(value: number) {
-  return new Intl.NumberFormat('hr-HR', {
-    maximumFractionDigits: 2,
-  }).format(value)
+  return new Intl.NumberFormat(
+    'hr-HR',
+    {
+      maximumFractionDigits: 2,
+    },
+  ).format(value)
 }
 
 function date(value: string) {
   if (!value) return '—'
-  const parsed = new Date(`${value}T12:00:00`)
-  return Number.isNaN(parsed.getTime())
+
+  const parsed = new Date(
+    `${value}T12:00:00`,
+  )
+
+  return Number.isNaN(
+    parsed.getTime(),
+  )
     ? value
-    : parsed.toLocaleDateString('hr-HR')
+    : parsed.toLocaleDateString(
+        'hr-HR',
+      )
 }
 
-function itemNet(item: OfferPdfItem) {
-  return item.quantity * item.price * (1 - item.discount / 100)
+function itemBase(
+  item: OfferPdfItem,
+) {
+  return (
+    item.quantity *
+    item.price
+  )
 }
 
-function itemVat(item: OfferPdfItem) {
-  return itemNet(item) * (item.vat / 100)
+function itemNet(
+  item: OfferPdfItem,
+) {
+  return (
+    itemBase(item) *
+    (1 - item.discount / 100)
+  )
 }
 
-function itemTotal(item: OfferPdfItem) {
-  return itemNet(item) + itemVat(item)
+function itemVat(
+  item: OfferPdfItem,
+) {
+  return (
+    itemNet(item) *
+    (item.vat / 100)
+  )
 }
 
-function safeFileName(value: string) {
+function itemTotal(
+  item: OfferPdfItem,
+) {
+  return (
+    itemNet(item) +
+    itemVat(item)
+  )
+}
+
+function safeFileName(
+  value: string,
+) {
   return value
-    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(
+      /[\\/:*?"<>|]+/g,
+      '-',
+    )
     .replace(/\s+/g, '-')
 }
 
 function companySettingsFromCurrent(
   settings: Awaited<
-    ReturnType<typeof getCompanySettings>
+    ReturnType<
+      typeof getCompanySettings
+    >
   >,
 ): Partial<OfferPdfSettings> {
   return {
     companyName: settings.name,
-    companySubtitle: settings.documentWatermark,
+    companySubtitle:
+      settings.documentWatermark,
     companyAddress: [
       settings.address,
-      [settings.postalCode, settings.city]
+      [
+        settings.postalCode,
+        settings.city,
+      ]
         .filter(Boolean)
         .join(' '),
+      settings.country,
     ]
       .filter(Boolean)
       .join(', '),
     companyOib: settings.oib,
     companyIban: settings.iban,
+    companyBankName:
+      settings.bankName,
     companyEmail: settings.email,
     companyPhone: settings.phone,
-    companyWebsite: settings.website,
-    logoDataUrl: settings.logoUrl || undefined,
-    stampDataUrl: settings.stampUrl || undefined,
-    signatureDataUrl: settings.signatureUrl || undefined,
+    companyWebsite:
+      settings.website,
+    logoDataUrl:
+      settings.logoUrl ||
+      undefined,
+    stampDataUrl:
+      settings.stampUrl ||
+      undefined,
+    signatureDataUrl:
+      settings.signatureUrl ||
+      undefined,
   }
 }
 
@@ -236,28 +328,56 @@ function appearanceToPdfSettings(
 ): Partial<OfferPdfSettings> {
   return {
     preset: appearance.preset,
-    primaryColor: appearance.primaryColor,
-    secondaryColor: appearance.secondaryColor,
-    accentColor: appearance.accentColor,
-    textColor: appearance.textColor,
-    borderColor: appearance.borderColor,
-    backgroundColor: appearance.backgroundColor,
-    headerAlignment: appearance.headerAlignment,
+    primaryColor:
+      appearance.primaryColor,
+    secondaryColor:
+      appearance.secondaryColor,
+    accentColor:
+      appearance.accentColor,
+    textColor:
+      appearance.textColor,
+    borderColor:
+      appearance.borderColor,
+    backgroundColor:
+      appearance.backgroundColor,
+
+    headerAlignment:
+      appearance.headerAlignment,
     density: appearance.density,
-    infoStyle: appearance.infoStyle,
-    tableStyle: appearance.tableStyle,
-    sectionStyle: appearance.sectionStyle,
-    showLogo: appearance.showLogo,
-    showStamp: appearance.showStamp,
-    showSignature: appearance.showSignature,
-    showFooter: appearance.showFooter,
-    showWatermark: appearance.showWatermark,
-    showItemImages: appearance.showItemImages,
-    documentTitle: appearance.documentTitle || 'PONUDA',
-    footerText: /fersys/i.test(appearance.footerText || '')
-      ? 'Hvala na povjerenju.'
-      : appearance.footerText,
-    watermarkText: appearance.watermarkText,
+    infoStyle:
+      appearance.infoStyle,
+    tableStyle:
+      appearance.tableStyle,
+    sectionStyle:
+      appearance.sectionStyle,
+
+    showLogo:
+      appearance.showLogo,
+    showStamp:
+      appearance.showStamp,
+    showSignature:
+      appearance.showSignature,
+    showFooter:
+      appearance.showFooter,
+    showWatermark:
+      appearance.showWatermark,
+    showItemImages:
+      appearance.showItemImages,
+
+    documentTitle:
+      appearance.documentTitle ||
+      'PONUDA',
+
+    footerText:
+      /fersys/i.test(
+        appearance.footerText ||
+          '',
+      )
+        ? 'Hvala na povjerenju.'
+        : appearance.footerText,
+
+    watermarkText:
+      appearance.watermarkText,
   }
 }
 
@@ -267,50 +387,109 @@ type OfferPage = {
   final: boolean
 }
 
-function itemWeight(
+function estimatedRowUnits(
   item: OfferPdfItem,
   settings: OfferPdfSettings,
 ) {
+  const descriptionUnits =
+    item.description.trim()
+      ? Math.min(
+          1.25,
+          item.description.length /
+            110,
+        )
+      : 0
+
+  const imageUnits =
+    settings.showItemImages &&
+    item.imageDataUrl
+      ? 1.65
+      : 0
+
   return (
     1 +
-    Math.min(1.2, (item.name.length + item.description.length) / 180) +
-    (settings.showItemImages && item.imageDataUrl ? 1.35 : 0)
+    descriptionUnits +
+    imageUnits
   )
 }
 
+/**
+ * Glavni cilj:
+ * - običnih 8 stavki stane na prvu A4 stranicu
+ * - veći tekst ostaje čitljiv
+ * - slike uz stavke smanjuju broj stavki po stranici
+ * - završni blok se ne reže
+ */
 function paginateItems(
   items: OfferPdfItem[],
   settings: OfferPdfSettings,
 ): OfferPage[] {
+  if (!items.length) {
+    return [
+      {
+        items: [],
+        first: true,
+        final: true,
+      },
+    ]
+  }
+
+  const hasImages =
+    settings.showItemImages &&
+    items.some(
+      (item) =>
+        Boolean(
+          item.imageDataUrl,
+        ),
+    )
+
   const pages: OfferPage[] = []
-  let current: OfferPdfItem[] = []
-  let weight = 0
+
+  let current: OfferPdfItem[] =
+    []
+  let units = 0
   let first = true
 
   for (const item of items) {
-    const row = itemWeight(item, settings)
-    const capacity =
-      settings.density === 'compact'
-        ? first
-          ? 8.3
-          : 11
-        : first
-          ? 7
-          : 9.5
+    const nextUnits =
+      estimatedRowUnits(
+        item,
+        settings,
+      )
 
-    if (current.length && weight + row > capacity) {
+    /**
+     * Na zadnjoj stranici mora ostati prostor za:
+     * napomene, zbrojeve, potpise i podatke za plaćanje.
+     *
+     * Bez slika 8 standardnih stavki sigurno stane na
+     * prvu stranicu. Sa slikama kapacitet je manji.
+     */
+    const capacity = hasImages
+      ? first
+        ? 9.4
+        : 12.4
+      : first
+        ? 12.5
+        : 16
+
+    if (
+      current.length > 0 &&
+      units + nextUnits >
+        capacity
+    ) {
       pages.push({
         items: current,
         first,
         final: false,
       })
+
       current = []
-      weight = 0
+      units = 0
       first = false
     }
 
     current.push(item)
-    weight += row
+    units += nextUnits
   }
 
   pages.push({
@@ -319,105 +498,303 @@ function paginateItems(
     final: true,
   })
 
-  pages.forEach((page, index) => {
-    page.final = index === pages.length - 1
-  })
+  pages.forEach(
+    (page, index) => {
+      page.final =
+        index ===
+        pages.length - 1
+    },
+  )
 
   return pages
 }
 
-function companyHtml(settings: OfferPdfSettings) {
+function companyHtml(
+  settings: OfferPdfSettings,
+) {
   const logo =
-    settings.showLogo && settings.logoDataUrl
-      ? `<img class="company-logo" src="${esc(
-          settings.logoDataUrl,
-        )}" alt="Logo tvrtke" />`
+    settings.showLogo &&
+    settings.logoDataUrl
+      ? `
+        <img
+          class="company-logo"
+          src="${esc(
+            settings.logoDataUrl,
+          )}"
+          alt="Logo tvrtke"
+        />
+      `
       : ''
 
-  const details = [
-    settings.companyAddress,
-    settings.companyOib ? `OIB: ${settings.companyOib}` : '',
-    [
-      settings.companyPhone,
-      settings.companyEmail,
-      settings.companyWebsite,
-    ]
-      .filter(Boolean)
-      .join(' • '),
-  ].filter(Boolean)
+  const contactLine = [
+    settings.companyPhone,
+    settings.companyEmail,
+    settings.companyWebsite,
+  ]
+    .filter(Boolean)
+    .join(' • ')
 
   return `
     <div class="company">
       ${logo}
+
       <div class="company-copy">
-        <div class="company-name">${esc(settings.companyName)}</div>
+        <div class="company-name">
+          ${esc(
+            settings.companyName,
+          )}
+        </div>
+
         ${
           settings.companySubtitle
-            ? `<div class="company-subtitle">${esc(
-                settings.companySubtitle,
-              )}</div>`
+            ? `
+              <div class="company-subtitle">
+                ${esc(
+                  settings.companySubtitle,
+                )}
+              </div>
+            `
             : ''
         }
-        <div class="company-details">
-          ${details
-            .map((line) => `<div>${esc(line)}</div>`)
-            .join('')}
-        </div>
+
+        ${
+          settings.companyAddress
+            ? `
+              <div class="company-line">
+                ${esc(
+                  settings.companyAddress,
+                )}
+              </div>
+            `
+            : ''
+        }
+
+        ${
+          settings.companyOib
+            ? `
+              <div class="company-line">
+                OIB: ${esc(
+                  settings.companyOib,
+                )}
+              </div>
+            `
+            : ''
+        }
+
+        ${
+          contactLine
+            ? `
+              <div class="company-line">
+                ${esc(
+                  contactLine,
+                )}
+              </div>
+            `
+            : ''
+        }
       </div>
     </div>
   `
 }
 
-function sectionTitle(
-  label: string,
-  settings: OfferPdfSettings,
-) {
-  return `
-    <div class="section-title section-${esc(
-      settings.sectionStyle,
-    )}">
-      ${esc(label)}
-    </div>
-  `
-}
-
-function partyHtml(
+function headingHtml(
   offer: OfferPdfData,
   settings: OfferPdfSettings,
 ) {
-  const address = [offer.address, offer.city]
+  return `
+    <section class="top-head">
+      <div class="brand-side">
+        ${companyHtml(
+          settings,
+        )}
+      </div>
+
+      <div class="title-side">
+        <div class="offer-title">
+          ${esc(
+            settings.documentTitle ||
+              'PONUDA',
+          )}
+        </div>
+
+        <div class="offer-kicker">
+          KOMERCIJALNA PONUDA
+        </div>
+
+        <div class="head-metrics">
+          <div class="metric">
+            <span>Ponuda br.</span>
+            <strong>
+              ${esc(
+                offer.offerNumber,
+              )}
+            </strong>
+          </div>
+
+          <div class="metric">
+            <span>Datum</span>
+            <strong>
+              ${date(
+                offer.date,
+              )}
+            </strong>
+          </div>
+
+          <div class="metric">
+            <span>Vrijedi do</span>
+            <strong>
+              ${date(
+                offer.validUntil,
+              )}
+            </strong>
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function clientHtml(
+  offer: OfferPdfData,
+  _settings: OfferPdfSettings,
+) {
+  const address = [
+    offer.address,
+    offer.city,
+  ]
     .filter(Boolean)
     .join(', ')
 
+  const deliveryPlace =
+    offer.deliveryPlace ||
+    address ||
+    '—'
+
+  const deliveryPeriod =
+    offer.deliveryPeriod ||
+    'Prema dogovoru'
+
+  const deliveryMethod =
+    offer.deliveryMethod ||
+    'Dostava / usluga'
+
   return `
-    <section class="party-grid info-${esc(settings.infoStyle)}">
-      <article class="party-card">
-        <div class="eyebrow">NARUČITELJ</div>
-        <div class="party-name">${esc(offer.customerName)}</div>
-        <div class="party-details">
-          ${address ? `<div>${esc(address)}</div>` : ''}
-          ${offer.oib ? `<div>OIB: ${esc(offer.oib)}</div>` : ''}
-          ${offer.email ? `<div>${esc(offer.email)}</div>` : ''}
-          ${offer.phone ? `<div>${esc(offer.phone)}</div>` : ''}
+    <section class="info-grid">
+      <article class="info-card">
+        <div class="block-title">
+          PODACI O KLIJENTU
+        </div>
+
+        <div class="client-name">
+          ${esc(
+            offer.customerName,
+          )}
+        </div>
+
+        <div class="client-lines">
+          ${
+            address
+              ? `<div>${esc(
+                  address,
+                )}</div>`
+              : ''
+          }
+
+          ${
+            offer.oib
+              ? `<div>OIB: ${esc(
+                  offer.oib,
+                )}</div>`
+              : ''
+          }
+
+          ${
+            offer.email
+              ? `<div>${esc(
+                  offer.email,
+                )}</div>`
+              : ''
+          }
+
+          ${
+            offer.phone
+              ? `<div>${esc(
+                  offer.phone,
+                )}</div>`
+              : ''
+          }
         </div>
       </article>
 
-      <article class="party-card">
-        <div class="eyebrow">PODACI PONUDE</div>
-        <div class="meta"><span>Datum</span><strong>${date(
-          offer.date,
-        )}</strong></div>
-        <div class="meta"><span>Vrijedi do</span><strong>${date(
-          offer.validUntil,
-        )}</strong></div>
-        <div class="meta"><span>Status</span><strong>${esc(
-          offer.status,
-        )}</strong></div>
-        <div class="meta"><span>Izradio</span><strong>${esc(
-          offer.responsiblePerson || '—',
-        )}</strong></div>
+      <article class="info-card">
+        <div class="block-title">
+          PODACI O PONUDI
+        </div>
+
+        <div class="info-line">
+          <span>Izradio/la</span>
+          <strong>
+            ${esc(
+              offer.responsiblePerson ||
+                '—',
+            )}
+          </strong>
+        </div>
+
+        <div class="info-line">
+          <span>Mjesto isporuke</span>
+          <strong>
+            ${esc(
+              deliveryPlace,
+            )}
+          </strong>
+        </div>
+
+        <div class="info-line">
+          <span>Razdoblje isporuke</span>
+          <strong>
+            ${esc(
+              deliveryPeriod,
+            )}
+          </strong>
+        </div>
+
+        <div class="info-line">
+          <span>Način isporuke</span>
+          <strong>
+            ${esc(
+              deliveryMethod,
+            )}
+          </strong>
+        </div>
+
+        <div class="info-line">
+          <span>Valuta</span>
+          <strong>EUR</strong>
+        </div>
       </article>
     </section>
+  `
+}
+
+function tableHeaderHtml(
+  settings: OfferPdfSettings,
+) {
+  return `
+    <div
+      class="items-head table-${esc(
+        settings.tableStyle,
+      )}"
+    >
+      <div>RBR.</div>
+      <div>OPIS STAVKE</div>
+      <div>KOL.</div>
+      <div>JED.</div>
+      <div>JED. CIJENA</div>
+      <div>POPUST</div>
+      <div>PDV</div>
+      <div>UKUPNO</div>
+    </div>
   `
 }
 
@@ -427,300 +804,1170 @@ function itemRows(
   settings: OfferPdfSettings,
 ) {
   return items
-    .map((item, index) => {
-      const image =
-        settings.showItemImages && item.imageDataUrl
-          ? `<img class="item-image" src="${esc(
-              item.imageDataUrl,
-            )}" alt="${esc(item.imageName || item.name)}" />`
-          : ''
+    .map(
+      (
+        item,
+        index,
+      ) => {
+        const image =
+          settings.showItemImages &&
+          item.imageDataUrl
+            ? `
+              <div class="item-image-wrap">
+                <img
+                  class="item-image"
+                  src="${esc(
+                    item.imageDataUrl,
+                  )}"
+                  alt="${esc(
+                    item.imageName ||
+                      item.name,
+                  )}"
+                />
+              </div>
+            `
+            : ''
 
-      return `
-        <article class="item-row ${
-          image ? 'with-image' : ''
-        }">
-          <div class="item-index">${String(start + index + 1).padStart(
-            2,
-            '0',
-          )}</div>
-
-          ${image ? `<div class="item-image-box">${image}</div>` : ''}
-
-          <div class="item-main">
-            <div class="item-name">${esc(item.name)}</div>
-            ${
-              item.description
-                ? `<div class="item-description">${multi(
-                    item.description,
-                  )}</div>`
+        return `
+          <article
+            class="item-row ${
+              image
+                ? 'has-image'
                 : ''
-            }
-          </div>
+            }"
+          >
+            <div class="item-index">
+              ${String(
+                start +
+                  index +
+                  1,
+              ).padStart(
+                2,
+                '0',
+              )}
+            </div>
 
-          <div class="item-data">
-            <small>KOL.</small>
-            ${number(item.quantity)} ${esc(item.unit)}
-          </div>
+            <div class="item-main">
+              ${
+                image
+                  ? `
+                    <div class="item-main-grid">
+                      ${image}
+                      <div>
+                  `
+                  : ''
+              }
 
-          <div class="item-data">
-            <small>CIJENA</small>
-            ${currency(item.price)}
-            ${
-              item.discount > 0
-                ? `<div class="discount">-${number(
-                    item.discount,
-                  )}%</div>`
-                : ''
-            }
-          </div>
+              <div class="item-name">
+                ${esc(
+                  item.name,
+                )}
+              </div>
 
-          <div class="item-data total">
-            <small>UKUPNO</small>
-            ${currency(itemTotal(item))}
-          </div>
-        </article>
-      `
-    })
+              ${
+                item.description
+                  ? `
+                    <div class="item-description">
+                      ${multi(
+                        item.description,
+                      )}
+                    </div>
+                  `
+                  : ''
+              }
+
+              ${
+                image
+                  ? `
+                      </div>
+                    </div>
+                  `
+                  : ''
+              }
+            </div>
+
+            <div class="item-cell">
+              ${number(
+                item.quantity,
+              )}
+            </div>
+
+            <div class="item-cell">
+              ${esc(
+                item.unit,
+              )}
+            </div>
+
+            <div class="item-cell price">
+              ${currency(
+                item.price,
+              )}
+            </div>
+
+            <div class="item-cell">
+              ${
+                item.discount
+                  ? `${number(
+                      item.discount,
+                    )}%`
+                  : '0%'
+              }
+            </div>
+
+            <div class="item-cell">
+              ${number(
+                item.vat,
+              )}%
+            </div>
+
+            <div class="item-cell total">
+              ${currency(
+                itemTotal(item),
+              )}
+            </div>
+          </article>
+        `
+      },
+    )
     .join('')
 }
 
-function finalHtml(
+function notesAndTotalsHtml(
   offer: OfferPdfData,
-  settings: OfferPdfSettings,
+  _settings: OfferPdfSettings,
   base: number,
   net: number,
   vat: number,
   discount: number,
   total: number,
 ) {
-  const stamp =
-    settings.showStamp && settings.stampDataUrl
-      ? `<img class="stamp" src="${esc(
-          settings.stampDataUrl,
-        )}" alt="Pečat" />`
-      : ''
-
-  const signature =
-    settings.signatureDataUrl
-      ? `<img class="signature" src="${esc(
-          settings.signatureDataUrl,
-        )}" alt="Potpis" />`
-      : ''
+  const notes = [
+    offer.description,
+    offer.paymentTerms,
+  ].filter(
+    (value) =>
+      value?.trim(),
+  )
 
   return `
-    <section class="final-grid">
-      <div class="notes">
-        <div class="eyebrow">NAPOMENA I UVJETI</div>
+    <section class="summary-grid">
+      <div class="notes-card">
+        <div class="block-title">
+          NAPOMENE I UVJETI
+        </div>
+
         ${
-          offer.description
-            ? `<div class="note">${multi(offer.description)}</div>`
-            : ''
-        }
-        ${
-          offer.paymentTerms
-            ? `<div class="note">${multi(offer.paymentTerms)}</div>`
-            : ''
+          notes.length
+            ? notes
+                .map(
+                  (value) =>
+                    `<div class="note-line">${multi(
+                      value,
+                    )}</div>`,
+                )
+                .join('')
+            : `
+              <div class="note-line">
+                Ponuda vrijedi do navedenog datuma.
+              </div>
+            `
         }
       </div>
 
       <div class="totals">
-        <div><span>Vrijednost</span><strong>${currency(base)}</strong></div>
+        <div class="total-line">
+          <span>
+            Ukupno prije popusta
+          </span>
+          <strong>
+            ${currency(
+              base,
+            )}
+          </strong>
+        </div>
+
         ${
           discount > 0
-            ? `<div><span>Popust</span><strong>− ${currency(
-                discount,
-              )}</strong></div>`
+            ? `
+              <div class="total-line">
+                <span>Popust</span>
+                <strong>
+                  − ${currency(
+                    discount,
+                  )}
+                </strong>
+              </div>
+            `
             : ''
         }
-        <div><span>Osnovica</span><strong>${currency(net)}</strong></div>
-        <div><span>PDV</span><strong>${currency(vat)}</strong></div>
-        <div class="grand">
-          <span>UKUPNO</span>
-          <strong>${currency(total)}</strong>
+
+        <div class="total-line">
+          <span>Osnovica</span>
+          <strong>
+            ${currency(
+              net,
+            )}
+          </strong>
+        </div>
+
+        <div class="total-line">
+          <span>PDV</span>
+          <strong>
+            ${currency(
+              vat,
+            )}
+          </strong>
+        </div>
+
+        <div class="grand-total">
+          <span>
+            UKUPNO ZA PLATITI
+          </span>
+          <strong>
+            ${currency(
+              total,
+            )}
+          </strong>
         </div>
       </div>
     </section>
-
-    ${
-      settings.showSignature
-        ? `
-          <section class="signature-grid">
-            <div class="signature-box">
-              <div class="signature-label">Ponudu izradio</div>
-              <div class="signature-visual">${signature}${stamp}</div>
-              <div class="signature-name">${esc(
-                offer.responsiblePerson || settings.companyName,
-              )}</div>
-            </div>
-
-            <div class="signature-box">
-              <div class="signature-label">Prihvat ponude / investitor</div>
-              <div class="signature-visual"></div>
-              <div class="signature-name">${esc(
-                offer.customerName,
-              )}</div>
-            </div>
-          </section>
-        `
-        : ''
-    }
   `
 }
 
-function css(settings: OfferPdfSettings) {
-  const p = settings.primaryColor
-  const s = settings.secondaryColor
-  const t = settings.textColor
-  const b = settings.borderColor
-  const bg = settings.backgroundColor
-  const compact = settings.density === 'compact'
-  const preset = settings.preset
+function signatureAndPaymentHtml(
+  offer: OfferPdfData,
+  settings: OfferPdfSettings,
+) {
+  const signature =
+    settings.showSignature &&
+    settings.signatureDataUrl
+      ? `
+        <img
+          class="signature-image"
+          src="${esc(
+            settings.signatureDataUrl,
+          )}"
+          alt="Potpis"
+        />
+      `
+      : ''
+
+  const stamp =
+    settings.showStamp &&
+    settings.stampDataUrl
+      ? `
+        <img
+          class="stamp-image"
+          src="${esc(
+            settings.stampDataUrl,
+          )}"
+          alt="Pečat"
+        />
+      `
+      : ''
+
+  const showSignatures =
+    settings.showSignature ||
+    settings.showStamp
+
+  const paymentLines = [
+    [
+      'Primatelj',
+      settings.companyName,
+    ],
+    [
+      'IBAN',
+      settings.companyIban,
+    ],
+    [
+      'Banka',
+      settings.companyBankName,
+    ],
+    [
+      'Poziv / opis',
+      offer.offerNumber,
+    ],
+  ].filter(
+    ([, value]) =>
+      Boolean(value),
+  )
 
   return `
-    *{box-sizing:border-box}
-    html,body{
-      margin:0;background:#dfe5ec;color:${t};
-      font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
-      -webkit-print-color-adjust:exact;print-color-adjust:exact
+    <section class="closing-grid">
+      <div class="signature-area">
+        ${
+          showSignatures
+            ? `
+              <div class="signature-card">
+                <div class="signature-label">
+                  Ponudu izradio
+                </div>
+
+                <div class="signature-media">
+                  ${signature}
+                  ${stamp}
+                </div>
+
+                <div class="signature-name">
+                  ${esc(
+                    offer.responsiblePerson ||
+                      settings.companyName,
+                  )}
+                </div>
+              </div>
+
+              <div class="signature-card">
+                <div class="signature-label">
+                  Prihvat ponude / klijent
+                </div>
+
+                <div class="signature-media"></div>
+
+                <div class="signature-name">
+                  ${esc(
+                    offer.customerName,
+                  )}
+                </div>
+              </div>
+            `
+            : ''
+        }
+      </div>
+
+      ${
+        paymentLines.length
+          ? `
+            <div class="payment-card">
+              <div class="block-title">
+                PODACI ZA PLAĆANJE
+              </div>
+
+              ${paymentLines
+                .map(
+                  ([
+                    label,
+                    value,
+                  ]) => `
+                    <div class="payment-line">
+                      <span>${esc(
+                        label,
+                      )}</span>
+                      <strong>${esc(
+                        value,
+                      )}</strong>
+                    </div>
+                  `,
+                )
+                .join('')}
+            </div>
+          `
+          : ''
+      }
+    </section>
+  `
+}
+
+function footerHtml(
+  settings: OfferPdfSettings,
+  pageIndex: number,
+  totalPages: number,
+) {
+  if (!settings.showFooter) {
+    return ''
+  }
+
+  const business = [
+    settings.companyName,
+    settings.companyAddress,
+    settings.companyOib
+      ? `OIB: ${settings.companyOib}`
+      : '',
+    settings.companyEmail,
+    settings.companyWebsite,
+  ]
+    .filter(Boolean)
+    .join(' • ')
+
+  return `
+    <footer class="footer">
+      <span>
+        ${esc(
+          settings.footerText ||
+            business ||
+            'Hvala na povjerenju.',
+        )}
+      </span>
+
+      <strong>
+        ${pageIndex + 1} / ${totalPages}
+      </strong>
+    </footer>
+  `
+}
+
+function css(
+  settings: OfferPdfSettings,
+) {
+  const p =
+    settings.primaryColor
+  const s =
+    settings.secondaryColor
+  const a =
+    settings.accentColor
+  const t =
+    settings.textColor
+  const b =
+    settings.borderColor
+  const bg =
+    settings.backgroundColor
+  const preset =
+    settings.preset
+
+  const compact =
+    settings.density ===
+    'compact'
+
+  const headerFill =
+    settings.tableStyle ===
+    'minimal'
+      ? s
+      : p
+
+  const cardRadius =
+    preset === 'minimal'
+      ? 4
+      : 10
+
+  return `
+    * {
+      box-sizing: border-box;
     }
 
-    .toolbar{
-      position:sticky;top:0;z-index:20;display:flex;justify-content:center;
-      gap:10px;padding:12px;background:rgba(15,23,42,.97)
-    }
-    .toolbar button{border:0;border-radius:10px;padding:10px 16px;font-weight:800;cursor:pointer}
-    .toolbar .primary{background:${p};color:#fff}
-    .toolbar .secondary{background:#1e293b;color:#e2e8f0}
-
-    .pages{padding:14px 0 28px}
-    .page{
-      position:relative;display:flex;width:210mm;height:297mm;margin:0 auto 14px;
-      overflow:hidden;flex-direction:column;padding:${
-        compact ? '10mm 11mm 9mm' : '11mm 12mm 9mm'
-      };
-      background:${bg};box-shadow:0 18px 55px rgba(15,23,42,.18);break-after:page
-    }
-
-    .page::before{
-      position:absolute;left:0;right:0;top:0;height:${
-        preset === 'minimal' ? '2px' : preset === 'classic' ? '4px' : '6px'
-      };
-      background:${preset === 'classic' ? s : p};content:""
+    html,
+    body {
+      margin: 0;
+      background: #dfe5ec;
+      color: ${t};
+      font-family:
+        Inter,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        Arial,
+        sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
     }
 
-    .page-content{display:flex;min-height:0;height:100%;flex-direction:column}
-    .watermark{
-      position:absolute;left:50%;top:54%;transform:translate(-50%,-50%) rotate(-30deg);
-      color:${p};font-size:64px;font-weight:950;opacity:.035;white-space:nowrap
+    .toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 12px;
+      background: rgba(15,23,42,.97);
     }
 
-    .company{display:flex;min-width:0;align-items:center;gap:10px}
-    .company-logo{width:${compact ? 48 : 55}px;height:${
-      compact ? 48 : 55
-    }px;object-fit:contain}
-    .company-name{font-size:${compact ? 13 : 15}px;font-weight:950}
-    .company-subtitle{margin-top:2px;font-size:6px;color:${alpha(t, '82')}}
-    .company-details{margin-top:5px;font-size:${
-      compact ? 5.6 : 6.2
-    }px;line-height:1.4;color:${alpha(t, '82')}}
-
-    .header{display:flex;align-items:flex-start;justify-content:space-between;gap:20px}
-    .align-center{flex-direction:column;align-items:center;text-align:center}
-    .align-right{flex-direction:row-reverse;text-align:right}
-
-    .offer-heading{margin-top:${compact ? 22 : 28}px;display:flex;align-items:flex-end;justify-content:space-between;gap:20px}
-    .offer-kicker{color:${p};font-size:6px;font-weight:950;letter-spacing:.15em;text-transform:uppercase}
-    .offer-title{margin-top:4px;font-size:${
-      compact ? 27 : 32
-    }px;line-height:.95;font-weight:950}
-    .offer-number{text-align:right;font-size:7px;color:${alpha(t, '88')}}
-    .offer-number strong{display:block;color:${t};font-size:${
-      compact ? 10 : 11
-    }px;margin-bottom:4px}
-
-    .party-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px}
-    .party-card{min-height:${compact ? 64 : 72}px;padding:${
-      compact ? 8 : 10
-    }px;border:1px solid ${b};border-radius:${
-      preset === 'minimal' ? 4 : 7
-    }px}
-    .info-lines .party-card{border-width:0 0 1px 0;border-radius:0;padding-left:0;padding-right:0}
-    .eyebrow{font-size:5.4px;font-weight:950;text-transform:uppercase;color:${alpha(t, '70')}}
-    .party-name{margin-top:6px;font-size:${compact ? 8 : 9}px;font-weight:950}
-    .party-details{margin-top:4px;font-size:${
-      compact ? 5.5 : 6
-    }px;line-height:1.35;color:${alpha(t, '82')}}
-    .meta{display:flex;justify-content:space-between;gap:12px;padding:3px 0;border-bottom:1px solid ${alpha(b, '88')};font-size:5.8px}
-    .meta:last-child{border-bottom:0}
-    .meta span{color:${alpha(t, '75')}}
-
-    .section-title{margin:${compact ? '10px 0 5px' : '13px 0 7px'};font-size:${
-      compact ? 6.4 : 7
-    }px;font-weight:950;text-transform:uppercase}
-    .section-bar{padding:6px 8px;border-radius:5px;background:${p};color:#fff}
-    .section-line{padding-bottom:4px;border-bottom:1.5px solid ${p};color:${p}}
-    .section-plain{color:${t}}
-
-    .items{border:1px solid ${b};border-radius:${
-      preset === 'minimal' ? 4 : 7
-    }px;overflow:hidden}
-    .item-row{
-      display:grid;grid-template-columns:27px minmax(0,1fr) 72px 85px 92px;
-      gap:8px;align-items:center;min-height:${
-        compact ? 38 : 44
-      }px;padding:${compact ? '5px 7px' : '6px 8px'};border-top:1px solid ${b}
+    .toolbar button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 800;
+      cursor: pointer;
     }
-    .item-row:first-child{border-top:0}
-    .item-row.with-image{grid-template-columns:27px 70px minmax(0,1fr) 72px 85px 92px}
-    .table-soft .item-row:nth-child(even){background:${alpha(p, '06')}}
-    .table-minimal .items{border-left:0;border-right:0;border-radius:0}
-    .table-solid .item-row:first-child{box-shadow:inset 0 5px 0 ${p}}
-    .item-index{color:${p};font-size:7px;font-weight:950;text-align:center}
-    .item-image-box{width:70px;height:${
-      compact ? 43 : 48
-    }px;display:grid;place-items:center;overflow:hidden;border:1px solid ${b};border-radius:5px;background:#fff}
-    .item-image{width:100%;height:100%;object-fit:contain}
-    .item-name{font-size:${compact ? 7.3 : 8}px;font-weight:950}
-    .item-description{margin-top:2px;font-size:${
-      compact ? 5.7 : 6.2
-    }px;line-height:1.35;color:${alpha(t, '82')}}
-    .item-data{padding-left:6px;border-left:1px solid ${b};font-size:${
-      compact ? 5.8 : 6.3
-    }px;text-align:right}
-    .item-data small{display:block;margin-bottom:2px;font-size:4.8px;color:${alpha(t, '70')}}
-    .item-data.total{font-weight:950}
-    .discount{margin-top:2px;font-size:4.8px;color:${alpha(t, '70')}}
 
-    .final-grid{display:grid;grid-template-columns:1fr 255px;gap:22px;margin-top:14px}
-    .note{margin-top:6px;font-size:6.2px;line-height:1.4;color:${alpha(t, '90')}}
-    .totals>div{display:flex;justify-content:space-between;gap:12px;padding:4px 6px;border-bottom:1px solid ${b};font-size:6.4px}
-    .totals .grand{margin-top:5px;border:0;border-radius:6px;padding:8px 9px;background:${
-      preset === 'classic' ? s : preset === 'minimal' ? alpha(t, '0B') : alpha(p, '18')
-    };color:${preset === 'classic' ? '#fff' : p};font-size:10px;font-weight:950}
+    .toolbar .primary {
+      background: ${p};
+      color: #fff;
+    }
 
-    .signature-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:13px}
-    .signature-box{height:78px;padding:7px 9px;border:1px solid ${b};border-radius:${
-      preset === 'minimal' ? 4 : 7
-    }px}
-    .signature-label{font-size:5.3px;color:${alpha(t, '72')}}
-    .signature-visual{display:flex;height:48px;align-items:center;justify-content:center;gap:10px}
-    .signature,.stamp{max-width:95px;max-height:42px;object-fit:contain}
-    .signature-name{font-size:6.4px;font-weight:900}
+    .toolbar .secondary {
+      background: #1e293b;
+      color: #fff;
+    }
 
-    .continuation{margin-top:14px;font-size:6px;font-weight:900;color:${alpha(t, '75')};text-transform:uppercase}
-    .footer{display:flex;justify-content:space-between;gap:15px;margin-top:auto;padding-top:7px;border-top:1px solid ${b};font-size:5.2px;color:${alpha(t, '6F')}}
+    .pages {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 20px 0 36px;
+    }
 
-    @media print{
-      @page{size:A4;margin:0}
-      html,body{background:#fff}
-      .toolbar{display:none!important}
-      .pages{padding:0}
-      .page{margin:0;box-shadow:none}
+    .page {
+      position: relative;
+      width: 794px;
+      height: 1123px;
+      overflow: hidden;
+      background: ${bg};
+      box-shadow:
+        0 18px 60px
+        rgba(15,23,42,.18);
+    }
+
+    .page-content {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      min-height: 1123px;
+      flex-direction: column;
+      padding:
+        ${compact
+          ? '42px 46px 35px'
+          : '46px 48px 36px'};
+    }
+
+    .watermark {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      z-index: 1;
+      transform:
+        translate(-50%, -50%)
+        rotate(-28deg);
+      color: ${alpha(
+        p,
+        '0D',
+      )};
+      font-size: 80px;
+      font-weight: 950;
+      letter-spacing: .12em;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .top-head {
+      display: grid;
+      grid-template-columns:
+        minmax(0, .94fr)
+        minmax(0, 1.06fr);
+      gap: 30px;
+      align-items: start;
+      padding-bottom: 17px;
+      border-bottom:
+        2px solid ${p};
+    }
+
+    .brand-side {
+      min-width: 0;
+    }
+
+    .company {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .company-logo {
+      width: 76px;
+      height: 63px;
+      flex: 0 0 auto;
+      object-fit: contain;
+    }
+
+    .company-copy {
+      min-width: 0;
+      padding-top: 1px;
+    }
+
+    .company-name {
+      font-size: 17px;
+      line-height: 1.08;
+      font-weight: 950;
+      letter-spacing: -.02em;
+    }
+
+    .company-subtitle {
+      margin-top: 3px;
+      color: ${p};
+      font-size: 8.5px;
+      line-height: 1.3;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .company-line {
+      margin-top: 3px;
+      color: ${alpha(
+        t,
+        'A8',
+      )};
+      font-size: 8px;
+      line-height: 1.35;
+    }
+
+    .title-side {
+      min-width: 0;
+      padding-left: 24px;
+      border-left:
+        1px solid ${alpha(
+          p,
+          '55',
+        )};
+    }
+
+    .offer-title {
+      font-size: 34px;
+      line-height: .95;
+      font-weight: 950;
+      letter-spacing: -.035em;
+    }
+
+    .offer-kicker {
+      margin-top: 7px;
+      color: ${p};
+      font-size: 9px;
+      font-weight: 950;
+      letter-spacing: .22em;
+    }
+
+    .head-metrics {
+      display: grid;
+      grid-template-columns:
+        repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 15px;
+    }
+
+    .metric {
+      min-height: 48px;
+      padding:
+        7px 8px 6px;
+      border:
+        1px solid ${alpha(
+          b,
+          'CC',
+        )};
+      border-radius:
+        ${cardRadius}px;
+      background:
+        ${alpha(
+          p,
+          preset ===
+          'classic'
+            ? '07'
+            : '05',
+        )};
+    }
+
+    .metric span {
+      display: block;
+      color: ${p};
+      font-size: 6.5px;
+      font-weight: 950;
+      text-transform: uppercase;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 9px;
+      line-height: 1.15;
+      font-weight: 950;
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns:
+        1fr 1fr;
+      gap: 18px;
+      margin-top: 16px;
+    }
+
+    .info-card {
+      min-height: 94px;
+      padding:
+        ${compact
+          ? '10px 12px'
+          : '12px 14px'};
+      border:
+        1px solid ${alpha(
+          b,
+          'D6',
+        )};
+      border-radius:
+        ${cardRadius}px;
+      background:
+        ${
+          settings.infoStyle ===
+          'cards'
+            ? alpha(
+                p,
+                '04',
+              )
+            : 'transparent'
+        };
+    }
+
+    .info-lines .info-card,
+    .info-minimal .info-card {
+      border-left: 0;
+      border-right: 0;
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .block-title {
+      color: ${p};
+      font-size: 8px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .client-name {
+      margin-top: 7px;
+      font-size: 11.5px;
+      line-height: 1.2;
+      font-weight: 950;
+    }
+
+    .client-lines {
+      margin-top: 5px;
+      color: ${alpha(
+        t,
+        'A6',
+      )};
+      font-size: 8px;
+      line-height: 1.45;
+    }
+
+    .info-line {
+      display: grid;
+      grid-template-columns:
+        43% 57%;
+      gap: 8px;
+      padding:
+        3.5px 0;
+      border-bottom:
+        1px solid ${alpha(
+          b,
+          '99',
+        )};
+      font-size: 7.7px;
+      line-height: 1.25;
+    }
+
+    .info-line:last-child {
+      border-bottom: 0;
+    }
+
+    .info-line span {
+      color: ${alpha(
+        t,
+        '8A',
+      )};
+    }
+
+    .info-line strong {
+      text-align: right;
+      font-weight: 900;
+    }
+
+    .items-wrap {
+      margin-top: 15px;
+      border:
+        1px solid ${alpha(
+          b,
+          'DD',
+        )};
+      border-radius:
+        ${cardRadius}px;
+      overflow: hidden;
+    }
+
+    .items-head {
+      display: grid;
+      grid-template-columns:
+        38px minmax(0, 1fr)
+        53px 47px 76px
+        55px 45px 82px;
+      gap: 0;
+      align-items: center;
+      min-height: 29px;
+      padding: 0 8px;
+      background:
+        ${headerFill};
+      color: #fff;
+      font-size: 6.2px;
+      font-weight: 950;
+      text-transform: uppercase;
+      letter-spacing: .025em;
+    }
+
+    .table-soft.items-head {
+      background:
+        linear-gradient(
+          90deg,
+          ${p},
+          ${a}
+        );
+    }
+
+    .table-minimal.items-head {
+      background:
+        ${s};
+    }
+
+    .item-row {
+      display: grid;
+      grid-template-columns:
+        38px minmax(0, 1fr)
+        53px 47px 76px
+        55px 45px 82px;
+      gap: 0;
+      align-items: center;
+      min-height:
+        ${compact
+          ? 48
+          : 54}px;
+      padding: 5px 8px;
+      border-top:
+        1px solid ${alpha(
+          b,
+          'AA',
+        )};
+      background: #fff;
+    }
+
+    .item-row:nth-child(even) {
+      background:
+        ${settings.tableStyle ===
+        'soft'
+          ? alpha(
+              p,
+              '04',
+            )
+          : '#FFFFFF'};
+    }
+
+    .item-index {
+      color: ${p};
+      font-size: 9px;
+      font-weight: 950;
+    }
+
+    .item-main {
+      min-width: 0;
+      padding-right: 8px;
+    }
+
+    .item-main-grid {
+      display: grid;
+      grid-template-columns:
+        58px minmax(0,1fr);
+      gap: 8px;
+      align-items: center;
+    }
+
+    .item-image-wrap {
+      width: 58px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      border:
+        1px solid ${alpha(
+          b,
+          'B8',
+        )};
+      border-radius: 6px;
+      background: #fff;
+    }
+
+    .item-image {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .item-name {
+      font-size: 9.4px;
+      line-height: 1.18;
+      font-weight: 950;
+    }
+
+    .item-description {
+      margin-top: 3px;
+      color: ${alpha(
+        t,
+        '8A',
+      )};
+      font-size: 7px;
+      line-height: 1.25;
+    }
+
+    .item-cell {
+      padding: 0 3px;
+      font-size: 7.5px;
+      line-height: 1.2;
+      text-align: center;
+    }
+
+    .item-cell.price {
+      text-align: right;
+    }
+
+    .item-cell.total {
+      font-size: 8.1px;
+      font-weight: 950;
+      text-align: right;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1fr)
+        285px;
+      gap: 22px;
+      align-items: start;
+      margin-top: 14px;
+    }
+
+    .notes-card {
+      min-height: 86px;
+      padding: 10px 12px;
+      border:
+        1px solid ${alpha(
+          b,
+          'C4',
+        )};
+      border-radius:
+        ${cardRadius}px;
+      background:
+        ${alpha(
+          p,
+          '035',
+        )};
+    }
+
+    .note-line {
+      margin-top: 6px;
+      color: ${alpha(
+        t,
+        'A4',
+      )};
+      font-size: 7.6px;
+      line-height: 1.38;
+    }
+
+    .totals {
+      min-width: 0;
+    }
+
+    .total-line {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 5px 8px;
+      border-bottom:
+        1px solid ${alpha(
+          b,
+          'AA',
+        )};
+      font-size: 8px;
+    }
+
+    .total-line strong {
+      font-weight: 950;
+    }
+
+    .grand-total {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      margin-top: 6px;
+      padding: 10px 12px;
+      border-radius:
+        ${cardRadius}px;
+      background:
+        ${
+          preset ===
+          'minimal'
+            ? s
+            : `linear-gradient(90deg, ${p}, ${a})`
+        };
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 950;
+    }
+
+    .grand-total strong {
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    .closing-grid {
+      display: grid;
+      grid-template-columns:
+        minmax(0, 1.1fr)
+        minmax(0, .9fr);
+      gap: 18px;
+      margin-top: 13px;
+    }
+
+    .signature-area {
+      display: grid;
+      grid-template-columns:
+        repeat(2, minmax(0,1fr));
+      gap: 9px;
+    }
+
+    .signature-card {
+      min-height: 92px;
+      padding: 9px 11px;
+      border:
+        1px solid ${alpha(
+          p,
+          '66',
+        )};
+      border-radius:
+        ${cardRadius}px;
+    }
+
+    .signature-label {
+      color: ${p};
+      font-size: 6.8px;
+      font-weight: 850;
+    }
+
+    .signature-media {
+      display: flex;
+      height: 51px;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .signature-image,
+    .stamp-image {
+      max-width: 83px;
+      max-height: 47px;
+      object-fit: contain;
+    }
+
+    .signature-name {
+      font-size: 7.4px;
+      font-weight: 950;
+    }
+
+    .payment-card {
+      min-height: 92px;
+      padding: 9px 11px;
+      border:
+        1px solid ${alpha(
+          p,
+          '66',
+        )};
+      border-radius:
+        ${cardRadius}px;
+    }
+
+    .payment-line {
+      display: grid;
+      grid-template-columns:
+        36% 64%;
+      gap: 8px;
+      margin-top: 5px;
+      font-size: 7px;
+      line-height: 1.25;
+    }
+
+    .payment-line span {
+      color: ${alpha(
+        t,
+        '88',
+      )};
+    }
+
+    .payment-line strong {
+      overflow-wrap: anywhere;
+      font-weight: 900;
+    }
+
+    .continuation-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      padding-bottom: 14px;
+      border-bottom:
+        2px solid ${p};
+    }
+
+    .continuation-title {
+      font-size: 20px;
+      font-weight: 950;
+    }
+
+    .continuation-copy {
+      margin-top: 3px;
+      color: ${alpha(
+        t,
+        '88',
+      )};
+      font-size: 8px;
+    }
+
+    .footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: auto;
+      padding-top: 9px;
+      border-top:
+        1px solid ${alpha(
+          p,
+          '55',
+        )};
+      color: ${alpha(
+        t,
+        '7F',
+      )};
+      font-size: 6.5px;
+      line-height: 1.3;
+    }
+
+    .footer strong {
+      color: ${t};
+      font-size: 7.5px;
+    }
+
+    @media print {
+      @page {
+        size: A4;
+        margin: 0;
+      }
+
+      html,
+      body {
+        background: #fff;
+      }
+
+      .toolbar {
+        display: none !important;
+      }
+
+      .pages {
+        padding: 0;
+      }
+
+      .page {
+        margin: 0;
+        box-shadow: none;
+      }
     }
   `
 }
 
-function buildPage(
+function buildFirstOrOnlyPage(
   page: OfferPage,
   pageIndex: number,
   totalPages: number,
@@ -738,49 +1985,79 @@ function buildPage(
   return `
     <section class="page">
       ${
-        settings.showWatermark && settings.watermarkText
-          ? `<div class="watermark">${esc(settings.watermarkText)}</div>`
+        settings.showWatermark &&
+        settings.watermarkText
+          ? `
+            <div class="watermark">
+              ${esc(
+                settings.watermarkText,
+              )}
+            </div>
+          `
           : ''
       }
 
       <div class="page-content">
-        <header class="header align-${esc(settings.headerAlignment)}">
-          ${companyHtml(settings)}
-        </header>
-
-        <div class="offer-heading">
-          <div>
-            <div class="offer-kicker">KOMERCIJALNA PONUDA</div>
-            <div class="offer-title">${esc(
-              settings.documentTitle || 'PONUDA',
-            )}</div>
-          </div>
-
-          <div class="offer-number">
-            <strong>${esc(offer.offerNumber)}</strong>
-            Vrijedi do ${date(offer.validUntil)}
-          </div>
-        </div>
-
         ${
           page.first
-            ? partyHtml(offer, settings)
-            : `<div class="continuation">Nastavak ponude ${esc(
-                offer.offerNumber,
-              )}</div>`
+            ? `
+              ${headingHtml(
+                offer,
+                settings,
+              )}
+
+              <div class="info-${esc(
+                settings.infoStyle,
+              )}">
+                ${clientHtml(
+                  offer,
+                  settings,
+                )}
+              </div>
+            `
+            : `
+              <header class="continuation-head">
+                ${companyHtml(
+                  settings,
+                )}
+
+                <div>
+                  <div class="continuation-title">
+                    ${esc(
+                      settings.documentTitle ||
+                        'PONUDA',
+                    )}
+                  </div>
+
+                  <div class="continuation-copy">
+                    Nastavak ·
+                    ${esc(
+                      offer.offerNumber,
+                    )}
+                  </div>
+                </div>
+              </header>
+            `
         }
 
-        ${sectionTitle('Stavke ponude', settings)}
+        <section
+          class="items-wrap"
+        >
+          ${tableHeaderHtml(
+            settings,
+          )}
 
-        <div class="table-${esc(settings.tableStyle)}">
-          <div class="items">
-            ${itemRows(page.items, startIndex, settings)}
-          </div>
-        </div>
+          ${itemRows(
+            page.items,
+            startIndex,
+            settings,
+          )}
+        </section>
 
         ${
           page.final
-            ? finalHtml(
+            ? `
+              ${notesAndTotalsHtml(
                 offer,
                 settings,
                 totals.base,
@@ -788,18 +2065,21 @@ function buildPage(
                 totals.vat,
                 totals.discount,
                 totals.total,
-              )
+              )}
+
+              ${signatureAndPaymentHtml(
+                offer,
+                settings,
+              )}
+            `
             : ''
         }
 
-        ${
-          settings.showFooter
-            ? `<footer class="footer">
-                <span>${esc(settings.footerText || '')}</span>
-                <span>${pageIndex + 1} / ${totalPages}</span>
-              </footer>`
-            : ''
-        }
+        ${footerHtml(
+          settings,
+          pageIndex,
+          totalPages,
+        )}
       </div>
     </section>
   `
@@ -807,88 +2087,188 @@ function buildPage(
 
 export function buildOfferPdfHtml(
   offer: OfferPdfData,
-  customSettings: Partial<OfferPdfSettings> = {},
+  customSettings:
+    Partial<OfferPdfSettings> = {},
 ) {
-  const settings: OfferPdfSettings = {
-    ...DEFAULT_SETTINGS,
-    ...customSettings,
-  }
+  const settings: OfferPdfSettings =
+    {
+      ...DEFAULT_SETTINGS,
+      ...customSettings,
+    }
 
-  const items = offer.items.filter((item) => item.name.trim())
-  const base = items.reduce(
-    (sum, item) => sum + item.quantity * item.price,
-    0,
-  )
-  const net = items.reduce((sum, item) => sum + itemNet(item), 0)
-  const vat = items.reduce((sum, item) => sum + itemVat(item), 0)
-  const discount = base - net
-  const total = net + vat
-  const pages = paginateItems(items, settings)
+  const items =
+    offer.items.filter(
+      (item) =>
+        item.name.trim(),
+    )
 
-  let index = 0
-  const pageHtml = pages
-    .map((page, pageIndex) => {
-      const start = index
-      index += page.items.length
-      return buildPage(
-        page,
-        pageIndex,
-        pages.length,
-        start,
-        offer,
-        settings,
-        { base, net, vat, discount, total },
+  const base =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemBase(item),
+      0,
+    )
+
+  const net =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemNet(item),
+      0,
+    )
+
+  const vat =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemVat(item),
+      0,
+    )
+
+  const discount =
+    base - net
+
+  const total =
+    net + vat
+
+  const pages =
+    paginateItems(
+      items,
+      settings,
+    )
+
+  let itemIndex = 0
+
+  const pagesHtml =
+    pages
+      .map(
+        (
+          page,
+          pageIndex,
+        ) => {
+          const startIndex =
+            itemIndex
+
+          itemIndex +=
+            page.items.length
+
+          return buildFirstOrOnlyPage(
+            page,
+            pageIndex,
+            pages.length,
+            startIndex,
+            offer,
+            settings,
+            {
+              base,
+              net,
+              vat,
+              discount,
+              total,
+            },
+          )
+        },
       )
-    })
-    .join('')
+      .join('')
 
   return `<!doctype html>
 <html lang="hr">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${esc(offer.offerNumber)}</title>
-  <style>${css(settings)}</style>
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+  <title>
+    ${esc(
+      offer.offerNumber,
+    )}
+  </title>
+  <style>
+    ${css(settings)}
+  </style>
 </head>
+
 <body>
   <div class="toolbar">
-    <button class="primary" onclick="window.print()">Ispis / spremi kao PDF</button>
-    <button class="secondary" onclick="window.close()">Zatvori</button>
+    <button
+      class="primary"
+      onclick="window.print()"
+    >
+      Ispis / spremi kao PDF
+    </button>
+
+    <button
+      class="secondary"
+      onclick="window.close()"
+    >
+      Zatvori
+    </button>
   </div>
-  <main class="pages">${pageHtml}</main>
+
+  <main class="pages">
+    ${pagesHtml}
+  </main>
 </body>
 </html>`
 }
 
 async function resolvedPdfSettings(
-  customSettings: Partial<OfferPdfSettings>,
+  customSettings:
+    Partial<OfferPdfSettings>,
 ) {
-  const [company, appearanceResult] = await Promise.all([
-    getCompanySettings(),
-    getDocumentAppearanceSettings(),
-  ])
+  const [
+    company,
+    appearanceResult,
+  ] =
+    await Promise.all([
+      getCompanySettings(),
+      getDocumentAppearanceSettings(),
+    ])
 
   return {
     ...DEFAULT_SETTINGS,
-    ...companySettingsFromCurrent(company),
-    ...appearanceToPdfSettings(appearanceResult.settings.offer),
+    ...companySettingsFromCurrent(
+      company,
+    ),
+    ...appearanceToPdfSettings(
+      appearanceResult
+        .settings.offer,
+    ),
     ...customSettings,
   } satisfies OfferPdfSettings
 }
 
-async function waitForImages(doc: Document) {
-  const images = Array.from(doc.querySelectorAll('img'))
+async function waitForImages(
+  doc: Document,
+) {
+  const images =
+    Array.from(
+      doc.querySelectorAll(
+        'img',
+      ),
+    )
+
   await Promise.all(
     images.map(
       (image) =>
-        new Promise<void>((resolve) => {
-          if (image.complete) {
-            resolve()
-            return
-          }
-          image.onload = () => resolve()
-          image.onerror = () => resolve()
-        }),
+        new Promise<void>(
+          (resolve) => {
+            if (
+              image.complete
+            ) {
+              resolve()
+              return
+            }
+
+            image.onload =
+              () => resolve()
+
+            image.onerror =
+              () => resolve()
+          },
+        ),
     ),
   )
 }
@@ -898,63 +2278,119 @@ async function renderHtmlPagesToPdf(
   fileName: string,
   backgroundColor: string,
 ) {
-  const iframe = document.createElement('iframe')
+  const iframe =
+    document.createElement(
+      'iframe',
+    )
 
-  Object.assign(iframe.style, {
-    position: 'fixed',
-    left: '0',
-    top: '0',
-    width: '794px',
-    height: '1123px',
-    border: '0',
-    pointerEvents: 'none',
-    zIndex: '-2147483647',
-  })
+  Object.assign(
+    iframe.style,
+    {
+      position: 'fixed',
+      left: '0',
+      top: '0',
+      width: '794px',
+      height: '1123px',
+      border: '0',
+      pointerEvents:
+        'none',
+      zIndex:
+        '-2147483647',
+    },
+  )
 
-  document.body.appendChild(iframe)
+  document.body.appendChild(
+    iframe,
+  )
 
   try {
-    const doc = iframe.contentDocument
-    if (!doc) throw new Error('PDF renderer nije dostupan.')
+    const doc =
+      iframe.contentDocument
+
+    if (!doc) {
+      throw new Error(
+        'PDF renderer nije dostupan.',
+      )
+    }
 
     doc.open()
     doc.write(html)
     doc.close()
 
-    await new Promise<void>((resolve) =>
-      window.setTimeout(resolve, 120),
+    await new Promise<void>(
+      (resolve) =>
+        window.setTimeout(
+          resolve,
+          120,
+        ),
     )
+
     await doc.fonts?.ready
     await waitForImages(doc)
 
-    const toolbar = doc.querySelector('.toolbar') as HTMLElement | null
-    if (toolbar) toolbar.style.display = 'none'
+    const toolbar =
+      doc.querySelector(
+        '.toolbar',
+      ) as HTMLElement | null
 
-    const pages = Array.from(
-      doc.querySelectorAll('.page'),
-    ) as HTMLElement[]
+    if (toolbar) {
+      toolbar.style.display =
+        'none'
+    }
+
+    const pages =
+      Array.from(
+        doc.querySelectorAll(
+          '.page',
+        ),
+      ) as HTMLElement[]
 
     const pdf = new jsPDF({
-      orientation: 'portrait',
+      orientation:
+        'portrait',
       unit: 'mm',
       format: 'a4',
       compress: true,
     })
 
-    for (let i = 0; i < pages.length; i += 1) {
-      pages[i].style.margin = '0'
-      pages[i].style.boxShadow = 'none'
+    for (
+      let index = 0;
+      index < pages.length;
+      index += 1
+    ) {
+      const page =
+        pages[index]
 
-      const canvas = await html2canvas(pages[i], {
-        scale: 3,
-        backgroundColor,
-        useCORS: true,
-        allowTaint: false,
-        logging: false,
-      })
+      page.style.margin = '0'
+      page.style.boxShadow =
+        'none'
 
-      const image = canvas.toDataURL('image/png')
-      if (i > 0) pdf.addPage()
+      const canvas =
+        await html2canvas(
+          page,
+          {
+            /**
+             * 3.35 daje osjetno čišći tekst od starog PDF-a,
+             * bez nepotrebnog 4x memorijskog opterećenja.
+             */
+            scale: 3.35,
+            backgroundColor,
+            useCORS: true,
+            allowTaint: false,
+            logging: false,
+          },
+        )
+
+      const image =
+        canvas.toDataURL(
+          'image/png',
+          1,
+        )
+
+      if (index > 0) {
+        pdf.addPage()
+      }
+
       pdf.addImage(
         image,
         'PNG',
@@ -975,9 +2411,14 @@ async function renderHtmlPagesToPdf(
 
 export function openOfferPdf(
   offer: OfferPdfData,
-  customSettings: Partial<OfferPdfSettings> = {},
+  customSettings:
+    Partial<OfferPdfSettings> = {},
 ) {
-  const previewWindow = window.open('', '_blank')
+  const previewWindow =
+    window.open(
+      '',
+      '_blank',
+    )
 
   if (!previewWindow) {
     window.alert(
@@ -992,13 +2433,25 @@ export function openOfferPdf(
 
   void (async () => {
     try {
-      const settings = await resolvedPdfSettings(customSettings)
-      const html = buildOfferPdfHtml(offer, settings)
+      const settings =
+        await resolvedPdfSettings(
+          customSettings,
+        )
+
+      const html =
+        buildOfferPdfHtml(
+          offer,
+          settings,
+        )
+
       previewWindow.document.open()
-      previewWindow.document.write(html)
+      previewWindow.document.write(
+        html,
+      )
       previewWindow.document.close()
     } catch (error) {
       console.error(error)
+
       previewWindow.document.open()
       previewWindow.document.write(
         '<p style="font-family:system-ui;padding:24px">PDF ponude nije moguće izraditi.</p>',
@@ -1010,22 +2463,42 @@ export function openOfferPdf(
 
 export async function downloadOfferPdf(
   data: OfferPdfData,
-  customSettings: Partial<OfferPdfSettings> = {},
+  customSettings:
+    Partial<OfferPdfSettings> = {},
 ) {
   try {
-    const settings = await resolvedPdfSettings(customSettings)
-    const html = buildOfferPdfHtml(data, settings)
-    const fileName = `${safeFileName(
-      data.offerNumber || 'Ponuda',
-    )}-${safeFileName(data.customerName || 'Investitor')}.pdf`
+    const settings =
+      await resolvedPdfSettings(
+        customSettings,
+      )
+
+    const html =
+      buildOfferPdfHtml(
+        data,
+        settings,
+      )
+
+    const fileName =
+      `${safeFileName(
+        data.offerNumber ||
+          'Ponuda',
+      )}-${safeFileName(
+        data.customerName ||
+          'Investitor',
+      )}.pdf`
 
     await renderHtmlPagesToPdf(
       html,
       fileName,
-      settings.backgroundColor || '#FFFFFF',
+      settings.backgroundColor ||
+        '#FFFFFF',
     )
   } catch (error) {
-    console.error('downloadOfferPdf error:', error)
+    console.error(
+      'downloadOfferPdf error:',
+      error,
+    )
+
     window.alert(
       error instanceof Error
         ? `PDF nije moguće izraditi: ${error.message}`

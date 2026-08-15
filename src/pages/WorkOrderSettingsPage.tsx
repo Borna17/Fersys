@@ -114,24 +114,37 @@ function isHexColor(
 }
 
 export function WorkOrderSettingsPage() {
-  const navigate = useNavigate()
+  const navigate =
+    useNavigate()
 
-  const [activeKind, setActiveKind] =
+  const [
+    activeKind,
+    setActiveKind,
+  ] =
     useState<DocumentKind>(
       'workOrder',
     )
 
-  const [appearance, setAppearance] =
+  const [
+    appearance,
+    setAppearance,
+  ] =
     useState<DocumentAppearanceSettings | null>(
       null,
     )
 
-  const [company, setCompany] =
+  const [
+    company,
+    setCompany,
+  ] =
     useState<CompanySettings | null>(
       null,
     )
 
-  const [legacyWorkOrder, setLegacyWorkOrder] =
+  const [
+    legacyWorkOrder,
+    setLegacyWorkOrder,
+  ] =
     useState<
       Awaited<
         ReturnType<
@@ -140,14 +153,25 @@ export function WorkOrderSettingsPage() {
       > | null
     >(null)
 
-  const [isLoading, setIsLoading] =
-    useState(true)
-  const [isSaving, setIsSaving] =
-    useState(false)
-  const [saved, setSaved] =
-    useState(false)
-  const [error, setError] =
-    useState('')
+  const [
+    isLoading,
+    setIsLoading,
+  ] = useState(true)
+
+  const [
+    isSaving,
+    setIsSaving,
+  ] = useState(false)
+
+  const [
+    saved,
+    setSaved,
+  ] = useState(false)
+
+  const [
+    error,
+    setError,
+  ] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -161,20 +185,24 @@ export function WorkOrderSettingsPage() {
           appearanceResult,
           currentCompany,
           currentWorkOrder,
-        ] = await Promise.all([
-          getDocumentAppearanceSettings(),
-          getCompanySettings(),
-          getWorkOrderBrandingFromCompanySettings(),
-        ])
+        ] =
+          await Promise.all([
+            getDocumentAppearanceSettings(),
+            getCompanySettings(),
+            getWorkOrderBrandingFromCompanySettings(),
+          ])
 
-        if (cancelled) return
+        if (cancelled) {
+          return
+        }
 
         const next = {
           ...appearanceResult.settings,
         }
 
         if (
-          !appearanceResult.hasStoredSettings
+          !appearanceResult
+            .hasStoredSettings
         ) {
           next.workOrder =
             mapLegacyWorkOrderAppearance(
@@ -185,31 +213,39 @@ export function WorkOrderSettingsPage() {
             ...next.offer,
             primaryColor:
               currentCompany.primaryColor ||
-              next.offer.primaryColor,
+              next.offer
+                .primaryColor,
             secondaryColor:
               currentCompany.secondaryColor ||
-              next.offer.secondaryColor,
+              next.offer
+                .secondaryColor,
             footerText:
               currentCompany.documentFooter ||
-              next.offer.footerText,
+              next.offer
+                .footerText,
           }
 
           next.invoice = {
             ...next.invoice,
             primaryColor:
               currentCompany.primaryColor ||
-              next.invoice.primaryColor,
+              next.invoice
+                .primaryColor,
             secondaryColor:
               currentCompany.secondaryColor ||
-              next.invoice.secondaryColor,
+              next.invoice
+                .secondaryColor,
             footerText:
               currentCompany.documentFooter ||
-              next.invoice.footerText,
+              next.invoice
+                .footerText,
           }
         }
 
         setAppearance(next)
-        setCompany(currentCompany)
+        setCompany(
+          currentCompany,
+        )
         setLegacyWorkOrder(
           currentWorkOrder,
         )
@@ -239,63 +275,77 @@ export function WorkOrderSettingsPage() {
     appearance?.[activeKind]
 
   const title =
-    documentKindLabels[activeKind]
+    documentKindLabels[
+      activeKind
+    ]
+
+  const activePreset =
+    active?.preset ??
+    'modern'
 
   const canShowImages =
     activeKind === 'offer'
 
-  const activePreset =
-    active?.preset ?? 'modern'
-
-  const colorSummary = useMemo(
-    () =>
-      active
-        ? [
-            active.primaryColor,
-            active.secondaryColor,
-            active.accentColor,
-          ]
-        : [],
-    [active],
-  )
+  const colorSummary =
+    useMemo(
+      () =>
+        active
+          ? [
+              active.primaryColor,
+              active.secondaryColor,
+              active.accentColor,
+            ]
+          : [],
+      [active],
+    )
 
   function updateActive(
     updater:
       | Partial<DocumentAppearance>
-      | (
-          (
-            current: DocumentAppearance,
-          ) => DocumentAppearance
-        ),
+      | ((
+          current: DocumentAppearance,
+        ) => DocumentAppearance),
   ) {
     setSaved(false)
 
-    setAppearance((current: DocumentAppearanceSettings | null) => {
-      if (!current) return current
+    setAppearance(
+      (
+        current:
+          DocumentAppearanceSettings | null,
+      ) => {
+        if (!current) {
+          return current
+        }
 
-      const currentAppearance =
-        current[activeKind]
+        const currentAppearance =
+          current[activeKind]
 
-      const nextAppearance =
-        typeof updater === 'function'
-          ? updater(currentAppearance)
-          : {
-              ...currentAppearance,
-              ...updater,
-            }
+        const nextAppearance =
+          typeof updater ===
+          'function'
+            ? updater(
+                currentAppearance,
+              )
+            : {
+                ...currentAppearance,
+                ...updater,
+              }
 
-      return {
-        ...current,
-        [activeKind]:
-          nextAppearance,
-      }
-    })
+        return {
+          ...current,
+          [activeKind]:
+            nextAppearance,
+        }
+      },
+    )
   }
 
   function selectPreset(
     preset: DocumentPreset,
   ) {
-    if (!active) return
+    if (!active) {
+      return
+    }
 
     const presetValue =
       createPresetAppearance(
@@ -324,10 +374,15 @@ export function WorkOrderSettingsPage() {
       | 'backgroundColor',
     value: string,
   ) {
-    if (!isHexColor(value)) return
+    if (
+      !isHexColor(value)
+    ) {
+      return
+    }
 
     updateActive({
-      [key]: value.toUpperCase(),
+      [key]:
+        value.toUpperCase(),
     })
   }
 
@@ -363,7 +418,8 @@ export function WorkOrderSettingsPage() {
 
       const nextLegacy = {
         ...legacyWorkOrder,
-        layout: workOrder.preset,
+        layout:
+          workOrder.preset,
         primaryColor:
           workOrder.primaryColor,
         secondaryColor:
@@ -393,13 +449,15 @@ export function WorkOrderSettingsPage() {
         customDocumentTitle:
           workOrder.documentTitle,
         customInfoStyle:
-          workOrder.infoStyle === 'cards'
-            ? 'cards' as const
-            : 'compact' as const,
+          workOrder.infoStyle ===
+          'cards'
+            ? ('cards' as const)
+            : ('compact' as const),
         customMaterialStyle:
-          workOrder.tableStyle === 'minimal'
-            ? 'list' as const
-            : 'table' as const,
+          workOrder.tableStyle ===
+          'minimal'
+            ? ('list' as const)
+            : ('table' as const),
       }
 
       const savedLegacy =
@@ -431,7 +489,10 @@ export function WorkOrderSettingsPage() {
     )
   }
 
-  if (!appearance || !active) {
+  if (
+    !appearance ||
+    !active
+  ) {
     return (
       <section className="mx-auto max-w-2xl rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-red-300">
         {error ||
@@ -449,7 +510,9 @@ export function WorkOrderSettingsPage() {
         }
         className="inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-900 px-4 text-sm font-black text-slate-300 active:scale-[0.99]"
       >
-        <ArrowLeft size={18} />
+        <ArrowLeft
+          size={18}
+        />
         Postavke
       </button>
 
@@ -459,13 +522,21 @@ export function WorkOrderSettingsPage() {
         <div className="relative flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
-              FERSYS DOCUMENT STUDIO
+              FERSYS DOCUMENT
+              STUDIO
             </p>
+
             <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
               Izgled dokumenata
             </h1>
+
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
-              Svaki dokument ima vlastiti stil. Odaberi profesionalni predložak ili ga prilagodi svojoj tvrtki.
+              Forma dokumenta
+              ostaje profesionalna,
+              a svaka tvrtka može
+              prilagoditi boje,
+              logo, pečat, potpis i
+              način prikaza.
             </p>
           </div>
 
@@ -486,36 +557,48 @@ export function WorkOrderSettingsPage() {
         </div>
 
         <div className="relative mt-5 grid grid-cols-3 gap-2">
-          {kinds.map((kind) => {
-            const Icon = kind.icon
-            const selected =
-              activeKind === kind.id
+          {kinds.map(
+            (kind) => {
+              const Icon =
+                kind.icon
 
-            return (
-              <button
-                key={kind.id}
-                type="button"
-                onClick={() =>
-                  setActiveKind(kind.id)
-                }
-                className={`min-w-0 rounded-2xl border px-2 py-3 text-center transition active:scale-[0.99] sm:flex sm:items-center sm:justify-center sm:gap-2 sm:px-4 ${
-                  selected
-                    ? 'border-violet-400/50 bg-violet-500/15 text-white'
-                    : 'border-white/5 bg-white/[0.035] text-slate-400'
-                }`}
-              >
-                <Icon
-                  size={18}
-                  className="mx-auto sm:mx-0"
-                />
-                <span className="mt-1 block truncate text-[10px] font-black sm:mt-0 sm:text-sm">
-                  {documentKindLabels[
+              const selected =
+                activeKind ===
+                kind.id
+
+              return (
+                <button
+                  key={
                     kind.id
-                  ]}
-                </span>
-              </button>
-            )
-          })}
+                  }
+                  type="button"
+                  onClick={() =>
+                    setActiveKind(
+                      kind.id,
+                    )
+                  }
+                  className={`min-w-0 rounded-2xl border px-2 py-3 text-center transition active:scale-[0.99] sm:flex sm:items-center sm:justify-center sm:gap-2 sm:px-4 ${
+                    selected
+                      ? 'border-violet-400/50 bg-violet-500/15 text-white'
+                      : 'border-white/5 bg-white/[0.035] text-slate-400'
+                  }`}
+                >
+                  <Icon
+                    size={18}
+                    className="mx-auto sm:mx-0"
+                  />
+
+                  <span className="mt-1 block truncate text-[10px] font-black sm:mt-0 sm:text-sm">
+                    {
+                      documentKindLabels[
+                        kind.id
+                      ]
+                    }
+                  </span>
+                </button>
+              )
+            },
+          )}
         </div>
       </section>
 
@@ -525,7 +608,7 @@ export function WorkOrderSettingsPage() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_430px] xl:gap-6">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_500px] xl:gap-6">
         <div className="space-y-4 sm:space-y-6">
           <Panel
             icon={
@@ -541,54 +624,73 @@ export function WorkOrderSettingsPage() {
             }
           >
             <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-              {presets.map((preset) => {
-                const item =
-                  presetDescriptions[
+              {presets.map(
+                (preset) => {
+                  const item =
+                    presetDescriptions[
+                      preset
+                    ]
+
+                  const selected =
+                    activePreset ===
                     preset
-                  ]
-                const selected =
-                  activePreset === preset
 
-                return (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() =>
-                      selectPreset(preset)
-                    }
-                    className={`relative min-h-[132px] rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
-                      selected
-                        ? 'border-violet-400/60 bg-violet-500/12'
-                        : 'border-slate-700 bg-slate-950/45'
-                    }`}
-                  >
-                    {item.badge && (
-                      <span className="absolute right-3 top-3 rounded-full bg-blue-500/15 px-2 py-1 text-[9px] font-black uppercase text-blue-300">
-                        {item.badge}
-                      </span>
-                    )}
-
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-violet-300">
-                      {selected ? (
-                        <Check
-                          size={18}
-                        />
-                      ) : (
-                        <Palette
-                          size={18}
-                        />
+                  return (
+                    <button
+                      key={
+                        preset
+                      }
+                      type="button"
+                      onClick={() =>
+                        selectPreset(
+                          preset,
+                        )
+                      }
+                      className={`relative min-h-[132px] rounded-2xl border p-4 text-left transition active:scale-[0.99] ${
+                        selected
+                          ? 'border-violet-400/60 bg-violet-500/12'
+                          : 'border-slate-700 bg-slate-950/45'
+                      }`}
+                    >
+                      {item.badge && (
+                        <span className="absolute right-3 top-3 rounded-full bg-blue-500/15 px-2 py-1 text-[9px] font-black uppercase text-blue-300">
+                          {
+                            item.badge
+                          }
+                        </span>
                       )}
-                    </div>
 
-                    <p className="mt-3 font-black text-white">
-                      {item.label}
-                    </p>
-                    <p className="mt-1 text-[11px] leading-5 text-slate-500">
-                      {item.description}
-                    </p>
-                  </button>
-                )
-              })}
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 text-violet-300">
+                        {selected ? (
+                          <Check
+                            size={
+                              18
+                            }
+                          />
+                        ) : (
+                          <Palette
+                            size={
+                              18
+                            }
+                          />
+                        )}
+                      </div>
+
+                      <p className="mt-3 font-black text-white">
+                        {
+                          item.label
+                        }
+                      </p>
+
+                      <p className="mt-1 text-[11px] leading-5 text-slate-500">
+                        {
+                          item.description
+                        }
+                      </p>
+                    </button>
+                  )
+                },
+              )}
             </div>
           </Panel>
 
@@ -599,20 +701,26 @@ export function WorkOrderSettingsPage() {
               />
             }
             title="Boje dokumenta"
-            description="Klikni na kvadrat boje i otvara se najjednostavniji sistemski birač boje. HEX vrijednost možeš i ručno upisati."
+            description="Boje mijenjaju isti profesionalni raspored dokumenta, bez razbijanja forme."
           >
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {colorFields.map(
                 (field) => (
                   <ColorControl
-                    key={field.key}
-                    label={field.label}
+                    key={
+                      field.key
+                    }
+                    label={
+                      field.label
+                    }
                     value={
                       active[
                         field.key
                       ]
                     }
-                    onChange={(value) =>
+                    onChange={(
+                      value,
+                    ) =>
                       updateColor(
                         field.key,
                         value,
@@ -631,7 +739,7 @@ export function WorkOrderSettingsPage() {
               />
             }
             title="Raspored i stil elemenata"
-            description="Ove opcije mijenjaju strukturu dokumenta bez kompliciranog drag & drop uređivanja."
+            description="Postavke utječu na izgled, ali zadržavaju osnovnu profesionalnu strukturu dokumenta."
           >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <SelectControl
@@ -639,23 +747,38 @@ export function WorkOrderSettingsPage() {
                 value={
                   active.headerAlignment
                 }
-                onChange={(value) =>
+                onChange={(
+                  value,
+                ) =>
                   updateActive({
                     headerAlignment:
                       value as DocumentAppearance['headerAlignment'],
                   })
                 }
                 options={[
-                  ['left', 'Lijevo'],
-                  ['center', 'Sredina'],
-                  ['right', 'Desno'],
+                  [
+                    'left',
+                    'Lijevo',
+                  ],
+                  [
+                    'center',
+                    'Sredina',
+                  ],
+                  [
+                    'right',
+                    'Desno',
+                  ],
                 ]}
               />
 
               <SelectControl
                 label="Gustoća sadržaja"
-                value={active.density}
-                onChange={(value) =>
+                value={
+                  active.density
+                }
+                onChange={(
+                  value,
+                ) =>
                   updateActive({
                     density:
                       value as DocumentAppearance['density'],
@@ -675,63 +798,105 @@ export function WorkOrderSettingsPage() {
 
               <SelectControl
                 label="Podaci kupca"
-                value={active.infoStyle}
-                onChange={(value) =>
+                value={
+                  active.infoStyle
+                }
+                onChange={(
+                  value,
+                ) =>
                   updateActive({
                     infoStyle:
                       value as DocumentAppearance['infoStyle'],
                   })
                 }
                 options={[
-                  ['cards', 'Kartice'],
-                  ['lines', 'Linije'],
+                  [
+                    'cards',
+                    'Kartice',
+                  ],
+                  [
+                    'lines',
+                    'Linije',
+                  ],
                 ]}
               />
 
               <SelectControl
                 label="Tablica stavki"
-                value={active.tableStyle}
-                onChange={(value) =>
+                value={
+                  active.tableStyle
+                }
+                onChange={(
+                  value,
+                ) =>
                   updateActive({
                     tableStyle:
                       value as DocumentAppearance['tableStyle'],
                   })
                 }
                 options={[
-                  ['solid', 'Puna boja'],
-                  ['soft', 'Nježna boja'],
-                  ['minimal', 'Minimalna'],
+                  [
+                    'solid',
+                    'Puna boja',
+                  ],
+                  [
+                    'soft',
+                    'Gradient',
+                  ],
+                  [
+                    'minimal',
+                    'Minimalna',
+                  ],
                 ]}
               />
 
               <SelectControl
                 label="Naslovi sekcija"
-                value={active.sectionStyle}
-                onChange={(value) =>
+                value={
+                  active.sectionStyle
+                }
+                onChange={(
+                  value,
+                ) =>
                   updateActive({
                     sectionStyle:
                       value as DocumentAppearance['sectionStyle'],
                   })
                 }
                 options={[
-                  ['bar', 'Traka'],
-                  ['line', 'Linija'],
-                  ['plain', 'Samo tekst'],
+                  [
+                    'bar',
+                    'Traka',
+                  ],
+                  [
+                    'line',
+                    'Linija',
+                  ],
+                  [
+                    'plain',
+                    'Samo tekst',
+                  ],
                 ]}
               />
 
               <label>
                 <span className="text-sm font-black text-slate-300">
-                  Naziv dokumenta
+                  Naziv
+                  dokumenta
                 </span>
+
                 <input
                   value={
                     active.documentTitle
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     updateActive({
                       documentTitle:
-                        event.target.value,
+                        event
+                          .target
+                          .value,
                     })
                   }
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-sm font-bold text-white outline-none focus:border-violet-500"
@@ -747,67 +912,93 @@ export function WorkOrderSettingsPage() {
               />
             }
             title="Što se prikazuje"
-            description="Logo, pečat i potpis koriste podatke tvrtke iz glavnih Postavki, ali ih za svaki dokument možeš posebno uključiti ili isključiti."
+            description="Logo, pečat i potpis dolaze iz glavnih postavki tvrtke."
           >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
               <Toggle
                 label="Logo tvrtke"
-                checked={active.showLogo}
-                onChange={(checked) =>
+                checked={
+                  active.showLogo
+                }
+                onChange={(
+                  checked,
+                ) =>
                   updateActive({
-                    showLogo: checked,
+                    showLogo:
+                      checked,
                   })
                 }
               />
+
               <Toggle
                 label="Pečat"
-                checked={active.showStamp}
-                onChange={(checked) =>
+                checked={
+                  active.showStamp
+                }
+                onChange={(
+                  checked,
+                ) =>
                   updateActive({
-                    showStamp: checked,
+                    showStamp:
+                      checked,
                   })
                 }
               />
+
               <Toggle
                 label="Potpis / ovjera"
                 checked={
                   active.showSignature
                 }
-                onChange={(checked) =>
+                onChange={(
+                  checked,
+                ) =>
                   updateActive({
                     showSignature:
                       checked,
                   })
                 }
               />
+
               <Toggle
                 label="Podnožje"
-                checked={active.showFooter}
-                onChange={(checked) =>
+                checked={
+                  active.showFooter
+                }
+                onChange={(
+                  checked,
+                ) =>
                   updateActive({
-                    showFooter: checked,
+                    showFooter:
+                      checked,
                   })
                 }
               />
+
               <Toggle
                 label="Vodeni žig"
                 checked={
                   active.showWatermark
                 }
-                onChange={(checked) =>
+                onChange={(
+                  checked,
+                ) =>
                   updateActive({
                     showWatermark:
                       checked,
                   })
                 }
               />
+
               {canShowImages && (
                 <Toggle
                   label="Slike uz stavke"
                   checked={
                     active.showItemImages
                   }
-                  onChange={(checked) =>
+                  onChange={(
+                    checked,
+                  ) =>
                     updateActive({
                       showItemImages:
                         checked,
@@ -820,14 +1011,22 @@ export function WorkOrderSettingsPage() {
             <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label>
                 <span className="text-sm font-black text-slate-300">
-                  Tekst u podnožju
+                  Tekst u
+                  podnožju
                 </span>
+
                 <input
-                  value={active.footerText}
-                  onChange={(event) =>
+                  value={
+                    active.footerText
+                  }
+                  onChange={(
+                    event,
+                  ) =>
                     updateActive({
                       footerText:
-                        event.target.value,
+                        event
+                          .target
+                          .value,
                     })
                   }
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-sm text-white outline-none focus:border-violet-500"
@@ -836,16 +1035,22 @@ export function WorkOrderSettingsPage() {
 
               <label>
                 <span className="text-sm font-black text-slate-300">
-                  Tekst vodenog žiga
+                  Tekst vodenog
+                  žiga
                 </span>
+
                 <input
                   value={
                     active.watermarkText
                   }
-                  onChange={(event) =>
+                  onChange={(
+                    event,
+                  ) =>
                     updateActive({
                       watermarkText:
-                        event.target.value,
+                        event
+                          .target
+                          .value,
                     })
                   }
                   className="mt-2 h-12 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-sm text-white outline-none focus:border-violet-500"
@@ -857,22 +1062,32 @@ export function WorkOrderSettingsPage() {
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
-              onClick={resetCurrent}
+              onClick={
+                resetCurrent
+              }
               className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 font-black text-white"
             >
-              <RotateCcw size={18} />
-              Vrati Modern za {title.toLowerCase()}
+              <RotateCcw
+                size={18}
+              />
+              Vrati Modern za{' '}
+              {title.toLowerCase()}
             </button>
 
             <button
               type="button"
-              disabled={isSaving}
+              disabled={
+                isSaving
+              }
               onClick={() =>
                 void saveAll()
               }
               className="hidden min-h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-6 font-black text-white disabled:opacity-50 sm:inline-flex"
             >
-              <Save size={18} />
+              <Save
+                size={18}
+              />
+
               {isSaving
                 ? 'Spremanje...'
                 : saved
@@ -885,8 +1100,12 @@ export function WorkOrderSettingsPage() {
         <div className="xl:sticky xl:top-4 xl:self-start">
           <DocumentPreview
             kind={activeKind}
-            appearance={active}
-            company={company}
+            appearance={
+              active
+            }
+            company={
+              company
+            }
           />
         </div>
       </div>
@@ -900,7 +1119,10 @@ export function WorkOrderSettingsPage() {
           }
           className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white shadow-xl shadow-black/30 disabled:opacity-50"
         >
-          <Save size={19} />
+          <Save
+            size={19}
+          />
+
           {isSaving
             ? 'Spremanje...'
             : saved
@@ -929,10 +1151,12 @@ function Panel({
         <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
           {icon}
         </div>
+
         <div>
           <h2 className="text-lg font-black text-white sm:text-xl">
             {title}
           </h2>
+
           <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
             {description}
           </p>
@@ -953,10 +1177,14 @@ function ColorControl({
 }: {
   label: string
   value: string
-  onChange: (value: string) => void
+  onChange: (
+    value: string,
+  ) => void
 }) {
-  const [draft, setDraft] =
-    useState(value)
+  const [
+    draft,
+    setDraft,
+  ] = useState(value)
 
   useEffect(() => {
     setDraft(value)
@@ -972,28 +1200,43 @@ function ColorControl({
         <input
           type="color"
           value={value}
-          onChange={(event) => {
+          onChange={(
+            event,
+          ) => {
             const next =
               event.target.value.toUpperCase()
+
             setDraft(next)
             onChange(next)
           }}
           className="h-12 w-14 shrink-0 cursor-pointer rounded-xl border border-slate-700 bg-transparent p-0.5"
-          aria-label={label}
+          aria-label={
+            label
+          }
         />
 
         <input
           value={draft}
-          onChange={(event) =>
+          onChange={(
+            event,
+          ) =>
             setDraft(
               event.target.value.toUpperCase(),
             )
           }
           onBlur={() => {
-            if (isHexColor(draft)) {
-              onChange(draft)
+            if (
+              isHexColor(
+                draft,
+              )
+            ) {
+              onChange(
+                draft,
+              )
             } else {
-              setDraft(value)
+              setDraft(
+                value,
+              )
             }
           }}
           className="h-12 min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950 px-3 font-mono text-sm font-bold text-white outline-none focus:border-violet-500"
@@ -1010,17 +1253,22 @@ function Toggle({
 }: {
   label: string
   checked: boolean
-  onChange: (checked: boolean) => void
+  onChange: (
+    checked: boolean,
+  ) => void
 }) {
   return (
     <label className="flex min-h-14 cursor-pointer items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/45 px-4">
       <span className="text-sm font-bold text-slate-300">
         {label}
       </span>
+
       <input
         type="checkbox"
         checked={checked}
-        onChange={(event) =>
+        onChange={(
+          event,
+        ) =>
           onChange(
             event.target.checked,
           )
@@ -1039,26 +1287,42 @@ function SelectControl({
 }: {
   label: string
   value: string
-  onChange: (value: string) => void
-  options: Array<[string, string]>
+  onChange: (
+    value: string,
+  ) => void
+  options: Array<
+    [string, string]
+  >
 }) {
   return (
     <label>
       <span className="text-sm font-black text-slate-300">
         {label}
       </span>
+
       <select
         value={value}
-        onChange={(event) =>
-          onChange(event.target.value)
+        onChange={(
+          event,
+        ) =>
+          onChange(
+            event.target.value,
+          )
         }
         className="mt-2 h-12 w-full rounded-2xl border border-slate-700 bg-slate-950 px-4 text-sm font-bold text-white outline-none focus:border-violet-500"
       >
         {options.map(
-          ([optionValue, labelText]) => (
+          ([
+            optionValue,
+            labelText,
+          ]) => (
             <option
-              key={optionValue}
-              value={optionValue}
+              key={
+                optionValue
+              }
+              value={
+                optionValue
+              }
             >
               {labelText}
             </option>
@@ -1085,8 +1349,20 @@ function DocumentPreview({
           <p className="text-xs font-black uppercase tracking-wider text-slate-500">
             Pregled izgleda
           </p>
+
           <p className="mt-1 text-sm font-black text-white">
-            {documentKindLabels[kind]} · {presetDescriptions[appearance.preset].label}
+            {
+              documentKindLabels[
+                kind
+              ]
+            }{' '}
+            ·{' '}
+            {
+              presetDescriptions[
+                appearance
+                  .preset
+              ].label
+            }
           </p>
         </div>
 
@@ -1100,20 +1376,34 @@ function DocumentPreview({
       </div>
 
       <div className="mt-4 overflow-hidden rounded-2xl bg-slate-950 p-3">
-        {kind === 'workOrder' ? (
-          <WorkOrderPreviewSheet
-            appearance={appearance}
-            company={company}
-          />
-        ) : kind === 'offer' ? (
+        {kind ===
+        'offer' ? (
           <OfferPreviewSheet
-            appearance={appearance}
-            company={company}
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
+          />
+        ) : kind ===
+          'invoice' ? (
+          <InvoicePreviewSheet
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
           />
         ) : (
-          <InvoicePreviewSheet
-            appearance={appearance}
-            company={company}
+          <WorkOrderPreviewSheet
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
           />
         )}
       </div>
@@ -1130,7 +1420,7 @@ function PreviewPaper({
 }) {
   return (
     <div
-      className="mx-auto aspect-[210/297] w-full max-w-[390px] overflow-hidden rounded-xl shadow-2xl"
+      className="relative mx-auto aspect-[210/297] w-full max-w-[450px] overflow-hidden rounded-xl shadow-2xl"
       style={{
         backgroundColor:
           appearance.backgroundColor,
@@ -1138,7 +1428,24 @@ function PreviewPaper({
           appearance.textColor,
       }}
     >
-      {children}
+      {appearance.showWatermark &&
+        appearance.watermarkText && (
+          <div
+            className="pointer-events-none absolute left-1/2 top-1/2 z-0 -translate-x-1/2 -translate-y-1/2 -rotate-[28deg] whitespace-nowrap text-[38px] font-black opacity-[0.035]"
+            style={{
+              color:
+                appearance.primaryColor,
+            }}
+          >
+            {
+              appearance.watermarkText
+            }
+          </div>
+        )}
+
+      <div className="relative z-10 h-full">
+        {children}
+      </div>
     </div>
   )
 }
@@ -1146,36 +1453,785 @@ function PreviewPaper({
 function PreviewCompany({
   appearance,
   company,
+  compact = false,
 }: {
   appearance: DocumentAppearance
   company: CompanySettings | null
+  compact?: boolean
 }) {
+  const address = [
+    company?.address,
+    [
+      company?.postalCode,
+      company?.city,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  ]
+    .filter(Boolean)
+    .join(', ')
+
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div
+      className={`flex min-w-0 items-start ${
+        compact
+          ? 'gap-2'
+          : 'gap-2.5'
+      }`}
+    >
       {appearance.showLogo && (
-        <div className="grid h-9 w-11 shrink-0 place-items-center rounded-lg bg-slate-100 text-[7px] font-black text-slate-500">
+        <div
+          className={`grid shrink-0 place-items-center overflow-hidden rounded-lg bg-white ${
+            compact
+              ? 'h-9 w-11'
+              : 'h-12 w-14'
+          }`}
+        >
           {company?.logoUrl ? (
             <img
-              src={company.logoUrl}
+              src={
+                company.logoUrl
+              }
               alt="Logo"
               className="h-full w-full object-contain p-1"
             />
           ) : (
-            'LOGO'
+            <span className="text-[6px] font-black text-slate-400">
+              LOGO
+            </span>
           )}
         </div>
       )}
 
       <div className="min-w-0">
-        <p className="truncate text-[9px] font-black">
+        <p
+          className={`truncate font-black ${
+            compact
+              ? 'text-[8px]'
+              : 'text-[11px]'
+          }`}
+        >
           {company?.name ||
             'Vaša tvrtka'}
         </p>
-        <p className="truncate text-[5px] opacity-50">
-          {company?.address ||
-            'Adresa tvrtke'}
-        </p>
+
+        {address && (
+          <p className="mt-0.5 truncate text-[5.2px] opacity-55">
+            {address}
+          </p>
+        )}
+
+        {company?.oib && (
+          <p className="mt-0.5 truncate text-[5.2px] opacity-55">
+            OIB:{' '}
+            {
+              company.oib
+            }
+          </p>
+        )}
+
+        {(company?.phone ||
+          company?.email) && (
+          <p className="mt-0.5 truncate text-[5.2px] opacity-55">
+            {[
+              company?.phone,
+              company?.email,
+            ]
+              .filter(Boolean)
+              .join(
+                ' • ',
+              )}
+          </p>
+        )}
       </div>
+    </div>
+  )
+}
+
+const previewItems = [
+  [
+    'Klima TERMA Gelida 3.5kw',
+    'Ugradnja i puštanje u rad',
+    '1',
+    'kom',
+    '215,00 €',
+    '0%',
+    '25%',
+    '268,75 €',
+  ],
+  [
+    'Nosači za klimu',
+    'Set vanjske i zidne konzole',
+    '1',
+    'kom',
+    '12,50 €',
+    '0%',
+    '25%',
+    '15,63 €',
+  ],
+  [
+    'Tiple i vijci 8mm',
+    'Set tipli i vijaka',
+    '1',
+    'kom',
+    '12,50 €',
+    '0%',
+    '25%',
+    '15,63 €',
+  ],
+  [
+    'Cijev za klimu 1/4"',
+    'Bakrena izolirana',
+    '1',
+    'm',
+    '17,50 €',
+    '0%',
+    '25%',
+    '21,88 €',
+  ],
+  [
+    'Cijev za klimu 3/8"',
+    'Bakrena izolirana',
+    '1',
+    'm',
+    '60,00 €',
+    '0%',
+    '25%',
+    '75,00 €',
+  ],
+  [
+    'Kabal za struju 3x1.5',
+    'PP fleksibilni',
+    '1',
+    'm',
+    '6,20 €',
+    '0%',
+    '25%',
+    '7,75 €',
+  ],
+  [
+    'Kabel za struju 5x1.5',
+    'PP fleksibilni',
+    '1',
+    'm',
+    '7,50 €',
+    '0%',
+    '25%',
+    '9,38 €',
+  ],
+  [
+    'Rad i ruke',
+    'Montaža i spajanje',
+    '1',
+    'usl',
+    '250,00 €',
+    '0%',
+    '25%',
+    '312,50 €',
+  ],
+]
+
+function OfferPreviewSheet({
+  appearance,
+  company,
+}: {
+  appearance: DocumentAppearance
+  company: CompanySettings | null
+}) {
+  const primary =
+    appearance.primaryColor
+
+  const accent =
+    appearance.accentColor
+
+  const border =
+    appearance.borderColor
+
+  return (
+    <PreviewPaper
+      appearance={
+        appearance
+      }
+    >
+      <div className="flex h-full flex-col p-[18px]">
+        <div
+          className="grid grid-cols-[1fr_1.05fr] gap-3 border-b pb-3"
+          style={{
+            borderColor:
+              primary,
+          }}
+        >
+          <PreviewCompany
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
+          />
+
+          <div
+            className="border-l pl-3"
+            style={{
+              borderColor:
+                `${primary}55`,
+            }}
+          >
+            <div className="text-[19px] font-black leading-none tracking-[-0.04em]">
+              {appearance.documentTitle ||
+                'PONUDA'}
+            </div>
+
+            <div
+              className="mt-1.5 text-[5.5px] font-black uppercase tracking-[0.2em]"
+              style={{
+                color:
+                  primary,
+              }}
+            >
+              Komercijalna
+              ponuda
+            </div>
+
+            <div className="mt-3 grid grid-cols-3 gap-1.5">
+              {[
+                [
+                  'Ponuda br.',
+                  'P-2026-007',
+                ],
+                [
+                  'Datum',
+                  '15.08.2026.',
+                ],
+                [
+                  'Vrijedi do',
+                  '14.09.2026.',
+                ],
+              ].map(
+                ([
+                  label,
+                  value,
+                ]) => (
+                  <div
+                    key={
+                      label
+                    }
+                    className="rounded-md border p-1.5"
+                    style={{
+                      borderColor:
+                        border,
+                    }}
+                  >
+                    <p
+                      className="text-[4.3px] font-black uppercase"
+                      style={{
+                        color:
+                          primary,
+                      }}
+                    >
+                      {
+                        label
+                      }
+                    </p>
+
+                    <p className="mt-1 truncate text-[6px] font-black">
+                      {
+                        value
+                      }
+                    </p>
+                  </div>
+                ),
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2.5">
+          <div
+            className="rounded-md border p-2.5"
+            style={{
+              borderColor:
+                border,
+              backgroundColor:
+                appearance.infoStyle ===
+                'cards'
+                  ? `${primary}06`
+                  : 'transparent',
+            }}
+          >
+            <p
+              className="text-[5px] font-black uppercase"
+              style={{
+                color:
+                  primary,
+              }}
+            >
+              Podaci o
+              klijentu
+            </p>
+
+            <p className="mt-1.5 text-[7px] font-black">
+              Primjer kupca
+              d.o.o.
+            </p>
+
+            <p className="mt-1 text-[5px] leading-[1.45] opacity-60">
+              Primjer ulica 1,
+              35000 Slavonski
+              Brod
+              <br />
+              OIB:
+              12345678901
+              <br />
+              kupac@primjer.hr
+            </p>
+          </div>
+
+          <div
+            className="rounded-md border p-2.5"
+            style={{
+              borderColor:
+                border,
+              backgroundColor:
+                appearance.infoStyle ===
+                'cards'
+                  ? `${primary}06`
+                  : 'transparent',
+            }}
+          >
+            <p
+              className="text-[5px] font-black uppercase"
+              style={{
+                color:
+                  primary,
+              }}
+            >
+              Podaci o
+              ponudi
+            </p>
+
+            {[
+              [
+                'Izradio/la',
+                'Borna Ferfolja',
+              ],
+              [
+                'Mjesto isporuke',
+                'Slavonski Brod',
+              ],
+              [
+                'Razdoblje',
+                'Prema dogovoru',
+              ],
+              [
+                'Valuta',
+                'EUR',
+              ],
+            ].map(
+              ([
+                label,
+                value,
+              ]) => (
+                <div
+                  key={
+                    label
+                  }
+                  className="mt-1 grid grid-cols-[45%_55%] gap-1 border-b pb-1 text-[4.8px]"
+                  style={{
+                    borderColor:
+                      `${border}88`,
+                  }}
+                >
+                  <span className="opacity-55">
+                    {
+                      label
+                    }
+                  </span>
+
+                  <strong className="truncate text-right">
+                    {
+                      value
+                    }
+                  </strong>
+                </div>
+              ),
+            )}
+          </div>
+        </div>
+
+        <div
+          className="mt-3 overflow-hidden rounded-md border"
+          style={{
+            borderColor:
+              border,
+          }}
+        >
+          <div
+            className="grid grid-cols-[25px_1fr_32px_30px_52px_37px_30px_57px] items-center px-1.5 py-1.5 text-[4.2px] font-black uppercase text-white"
+            style={{
+              background:
+                appearance.tableStyle ===
+                'soft'
+                  ? `linear-gradient(90deg, ${primary}, ${accent})`
+                  : appearance.tableStyle ===
+                      'minimal'
+                    ? appearance.secondaryColor
+                    : primary,
+            }}
+          >
+            <span>Rbr.</span>
+            <span>
+              Opis stavke
+            </span>
+            <span className="text-center">
+              Kol.
+            </span>
+            <span className="text-center">
+              Jed.
+            </span>
+            <span className="text-right">
+              Jed. cijena
+            </span>
+            <span className="text-center">
+              Popust
+            </span>
+            <span className="text-center">
+              PDV
+            </span>
+            <span className="text-right">
+              Ukupno
+            </span>
+          </div>
+
+          {previewItems.map(
+            (
+              item,
+              index,
+            ) => (
+              <div
+                key={
+                  item[0]
+                }
+                className="grid min-h-[31px] grid-cols-[25px_1fr_32px_30px_52px_37px_30px_57px] items-center border-t px-1.5 py-1 text-[4.7px]"
+                style={{
+                  borderColor:
+                    `${border}AA`,
+                  backgroundColor:
+                    appearance.tableStyle ===
+                      'soft' &&
+                    index %
+                      2 ===
+                      1
+                      ? `${primary}05`
+                      : '#FFFFFF',
+                }}
+              >
+                <strong
+                  style={{
+                    color:
+                      primary,
+                  }}
+                >
+                  {String(
+                    index +
+                      1,
+                  ).padStart(
+                    2,
+                    '0',
+                  )}
+                </strong>
+
+                <div className="min-w-0 pr-1">
+                  <p className="truncate text-[5px] font-black">
+                    {
+                      item[0]
+                    }
+                  </p>
+
+                  <p className="truncate text-[4px] opacity-50">
+                    {
+                      item[1]
+                    }
+                  </p>
+                </div>
+
+                {item
+                  .slice(
+                    2,
+                  )
+                  .map(
+                    (
+                      value,
+                      cellIndex,
+                    ) => (
+                      <span
+                        key={`${value}-${cellIndex}`}
+                        className={`truncate ${
+                          cellIndex >=
+                          2
+                            ? 'text-right'
+                            : 'text-center'
+                        } ${
+                          cellIndex ===
+                          5
+                            ? 'font-black'
+                            : ''
+                        }`}
+                      >
+                        {
+                          value
+                        }
+                      </span>
+                    ),
+                  )}
+              </div>
+            ),
+          )}
+        </div>
+
+        <div className="mt-3 grid grid-cols-[1fr_44%] gap-3">
+          <div>
+            <div
+              className="rounded-md border p-2"
+              style={{
+                borderColor:
+                  border,
+                backgroundColor:
+                  `${primary}05`,
+              }}
+            >
+              <p
+                className="text-[5px] font-black uppercase"
+                style={{
+                  color:
+                    primary,
+                }}
+              >
+                Napomene i
+                uvjeti
+              </p>
+
+              <p className="mt-1.5 text-[4.6px] leading-[1.45] opacity-65">
+                Ponuda vrijedi
+                30 dana.
+                <br />
+                Plaćanje prema
+                dogovoru.
+                <br />
+                Cijene su
+                izražene u EUR.
+              </p>
+            </div>
+
+            {(appearance.showSignature ||
+              appearance.showStamp) && (
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <PreviewSignature
+                  title="Ponudu izradio"
+                  name="Borna Ferfolja"
+                  appearance={
+                    appearance
+                  }
+                  image={
+                    company?.signatureUrl
+                  }
+                />
+
+                <PreviewSignature
+                  title="Prihvat ponude / klijent"
+                  name="Primjer kupca"
+                  appearance={
+                    appearance
+                  }
+                />
+              </div>
+            )}
+          </div>
+
+          <div>
+            {[
+              [
+                'Ukupno prije popusta',
+                '581,20 €',
+              ],
+              [
+                'Popust',
+                '0,00 €',
+              ],
+              [
+                'Osnovica',
+                '581,20 €',
+              ],
+              [
+                'PDV',
+                '145,30 €',
+              ],
+            ].map(
+              ([
+                label,
+                value,
+              ]) => (
+                <div
+                  key={
+                    label
+                  }
+                  className="flex justify-between gap-2 border-b px-1.5 py-1 text-[5px]"
+                  style={{
+                    borderColor:
+                      `${border}AA`,
+                  }}
+                >
+                  <span className="opacity-65">
+                    {
+                      label
+                    }
+                  </span>
+
+                  <strong>
+                    {
+                      value
+                    }
+                  </strong>
+                </div>
+              ),
+            )}
+
+            <div
+              className="mt-1.5 flex items-center justify-between gap-2 rounded-md px-2 py-2 text-white"
+              style={{
+                background:
+                  appearance.preset ===
+                  'minimal'
+                    ? appearance.secondaryColor
+                    : `linear-gradient(90deg, ${primary}, ${accent})`,
+              }}
+            >
+              <strong className="text-[5.7px]">
+                UKUPNO ZA
+                PLATITI
+              </strong>
+
+              <strong className="text-[9px]">
+                726,50 €
+              </strong>
+            </div>
+
+            {(company?.iban ||
+              company?.bankName) && (
+              <div
+                className="mt-2 rounded-md border p-2"
+                style={{
+                  borderColor:
+                    `${primary}66`,
+                }}
+              >
+                <p
+                  className="text-[4.8px] font-black uppercase"
+                  style={{
+                    color:
+                      primary,
+                  }}
+                >
+                  Podaci za
+                  plaćanje
+                </p>
+
+                {company?.iban && (
+                  <p className="mt-1 text-[4.4px]">
+                    <span className="opacity-55">
+                      IBAN:{' '}
+                    </span>
+                    <strong>
+                      {
+                        company.iban
+                      }
+                    </strong>
+                  </p>
+                )}
+
+                {company?.bankName && (
+                  <p className="mt-1 text-[4.4px]">
+                    <span className="opacity-55">
+                      Banka:{' '}
+                    </span>
+                    <strong>
+                      {
+                        company.bankName
+                      }
+                    </strong>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {appearance.showFooter && (
+          <div
+            className="mt-auto flex items-end justify-between gap-2 border-t pt-1.5 text-[4px] opacity-55"
+            style={{
+              borderColor:
+                `${primary}55`,
+            }}
+          >
+            <span className="truncate">
+              {appearance.footerText ||
+                company?.name ||
+                'Hvala na povjerenju.'}
+            </span>
+
+            <strong>
+              1 / 1
+            </strong>
+          </div>
+        )}
+      </div>
+    </PreviewPaper>
+  )
+}
+
+function PreviewSignature({
+  title,
+  name,
+  appearance,
+  image,
+}: {
+  title: string
+  name: string
+  appearance: DocumentAppearance
+  image?: string
+}) {
+  return (
+    <div
+      className="min-h-[54px] rounded-md border p-1.5"
+      style={{
+        borderColor:
+          `${appearance.primaryColor}66`,
+      }}
+    >
+      <p
+        className="text-[4px]"
+        style={{
+          color:
+            appearance.primaryColor,
+        }}
+      >
+        {title}
+      </p>
+
+      <div className="grid h-8 place-items-center">
+        {image ? (
+          <img
+            src={image}
+            alt="Potpis"
+            className="max-h-7 max-w-[80px] object-contain"
+          />
+        ) : null}
+      </div>
+
+      <strong className="text-[4.3px]">
+        {name}
+      </strong>
     </div>
   )
 }
@@ -1188,7 +2244,11 @@ function WorkOrderPreviewSheet({
   company: CompanySettings | null
 }) {
   return (
-    <PreviewPaper appearance={appearance}>
+    <PreviewPaper
+      appearance={
+        appearance
+      }
+    >
       <div
         className="h-1.5"
         style={{
@@ -1200,14 +2260,21 @@ function WorkOrderPreviewSheet({
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
           <PreviewCompany
-            appearance={appearance}
-            company={company}
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
+            compact
           />
 
           <div className="text-right">
             <p className="text-[5px] font-black uppercase tracking-widest opacity-45">
-              Servisni dokument
+              Servisni
+              dokument
             </p>
+
             <p className="mt-1 text-[14px] font-black">
               RADNI NALOG
             </p>
@@ -1222,29 +2289,55 @@ function WorkOrderPreviewSheet({
           }}
         >
           {[
-            ['Broj', 'RN-2026-001'],
-            ['Datum', '14.08.2026.'],
-            ['Vrijeme', '08:00–10:30'],
-            ['Trajanje', '2 h 30 min'],
-            ['Status', 'Završen'],
-            ['Str.', '1'],
-          ].map(([label, value]) => (
-            <div
-              key={label}
-              className="border-b border-r px-1.5 py-1.5"
-              style={{
-                borderColor:
-                  appearance.borderColor,
-              }}
-            >
-              <p className="text-[4px] font-black uppercase opacity-35">
-                {label}
-              </p>
-              <p className="mt-0.5 truncate text-[5px] font-black">
-                {value}
-              </p>
-            </div>
-          ))}
+            [
+              'Broj',
+              'RN-2026-001',
+            ],
+            [
+              'Datum',
+              '14.08.2026.',
+            ],
+            [
+              'Vrijeme',
+              '08:00–10:30',
+            ],
+            [
+              'Trajanje',
+              '2 h 30 min',
+            ],
+            [
+              'Status',
+              'Završen',
+            ],
+            [
+              'Str.',
+              '1',
+            ],
+          ].map(
+            ([
+              label,
+              value,
+            ]) => (
+              <div
+                key={
+                  label
+                }
+                className="border-b border-r px-1.5 py-1.5"
+                style={{
+                  borderColor:
+                    appearance.borderColor,
+                }}
+              >
+                <p className="text-[4px] font-black uppercase opacity-35">
+                  {label}
+                </p>
+
+                <p className="mt-0.5 truncate text-[5px] font-black">
+                  {value}
+                </p>
+              </div>
+            ),
+          )}
         </div>
 
         <div className="mt-2 grid grid-cols-[1fr_34%] gap-2">
@@ -1258,11 +2351,10 @@ function WorkOrderPreviewSheet({
             <p className="text-[4px] font-black uppercase opacity-40">
               Investitor
             </p>
+
             <p className="mt-1 text-[7px] font-black">
-              Primjer kupca d.o.o.
-            </p>
-            <p className="mt-1 text-[4.5px] opacity-50">
-              Primjer ulica 1 · OIB 12345678901
+              Primjer kupca
+              d.o.o.
             </p>
           </div>
 
@@ -1272,13 +2364,13 @@ function WorkOrderPreviewSheet({
               borderColor:
                 appearance.borderColor,
               backgroundColor:
-                appearance.primaryColor +
-                '0D',
+                `${appearance.primaryColor}0D`,
             }}
           >
             <p className="text-[4px] font-black uppercase opacity-40">
               Izvršitelji
             </p>
+
             <p className="mt-1 text-[5px] font-black">
               Borna · Dinko
             </p>
@@ -1286,7 +2378,9 @@ function WorkOrderPreviewSheet({
         </div>
 
         <PreviewSectionTitle
-          appearance={appearance}
+          appearance={
+            appearance
+          }
           label="Opis radova"
         />
 
@@ -1302,124 +2396,39 @@ function WorkOrderPreviewSheet({
         </div>
 
         <PreviewSectionTitle
-          appearance={appearance}
+          appearance={
+            appearance
+          }
           label="Utrošeni materijal"
         />
 
-        <PreviewTable
-          appearance={appearance}
+        <SimplePreviewTable
+          appearance={
+            appearance
+          }
           rows={5}
         />
 
         <div className="mt-3 grid grid-cols-2 gap-3">
-          <SignaturePlaceholder
-            label="Izvođač / pečat"
-            appearance={appearance}
+          <PreviewSignature
+            title="Izvođač / pečat"
+            name={
+              company?.name ||
+              'Tvrtka'
+            }
+            appearance={
+              appearance
+            }
           />
-          <SignaturePlaceholder
-            label="Potpis investitora"
-            appearance={appearance}
+
+          <PreviewSignature
+            title="Potpis investitora"
+            name="Investitor"
+            appearance={
+              appearance
+            }
           />
         </div>
-
-        <PreviewFooter
-          appearance={appearance}
-        />
-      </div>
-    </PreviewPaper>
-  )
-}
-
-function OfferPreviewSheet({
-  appearance,
-  company,
-}: {
-  appearance: DocumentAppearance
-  company: CompanySettings | null
-}) {
-  return (
-    <PreviewPaper appearance={appearance}>
-      <div className="p-4">
-        <PreviewCompany
-          appearance={appearance}
-          company={company}
-        />
-
-        <div className="mt-5 flex items-end justify-between gap-3">
-          <div>
-            <p
-              className="text-[5px] font-black uppercase tracking-widest"
-              style={{
-                color:
-                  appearance.primaryColor,
-              }}
-            >
-              Komercijalna ponuda
-            </p>
-            <p className="mt-1 text-[17px] font-black">
-              PONUDA
-            </p>
-          </div>
-
-          <div className="text-right text-[5px]">
-            <p className="font-black">
-              P-2026-001
-            </p>
-            <p className="mt-1 opacity-45">
-              Vrijedi do 29.08.2026.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          {['Naručitelj', 'Podaci ponude'].map(
-            (title) => (
-              <div
-                key={title}
-                className="min-h-16 rounded-md border p-2"
-                style={{
-                  borderColor:
-                    appearance.borderColor,
-                }}
-              >
-                <p className="text-[4px] font-black uppercase opacity-40">
-                  {title}
-                </p>
-                <div className="mt-2 h-1.5 rounded-full bg-slate-300" />
-                <div className="mt-1 h-1.5 w-2/3 rounded-full bg-slate-200" />
-              </div>
-            ),
-          )}
-        </div>
-
-        <PreviewSectionTitle
-          appearance={appearance}
-          label="Stavke ponude"
-        />
-
-        <PreviewTable
-          appearance={appearance}
-          rows={6}
-        />
-
-        <div
-          className="mt-3 ml-auto w-1/2 rounded-md border p-2"
-          style={{
-            borderColor:
-              appearance.borderColor,
-          }}
-        >
-          <p className="text-[5px] opacity-45">
-            Vrijednost ponude
-          </p>
-          <p className="mt-1 text-right text-[10px] font-black">
-            1.250,00 €
-          </p>
-        </div>
-
-        <PreviewFooter
-          appearance={appearance}
-        />
       </div>
     </PreviewPaper>
   )
@@ -1433,105 +2442,136 @@ function InvoicePreviewSheet({
   company: CompanySettings | null
 }) {
   return (
-    <PreviewPaper appearance={appearance}>
-      <div className="grid h-full grid-cols-[38%_1fr]">
-        <div
-          className="p-4"
-          style={{
-            backgroundColor:
-              appearance.secondaryColor,
-            color: '#FFFFFF',
-          }}
-        >
+    <PreviewPaper
+      appearance={
+        appearance
+      }
+    >
+      <div className="h-full p-5">
+        <div className="flex items-start justify-between gap-4 border-b pb-4">
           <PreviewCompany
-            appearance={appearance}
-            company={company}
+            appearance={
+              appearance
+            }
+            company={
+              company
+            }
           />
 
-          <p className="mt-8 text-[18px] font-black">
-            RAČUN
-          </p>
-          <p className="mt-1 text-[6px] font-black opacity-70">
-            R-2026-001
-          </p>
-
-          <div className="mt-6 space-y-3 text-[5px]">
-            <div>
-              <p className="uppercase opacity-50">
-                Datum izdavanja
-              </p>
-              <p className="mt-1 font-black">
-                14.08.2026.
-              </p>
-            </div>
-            <div>
-              <p className="uppercase opacity-50">
-                Dospijeće
-              </p>
-              <p className="mt-1 font-black">
-                29.08.2026.
-              </p>
-            </div>
-            <div>
-              <p className="uppercase opacity-50">
-                IBAN
-              </p>
-              <p className="mt-1 font-black">
-                HR00 0000 0000
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="p-4">
-          <p className="text-[4px] font-black uppercase opacity-40">
-            Kupac
-          </p>
-          <p className="mt-1 text-[9px] font-black">
-            Primjer kupca d.o.o.
-          </p>
-
-          <PreviewSectionTitle
-            appearance={appearance}
-            label="Stavke računa"
-          />
-
-          <PreviewTable
-            appearance={appearance}
-            rows={6}
-          />
-
-          <div
-            className="mt-4 border-t pt-3 text-right"
-            style={{
-              borderColor:
-                appearance.borderColor,
-            }}
-          >
-            <p className="text-[5px] opacity-45">
-              UKUPNO ZA PLATITI
+          <div className="text-right">
+            <p className="text-[18px] font-black">
+              RAČUN
             </p>
+
             <p
-              className="mt-1 text-[15px] font-black"
+              className="mt-1 text-[7px] font-black"
               style={{
                 color:
                   appearance.primaryColor,
               }}
             >
-              1.562,50 €
+              R-2026-001
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[5px] font-black uppercase opacity-45">
+              Kupac
+            </p>
+
+            <p className="mt-1 text-[8px] font-black">
+              Primjer kupca
+              d.o.o.
             </p>
           </div>
 
-          <PreviewFooter
-            appearance={appearance}
-          />
+          <div className="text-right text-[5px]">
+            <p>
+              Datum:
+              15.08.2026.
+            </p>
+            <p className="mt-1">
+              Dospijeće:
+              30.08.2026.
+            </p>
+          </div>
+        </div>
+
+        <PreviewSectionTitle
+          appearance={
+            appearance
+          }
+          label="Stavke računa"
+        />
+
+        <SimplePreviewTable
+          appearance={
+            appearance
+          }
+          rows={6}
+        />
+
+        <div
+          className="mt-4 ml-auto w-[58%] rounded-md px-3 py-2 text-right text-white"
+          style={{
+            backgroundColor:
+              appearance.primaryColor,
+          }}
+        >
+          <p className="text-[5px] font-black uppercase opacity-70">
+            Ukupno za
+            platiti
+          </p>
+
+          <p className="mt-1 text-[14px] font-black">
+            1.562,50 €
+          </p>
         </div>
       </div>
     </PreviewPaper>
   )
 }
 
-function PreviewTable({
+function PreviewSectionTitle({
+  appearance,
+  label,
+}: {
+  appearance: DocumentAppearance
+  label: string
+}) {
+  const mode =
+    appearance.sectionStyle
+
+  return (
+    <div
+      className={`mt-3 text-[5px] font-black uppercase ${
+        mode === 'bar'
+          ? 'rounded-md px-2 py-1.5 text-white'
+          : mode === 'line'
+            ? 'border-b pb-1'
+            : ''
+      }`}
+      style={{
+        backgroundColor:
+          mode === 'bar'
+            ? appearance.primaryColor
+            : 'transparent',
+        borderColor:
+          appearance.primaryColor,
+        color:
+          mode === 'bar'
+            ? '#FFFFFF'
+            : appearance.primaryColor,
+      }}
+    >
+      {label}
+    </div>
+  )
+}
+
+function SimplePreviewTable({
   appearance,
   rows,
 }: {
@@ -1540,151 +2580,46 @@ function PreviewTable({
 }) {
   return (
     <div
-      className="overflow-hidden rounded-md border"
+      className="mt-1 overflow-hidden rounded-md border"
       style={{
         borderColor:
           appearance.borderColor,
       }}
     >
       <div
-        className="grid grid-cols-4 gap-1 px-2 py-2 text-[4px] font-black uppercase"
+        className="grid grid-cols-4 gap-1 px-2 py-2 text-[4px] font-black uppercase text-white"
         style={{
           backgroundColor:
-            appearance.tableStyle === 'minimal'
-              ? appearance.backgroundColor
-              : appearance.tableStyle === 'soft'
-                ? appearance.primaryColor +
-                  '18'
-                : appearance.primaryColor,
-          color:
-            appearance.tableStyle === 'solid'
-              ? '#FFFFFF'
-              : appearance.textColor,
+            appearance.primaryColor,
         }}
       >
         <span>Opis</span>
         <span>Kol.</span>
         <span>Cijena</span>
-        <span>Ukupno</span>
+        <span>
+          Ukupno
+        </span>
       </div>
 
       {Array.from({
         length: rows,
-      }).map((_, row) => (
-        <div
-          key={row}
-          className="grid grid-cols-4 gap-1 border-t px-2 py-1.5"
-          style={{
-            borderColor:
-              appearance.borderColor,
-          }}
-        >
-          {[0, 1, 2, 3].map(
-            (cell) => (
-              <span
-                key={cell}
-                className="h-1 rounded-full opacity-20"
-                style={{
-                  backgroundColor:
-                    appearance.textColor,
-                }}
-              />
-            ),
-          )}
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function SignaturePlaceholder({
-  label,
-  appearance,
-}: {
-  label: string
-  appearance: DocumentAppearance
-}) {
-  return (
-    <div
-      className="h-12 rounded-md border"
-      style={{
-        borderColor:
-          appearance.borderColor,
-      }}
-    >
-      <p className="pt-8 text-center text-[4px] opacity-40">
-        {label}
-      </p>
-    </div>
-  )
-}
-
-function PreviewFooter({
-  appearance,
-}: {
-  appearance: DocumentAppearance
-}) {
-  return (
-    <div
-      className="mt-4 flex items-end justify-between gap-3 border-t pt-2 text-[4px] opacity-40"
-      style={{
-        borderColor:
-          appearance.borderColor,
-      }}
-    >
-      <span>
-        {appearance.showFooter
-          ? appearance.footerText
-          : ''}
-      </span>
-      <span>1 / 1</span>
-    </div>
-  )
-}
-function PreviewSectionTitle({
-  appearance,
-  label,
-}: {
-  appearance: DocumentAppearance
-  label: string
-}) {
-  if (
-    appearance.sectionStyle === 'bar'
-  ) {
-    return (
-      <div
-        className="my-3 rounded-md px-2 py-1.5 text-[6px] font-black uppercase text-white"
-        style={{
-          backgroundColor:
-            appearance.primaryColor,
-        }}
-      >
-        {label}
-      </div>
-    )
-  }
-
-  if (
-    appearance.sectionStyle === 'line'
-  ) {
-    return (
-      <div
-        className="my-3 border-b pb-1 text-[6px] font-black uppercase"
-        style={{
-          borderColor:
-            appearance.primaryColor,
-          color:
-            appearance.primaryColor,
-        }}
-      >
-        {label}
-      </div>
-    )
-  }
-
-  return (
-    <div className="my-3 text-[6px] font-black uppercase">
-      {label}
+      }).map(
+        (_, index) => (
+          <div
+            key={index}
+            className="grid grid-cols-4 gap-1 border-t px-2 py-2"
+            style={{
+              borderColor:
+                appearance.borderColor,
+            }}
+          >
+            <div className="h-1.5 rounded-full bg-slate-300" />
+            <div className="h-1.5 rounded-full bg-slate-200" />
+            <div className="h-1.5 rounded-full bg-slate-300" />
+            <div className="h-1.5 rounded-full bg-slate-300" />
+          </div>
+        ),
+      )}
     </div>
   )
 }
