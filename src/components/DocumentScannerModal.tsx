@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react'
@@ -19,20 +20,21 @@ type ScanMode =
   | 'grayscale'
   | 'blackwhite'
 
-type CropRect = {
+type Point = {
   x: number
   y: number
-  width: number
-  height: number
 }
 
-type DragMode =
-  | 'move'
-  | 'nw'
-  | 'ne'
-  | 'sw'
-  | 'se'
-  | null
+type CornerKey =
+  | 'tl'
+  | 'tr'
+  | 'br'
+  | 'bl'
+
+type Corners = Record<
+  CornerKey,
+  Point
+>
 
 type Props = {
   open: boolean
@@ -42,7 +44,30 @@ type Props = {
   ) => void | Promise<void>
 }
 
-const MIN_CROP = 0.12
+const DEFAULT_CORNERS: Corners = {
+  tl: {
+    x: 0.05,
+    y: 0.05,
+  },
+  tr: {
+    x: 0.95,
+    y: 0.05,
+  },
+  br: {
+    x: 0.95,
+    y: 0.95,
+  },
+  bl: {
+    x: 0.05,
+    y: 0.95,
+  },
+}
+
+const MAX_OUTPUT_WIDTH =
+  1700
+
+const MAX_OUTPUT_HEIGHT =
+  2400
 
 function clamp(
   value: number,
@@ -51,7 +76,20 @@ function clamp(
 ) {
   return Math.min(
     max,
-    Math.max(min, value),
+    Math.max(
+      min,
+      value,
+    ),
+  )
+}
+
+function distance(
+  a: Point,
+  b: Point,
+) {
+  return Math.hypot(
+    b.x - a.x,
+    b.y - a.y,
   )
 }
 
@@ -59,12 +97,17 @@ function loadImage(
   source: string,
 ): Promise<HTMLImageElement> {
   return new Promise(
-    (resolve, reject) => {
+    (
+      resolve,
+      reject,
+    ) => {
       const image =
         new Image()
 
       image.onload =
-        () => resolve(image)
+        () => resolve(
+          image,
+        )
 
       image.onerror =
         () =>
@@ -72,7 +115,8 @@ function loadImage(
             new Error(),
           )
 
-      image.src = source
+      image.src =
+        source
     },
   )
 }
@@ -109,10 +153,659 @@ function canvasToFile(
           )
         },
         'image/jpeg',
-        0.95,
+        0.96,
       )
     },
   )
+}
+
+function solveLinearSystem(
+  matrix: number[][],
+  values: number[],
+) {
+  const n =
+    values.length
+
+  const augmented =
+    matrix.map(
+      (
+        row,
+        rowIndex,
+      ) => [
+        ...row,
+        values[
+          rowIndex
+        ],
+      ],
+    )
+
+  for (
+    let column = 0;
+    column < n;
+    column += 1
+  ) {
+    let pivot =
+      column
+
+    for (
+      let row =
+        column + 1;
+      row < n;
+      row += 1
+    ) {
+      if (
+        Math.abs(
+          augmented[
+            row
+          ][
+            column
+          ],
+        ) >
+        Math.abs(
+          augmented[
+            pivot
+          ][
+            column
+          ],
+        )
+      ) {
+        pivot =
+          row
+      }
+    }
+
+    if (
+      Math.abs(
+        augmented[
+          pivot
+        ][
+          column
+        ],
+      ) <
+      1e-10
+    ) {
+      throw new Error(
+        'Neispravan okvir dokumenta.',
+      )
+    }
+
+    if (
+      pivot !==
+      column
+    ) {
+      const temp =
+        augmented[
+          column
+        ]
+
+      augmented[
+        column
+      ] =
+        augmented[
+          pivot
+        ]
+
+      augmented[
+        pivot
+      ] =
+        temp
+    }
+
+    const pivotValue =
+      augmented[
+        column
+      ][
+        column
+      ]
+
+    for (
+      let c =
+        column;
+      c <= n;
+      c += 1
+    ) {
+      augmented[
+        column
+      ][c] /=
+        pivotValue
+    }
+
+    for (
+      let row = 0;
+      row < n;
+      row += 1
+    ) {
+      if (
+        row ===
+        column
+      ) {
+        continue
+      }
+
+      const factor =
+        augmented[
+          row
+        ][
+          column
+        ]
+
+      for (
+        let c =
+          column;
+        c <= n;
+        c += 1
+      ) {
+        augmented[
+          row
+        ][c] -=
+          factor *
+          augmented[
+            column
+          ][c]
+      }
+    }
+  }
+
+  return augmented.map(
+    (row) =>
+      row[n],
+  )
+}
+
+function getHomography(
+  destination:
+    Point[],
+  source:
+    Point[],
+) {
+  const matrix:
+    number[][] = []
+
+  const values:
+    number[] = []
+
+  for (
+    let index = 0;
+    index < 4;
+    index += 1
+  ) {
+    const x =
+      destination[
+        index
+      ].x
+
+    const y =
+      destination[
+        index
+      ].y
+
+    const u =
+      source[
+        index
+      ].x
+
+    const v =
+      source[
+        index
+      ].y
+
+    matrix.push([
+      x,
+      y,
+      1,
+      0,
+      0,
+      0,
+      -u * x,
+      -u * y,
+    ])
+
+    values.push(
+      u,
+    )
+
+    matrix.push([
+      0,
+      0,
+      0,
+      x,
+      y,
+      1,
+      -v * x,
+      -v * y,
+    ])
+
+    values.push(
+      v,
+    )
+  }
+
+  const h =
+    solveLinearSystem(
+      matrix,
+      values,
+    )
+
+  return [
+    h[0],
+    h[1],
+    h[2],
+    h[3],
+    h[4],
+    h[5],
+    h[6],
+    h[7],
+    1,
+  ]
+}
+
+function applyHomography(
+  matrix:
+    number[],
+  x: number,
+  y: number,
+): Point {
+  const denominator =
+    matrix[6] *
+      x +
+    matrix[7] *
+      y +
+    matrix[8]
+
+  return {
+    x:
+      (
+        matrix[0] *
+          x +
+        matrix[1] *
+          y +
+        matrix[2]
+      ) /
+      denominator,
+    y:
+      (
+        matrix[3] *
+          x +
+        matrix[4] *
+          y +
+        matrix[5]
+      ) /
+      denominator,
+  }
+}
+
+function bilinearSample(
+  pixels:
+    Uint8ClampedArray,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+) {
+  const safeX =
+    clamp(
+      x,
+      0,
+      width - 1,
+    )
+
+  const safeY =
+    clamp(
+      y,
+      0,
+      height - 1,
+    )
+
+  const x0 =
+    Math.floor(
+      safeX,
+    )
+
+  const y0 =
+    Math.floor(
+      safeY,
+    )
+
+  const x1 =
+    Math.min(
+      width - 1,
+      x0 + 1,
+    )
+
+  const y1 =
+    Math.min(
+      height - 1,
+      y0 + 1,
+    )
+
+  const dx =
+    safeX - x0
+
+  const dy =
+    safeY - y0
+
+  const read = (
+    px: number,
+    py: number,
+    channel: number,
+  ) =>
+    pixels[
+      (
+        py *
+          width +
+        px
+      ) *
+        4 +
+      channel
+    ]
+
+  const result = [
+    0,
+    0,
+    0,
+    255,
+  ]
+
+  for (
+    let channel = 0;
+    channel < 3;
+    channel += 1
+  ) {
+    const top =
+      read(
+        x0,
+        y0,
+        channel,
+      ) *
+        (
+          1 -
+          dx
+        ) +
+      read(
+        x1,
+        y0,
+        channel,
+      ) *
+        dx
+
+    const bottom =
+      read(
+        x0,
+        y1,
+        channel,
+      ) *
+        (
+          1 -
+          dx
+        ) +
+      read(
+        x1,
+        y1,
+        channel,
+      ) *
+        dx
+
+    result[
+      channel
+    ] =
+      top *
+        (
+          1 -
+          dy
+        ) +
+      bottom *
+        dy
+  }
+
+  return result
+}
+
+function getOutputSize(
+  imageWidth: number,
+  imageHeight: number,
+  corners:
+    Corners,
+) {
+  const tl = {
+    x:
+      corners.tl.x *
+      imageWidth,
+    y:
+      corners.tl.y *
+      imageHeight,
+  }
+
+  const tr = {
+    x:
+      corners.tr.x *
+      imageWidth,
+    y:
+      corners.tr.y *
+      imageHeight,
+  }
+
+  const br = {
+    x:
+      corners.br.x *
+      imageWidth,
+    y:
+      corners.br.y *
+      imageHeight,
+  }
+
+  const bl = {
+    x:
+      corners.bl.x *
+      imageWidth,
+    y:
+      corners.bl.y *
+      imageHeight,
+  }
+
+  const width =
+    Math.max(
+      distance(
+        tl,
+        tr,
+      ),
+      distance(
+        bl,
+        br,
+      ),
+    )
+
+  const height =
+    Math.max(
+      distance(
+        tl,
+        bl,
+      ),
+      distance(
+        tr,
+        br,
+      ),
+    )
+
+  const ratio =
+    Math.min(
+      MAX_OUTPUT_WIDTH /
+        Math.max(
+          1,
+          width,
+        ),
+      MAX_OUTPUT_HEIGHT /
+        Math.max(
+          1,
+          height,
+        ),
+      1,
+    )
+
+  return {
+    width:
+      Math.max(
+        1,
+        Math.round(
+          width *
+            ratio,
+        ),
+      ),
+    height:
+      Math.max(
+        1,
+        Math.round(
+          height *
+            ratio,
+        ),
+      ),
+  }
+}
+
+function polygonPath(
+  corners:
+    Corners,
+) {
+  return [
+    `${corners.tl.x * 100}% ${corners.tl.y * 100}%`,
+    `${corners.tr.x * 100}% ${corners.tr.y * 100}%`,
+    `${corners.br.x * 100}% ${corners.br.y * 100}%`,
+    `${corners.bl.x * 100}% ${corners.bl.y * 100}%`,
+  ].join(
+    ', ',
+  )
+}
+
+function lineStyle(
+  a: Point,
+  b: Point,
+) {
+  const dx =
+    (
+      b.x -
+      a.x
+    ) *
+    100
+
+  const dy =
+    (
+      b.y -
+      a.y
+    ) *
+    100
+
+  const length =
+    Math.hypot(
+      dx,
+      dy,
+    )
+
+  const angle =
+    Math.atan2(
+      dy,
+      dx,
+    ) *
+    (
+      180 /
+      Math.PI
+    )
+
+  return {
+    left:
+      `${a.x * 100}%`,
+    top:
+      `${a.y * 100}%`,
+    width:
+      `${length}%`,
+    transform:
+      `rotate(${angle}deg)`,
+  }
+}
+
+function isValidQuad(
+  corners:
+    Corners,
+) {
+  const points = [
+    corners.tl,
+    corners.tr,
+    corners.br,
+    corners.bl,
+  ]
+
+  let sign = 0
+
+  for (
+    let index = 0;
+    index < 4;
+    index += 1
+  ) {
+    const a =
+      points[
+        index
+      ]
+
+    const b =
+      points[
+        (
+          index + 1
+        ) %
+        4
+      ]
+
+    const c =
+      points[
+        (
+          index + 2
+        ) %
+        4
+      ]
+
+    const cross =
+      (
+        b.x -
+        a.x
+      ) *
+        (
+          c.y -
+          b.y
+        ) -
+      (
+        b.y -
+        a.y
+      ) *
+        (
+          c.x -
+          b.x
+        )
+
+    if (
+      Math.abs(
+        cross,
+      ) <
+      0.0005
+    ) {
+      return false
+    }
+
+    const currentSign =
+      Math.sign(
+        cross,
+      )
+
+    if (
+      sign === 0
+    ) {
+      sign =
+        currentSign
+    } else if (
+      currentSign !==
+      sign
+    ) {
+      return false
+    }
+  }
+
+  return true
 }
 
 export function DocumentScannerModal({
@@ -131,6 +824,14 @@ export function DocumentScannerModal({
     setProcessedUrl,
   ] =
     useState('')
+
+  const [
+    corners,
+    setCorners,
+  ] =
+    useState<Corners>(
+      DEFAULT_CORNERS,
+    )
 
   const [
     mode,
@@ -171,23 +872,12 @@ export function DocumentScannerModal({
     useState('')
 
   const [
-    crop,
-    setCrop,
+    draggingCorner,
+    setDraggingCorner,
   ] =
-    useState<CropRect>({
-      x: 0.04,
-      y: 0.04,
-      width: 0.92,
-      height: 0.92,
-    })
-
-  const [
-    dragMode,
-    setDragMode,
-  ] =
-    useState<DragMode>(
-      null,
-    )
+    useState<
+      CornerKey | null
+    >(null)
 
   const cameraInputRef =
     useRef<HTMLInputElement | null>(
@@ -209,12 +899,24 @@ export function DocumentScannerModal({
       null,
     )
 
-  const dragStartRef =
-    useRef<{
-      x: number
-      y: number
-      crop: CropRect
-    } | null>(null)
+  const cornersRef =
+    useRef<Corners>(
+      corners,
+    )
+
+  useEffect(() => {
+    cornersRef.current =
+      corners
+  }, [corners])
+
+  const validQuad =
+    useMemo(
+      () =>
+        isValidQuad(
+          corners,
+        ),
+      [corners],
+    )
 
   useEffect(() => {
     if (!open) {
@@ -227,30 +929,47 @@ export function DocumentScannerModal({
       setSourceUrl('')
       setProcessedUrl('')
       setError('')
-      setMode('original')
+      setCorners(
+        DEFAULT_CORNERS,
+      )
+      setMode(
+        'original',
+      )
       setBrightness(4)
       setContrast(16)
       setThreshold(175)
-      setCrop({
-        x: 0.04,
-        y: 0.04,
-        width: 0.92,
-        height: 0.92,
-      })
-      setDragMode(null)
+      setDraggingCorner(
+        null,
+      )
     }
   }, [open])
 
   useEffect(() => {
-    if (!sourceUrl) {
+    if (
+      !sourceUrl ||
+      !validQuad
+    ) {
       return
     }
 
     let cancelled =
       false
 
+    const timer =
+      window.setTimeout(
+        () => {
+          void processImage()
+        },
+        draggingCorner
+          ? 260
+          : 60,
+      )
+
     async function processImage() {
-      setProcessing(true)
+      setProcessing(
+        true,
+      )
+
       setError('')
 
       try {
@@ -263,61 +982,151 @@ export function DocumentScannerModal({
           return
         }
 
-        const sourceX =
-          Math.round(
-            image.width *
-              crop.x,
+        const activeCorners =
+          cornersRef.current
+
+        const sourceCanvas =
+          document.createElement(
+            'canvas',
           )
 
-        const sourceY =
-          Math.round(
-            image.height *
-              crop.y,
+        sourceCanvas.width =
+          image.width
+
+        sourceCanvas.height =
+          image.height
+
+        const sourceContext =
+          sourceCanvas.getContext(
+            '2d',
+            {
+              willReadFrequently:
+                true,
+            },
           )
 
-        const sourceWidth =
-          Math.max(
-            1,
-            Math.round(
-              image.width *
-                crop.width,
-            ),
+        if (
+          !sourceContext
+        ) {
+          throw new Error()
+        }
+
+        sourceContext.drawImage(
+          image,
+          0,
+          0,
+        )
+
+        const sourceData =
+          sourceContext.getImageData(
+            0,
+            0,
+            image.width,
+            image.height,
           )
 
-        const sourceHeight =
-          Math.max(
-            1,
-            Math.round(
-              image.height *
-                crop.height,
-            ),
+        const {
+          width:
+            outputWidth,
+          height:
+            outputHeight,
+        } =
+          getOutputSize(
+            image.width,
+            image.height,
+            activeCorners,
           )
 
-        const ratio =
-          Math.min(
-            2000 /
-              sourceWidth,
-            2800 /
-              sourceHeight,
-            1,
-          )
+        const destinationPoints = [
+          {
+            x: 0,
+            y: 0,
+          },
+          {
+            x:
+              outputWidth -
+              1,
+            y: 0,
+          },
+          {
+            x:
+              outputWidth -
+              1,
+            y:
+              outputHeight -
+              1,
+          },
+          {
+            x: 0,
+            y:
+              outputHeight -
+              1,
+          },
+        ]
 
-        const width =
-          Math.max(
-            1,
-            Math.round(
-              sourceWidth *
-                ratio,
-            ),
-          )
+        const sourcePoints = [
+          {
+            x:
+              activeCorners.tl.x *
+              (
+                image.width -
+                1
+              ),
+            y:
+              activeCorners.tl.y *
+              (
+                image.height -
+                1
+              ),
+          },
+          {
+            x:
+              activeCorners.tr.x *
+              (
+                image.width -
+                1
+              ),
+            y:
+              activeCorners.tr.y *
+              (
+                image.height -
+                1
+              ),
+          },
+          {
+            x:
+              activeCorners.br.x *
+              (
+                image.width -
+                1
+              ),
+            y:
+              activeCorners.br.y *
+              (
+                image.height -
+                1
+              ),
+          },
+          {
+            x:
+              activeCorners.bl.x *
+              (
+                image.width -
+                1
+              ),
+            y:
+              activeCorners.bl.y *
+              (
+                image.height -
+                1
+              ),
+          },
+        ]
 
-        const height =
-          Math.max(
-            1,
-            Math.round(
-              sourceHeight *
-                ratio,
-            ),
+        const homography =
+          getHomography(
+            destinationPoints,
+            sourcePoints,
           )
 
         const canvas =
@@ -328,10 +1137,10 @@ export function DocumentScannerModal({
         }
 
         canvas.width =
-          width
+          outputWidth
 
         canvas.height =
-          height
+          outputHeight
 
         const context =
           canvas.getContext(
@@ -346,74 +1155,118 @@ export function DocumentScannerModal({
           throw new Error()
         }
 
-        context.fillStyle =
-          '#ffffff'
+        const output =
+          context.createImageData(
+            outputWidth,
+            outputHeight,
+          )
 
-        context.fillRect(
-          0,
-          0,
-          width,
-          height,
-        )
+        const outPixels =
+          output.data
 
-        context.drawImage(
-          image,
-          sourceX,
-          sourceY,
-          sourceWidth,
-          sourceHeight,
-          0,
-          0,
-          width,
-          height,
-        )
+        const inPixels =
+          sourceData.data
+
+        for (
+          let y = 0;
+          y <
+          outputHeight;
+          y += 1
+        ) {
+          for (
+            let x = 0;
+            x <
+            outputWidth;
+            x += 1
+          ) {
+            const source =
+              applyHomography(
+                homography,
+                x,
+                y,
+              )
+
+            const sample =
+              bilinearSample(
+                inPixels,
+                image.width,
+                image.height,
+                source.x,
+                source.y,
+              )
+
+            const index =
+              (
+                y *
+                  outputWidth +
+                x
+              ) *
+              4
+
+            outPixels[
+              index
+            ] =
+              sample[0]
+
+            outPixels[
+              index + 1
+            ] =
+              sample[1]
+
+            outPixels[
+              index + 2
+            ] =
+              sample[2]
+
+            outPixels[
+              index + 3
+            ] = 255
+          }
+        }
 
         if (
           mode !==
           'original'
         ) {
-          const imageData =
-            context.getImageData(
-              0,
-              0,
-              width,
-              height,
-            )
-
-          const pixels =
-            imageData.data
-
           const factor =
             (259 *
-              (contrast +
-                255)) /
+              (
+                contrast +
+                255
+              )) /
             (255 *
-              (259 -
-                contrast))
+              (
+                259 -
+                contrast
+              ))
 
           for (
             let index = 0;
             index <
-            pixels.length;
+            outPixels.length;
             index += 4
           ) {
             let gray =
-              pixels[index] *
+              outPixels[
+                index
+              ] *
                 0.299 +
-              pixels[
+              outPixels[
                 index + 1
               ] *
                 0.587 +
-              pixels[
+              outPixels[
                 index + 2
               ] *
                 0.114
 
             gray =
               factor *
-                (gray +
+                (
+                  gray +
                   brightness -
-                  128) +
+                  128
+                ) +
               128
 
             gray =
@@ -434,37 +1287,43 @@ export function DocumentScannerModal({
                   : 0
                 : gray
 
-            pixels[index] =
+            outPixels[
+              index
+            ] =
               value
 
-            pixels[
+            outPixels[
               index + 1
-            ] = value
+            ] =
+              value
 
-            pixels[
+            outPixels[
               index + 2
-            ] = value
+            ] =
+              value
           }
-
-          context.putImageData(
-            imageData,
-            0,
-            0,
-          )
         }
+
+        context.putImageData(
+          output,
+          0,
+          0,
+        )
 
         if (!cancelled) {
           setProcessedUrl(
             canvas.toDataURL(
               'image/jpeg',
-              0.94,
+              0.95,
             ),
           )
         }
       } catch {
-        setError(
-          'Slika se nije mogla obraditi.',
-        )
+        if (!cancelled) {
+          setError(
+            'Račun se nije mogao perspektivno obraditi. Provjeri položaj sva 4 kuta.',
+          )
+        }
       } finally {
         if (!cancelled) {
           setProcessing(
@@ -474,22 +1333,28 @@ export function DocumentScannerModal({
       }
     }
 
-    void processImage()
-
     return () => {
       cancelled = true
+
+      window.clearTimeout(
+        timer,
+      )
     }
   }, [
     sourceUrl,
-    crop,
+    corners,
     mode,
     brightness,
     contrast,
     threshold,
+    validQuad,
+    draggingCorner,
   ])
 
   useEffect(() => {
-    if (!dragMode) {
+    if (
+      !draggingCorner
+    ) {
       return
     }
 
@@ -500,148 +1365,70 @@ export function DocumentScannerModal({
       const wrapper =
         previewRef.current
 
-      const start =
-        dragStartRef.current
-
-      if (
-        !wrapper ||
-        !start
-      ) {
+      if (!wrapper) {
         return
       }
 
       const rect =
         wrapper.getBoundingClientRect()
 
-      const dx =
-        (event.clientX -
-          start.x) /
-        rect.width
+      const x =
+        clamp(
+          (
+            event.clientX -
+            rect.left
+          ) /
+            rect.width,
+          0,
+          1,
+        )
 
-      const dy =
-        (event.clientY -
-          start.y) /
-        rect.height
+      const y =
+        clamp(
+          (
+            event.clientY -
+            rect.top
+          ) /
+            rect.height,
+          0,
+          1,
+        )
 
-      const base =
-        start.crop
-
-      if (
-        dragMode ===
-        'move'
-      ) {
-        setCrop({
-          ...base,
-          x: clamp(
-            base.x + dx,
-            0,
-            1 -
-              base.width,
-          ),
-          y: clamp(
-            base.y + dy,
-            0,
-            1 -
-              base.height,
-          ),
-        })
-        return
-      }
-
-      let left =
-        base.x
-
-      let top =
-        base.y
-
-      let right =
-        base.x +
-        base.width
-
-      let bottom =
-        base.y +
-        base.height
-if (
-  dragMode?.includes(
-    's',
-  )
-) {
-        left =
-          clamp(
-            base.x + dx,
-            0,
-            right -
-              MIN_CROP,
-          )
-      }
-
-      if (
-  dragMode?.includes(
-    's',
-  )
-) {
-        right =
-          clamp(
-            right + dx,
-            left +
-              MIN_CROP,
-            1,
-          )
-      }
-
-      if (
-  dragMode?.includes(
-    'n',
-  )
-) {
-        top =
-          clamp(
-            base.y + dy,
-            0,
-            bottom -
-              MIN_CROP,
-          )
-      }
-
-      if (
-  dragMode?.includes(
-    's',
-  )
-) {
-        bottom =
-          clamp(
-            bottom + dy,
-            top +
-              MIN_CROP,
-            1,
-          )
-      }
-
-      setCrop({
-        x: left,
-        y: top,
-        width:
-          right -
-          left,
-        height:
-          bottom -
-          top,
-      })
+      setCorners(
+        (
+          current,
+        ) => ({
+          ...current,
+          [draggingCorner as CornerKey]:
+            {
+              x,
+              y,
+            },
+        }),
+      )
     }
 
     function stop() {
-      setDragMode(null)
-      dragStartRef.current =
-        null
+      setDraggingCorner(
+        null,
+      )
     }
 
     window.addEventListener(
       'pointermove',
       move,
+      {
+        passive: true,
+      },
     )
 
     window.addEventListener(
       'pointerup',
+      stop,
+    )
+
+    window.addEventListener(
+      'pointercancel',
       stop,
     )
 
@@ -655,8 +1442,13 @@ if (
         'pointerup',
         stop,
       )
+
+      window.removeEventListener(
+        'pointercancel',
+        stop,
+      )
     }
-  }, [dragMode])
+  }, [draggingCorner])
 
   if (!open) {
     return null
@@ -686,45 +1478,18 @@ if (
       )
     }
 
-    setCrop({
-      x: 0.04,
-      y: 0.04,
-      width: 0.92,
-      height: 0.92,
-    })
+    setCorners(
+      DEFAULT_CORNERS,
+    )
+
+    setProcessedUrl(
+      '',
+    )
 
     setSourceUrl(
       URL.createObjectURL(
         file,
       ),
-    )
-  }
-
-  function startDrag(
-    event:
-      React.PointerEvent,
-    nextMode:
-      Exclude<
-        DragMode,
-        null
-      >,
-  ) {
-    event.preventDefault()
-    event.stopPropagation()
-
-    dragStartRef.current =
-      {
-        x:
-          event.clientX,
-        y:
-          event.clientY,
-        crop: {
-          ...crop,
-        },
-      }
-
-    setDragMode(
-      nextMode,
     )
   }
 
@@ -739,8 +1504,17 @@ if (
       return
     }
 
+    if (!validQuad) {
+      setError(
+        'Kutovi se ne smiju križati. Postavi svaki kut na odgovarajući kut računa.',
+      )
+      return
+    }
+
     try {
-      setProcessing(true)
+      setProcessing(
+        true,
+      )
 
       await onConfirm(
         await canvasToFile(
@@ -754,30 +1528,86 @@ if (
         'Sken se nije mogao spremiti.',
       )
     } finally {
-      setProcessing(false)
+      setProcessing(
+        false,
+      )
     }
   }
 
-  function resetCrop() {
-    setCrop({
-      x: 0.04,
-      y: 0.04,
-      width: 0.92,
-      height: 0.92,
-    })
+  function resetCorners() {
+    setCorners(
+      DEFAULT_CORNERS,
+    )
   }
 
   function fullImage() {
-    setCrop({
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
+    setCorners({
+      tl: {
+        x: 0,
+        y: 0,
+      },
+      tr: {
+        x: 1,
+        y: 0,
+      },
+      br: {
+        x: 1,
+        y: 1,
+      },
+      bl: {
+        x: 0,
+        y: 1,
+      },
     })
   }
 
+  const lines = [
+    [
+      corners.tl,
+      corners.tr,
+    ],
+    [
+      corners.tr,
+      corners.br,
+    ],
+    [
+      corners.br,
+      corners.bl,
+    ],
+    [
+      corners.bl,
+      corners.tl,
+    ],
+  ] as const
+
+  const cornerButtons: Array<{
+    key: CornerKey
+    label: string
+  }> = [
+    {
+      key: 'tl',
+      label:
+        'Gornji lijevi',
+    },
+    {
+      key: 'tr',
+      label:
+        'Gornji desni',
+    },
+    {
+      key: 'br',
+      label:
+        'Donji desni',
+    },
+    {
+      key: 'bl',
+      label:
+        'Donji lijevi',
+    },
+  ]
+
   return (
-    <div className="fixed inset-0 z-[100] bg-black/85 p-2 backdrop-blur-sm sm:p-5">
+    <div className="fixed inset-0 z-[100] bg-black/90 p-2 backdrop-blur-sm sm:p-5">
       <div className="mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950">
         <header className="flex items-center justify-between border-b border-white/10 p-4 sm:px-5">
           <div>
@@ -789,17 +1619,19 @@ if (
             </div>
 
             <h2 className="mt-1 text-xl font-black text-white">
-              Skeniraj ulazni račun
+              Označi sva 4 kuta računa
             </h2>
 
-            <p className="mt-1 text-xs text-slate-500">
-              Označi samo račun — stol i pozadina neće biti spremljeni niti poslani AI-u.
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
+              Svaki ljubičasti krug pomiče se zasebno. Postavi gornji lijevi, gornji desni, donji desni i donji lijevi točno na rub papira. FERSYS će račun automatski izravnati.
             </p>
           </div>
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={
+              onClose
+            }
             className="grid h-11 w-11 place-items-center rounded-2xl border border-white/10 text-slate-400"
           >
             <X
@@ -808,8 +1640,8 @@ if (
           </button>
         </header>
 
-        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-3 sm:p-4 lg:grid-cols-[1fr_330px]">
-          <div className="flex min-h-[420px] items-center justify-center rounded-3xl border border-white/10 bg-slate-900/70 p-3">
+        <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto p-3 sm:p-4 lg:grid-cols-[1fr_340px]">
+          <div className="flex min-h-[430px] items-center justify-center rounded-3xl border border-white/10 bg-slate-900/70 p-3">
             {!sourceUrl ? (
               <div className="max-w-md text-center">
                 <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-violet-500/15 text-violet-300">
@@ -819,11 +1651,11 @@ if (
                 </div>
 
                 <h3 className="mt-5 text-xl font-black text-white">
-                  Fotografiraj ili odaberi račun
+                  Fotografiraj račun
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Nakon fotografiranja možeš povući okvir i označiti samo papir računa.
+                  Može biti fotografiran i malo ukoso. Nakon toga ćeš označiti sva četiri kuta papira.
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -856,98 +1688,131 @@ if (
               </div>
             ) : (
               <div
-                ref={previewRef}
-                className="relative inline-block max-h-[calc(100vh-190px)] max-w-full select-none overflow-hidden rounded-2xl bg-black shadow-2xl"
+                ref={
+                  previewRef
+                }
+                className="relative inline-block max-h-[calc(100vh-190px)] max-w-full select-none touch-none overflow-hidden rounded-2xl bg-black shadow-2xl"
               >
                 <img
-                  src={sourceUrl}
-                  alt="Izvorni račun"
-                  draggable={false}
-                  className="block max-h-[calc(100vh-190px)] max-w-full object-contain"
+                  src={
+                    sourceUrl
+                  }
+                  alt="Račun za označavanje"
+                  draggable={
+                    false
+                  }
+                  className="pointer-events-none block max-h-[calc(100vh-190px)] max-w-full object-contain"
                 />
 
                 <div
-                  className="absolute cursor-move border-2 border-violet-400 bg-violet-500/5 shadow-[0_0_0_9999px_rgba(0,0,0,0.58)]"
+                  className="pointer-events-none absolute inset-0"
                   style={{
-                    left:
-                      `${crop.x * 100}%`,
-                    top:
-                      `${crop.y * 100}%`,
-                    width:
-                      `${crop.width * 100}%`,
-                    height:
-                      `${crop.height * 100}%`,
+                    clipPath:
+                      `polygon(${polygonPath(
+                        corners,
+                      )})`,
+                    background:
+                      'rgba(124, 58, 237, 0.10)',
+                    boxShadow:
+                      'inset 0 0 0 9999px rgba(124,58,237,.04)',
                   }}
-                  onPointerDown={(
-                    event,
-                  ) =>
-                    startDrag(
-                      event,
-                      'move',
-                    )
-                  }
-                >
-                  <div className="pointer-events-none absolute inset-0 grid grid-cols-3 grid-rows-3 opacity-30">
-                    {Array.from({
-                      length: 9,
-                    }).map(
-                      (
-                        _,
-                        index,
-                      ) => (
-                        <span
-                          key={
-                            index
-                          }
-                          className="border border-white/30"
-                        />
-                      ),
-                    )}
-                  </div>
+                />
 
-                  {(
+                <div
+                  className="pointer-events-none absolute inset-0"
+                  style={{
+                    background:
+                      'rgba(0,0,0,.52)',
+                    clipPath:
+                      `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${corners.tl.x * 100}% ${corners.tl.y * 100}%, ${corners.bl.x * 100}% ${corners.bl.y * 100}%, ${corners.br.x * 100}% ${corners.br.y * 100}%, ${corners.tr.x * 100}% ${corners.tr.y * 100}%, ${corners.tl.x * 100}% ${corners.tl.y * 100}%)`,
+                  }}
+                />
+
+                {lines.map(
+                  (
                     [
-                      [
-                        'nw',
-                        '-left-3 -top-3 cursor-nwse-resize',
-                      ],
-                      [
-                        'ne',
-                        '-right-3 -top-3 cursor-nesw-resize',
-                      ],
-                      [
-                        'sw',
-                        '-bottom-3 -left-3 cursor-nesw-resize',
-                      ],
-                      [
-                        'se',
-                        '-bottom-3 -right-3 cursor-nwse-resize',
-                      ],
-                    ] as const
-                  ).map(
-                    ([
-                      handle,
-                      classes,
-                    ]) => (
+                      a,
+                      b,
+                    ],
+                    index,
+                  ) => (
+                    <div
+                      key={
+                        index
+                      }
+                      className="pointer-events-none absolute h-[3px] origin-left rounded-full bg-violet-400 shadow-[0_0_12px_rgba(167,139,250,.95)]"
+                      style={
+                        lineStyle(
+                          a,
+                          b,
+                        )
+                      }
+                    />
+                  ),
+                )}
+
+                {cornerButtons.map(
+                  (
+                    corner,
+                  ) => {
+                    const point =
+                      corners[
+                        corner.key
+                      ]
+
+                    const active =
+                      draggingCorner ===
+                      corner.key
+
+                    return (
                       <button
                         key={
-                          handle
+                          corner.key
                         }
                         type="button"
-                        aria-label={`Promijeni okvir ${handle}`}
+                        title={
+                          corner.label
+                        }
+                        aria-label={
+                          corner.label
+                        }
                         onPointerDown={(
                           event,
-                        ) =>
-                          startDrag(
-                            event,
-                            handle,
+                        ) => {
+                          event.preventDefault()
+                          event.stopPropagation()
+
+                          event.currentTarget.setPointerCapture?.(
+                            event.pointerId,
                           )
-                        }
-                        className={`absolute h-7 w-7 rounded-full border-2 border-white bg-violet-600 shadow-lg ${classes}`}
-                      />
-                    ),
-                  )}
-                </div>
+
+                          setDraggingCorner(
+                            corner.key,
+                          )
+                        }}
+                        className={`absolute z-20 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-[3px] border-white bg-violet-600 shadow-[0_0_0_6px_rgba(124,58,237,.24),0_8px_30px_rgba(0,0,0,.55)] transition ${
+                          active
+                            ? 'scale-125 bg-fuchsia-500'
+                            : 'hover:scale-110'
+                        }`}
+                        style={{
+                          left:
+                            `${point.x * 100}%`,
+                          top:
+                            `${point.y * 100}%`,
+                        }}
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                      </button>
+                    )
+                  },
+                )}
+
+                {!validQuad && (
+                  <div className="absolute inset-x-4 top-4 z-30 rounded-2xl border border-red-400/30 bg-red-950/90 px-4 py-3 text-center text-xs font-black text-red-200 shadow-xl">
+                    Kutovi se križaju. Vrati ih redom: gornji lijevi → gornji desni → donji desni → donji lijevi.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -957,12 +1822,50 @@ if (
               <Crop
                 size={17}
               />
-              Izrez računa
+              4-point izrez
             </div>
 
             <p className="text-xs leading-5 text-slate-500">
-              Povuci okvir preko računa. Kutove možeš povlačiti kako bi izbacio stol, podlogu ili druge predmete.
+              Sada svaki kut radi potpuno neovisno. Možeš npr. prvo staviti gornji desni na rub računa, zatim gornji lijevi, pa oba donja.
             </p>
+
+            <div className="grid grid-cols-2 gap-2">
+              {cornerButtons.map(
+                (
+                  item,
+                ) => (
+                  <div
+                    key={
+                      item.key
+                    }
+                    className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                  >
+                    <p className="text-[9px] font-black uppercase tracking-wide text-slate-600">
+                      {
+                        item.label
+                      }
+                    </p>
+
+                    <p className="mt-1 font-mono text-[10px] text-violet-300">
+                      {Math.round(
+                        corners[
+                          item.key
+                        ].x *
+                          100,
+                      )}
+                      % ·{' '}
+                      {Math.round(
+                        corners[
+                          item.key
+                        ].y *
+                          100,
+                      )}
+                      %
+                    </p>
+                  </div>
+                ),
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -971,11 +1874,11 @@ if (
                   !sourceUrl
                 }
                 onClick={
-                  resetCrop
+                  resetCorners
                 }
                 className="rounded-xl border border-violet-400/25 bg-violet-500/10 px-3 py-2 text-xs font-black text-violet-200 disabled:opacity-40"
               >
-                Okvir računa
+                Resetiraj kutove
               </button>
 
               <button
@@ -1042,7 +1945,9 @@ if (
                         : 'border-white/10 bg-white/5 text-slate-400'
                     }`}
                   >
-                    {label}
+                    {
+                      label
+                    }
                   </button>
                 ),
               )}
@@ -1152,22 +2057,57 @@ if (
               </label>
             )}
 
+            {sourceUrl && (
+              <div
+                className={`rounded-2xl border p-3 ${
+                  validQuad
+                    ? 'border-emerald-500/15 bg-emerald-500/5'
+                    : 'border-red-500/20 bg-red-500/5'
+                }`}
+              >
+                <p
+                  className={`text-[10px] font-black uppercase tracking-wider ${
+                    validQuad
+                      ? 'text-emerald-300'
+                      : 'text-red-300'
+                  }`}
+                >
+                  {validQuad
+                    ? 'Perspektiva spremna'
+                    : 'Provjeri kutove'}
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  {validQuad
+                    ? 'FERSYS će označeni četverokut pretvoriti u ravni pravokutni sken.'
+                    : 'Kutovi dokumenta trenutno se križaju ili nisu pravilnim redoslijedom.'}
+                </p>
+              </div>
+            )}
+
             {processedUrl &&
-              sourceUrl && (
-                <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/5 p-3">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-300">
-                    AI će analizirati
+              sourceUrl &&
+              validQuad && (
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-white p-2">
+                  <p className="mb-2 px-1 text-[9px] font-black uppercase tracking-wider text-slate-600">
+                    Pregled izravnanog skena
                   </p>
 
-                  <p className="mt-1 text-xs leading-5 text-slate-400">
-                    Samo označeni dio računa.
-                  </p>
+                  <img
+                    src={
+                      processedUrl
+                    }
+                    alt="Izravnani sken"
+                    className="max-h-48 w-full rounded-lg object-contain"
+                  />
                 </div>
               )}
 
             {error && (
               <div className="rounded-2xl bg-red-500/10 p-3 text-sm font-bold text-red-200">
-                {error}
+                {
+                  error
+                }
               </div>
             )}
 
@@ -1180,16 +2120,17 @@ if (
                       void confirmScan()
                     }
                     disabled={
-                      processing
+                      processing ||
+                      !validQuad
                     }
-                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 font-black text-white disabled:opacity-50"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     <Check
                       size={18}
                     />
                     {processing
-                      ? 'Obrada...'
-                      : 'Koristi sken i pročitaj AI-em'}
+                      ? 'Izravnavanje...'
+                      : 'Koristi ovaj sken i pročitaj AI-em'}
                   </button>
 
                   <button
@@ -1211,7 +2152,9 @@ if (
         </div>
 
         <canvas
-          ref={canvasRef}
+          ref={
+            canvasRef
+          }
           className="hidden"
         />
 
