@@ -28,6 +28,12 @@ import {
 } from '../components/security/FersysTurnstile'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
+import {
+  LegalConsentBlock,
+} from '../legal/LegalConsentBlock'
+import {
+  LEGAL_VERSION,
+} from '../legal/legalConfig'
 
 const MIN_PASSWORD_LENGTH = 14
 
@@ -146,6 +152,12 @@ export function RegisterPage() {
     setIsSubmitting,
   ] = useState(false)
 
+
+  const [
+    legalAccepted,
+    setLegalAccepted,
+  ] = useState(false)
+
   useEffect(() => {
     if (
       !isLoading &&
@@ -224,6 +236,13 @@ export function RegisterPage() {
       return
     }
 
+    if (!legalAccepted) {
+      setError(
+        'Prihvati Uvjete korištenja i potvrdi Politiku privatnosti prije registracije.',
+      )
+      return
+    }
+
     if (!captchaToken) {
       setError(
         'Potvrdi sigurnosnu provjeru prije registracije.',
@@ -253,6 +272,16 @@ export function RegisterPage() {
                   companyName.trim(),
                 account_type:
                   'owner',
+                legal_version:
+                  LEGAL_VERSION,
+                legal_terms_accepted:
+                  true,
+                legal_privacy_acknowledged:
+                  true,
+                legal_refund_policy_acknowledged:
+                  true,
+                legal_accepted_at:
+                  new Date().toISOString(),
               },
               emailRedirectTo:
                 `${window.location.origin}/dashboard`,
@@ -554,6 +583,15 @@ export function RegisterPage() {
                   </div>
                 )}
 
+                <LegalConsentBlock
+                  checked={
+                    legalAccepted
+                  }
+                  onChange={
+                    setLegalAccepted
+                  }
+                />
+
                 <FersysTurnstile
                   ref={
                     turnstileRef
@@ -573,7 +611,8 @@ export function RegisterPage() {
                   type="submit"
                   disabled={
                     isSubmitting ||
-                    !captchaToken
+                    !captchaToken ||
+                    !legalAccepted
                   }
                   className="flex h-14 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 font-black text-white shadow-lg shadow-violet-600/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
                 >

@@ -356,6 +356,17 @@ const RegisterPage = lazy(
     ),
 )
 
+
+const LegalPage = lazy(
+  () =>
+    import('../pages/LegalPage').then(
+      (module) => ({
+        default:
+          module.LegalPage,
+      }),
+    ),
+)
+
 const ReferralLandingPage = lazy(
   () =>
     import('../pages/ReferralLandingPage').then(
@@ -755,6 +766,34 @@ function RouterContent() {
           path="/r/:code"
           element={
             <ReferralLandingPage />
+          }
+        />
+
+        <Route
+          path="/terms"
+          element={
+            <LegalPage />
+          }
+        />
+
+        <Route
+          path="/privacy"
+          element={
+            <LegalPage />
+          }
+        />
+
+        <Route
+          path="/refund-policy"
+          element={
+            <LegalPage />
+          }
+        />
+
+        <Route
+          path="/cookies"
+          element={
+            <LegalPage />
           }
         />
 
