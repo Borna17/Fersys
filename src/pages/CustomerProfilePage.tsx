@@ -48,6 +48,12 @@ import {
   type CloudWorkOrder,
 } from '../services/workOrders.service'
 import type { Offer } from '../types/offers'
+import {
+  deleteCustomerPhoto,
+  getCustomerPhotos,
+  uploadCustomerPhotos,
+  type CustomerPhoto,
+} from '../services/customerPhotos.service'
 import type {
   Customer,
   CustomerStatus,
@@ -309,6 +315,19 @@ export function CustomerProfilePage() {
   const [linkedInvoices, setLinkedInvoices] =
     useState<CustomerInvoice[]>([])
 
+  const [customerPhotos, setCustomerPhotos] =
+    useState<CustomerPhoto[]>([])
+  const [photosLoading, setPhotosLoading] =
+    useState(false)
+  const [photosUploading, setPhotosUploading] =
+    useState(false)
+  const [photosError, setPhotosError] =
+    useState('')
+  const [photoDeletingId, setPhotoDeletingId] =
+    useState('')
+  const [previewPhoto, setPreviewPhoto] =
+    useState<CustomerPhoto | null>(null)
+
   const [activeTab, setActiveTab] =
     useState<CustomerTab>('overview')
 
@@ -454,6 +473,175 @@ export function CustomerProfilePage() {
       cancelled = true
     }
   }, [customer])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadPhotos() {
+      if (!customer) {
+        setCustomerPhotos([])
+        return
+      }
+
+      try {
+        setPhotosLoading(true)
+        setPhotosError('')
+
+        const photos =
+          await getCustomerPhotos(
+            customer.id,
+          )
+
+        if (!cancelled) {
+          setCustomerPhotos(photos)
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setPhotosError(
+            error instanceof Error
+              ? error.message
+              : 'Fotografije nije moguće učitati.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setPhotosLoading(false)
+        }
+      }
+    }
+
+    void loadPhotos()
+
+    return () => {
+      cancelled = true
+    }
+  }, [customer])
+
+  async function handleCustomerPhotoUpload(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    if (!customer) return
+
+    const input = event.currentTarget
+    const files = Array.from(
+      input.files ?? [],
+    )
+
+    input.value = ''
+
+    if (!files.length) return
+
+    const allowed = [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+    ]
+
+    const invalid = files.find(
+      (file) =>
+        !allowed.includes(file.type),
+    )
+
+    if (invalid) {
+      window.alert(
+        `Datoteka „${invalid.name}” nije JPG, PNG ili WEBP fotografija.`,
+      )
+      return
+    }
+
+    const tooLarge = files.find(
+      (file) =>
+        file.size >
+        10 * 1024 * 1024,
+    )
+
+    if (tooLarge) {
+      window.alert(
+        `Fotografija „${tooLarge.name}” veća je od 10 MB.`,
+      )
+      return
+    }
+
+    if (files.length > 12) {
+      window.alert(
+        'Odjednom možeš dodati najviše 12 fotografija.',
+      )
+      return
+    }
+
+    try {
+      setPhotosUploading(true)
+      setPhotosError('')
+
+      const uploaded =
+        await uploadCustomerPhotos(
+          customer.id,
+          files,
+        )
+
+      setCustomerPhotos(
+        (current) => [
+          ...uploaded,
+          ...current,
+        ],
+      )
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Fotografije nije moguće spremiti.'
+
+      setPhotosError(message)
+      window.alert(message)
+    } finally {
+      setPhotosUploading(false)
+    }
+  }
+
+  async function handleDeletePhoto(
+    photo: CustomerPhoto,
+  ) {
+    if (photoDeletingId) return
+
+    const confirmed =
+      window.confirm(
+        `Obrisati fotografiju „${photo.fileName}”?`,
+      )
+
+    if (!confirmed) return
+
+    try {
+      setPhotoDeletingId(photo.id)
+      setPhotosError('')
+
+      await deleteCustomerPhoto(photo)
+
+      setCustomerPhotos(
+        (current) =>
+          current.filter(
+            (item) =>
+              item.id !== photo.id,
+          ),
+      )
+
+      if (
+        previewPhoto?.id ===
+        photo.id
+      ) {
+        setPreviewPhoto(null)
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Fotografiju nije moguće obrisati.'
+
+      setPhotosError(message)
+      window.alert(message)
+    } finally {
+      setPhotoDeletingId('')
+    }
+  }
 
   useEffect(() => {
     document.body.style.overflow =
@@ -1260,12 +1448,184 @@ export function CustomerProfilePage() {
         )}
 
         {activeTab === 'photos' && (
-          <EmptySection
-            icon={<Image size={25} />}
-            title="Nema fotografija"
-            description="Ovdje će se čuvati fotografije objekta, izvedenih radova i servisne dokumentacije."
-            buttonLabel="Dodaj fotografije"
-          />
+          <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-3">
+                  <span className="grid h-11 w-11 place-items-center rounded-2xl bg-blue-500/10 text-blue-300">
+                    <Image size={21} />
+                  </span>
+
+                  <div>
+                    <h2 className="text-lg font-black text-white">
+                      Fotografije investitora
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Objekt, izvedeni radovi, kvarovi i servisna dokumentacija.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <label
+                className={`inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.98] ${
+                  photosUploading
+                    ? 'pointer-events-none opacity-60'
+                    : ''
+                }`}
+              >
+                {photosUploading ? (
+                  <Loader2
+                    size={18}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <ImagePlus size={18} />
+                )}
+                {photosUploading
+                  ? 'Spremanje fotografija...'
+                  : 'Dodaj fotografije'}
+
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  multiple
+                  onChange={(event) =>
+                    void handleCustomerPhotoUpload(event)
+                  }
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {photosError && (
+              <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-semibold text-red-300">
+                {photosError}
+              </div>
+            )}
+
+            {photosLoading ? (
+              <div className="grid min-h-64 place-items-center">
+                <div className="text-center">
+                  <Loader2
+                    size={30}
+                    className="mx-auto animate-spin text-blue-400"
+                  />
+                  <p className="mt-3 text-sm font-bold text-slate-400">
+                    Učitavanje fotografija...
+                  </p>
+                </div>
+              </div>
+            ) : customerPhotos.length === 0 ? (
+              <div className="mt-5 rounded-3xl border border-dashed border-slate-700 bg-slate-950/35 px-5 py-12 text-center sm:py-16">
+                <div className="mx-auto grid h-14 w-14 place-items-center rounded-2xl bg-slate-800 text-slate-400">
+                  <Image size={25} />
+                </div>
+
+                <h3 className="mt-5 text-lg font-black text-white">
+                  Nema fotografija
+                </h3>
+
+                <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-slate-400">
+                  Dodaj fotografije objekta, izvedenih radova, servisnih intervencija ili dokumentacije.
+                </p>
+
+                <label className="mt-6 inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white active:scale-[0.98]">
+                  <Plus size={18} />
+                  Dodaj prve fotografije
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={(event) =>
+                      void handleCustomerPhotoUpload(event)
+                    }
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            ) : (
+              <>
+                <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-800 pt-5">
+                  <p className="text-xs font-black uppercase tracking-[0.15em] text-slate-500">
+                    {customerPhotos.length}{' '}
+                    {customerPhotos.length === 1
+                      ? 'fotografija'
+                      : 'fotografija'}
+                  </p>
+
+                  <p className="text-xs text-slate-500">
+                    Klikni fotografiju za veći prikaz
+                  </p>
+                </div>
+
+                <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+                  {customerPhotos.map((photo) => (
+                    <article
+                      key={photo.id}
+                      className="group relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewPhoto(photo)
+                        }
+                        className="block aspect-[4/3] w-full overflow-hidden bg-slate-950"
+                      >
+                        <img
+                          src={photo.url}
+                          alt={photo.fileName}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                        />
+                      </button>
+
+                      <div className="flex items-center gap-2 p-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-xs font-black text-slate-200">
+                            {photo.fileName}
+                          </p>
+                          <p className="mt-1 text-[10px] text-slate-500">
+                            {new Intl.DateTimeFormat(
+                              'hr-HR',
+                              {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                              },
+                            ).format(
+                              new Date(photo.createdAt),
+                            )}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void handleDeletePhoto(photo)
+                          }
+                          disabled={
+                            photoDeletingId === photo.id
+                          }
+                          className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-red-400/15 bg-red-500/10 text-red-300 disabled:opacity-50"
+                          aria-label="Obriši fotografiju"
+                        >
+                          {photoDeletingId === photo.id ? (
+                            <Loader2
+                              size={15}
+                              className="animate-spin"
+                            />
+                          ) : (
+                            <Trash2 size={15} />
+                          )}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
+          </section>
         )}
 
         {activeTab === 'notes' && (
@@ -1305,6 +1665,75 @@ export function CustomerProfilePage() {
           </section>
         )}
       </section>
+
+      {previewPhoto && (
+        <div
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-black/90 p-3 backdrop-blur-sm sm:p-6"
+          onClick={() =>
+            setPreviewPhoto(null)
+          }
+        >
+          <div
+            className="relative flex max-h-[96dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-slate-950 shadow-2xl"
+            onClick={(event) =>
+              event.stopPropagation()
+            }
+          >
+            <div className="flex items-center justify-between gap-4 border-b border-slate-800 px-4 py-3 sm:px-5">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black text-white">
+                  {previewPhoto.fileName}
+                </p>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  Fotografija investitora · FERSYS
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void handleDeletePhoto(previewPhoto)
+                  }
+                  disabled={
+                    photoDeletingId === previewPhoto.id
+                  }
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-red-400/20 bg-red-500/10 text-red-300 disabled:opacity-50"
+                  aria-label="Obriši fotografiju"
+                >
+                  {photoDeletingId === previewPhoto.id ? (
+                    <Loader2
+                      size={17}
+                      className="animate-spin"
+                    />
+                  ) : (
+                    <Trash2 size={17} />
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setPreviewPhoto(null)
+                  }
+                  className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300"
+                  aria-label="Zatvori fotografiju"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid min-h-0 flex-1 place-items-center overflow-auto bg-black p-2 sm:p-4">
+              <img
+                src={previewPhoto.url}
+                alt={previewPhoto.fileName}
+                className="max-h-[82dvh] max-w-full object-contain"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {isEditModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-end bg-black/75 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
