@@ -2,8 +2,10 @@ import {
   ArrowLeft,
   Camera,
   FileText,
+  LoaderCircle,
   Paperclip,
   Save,
+  Sparkles,
   Trash2,
   Upload,
 } from 'lucide-react'
@@ -18,7 +20,13 @@ import {
   useParams,
 } from 'react-router'
 
-import { DocumentScannerModal } from '../components/DocumentScannerModal'
+import {
+  DocumentScannerModal,
+} from '../components/DocumentScannerModal'
+import {
+  analyzeIncomingInvoice,
+  type IncomingInvoiceAiResult,
+} from '../services/incomingInvoiceAi.service'
 import {
   deleteDocument,
   downloadDocument,
@@ -115,7 +123,8 @@ function createId(
 }
 
 function todayString() {
-  const date = new Date()
+  const date =
+    new Date()
 
   return `${date.getFullYear()}-${String(
     date.getMonth() + 1,
@@ -125,7 +134,7 @@ function todayString() {
 }
 
 function readInvoices():
-  IncomingInvoice[] {
+IncomingInvoice[] {
   try {
     const value =
       JSON.parse(
@@ -144,7 +153,9 @@ function readInvoices():
   }
 }
 
-function money(value: number) {
+function money(
+  value: number,
+) {
   return new Intl.NumberFormat(
     'hr-HR',
     {
@@ -162,7 +173,8 @@ export function NewIncomingInvoicePage() {
     incomingInvoiceId,
   } =
     useParams<{
-      incomingInvoiceId: string
+      incomingInvoiceId:
+        string
     }>()
 
   const stored =
@@ -195,7 +207,8 @@ export function NewIncomingInvoicePage() {
     setSupplierName,
   ] =
     useState(
-      editing?.supplierName ??
+      editing
+        ?.supplierName ??
         '',
     )
 
@@ -204,7 +217,8 @@ export function NewIncomingInvoicePage() {
     setSupplierOib,
   ] =
     useState(
-      editing?.supplierOib ??
+      editing
+        ?.supplierOib ??
         '',
     )
 
@@ -213,7 +227,8 @@ export function NewIncomingInvoicePage() {
     setInvoiceNumber,
   ] =
     useState(
-      editing?.invoiceNumber ??
+      editing
+        ?.invoiceNumber ??
         '',
     )
 
@@ -222,7 +237,8 @@ export function NewIncomingInvoicePage() {
     setInvoiceDate,
   ] =
     useState(
-      editing?.invoiceDate ??
+      editing
+        ?.invoiceDate ??
         today,
     )
 
@@ -240,7 +256,8 @@ export function NewIncomingInvoicePage() {
     setBookingDate,
   ] =
     useState(
-      editing?.bookingDate ??
+      editing
+        ?.bookingDate ??
         '',
     )
 
@@ -267,7 +284,8 @@ export function NewIncomingInvoicePage() {
     setPaymentMethod,
   ] =
     useState(
-      editing?.paymentMethod ??
+      editing
+        ?.paymentMethod ??
         'Kartica',
     )
 
@@ -294,7 +312,8 @@ export function NewIncomingInvoicePage() {
     setTotalAmount,
   ] =
     useState(
-      editing?.totalAmount ??
+      editing
+        ?.totalAmount ??
         0,
     )
 
@@ -328,7 +347,10 @@ export function NewIncomingInvoicePage() {
     setErrors,
   ] =
     useState<
-      Record<string, string>
+      Record<
+        string,
+        string
+      >
     >({})
 
   const [
@@ -336,6 +358,34 @@ export function NewIncomingInvoicePage() {
     setSavingDocument,
   ] =
     useState(false)
+
+  const [
+    aiReading,
+    setAiReading,
+  ] =
+    useState(false)
+
+  const [
+    aiMessage,
+    setAiMessage,
+  ] =
+    useState('')
+
+  const [
+    aiWarnings,
+    setAiWarnings,
+  ] =
+    useState<string[]>(
+      [],
+    )
+
+  const [
+    aiConfidence,
+    setAiConfidence,
+  ] =
+    useState<
+      number | null
+    >(null)
 
   const fileInputRef =
     useRef<HTMLInputElement | null>(
@@ -352,22 +402,24 @@ export function NewIncomingInvoicePage() {
   async function addDocument(
     file: File,
   ) {
-    setSavingDocument(true)
+    setSavingDocument(
+      true,
+    )
 
     try {
       const meta:
         DocumentMeta = {
-          id:
-            createId(
-              'document',
-            ),
+          id: createId(
+            'document',
+          ),
           fileName:
             file.name,
           mimeType:
             file.type ||
             'application/octet-stream',
           createdAt:
-            new Date().toISOString(),
+            new Date()
+              .toISOString(),
         }
 
       await saveDocument({
@@ -386,14 +438,218 @@ export function NewIncomingInvoicePage() {
         'Dokument se nije mogao spremiti.',
       )
     } finally {
-      setSavingDocument(false)
+      setSavingDocument(
+        false,
+      )
+    }
+  }
+
+  function applyAiResult(
+    result:
+      IncomingInvoiceAiResult,
+  ) {
+    if (
+      result.supplierName
+    ) {
+      setSupplierName(
+        result.supplierName,
+      )
+    }
+
+    if (
+      result.supplierOib
+    ) {
+      setSupplierOib(
+        result.supplierOib
+          .replace(
+            /\D/g,
+            '',
+          )
+          .slice(
+            0,
+            11,
+          ),
+      )
+    }
+
+    if (
+      result.invoiceNumber
+    ) {
+      setInvoiceNumber(
+        result.invoiceNumber,
+      )
+    }
+
+    if (
+      result.invoiceDate
+    ) {
+      setInvoiceDate(
+        result.invoiceDate,
+      )
+    }
+
+    if (
+      result.dueDate
+    ) {
+      setDueDate(
+        result.dueDate,
+      )
+    }
+
+    if (
+      categories.includes(
+        result.category as
+          Category,
+      )
+    ) {
+      setCategory(
+        result.category as
+          Category,
+      )
+    }
+
+    if (
+      paymentMethods.includes(
+        result.paymentMethod,
+      )
+    ) {
+      setPaymentMethod(
+        result.paymentMethod,
+      )
+    }
+
+    if (
+      result.netAmount >
+      0
+    ) {
+      setNetAmount(
+        result.netAmount,
+      )
+    }
+
+    if (
+      result.vatAmount >=
+      0
+    ) {
+      setVatAmount(
+        result.vatAmount,
+      )
+    }
+
+    if (
+      result.totalAmount >
+      0
+    ) {
+      setTotalAmount(
+        result.totalAmount,
+      )
+    }
+
+    if (result.note) {
+      setNote(
+        (current) =>
+          current.trim()
+            ? current
+            : result.note,
+      )
+    }
+
+    setAiWarnings(
+      result.warnings ??
+        [],
+    )
+
+    setAiConfidence(
+      Number.isFinite(
+        result.confidence,
+      )
+        ? Math.max(
+            0,
+            Math.min(
+              1,
+              result.confidence,
+            ),
+          )
+        : null,
+    )
+
+    setAiMessage(
+      'AI je pročitao račun i popunio prepoznata polja. Provjeri podatke prije spremanja.',
+    )
+
+    setErrors({})
+  }
+
+  async function readInvoiceWithAi(
+    file: File,
+  ) {
+    setAiReading(true)
+    setAiMessage(
+      'FERSYS AI čita račun i prepoznaje dobavljača, broj računa, datume, iznose i kategoriju...',
+    )
+    setAiWarnings([])
+    setAiConfidence(
+      null,
+    )
+
+    try {
+      const result =
+        await analyzeIncomingInvoice(
+          file,
+        )
+
+      applyAiResult(
+        result,
+      )
+    } catch (error) {
+      setAiMessage(
+        error instanceof Error
+          ? error.message
+          : 'AI nije mogao pročitati račun. Sken je ipak spremljen.',
+      )
+    } finally {
+      setAiReading(
+        false,
+      )
+    }
+  }
+
+  async function handleScannedInvoice(
+    file: File,
+  ) {
+    await addDocument(
+      file,
+    )
+
+    await readInvoiceWithAi(
+      file,
+    )
+  }
+
+  async function handleUploadedDocument(
+    file: File,
+  ) {
+    await addDocument(
+      file,
+    )
+
+    if (
+      file.type.startsWith(
+        'image/',
+      )
+    ) {
+      await readInvoiceWithAi(
+        file,
+      )
     }
   }
 
   async function removeDocument(
     id: string,
   ) {
-    await deleteDocument(id)
+    await deleteDocument(
+      id,
+    )
 
     setDocuments(
       (current) =>
@@ -406,8 +662,10 @@ export function NewIncomingInvoicePage() {
 
   function saveInvoice() {
     const nextErrors:
-      Record<string, string> =
-        {}
+      Record<
+        string,
+        string
+      > = {}
 
     if (
       !supplierName.trim()
@@ -442,7 +700,9 @@ export function NewIncomingInvoicePage() {
         'Iznosi ne mogu biti negativni.'
     }
 
-    setErrors(nextErrors)
+    setErrors(
+      nextErrors,
+    )
 
     if (
       Object.keys(
@@ -451,13 +711,15 @@ export function NewIncomingInvoicePage() {
     ) {
       window.scrollTo({
         top: 0,
-        behavior: 'smooth',
+        behavior:
+          'smooth',
       })
       return
     }
 
     const now =
-      new Date().toISOString()
+      new Date()
+        .toISOString()
 
     const saved:
       IncomingInvoice = {
@@ -479,11 +741,13 @@ export function NewIncomingInvoicePage() {
         status,
         paymentMethod,
         netAmount:
-          Number(netAmount) ||
-          0,
+          Number(
+            netAmount,
+          ) || 0,
         vatAmount:
-          Number(vatAmount) ||
-          0,
+          Number(
+            vatAmount,
+          ) || 0,
         totalAmount:
           Number(
             totalAmount,
@@ -492,7 +756,8 @@ export function NewIncomingInvoicePage() {
           note.trim(),
         documents,
         createdAt:
-          editing?.createdAt ??
+          editing
+            ?.createdAt ??
           now,
         updatedAt: now,
       }
@@ -560,7 +825,7 @@ export function NewIncomingInvoicePage() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-                Dobavljač, iznosi i dokumenti računa na jednom mjestu.
+                Skeniraj račun, označi samo papir i dopusti FERSYS AI-u da automatski popuni podatke.
               </p>
             </div>
 
@@ -605,6 +870,77 @@ export function NewIncomingInvoicePage() {
           </div>
         </section>
 
+        {(aiReading ||
+          aiMessage) && (
+          <section
+            className={`rounded-3xl border p-4 sm:p-5 ${
+              aiReading
+                ? 'border-violet-500/25 bg-violet-500/10'
+                : 'border-emerald-500/20 bg-emerald-500/[0.07]'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
+                {aiReading ? (
+                  <LoaderCircle
+                    size={20}
+                    className="animate-spin"
+                  />
+                ) : (
+                  <Sparkles
+                    size={20}
+                  />
+                )}
+              </span>
+
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-black text-white">
+                    FERSYS AI Scan
+                  </p>
+
+                  {aiConfidence !==
+                    null && (
+                    <span className="rounded-full bg-slate-950/50 px-2 py-1 text-[10px] font-black text-emerald-300">
+                      {Math.round(
+                        aiConfidence *
+                          100,
+                      )}
+                      % sigurnost
+                    </span>
+                  )}
+                </div>
+
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  {aiMessage}
+                </p>
+
+                {aiWarnings.length >
+                  0 && (
+                  <div className="mt-3 space-y-1">
+                    {aiWarnings.map(
+                      (
+                        warning,
+                        index,
+                      ) => (
+                        <p
+                          key={`${warning}-${index}`}
+                          className="text-xs font-bold text-amber-300"
+                        >
+                          •{' '}
+                          {
+                            warning
+                          }
+                        </p>
+                      ),
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
         {Object.keys(
           errors,
         ).length > 0 && (
@@ -616,7 +952,7 @@ export function NewIncomingInvoicePage() {
         <MobileSection
           number="1"
           title="Dobavljač i račun"
-          description="Osnovni podaci s ulaznog računa."
+          description="AI automatski popunjava podatke koje sigurno pročita sa skena."
           icon={
             <FileText
               size={19}
@@ -633,13 +969,18 @@ export function NewIncomingInvoicePage() {
               value={
                 supplierName
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setSupplierName(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               placeholder="INA, Pevex, Kaufland..."
-              className={inputClass}
+              className={
+                inputClass
+              }
             />
           </Field>
 
@@ -650,7 +991,9 @@ export function NewIncomingInvoicePage() {
               value={
                 supplierOib
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setSupplierOib(
                   event.target.value
                     .replace(
@@ -663,7 +1006,9 @@ export function NewIncomingInvoicePage() {
                     ),
                 )
               }
-              className={inputClass}
+              className={
+                inputClass
+              }
             />
           </Field>
 
@@ -677,12 +1022,17 @@ export function NewIncomingInvoicePage() {
               value={
                 invoiceNumber
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setInvoiceNumber(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
-              className={inputClass}
+              className={
+                inputClass
+              }
             />
           </Field>
 
@@ -697,9 +1047,12 @@ export function NewIncomingInvoicePage() {
               value={
                 invoiceDate
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setInvoiceDate(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               className={`${inputClass} [color-scheme:dark]`}
@@ -709,10 +1062,15 @@ export function NewIncomingInvoicePage() {
           <Field label="Datum dospijeća">
             <input
               type="date"
-              value={dueDate}
-              onChange={(event) =>
+              value={
+                dueDate
+              }
+              onChange={(
+                event,
+              ) =>
                 setDueDate(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               className={`${inputClass} [color-scheme:dark]`}
@@ -725,30 +1083,46 @@ export function NewIncomingInvoicePage() {
               value={
                 bookingDate
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setBookingDate(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               className={`${inputClass} [color-scheme:dark]`}
             />
+
+            <p className="mt-2 text-[10px] leading-4 text-slate-600">
+              Datum knjiženja se ne nalazi na računu pa ga AI namjerno ne izmišlja.
+            </p>
           </Field>
 
           <Field label="Kategorija">
             <select
-              value={category}
-              onChange={(event) =>
+              value={
+                category
+              }
+              onChange={(
+                event,
+              ) =>
                 setCategory(
                   event.target
-                    .value as Category,
+                    .value as
+                    Category,
                 )
               }
-              className={inputClass}
+              className={
+                inputClass
+              }
             >
               {categories.map(
                 (item) => (
                   <option
-                    key={item}
+                    key={
+                      item
+                    }
                   >
                     {item}
                   </option>
@@ -759,19 +1133,28 @@ export function NewIncomingInvoicePage() {
 
           <Field label="Status">
             <select
-              value={status}
-              onChange={(event) =>
+              value={
+                status
+              }
+              onChange={(
+                event,
+              ) =>
                 setStatus(
                   event.target
-                    .value as Status,
+                    .value as
+                    Status,
                 )
               }
-              className={inputClass}
+              className={
+                inputClass
+              }
             >
               {statuses.map(
                 (item) => (
                   <option
-                    key={item}
+                    key={
+                      item
+                    }
                   >
                     {item}
                   </option>
@@ -788,19 +1171,28 @@ export function NewIncomingInvoicePage() {
               value={
                 paymentMethod
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setPaymentMethod(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
-              className={inputClass}
+              className={
+                inputClass
+              }
             >
               {paymentMethods.map(
                 (method) => (
                   <option
-                    key={method}
+                    key={
+                      method
+                    }
                   >
-                    {method}
+                    {
+                      method
+                    }
                   </option>
                 ),
               )}
@@ -811,7 +1203,7 @@ export function NewIncomingInvoicePage() {
         <MobileSection
           number="2"
           title="Iznosi"
-          description="Osnovica, PDV i ukupna vrijednost računa."
+          description="AI prepoznaje osnovicu, PDV i ukupni iznos te ih može međusobno provjeriti."
         >
           <Field label="Osnovica">
             <input
@@ -821,10 +1213,13 @@ export function NewIncomingInvoicePage() {
               value={
                 netAmount
               }
-              onChange={(event) => {
+              onChange={(
+                event,
+              ) => {
                 const value =
                   Number(
-                    event.target.value,
+                    event.target
+                      .value,
                   )
 
                 setNetAmount(
@@ -851,10 +1246,13 @@ export function NewIncomingInvoicePage() {
               value={
                 vatAmount
               }
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setVatAmount(
                   Number(
-                    event.target.value,
+                    event.target
+                      .value,
                   ),
                 )
               }
@@ -873,10 +1271,13 @@ export function NewIncomingInvoicePage() {
               value={
                 totalAmount
               }
-              onChange={(event) => {
+              onChange={(
+                event,
+              ) => {
                 const value =
                   Number(
-                    event.target.value,
+                    event.target
+                      .value,
                   )
 
                 setTotalAmount(
@@ -914,7 +1315,7 @@ export function NewIncomingInvoicePage() {
           </div>
 
           {errors.amounts && (
-            <div className="sm:col-span-2 rounded-2xl bg-red-500/10 p-3 text-sm font-black text-red-300">
+            <div className="rounded-2xl bg-red-500/10 p-3 text-sm font-black text-red-300 sm:col-span-2">
               {
                 errors.amounts
               }
@@ -924,55 +1325,64 @@ export function NewIncomingInvoicePage() {
 
         <MobileSection
           number="3"
-          title="Dokumenti"
-          description="Skeniraj račun kamerom ili dodaj PDF/sliku."
+          title="Dokumenti i AI sken"
+          description="Fotografiraj račun, izreži samo papir i automatski popuni obrazac."
           icon={
             <Paperclip
               size={19}
             />
           }
         >
-          <div className="grid grid-cols-2 gap-2 sm:col-span-2">
-            <button
-              type="button"
-              onClick={() =>
-                setScannerOpen(
-                  true,
-                )
-              }
-              className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl bg-violet-600 p-3 text-center text-xs font-black text-white active:scale-[0.99]"
-            >
-              <Camera
-                size={22}
-              />
-              Skeniraj kamerom
-            </button>
+          <button
+            type="button"
+            onClick={() =>
+              setScannerOpen(
+                true,
+              )
+            }
+            className="flex min-h-[118px] flex-col items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-600 p-3 text-center text-xs font-black text-white active:scale-[0.99]"
+          >
+            <Camera
+              size={24}
+            />
+            Smart Scan + AI
+            <span className="text-[10px] font-semibold text-violet-100">
+              Fotografiraj → izreži → automatski popuni
+            </span>
+          </button>
 
-            <button
-              type="button"
-              onClick={() =>
-                fileInputRef.current?.click()
-              }
-              className="flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 p-3 text-center text-xs font-black text-white active:scale-[0.99]"
-            >
-              <Upload
-                size={22}
-              />
-              PDF ili slika
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() =>
+              fileInputRef.current?.click()
+            }
+            className="flex min-h-[118px] flex-col items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 p-3 text-center text-xs font-black text-white active:scale-[0.99]"
+          >
+            <Upload
+              size={22}
+            />
+            PDF ili slika
+            <span className="text-[10px] font-semibold text-slate-500">
+              Slika se također automatski čita AI-em
+            </span>
+          </button>
 
           <input
-            ref={fileInputRef}
+            ref={
+              fileInputRef
+            }
             type="file"
             accept="image/*,.pdf,application/pdf"
             className="hidden"
-            onChange={(event) => {
+            onChange={(
+              event,
+            ) => {
               const file =
-                event.target.files?.[0]
+                event.target
+                  .files?.[0]
 
               if (file) {
-                void addDocument(
+                void handleUploadedDocument(
                   file,
                 )
               }
@@ -982,9 +1392,12 @@ export function NewIncomingInvoicePage() {
             }}
           />
 
-          {savingDocument && (
-            <div className="sm:col-span-2 rounded-2xl bg-cyan-500/10 p-3 text-sm font-black text-cyan-200">
-              Spremanje dokumenta...
+          {(savingDocument ||
+            aiReading) && (
+            <div className="rounded-2xl bg-cyan-500/10 p-3 text-sm font-black text-cyan-200 sm:col-span-2">
+              {aiReading
+                ? 'FERSYS AI analizira račun...'
+                : 'Spremanje dokumenta...'}
             </div>
           )}
 
@@ -996,7 +1409,9 @@ export function NewIncomingInvoicePage() {
               </div>
             ) : (
               documents.map(
-                (document) => (
+                (
+                  document,
+                ) => (
                   <article
                     key={
                       document.id
@@ -1006,7 +1421,9 @@ export function NewIncomingInvoicePage() {
                     <div className="flex items-start gap-3">
                       <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
                         <FileText
-                          size={18}
+                          size={
+                            18
+                          }
                         />
                       </span>
 
@@ -1048,7 +1465,9 @@ export function NewIncomingInvoicePage() {
                         className="inline-flex min-h-10 items-center justify-center gap-1 rounded-xl bg-red-500/10 px-3 text-xs font-black text-red-300"
                       >
                         <Trash2
-                          size={14}
+                          size={
+                            14
+                          }
                         />
                         Obriši
                       </button>
@@ -1063,7 +1482,7 @@ export function NewIncomingInvoicePage() {
         <MobileSection
           number="4"
           title="Napomena"
-          description="Dodatni opis kupnje ili troška."
+          description="AI može predložiti kratak opis sadržaja računa, a ti ga možeš urediti."
         >
           <Field
             label="Napomena"
@@ -1072,9 +1491,12 @@ export function NewIncomingInvoicePage() {
             <textarea
               rows={5}
               value={note}
-              onChange={(event) =>
+              onChange={(
+                event,
+              ) =>
                 setNote(
-                  event.target.value,
+                  event.target
+                    .value,
                 )
               }
               placeholder="Opis kupnje, vozilo, radni nalog ili zaposlenik..."
@@ -1145,14 +1567,16 @@ export function NewIncomingInvoicePage() {
       </div>
 
       <DocumentScannerModal
-        open={scannerOpen}
-        onClose={() =>
-          setScannerOpen(false)
+        open={
+          scannerOpen
         }
-        onConfirm={(file) =>
-          void addDocument(
-            file,
+        onClose={() =>
+          setScannerOpen(
+            false,
           )
+        }
+        onConfirm={
+          handleScannedInvoice
         }
       />
     </>
@@ -1181,11 +1605,14 @@ function MobileSection({
 
         <div>
           <h2 className="text-lg font-black text-white sm:text-xl">
-            {number}. {title}
+            {number}.{' '}
+            {title}
           </h2>
 
           <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
-            {description}
+            {
+              description
+            }
           </p>
         </div>
       </div>
@@ -1209,7 +1636,11 @@ function Field({
   children: ReactNode
 }) {
   return (
-    <label className={className}>
+    <label
+      className={
+        className
+      }
+    >
       <span className="text-sm font-black text-slate-300">
         {label}
       </span>
