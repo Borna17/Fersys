@@ -412,31 +412,44 @@ function estimatedRowUnits(
   const descriptionUnits =
     item.description.trim()
       ? Math.min(
-          1.25,
+          1.05,
           item.description.length /
-            110,
+            145,
         )
       : 0
+
+  const nameUnits =
+    Math.min(
+      0.35,
+      Math.max(
+        0,
+        item.name.length - 55,
+      ) / 140,
+    )
 
   const imageUnits =
     settings.showItemImages &&
     item.imageDataUrl
-      ? 1.65
+      ? 1.55
       : 0
 
   return (
     1 +
     descriptionUnits +
+    nameUnits +
     imageUnits
   )
 }
 
 /**
- * Glavni cilj:
- * - običnih 8 stavki stane na prvu A4 stranicu
- * - veći tekst ostaje čitljiv
- * - slike uz stavke smanjuju broj stavki po stranici
- * - završni blok se ne reže
+ * Pametnija raspodjela stranica:
+ *
+ * - ne radi posebnu 3. stranicu samo za 1-2 stavke + završni blok
+ * - kod ponude poput P-2026-001 cilj je 2 stranice:
+ *   prva = početni dio + stavke
+ *   druga = nastavak stavki + napomene + iznosi + potpisi + plaćanje
+ * - ako ponuda stvarno ne može stati, tek tada dodaje iduću stranicu
+ * - slike uz stavke automatski smanjuju kapacitet
  */
 function paginateItems(
   items: OfferPdfItem[],
@@ -471,30 +484,58 @@ function paginateItems(
       0,
     )
 
-  /**
-   * Završni blok (napomene + iznosi + potpisi +
-   * podaci za plaćanje + HUB3 barkod) mora ostati
-   * cijeli na zadnjoj stranici.
+  /*
+   * Prva stranica ima logo, podatke klijenta i podatke ponude,
+   * pa je njezin kapacitet manji.
    *
-   * Zato zadnja stranica ima manji kapacitet za stavke.
-   * Običnih 1–8 standardnih stavki ostaje na jednoj
-   * stranici. Kod većeg broja stavki nastavak se radi
-   * bez razvlačenja elemenata.
+   * Nastavak ima vrlo malo zaglavlje, zato na njemu možemo
+   * imati više stavki i još uvijek ostaviti završni blok.
    */
   const firstFinalCapacity =
-    hasImages ? 5.2 : 8.5
-
-  const continuationFinalCapacity =
-    hasImages ? 6.2 : 9.0
+    hasImages
+      ? 5.0
+      : settings.density ===
+          'compact'
+        ? 9.4
+        : 8.9
 
   const firstRegularCapacity =
-    hasImages ? 9.2 : 12.5
+    hasImages
+      ? 9.0
+      : settings.density ===
+          'compact'
+        ? 14.2
+        : 13.2
+
+  /*
+   * KLJUČNA IZMJENA:
+   * Stara vrijednost za završnu continuation stranicu bila je
+   * previše konzervativna, pa je 12 stavki završavalo na 3 stranice.
+   *
+   * Na stvarnom PDF-u se vidi da nastavak ima dovoljno slobodnog
+   * prostora da na istoj stranici drži približno 5-7 normalnih
+   * tekstualnih stavki + završni blok.
+   */
+  const continuationFinalCapacity =
+    hasImages
+      ? 7.2
+      : settings.density ===
+          'compact'
+        ? 14.8
+        : 13.8
 
   const continuationRegularCapacity =
-    hasImages ? 12.2 : 16
+    hasImages
+      ? 11.4
+      : settings.density ===
+          'compact'
+        ? 18.0
+        : 16.8
 
   const minimumFinalUnits =
-    hasImages ? 2.2 : 3
+    hasImages
+      ? 2.0
+      : 3.2
 
   const totalUnits =
     unitsOf(items)
@@ -532,6 +573,12 @@ function paginateItems(
         ? firstFinalCapacity
         : continuationFinalCapacity
 
+    /*
+     * Ako sve preostale stavke + završni blok realno stanu,
+     * odmah završavamo na toj stranici.
+     *
+     * Ovo je upravo ono što uklanja nepotrebnu 3. stranicu.
+     */
     if (
       remainingUnits <=
       finalCapacity
@@ -542,6 +589,8 @@ function paginateItems(
         final: true,
       })
 
+      cursor =
+        items.length
       break
     }
 
@@ -550,28 +599,34 @@ function paginateItems(
         ? firstRegularCapacity
         : continuationRegularCapacity
 
-    /**
-     * Ako bi nakon ove stranice ostatak već mogao
-     * stati uz završni blok, ostavi barem nekoliko
-     * redaka na zadnjoj stranici da ne dobijemo
-     * gotovo praznu završnu stranicu.
+    /*
+     * Ako smo samo malo iznad završnog kapaciteta,
+     * ne ostavljamo umjetno samo 1-2 stavke za zasebnu stranicu.
+     * Umjesto toga prvu/continuation stranicu punimo razumno,
+     * a ostatak ostavljamo za zadnju.
      */
-    const shouldReserveForFinal =
-      remainingUnits -
-        regularCapacity <=
-      continuationFinalCapacity
+    const desiredRemainingForFinal =
+      continuationFinalCapacity *
+      0.82
 
     const targetUnits =
-      Math.max(
-        1,
-        Math.min(
-          regularCapacity,
-          shouldReserveForFinal
-            ? remainingUnits -
-                minimumFinalUnits
-            : regularCapacity,
-        ),
-      )
+      first
+        ? Math.min(
+            regularCapacity,
+            Math.max(
+              1,
+              remainingUnits -
+                desiredRemainingForFinal,
+            ),
+          )
+        : Math.min(
+            regularCapacity,
+            Math.max(
+              1,
+              remainingUnits -
+                minimumFinalUnits,
+            ),
+          )
 
     const pageItems:
       OfferPdfItem[] = []
@@ -600,7 +655,8 @@ function paginateItems(
       }
 
       pageItems.push(item)
-      pageUnits += itemUnits
+      pageUnits +=
+        itemUnits
       cursor += 1
     }
 
@@ -620,6 +676,45 @@ function paginateItems(
     first = false
   }
 
+  /*
+   * Dodatna zaštita:
+   * ako algoritam ipak napravi pretposljednju + zadnju stranicu
+   * gdje bi se njihove stavke zajedno mogle smjestiti na jednu
+   * završnu continuation stranicu, spajamo ih.
+   */
+  if (
+    pages.length >= 3
+  ) {
+    const previous =
+      pages[
+        pages.length - 2
+      ]
+
+    const last =
+      pages[
+        pages.length - 1
+      ]
+
+    if (
+      !previous.first &&
+      unitsOf([
+        ...previous.items,
+        ...last.items,
+      ]) <=
+        continuationFinalCapacity
+    ) {
+      previous.items = [
+        ...previous.items,
+        ...last.items,
+      ]
+
+      previous.final =
+        true
+
+      pages.pop()
+    }
+  }
+
   pages.forEach(
     (page, index) => {
       page.first =
@@ -633,6 +728,7 @@ function paginateItems(
 
   return pages
 }
+
 
 function companyHtml(
   settings: OfferPdfSettings,

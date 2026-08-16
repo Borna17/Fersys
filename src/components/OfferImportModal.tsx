@@ -1,6 +1,7 @@
 import {
   Check,
   FileScan,
+  Files,
   Loader2,
   Percent,
   ScanLine,
@@ -54,11 +55,20 @@ type ReviewItem =
     selected: boolean
   }
 
+type ImportedScanPage = {
+  id: string
+  fileName: string
+  itemCount: number
+  confidence: number
+}
+
 function makeId(
   index: number,
 ) {
   return `scan-item-${Date.now()}-${index}`
 }
+
+const MAX_SCAN_PAGES = 12
 
 function money(
   value: number,
@@ -129,6 +139,12 @@ export function OfferImportModal({
   ] =
     useState('')
 
+  const [
+    scanPages,
+    setScanPages,
+  ] =
+    useState<ImportedScanPage[]>([])
+
   const selectedCount =
     useMemo(
       () =>
@@ -151,6 +167,7 @@ export function OfferImportModal({
     setMarkup(0)
     setImportPrices(true)
     setSourceName('')
+    setScanPages([])
   }
 
   function close() {
@@ -161,10 +178,11 @@ export function OfferImportModal({
   async function handleScan(
     file: File,
   ) {
+    const pageNumber =
+      scanPages.length + 1
+
     setReading(true)
     setError('')
-    setResult(null)
-    setReviewItems([])
     setSourceName(
       file.name,
     )
@@ -176,30 +194,104 @@ export function OfferImportModal({
         )
 
       setResult(
-        parsed,
+        (current) => {
+          if (!current) {
+            return parsed
+          }
+
+          const confidences = [
+            current.confidence || 0,
+            parsed.confidence || 0,
+          ]
+
+          return {
+            sourceSupplierName:
+              current.sourceSupplierName ||
+              parsed.sourceSupplierName,
+            sourceOfferNumber:
+              current.sourceOfferNumber ||
+              parsed.sourceOfferNumber,
+            sourceOfferDate:
+              current.sourceOfferDate ||
+              parsed.sourceOfferDate,
+            sourceCurrency:
+              current.sourceCurrency ||
+              parsed.sourceCurrency,
+            title:
+              current.title ||
+              parsed.title,
+            description:
+              current.description ||
+              parsed.description,
+            paymentTerms:
+              current.paymentTerms ||
+              parsed.paymentTerms,
+            notes: [
+              current.notes,
+              parsed.notes,
+            ]
+              .filter(Boolean)
+              .join('\n'),
+            items: [
+              ...current.items,
+              ...parsed.items,
+            ],
+            confidence:
+              confidences.reduce(
+                (sum, value) =>
+                  sum + value,
+                0,
+              ) /
+              confidences.length,
+            warnings: [
+              ...current.warnings,
+              ...parsed.warnings.map(
+                (warning) =>
+                  `Stranica ${pageNumber}: ${warning}`,
+              ),
+            ],
+          }
+        },
       )
 
       setReviewItems(
-        parsed.items.map(
-          (
-            item,
-            index,
-          ) => ({
-            ...item,
+        (current) => [
+          ...current,
+          ...parsed.items.map(
+            (
+              item,
+              index,
+            ) => ({
+              ...item,
+              id:
+                `scan-page-${pageNumber}-${makeId(index)}`,
+              selected: true,
+            }),
+          ),
+        ],
+      )
+
+      setScanPages(
+        (current) => [
+          ...current,
+          {
             id:
-              makeId(
-                index,
-              ),
-            selected: true,
-          }),
-        ),
+              `scan-page-${Date.now()}-${pageNumber}`,
+            fileName:
+              file.name,
+            itemCount:
+              parsed.items.length,
+            confidence:
+              parsed.confidence || 0,
+          },
+        ],
       )
     } catch (scanError) {
       setError(
         scanError instanceof
           Error
           ? scanError.message
-          : 'Ponuda se nije mogla analizirati.',
+          : `Stranica ${pageNumber} se nije mogla analizirati.`,
       )
     } finally {
       setReading(
@@ -380,11 +472,11 @@ export function OfferImportModal({
                     size={19}
                     className="text-violet-300"
                   />
-                  1. Skeniraj dokument
+                  1. Skeniraj jednu ili više stranica
                 </div>
 
                 <p className="mt-2 text-xs leading-5 text-slate-400">
-                  Fotografiraj isprintanu ponudu i označi sva četiri kuta. Može biti slikana i ukoso.
+                  Fotografiraj svaku stranicu ponude zasebno. Nakon prve stranice možeš dodavati drugu, treću i ostale, a FERSYS će sve stavke spojiti u jednu novu ponudu.
                 </p>
 
                 <button
@@ -395,17 +487,86 @@ export function OfferImportModal({
                     )
                   }
                   disabled={
-                    reading
+                    reading ||
+                    scanPages.length >=
+                      MAX_SCAN_PAGES
                   }
                   className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white disabled:opacity-50"
                 >
                   <FileScan
                     size={18}
                   />
-                  Skeniraj ponudu
+                  {scanPages.length === 0
+                    ? 'Skeniraj prvu stranicu'
+                    : 'Dodaj još jednu stranicu'}
                 </button>
 
-                {sourceName && (
+                {scanPages.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <Files size={13} />
+                        Skenirane stranice
+                      </span>
+
+                      <span className="rounded-full bg-violet-500/10 px-2 py-1 text-[10px] font-black text-violet-300">
+                        {scanPages.length} / {MAX_SCAN_PAGES}
+                      </span>
+                    </div>
+
+                    {scanPages.map(
+                      (
+                        page,
+                        index,
+                      ) => (
+                        <div
+                          key={page.id}
+                          className="rounded-xl border border-white/10 bg-slate-950/55 px-3 py-2"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[10px] font-black text-slate-300">
+                                Stranica {index + 1}
+                              </p>
+                              <p className="mt-0.5 truncate text-[9px] text-slate-600">
+                                {page.fileName}
+                              </p>
+                            </div>
+
+                            <div className="shrink-0 text-right">
+                              <p className="text-[10px] font-black text-emerald-300">
+                                {page.itemCount} stavki
+                              </p>
+                              <p className="mt-0.5 text-[9px] text-slate-600">
+                                {Math.round(page.confidence * 100)}% AI
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ),
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScannerOpen(
+                          true,
+                        )
+                      }
+                      disabled={
+                        reading ||
+                        scanPages.length >=
+                          MAX_SCAN_PAGES
+                      }
+                      className="flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-violet-400/20 bg-violet-500/[0.06] px-3 text-xs font-black text-violet-200 disabled:opacity-50"
+                    >
+                      <FileScan size={15} />
+                      + Dodaj sljedeću stranicu
+                    </button>
+                  </div>
+                )}
+
+                {sourceName && scanPages.length === 0 && (
                   <p className="mt-2 truncate text-[10px] text-slate-600">
                     {sourceName}
                   </p>
@@ -568,7 +729,7 @@ export function OfferImportModal({
                     </h3>
 
                     <p className="mt-2 max-w-md text-sm leading-6 text-slate-500">
-                      Skeniraj ponudu i ovdje će se pojaviti sve prepoznate stavke prije nego ih ubaciš u svoj FERSYS obrazac.
+                      Skeniraj prvu stranicu ponude. Ako ponuda ima više stranica, nakon svakog skena klikni „Dodaj sljedeću stranicu”. Sve prepoznate stavke spojit će se u ovaj pregled.
                     </p>
                   </div>
                 </div>
@@ -898,11 +1059,11 @@ export function OfferImportModal({
           handleScan
         }
         documentLabel="ponude"
-        title="Označi sva 4 kuta ponude"
+        title={`Označi sva 4 kuta ponude · stranica ${scanPages.length + 1}`}
         helperText="Postavi svaki ljubičasti kut točno na rub isprintane ponude. Povećalo 5× pomaže da pogodimo rub, a FERSYS zatim izravnava dokument prije AI čitanja."
-        emptyTitle="Fotografiraj ponudu"
+        emptyTitle={`Fotografiraj stranicu ${scanPages.length + 1}`}
         emptyText="Fotografiraj cijeli papir. Nakon toga možeš precizno označiti sva četiri kuta i izbaciti stol ili pozadinu."
-        confirmLabel="Izravnaj i pročitaj ponudu AI-em"
+        confirmLabel={`Izravnaj i pročitaj stranicu ${scanPages.length + 1}`}
       />
     </>
   )
