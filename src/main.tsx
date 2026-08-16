@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router'
 import { registerSW } from 'virtual:pwa-register'
 
 import App from './App'
+import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import MobileNotificationBell from './components/MobileNotificationBell'
 import './index.css'
 
@@ -43,6 +44,14 @@ createRoot(
   <StrictMode>
     <BrowserRouter>
       <App />
+
+      {/*
+       * Globalni feedback za sva preuzimanja u FERSYS-u:
+       * - animira gumb dok se datoteka priprema
+       * - pokazuje "Preuzimanje je pokrenuto"
+       * - na mobitelu i desktopu nudi "Otvori" kada je moguće
+       */}
+      <DownloadFeedbackCenter />
 
       {/*
        * Mobilno zvonce je globalno, ali se samo skriva
