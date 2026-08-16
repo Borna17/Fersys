@@ -5,7 +5,7 @@ import {
   notifyDownloadError,
   notifyDownloadPreparing,
   saveBlobDownload,
-} from '../services/downloadFeedback'
+} from './downloadFeedback'
 import {
   getCompanySettings,
 } from '../services/companySettings.service'
@@ -1929,10 +1929,15 @@ function css(
       gap: 8px;
     }
 
-    .signature-image,
+    .signature-image {
+      max-width: 205px;
+      max-height: 68px;
+      object-fit: contain;
+    }
+
     .stamp-image {
-      max-width: 83px;
-      max-height: 47px;
+      max-width: 185px;
+      max-height: 98px;
       object-fit: contain;
     }
 

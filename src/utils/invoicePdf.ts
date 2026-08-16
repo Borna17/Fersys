@@ -5,7 +5,7 @@ import {
   notifyDownloadError,
   notifyDownloadPreparing,
   saveBlobDownload,
-} from '../services/downloadFeedback'
+} from './downloadFeedback'
 import {
   getCompanySettings,
 } from '../services/companySettings.service'
@@ -2107,14 +2107,14 @@ function css(
     }
 
     .stamp {
-      max-width: 88px;
-      max-height: 48px;
+      max-width: 185px;
+      max-height: 98px;
       object-fit: contain;
     }
 
     .signature {
-      max-width: 88px;
-      max-height: 44px;
+      max-width: 205px;
+      max-height: 68px;
       object-fit: contain;
     }
 

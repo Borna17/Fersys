@@ -5,7 +5,7 @@ import {
   notifyDownloadError,
   notifyDownloadPreparing,
   saveBlobDownload,
-} from '../services/downloadFeedback'
+} from './downloadFeedback'
 import type {
   WorkOrder,
   WorkOrderBranding,
@@ -1209,8 +1209,8 @@ function css(
 
     .signature-image {
       display: block;
-      max-width: 145px;
-      max-height: ${compact ? 35 : 42}px;
+      max-width: 205px;
+      max-height: ${compact ? 58 : 68}px;
       object-fit: contain;
     }
 
@@ -1231,8 +1231,8 @@ function css(
 
     .stamp-image {
       display: block;
-      max-width: ${compact ? 92 : 103}px;
-      max-height: ${compact ? 62 : 72}px;
+      max-width: ${compact ? 165 : 185}px;
+      max-height: ${compact ? 88 : 98}px;
       object-fit: contain;
     }
 
