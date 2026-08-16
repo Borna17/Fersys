@@ -58,6 +58,98 @@ export type SendCampaignInput = {
     | 'system'
 }
 
+export type CampaignResult = {
+  success: boolean
+  campaignId: string
+  recipients: number
+  sent: number
+  failed: number
+  failures?: Array<{
+    email: string
+    error: string
+  }>
+}
+
+export type TestEmailResult = {
+  success: boolean
+  sent: number
+  failed: number
+  recipient: string
+  providerMessageId:
+    string | null
+}
+
+export type AutomationResult = {
+  success?: boolean
+  checked: number
+  sent: number
+  failed?: number
+  skipped?: number
+}
+
+function requireNumber(
+  value: unknown,
+  field: string,
+) {
+  const number =
+    Number(value)
+
+  if (
+    !Number.isFinite(
+      number,
+    )
+  ) {
+    throw new Error(
+      `Email centar nije vratio ispravno polje "${field}".`,
+    )
+  }
+
+  return number
+}
+
+async function invokeEmailCenter<
+  T,
+>(
+  body: Record<
+    string,
+    unknown
+  >,
+): Promise<T> {
+  const {
+    data,
+    error,
+  } =
+    await supabase.functions
+      .invoke(
+        'email-center',
+        {
+          body,
+        },
+      )
+
+  if (error) {
+    throw error
+  }
+
+  if (
+    data?.error
+  ) {
+    throw new Error(
+      String(
+        data.error,
+      ),
+    )
+  }
+
+  if (!data) {
+    throw new Error(
+      'Email centar nije vratio odgovor.',
+    )
+  }
+
+  return data as T
+}
+
 export async function getEmailCenterStats():
 Promise<EmailCenterStats> {
   const {
@@ -233,73 +325,145 @@ Promise<EmailCenterStats> {
 export async function sendEmailCampaign(
   input:
     SendCampaignInput,
-) {
-  const {
-    data,
-    error,
-  } =
-    await supabase.functions
-      .invoke(
-        'email-center',
-        {
-          body: {
-            action:
-              'send_campaign',
-            ...input,
-          },
-        },
-      )
+): Promise<CampaignResult> {
+  const data =
+    await invokeEmailCenter<
+      Record<
+        string,
+        unknown
+      >
+    >({
+      action:
+        'send_campaign',
+      ...input,
+    })
 
-  if (error) {
-    throw error
-  }
-
-  if (data?.error) {
-    throw new Error(
-      String(
-        data.error,
+  return {
+    success:
+      Boolean(
+        data.success,
       ),
-    )
-  }
-
-  return data as {
-    campaignId: string
-    recipients: number
-    sent: number
-    failed: number
+    campaignId:
+      String(
+        data.campaignId ??
+          '',
+      ),
+    recipients:
+      requireNumber(
+        data.recipients,
+        'recipients',
+      ),
+    sent:
+      requireNumber(
+        data.sent,
+        'sent',
+      ),
+    failed:
+      requireNumber(
+        data.failed,
+        'failed',
+      ),
+    failures:
+      Array.isArray(
+        data.failures,
+      )
+        ? data.failures as Array<{
+            email: string
+            error: string
+          }>
+        : [],
   }
 }
 
-export async function runEmailAutomationsNow() {
-  const {
-    data,
-    error,
-  } =
-    await supabase.functions
-      .invoke(
-        'email-center',
-        {
-          body: {
-            action:
-              'process_automations',
-          },
-        },
-      )
+export async function sendTestEmail(
+  testEmail: string,
+) {
+  const data =
+    await invokeEmailCenter<
+      Record<
+        string,
+        unknown
+      >
+    >({
+      action:
+        'test_email',
+      testEmail,
+      subject:
+        'FERSYS test e-mail',
+      htmlBody:
+        '<h2>FERSYS E-mail centar radi ✅</h2><p>Ako vidiš ovu poruku, veza FERSYS → Supabase → Resend → e-mail radi ispravno.</p>',
+      ctaLabel:
+        'Otvori FERSYS',
+      ctaUrl:
+        'https://app.fersys.app/dashboard',
+    })
 
-  if (error) {
-    throw error
-  }
-
-  if (data?.error) {
-    throw new Error(
-      String(
-        data.error,
+  return {
+    success:
+      Boolean(
+        data.success,
       ),
-    )
-  }
+    sent:
+      requireNumber(
+        data.sent,
+        'sent',
+      ),
+    failed:
+      requireNumber(
+        data.failed,
+        'failed',
+      ),
+    recipient:
+      String(
+        data.recipient ??
+          testEmail,
+      ),
+    providerMessageId:
+      data.providerMessageId
+        ? String(
+            data.providerMessageId,
+          )
+        : null,
+  } satisfies TestEmailResult
+}
 
-  return data as {
-    checked: number
-    sent: number
+export async function runEmailAutomationsNow():
+Promise<AutomationResult> {
+  const data =
+    await invokeEmailCenter<
+      Record<
+        string,
+        unknown
+      >
+    >({
+      action:
+        'process_automations',
+    })
+
+  return {
+    success:
+      Boolean(
+        data.success,
+      ),
+    checked:
+      requireNumber(
+        data.checked,
+        'checked',
+      ),
+    sent:
+      requireNumber(
+        data.sent,
+        'sent',
+      ),
+    failed:
+      Number(
+        data.failed ??
+          0,
+      ),
+    skipped:
+      Number(
+        data.skipped ??
+          0,
+      ),
   }
 }

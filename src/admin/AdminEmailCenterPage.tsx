@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Send,
   Sparkles,
+  TestTube2,
   UsersRound,
   XCircle,
 } from 'lucide-react'
@@ -22,6 +23,7 @@ import {
   getEmailCenterStats,
   runEmailAutomationsNow,
   sendEmailCampaign,
+  sendTestEmail,
   type EmailCenterStats,
   type SendCampaignInput,
 } from './services/emailCenter.service'
@@ -59,6 +61,16 @@ export function AdminEmailCenterPage() {
     running,
     setRunning,
   ] = useState(false)
+
+  const [
+    testing,
+    setTesting,
+  ] = useState(false)
+
+  const [
+    testEmail,
+    setTestEmail,
+  ] = useState('')
 
   const [error, setError] =
     useState('')
@@ -132,8 +144,14 @@ export function AdminEmailCenterPage() {
           form,
         )
 
+      const details =
+        result.failed > 0 &&
+        result.failures?.length
+          ? ` Prva greška: ${result.failures[0].email} — ${result.failures[0].error}`
+          : ''
+
       setSuccess(
-        `Kampanja završena: ${result.sent} poslano, ${result.failed} neuspjelo.`,
+        `Kampanja završena: ${result.recipients} primatelja, ${result.sent} poslano, ${result.failed} neuspjelo.${details}`,
       )
 
       await load()
@@ -148,6 +166,42 @@ export function AdminEmailCenterPage() {
     }
   }
 
+  async function testSending() {
+    if (
+      !testEmail.trim()
+    ) {
+      setError(
+        'Upiši e-mail adresu za test.',
+      )
+      return
+    }
+
+    try {
+      setTesting(true)
+      setError('')
+      setSuccess('')
+
+      const result =
+        await sendTestEmail(
+          testEmail.trim(),
+        )
+
+      setSuccess(
+        `Testni e-mail poslan na ${result.recipient}. Resend ID: ${result.providerMessageId ?? 'nije vraćen'}.`,
+      )
+
+      await load()
+    } catch (value) {
+      setError(
+        value instanceof Error
+          ? value.message
+          : 'Testni e-mail nije moguće poslati.',
+      )
+    } finally {
+      setTesting(false)
+    }
+  }
+
   async function runAutomations() {
     try {
       setRunning(true)
@@ -158,7 +212,7 @@ export function AdminEmailCenterPage() {
         await runEmailAutomationsNow()
 
       setSuccess(
-        `Automatizacije provjerene: ${result.checked} tvrtki, ${result.sent} novih poruka poslano.`,
+        `Automatizacije provjerene: ${result.checked} tvrtki, ${result.sent} poslano, ${result.failed ?? 0} neuspjelo, ${result.skipped ?? 0} preskočeno.`,
       )
 
       await load()
@@ -189,7 +243,7 @@ export function AdminEmailCenterPage() {
           </h1>
 
           <p className="mt-2 max-w-2xl text-slate-400">
-            Automatske poruke za trial i limite paketa te ručne FERSYS novosti, updatei i newsletteri.
+            Stvarno slanje preko Resenda, evidencija uspješnih i neuspješnih poruka, trial podsjetnici i upozorenja limita.
           </p>
         </div>
 
@@ -256,6 +310,57 @@ export function AdminEmailCenterPage() {
           {success}
         </Message>
       )}
+
+      <article className="mt-6 rounded-3xl border border-cyan-500/20 bg-cyan-500/[0.06] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 font-black text-white">
+              <TestTube2
+                size={18}
+                className="text-cyan-300"
+              />
+              Testiraj slanje prije kampanje
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Upiši svoju adresu. Ako poruka stigne, cijeli lanac FERSYS → Supabase → Resend → inbox radi.
+            </p>
+
+            <input
+              type="email"
+              value={
+                testEmail
+              }
+              onChange={(event) =>
+                setTestEmail(
+                  event.target.value,
+                )
+              }
+              placeholder="tvoj@email.com"
+              className={inputClass}
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() =>
+              void testSending()
+            }
+            disabled={
+              testing ||
+              !testEmail.trim()
+            }
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 font-black text-white hover:bg-cyan-500 disabled:opacity-50"
+          >
+            <Send
+              size={17}
+            />
+            {testing
+              ? 'Testiranje...'
+              : 'Pošalji test'}
+          </button>
+        </div>
+      </article>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
@@ -495,7 +600,7 @@ export function AdminEmailCenterPage() {
                 </h2>
 
                 <p className="mt-1 text-xs text-slate-500">
-                  Aktivne zaštite od dvostrukog slanja.
+                  Zaštita od dvostrukog slanja sprema se u email_automation_log.
                 </p>
               </div>
             </div>
@@ -515,11 +620,11 @@ export function AdminEmailCenterPage() {
               />
               <AutomationCard
                 title="80% limita"
-                text="Upozorenje prije blokade."
+                text="Mjesečno upozorenje za investitore, ponude i radne naloge."
               />
               <AutomationCard
                 title="100% limita"
-                text="Upgrade poruka kada se dosegne limit."
+                text="Mjesečna poruka kada se dosegne ili prijeđe limit."
               />
             </div>
           </article>
@@ -550,7 +655,7 @@ export function AdminEmailCenterPage() {
                           key={
                             item.id
                           }
-                          className="grid gap-2 bg-slate-950/35 p-4 sm:grid-cols-[1fr_140px]"
+                          className="grid gap-2 bg-slate-950/35 p-4 sm:grid-cols-[1fr_180px]"
                         >
                           <div className="min-w-0">
                             <p className="truncate text-sm font-black text-slate-200">
@@ -563,6 +668,12 @@ export function AdminEmailCenterPage() {
                                 item.recipientEmail
                               }
                             </p>
+
+                            {item.errorMessage && (
+                              <p className="mt-2 text-[10px] leading-4 text-red-300">
+                                {item.errorMessage}
+                              </p>
+                            )}
                           </div>
 
                           <div className="sm:text-right">
