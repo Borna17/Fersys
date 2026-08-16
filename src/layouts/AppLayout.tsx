@@ -2,6 +2,7 @@ import {
   CalendarDays,
   FileText,
   Gauge,
+  Gift,
   LogOut,
   Plus,
   ReceiptText,
@@ -103,6 +104,10 @@ const pageTitles = [
   {
     path: '/pricing',
     title: 'Paketi i pretplata',
+  },
+  {
+    path: '/account',
+    title: 'Moj FERSYS',
   },
 ]
 
@@ -712,6 +717,29 @@ export default function AppLayout() {
 
                     Moj profil
                   </button>
+
+                  {role === 'owner' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsProfileMenuOpen(
+                          false,
+                        )
+
+                        navigate(
+                          '/account',
+                        )
+                      }}
+                      className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-violet-500/10 hover:text-violet-300"
+                    >
+                      <Gift
+                        size={18}
+                        className="text-violet-400"
+                      />
+
+                      Moj FERSYS
+                    </button>
+                  )}
 
                   {canManageSettings && (
                     <button

@@ -1,5 +1,6 @@
 import {
   ArrowLeft,
+  Award,
   Building2,
   Gauge,
   Headphones,
@@ -26,6 +27,11 @@ const items = [
     name: 'Tvrtke',
     path: '/admin/companies',
     icon: Building2,
+  },
+  {
+    name: 'Rewards',
+    path: '/admin/rewards',
+    icon: Award,
   },
   {
     name: 'E-mail centar',
@@ -84,9 +90,7 @@ export default function AdminLayout() {
                 end={
                   item.path === '/admin'
                 }
-                className={({
-                  isActive,
-                }) =>
+                className={({ isActive }) =>
                   `flex h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition ${
                     isActive
                       ? 'bg-violet-600 text-white'

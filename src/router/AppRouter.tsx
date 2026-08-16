@@ -22,6 +22,7 @@ import AdminGuard from '../admin/AdminGuard'
 import AdminLayout from '../admin/AdminLayout'
 
 import FersysLoader from '../components/FersysLoader'
+import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
 import AppLayout from '../layouts/AppLayout'
 
@@ -84,6 +85,16 @@ const AdminSupportPage = lazy(
     ),
 )
 
+const AdminRewardsPage = lazy(
+  () =>
+    import('../admin/AdminRewardsPage').then(
+      (module) => ({
+        default:
+          module.AdminRewardsPage,
+      }),
+    ),
+)
+
 const AiAssistantPage = lazy(
   () =>
     import('../pages/AiAssistantPage').then(
@@ -130,6 +141,16 @@ const DashboardPage = lazy(
       (module) => ({
         default:
           module.DashboardPage,
+      }),
+    ),
+)
+
+const AccountPage = lazy(
+  () =>
+    import('../pages/AccountPage').then(
+      (module) => ({
+        default:
+          module.AccountPage,
       }),
     ),
 )
@@ -331,6 +352,16 @@ const RegisterPage = lazy(
       (module) => ({
         default:
           module.RegisterPage,
+      }),
+    ),
+)
+
+const ReferralLandingPage = lazy(
+  () =>
+    import('../pages/ReferralLandingPage').then(
+      (module) => ({
+        default:
+          module.ReferralLandingPage,
       }),
     ),
 )
@@ -721,6 +752,13 @@ function RouterContent() {
         />
 
         <Route
+          path="/r/:code"
+          element={
+            <ReferralLandingPage />
+          }
+        />
+
+        <Route
           path="/login"
           element={
             <PublicOnlyRoute>
@@ -776,6 +814,13 @@ function RouterContent() {
           />
 
           <Route
+            path="/admin/rewards"
+            element={
+              <AdminRewardsPage />
+            }
+          />
+
+          <Route
             path="/admin/email"
             element={
               <AdminEmailCenterPage />
@@ -797,6 +842,13 @@ function RouterContent() {
             </ProtectedRoute>
           }
         >
+          <Route
+            path="/account"
+            element={
+              <AccountPage />
+            }
+          />
+
           <Route
             path="/dashboard"
             element={
@@ -1197,6 +1249,7 @@ export function AppRouter() {
   return (
     <AuthProvider>
       <SubscriptionProvider>
+        <ReferralClaimBridge />
         <RouterContent />
       </SubscriptionProvider>
     </AuthProvider>
