@@ -7,6 +7,7 @@ import {
   SlidersHorizontal,
   Upload,
   X,
+  ZoomIn,
 } from 'lucide-react'
 import {
   useEffect,
@@ -918,6 +919,14 @@ export function DocumentScannerModal({
       [corners],
     )
 
+
+  const activeCornerPoint =
+    draggingCorner
+      ? corners[
+          draggingCorner
+        ]
+      : null
+
   useEffect(() => {
     if (!open) {
       if (sourceUrl) {
@@ -1358,6 +1367,9 @@ export function DocumentScannerModal({
       return
     }
 
+    const activeCorner =
+      draggingCorner
+
     function move(
       event:
         PointerEvent,
@@ -1399,11 +1411,10 @@ export function DocumentScannerModal({
           current,
         ) => ({
           ...current,
-          [draggingCorner as CornerKey]:
-            {
-              x,
-              y,
-            },
+          [activeCorner]: {
+            x,
+            y,
+          },
         }),
       )
     }
@@ -1808,6 +1819,47 @@ export function DocumentScannerModal({
                   },
                 )}
 
+                {activeCornerPoint && (
+                  <div className="pointer-events-none absolute right-4 top-4 z-40">
+                    <div className="mb-2 flex items-center justify-end gap-2">
+                      <span className="rounded-full border border-violet-300/25 bg-slate-950/90 px-3 py-1 text-[10px] font-black uppercase tracking-wider text-violet-200 shadow-lg">
+                        <span className="inline-flex items-center gap-1.5">
+                          <ZoomIn
+                            size={12}
+                          />
+                          Precizni zoom 5×
+                        </span>
+                      </span>
+                    </div>
+
+                    <div className="relative h-44 w-44 overflow-hidden rounded-3xl border-[3px] border-white bg-black shadow-[0_18px_55px_rgba(0,0,0,.65),0_0_0_6px_rgba(124,58,237,.28)]">
+                      <div
+                        className="absolute inset-0"
+                        style={{
+                          backgroundImage:
+                            `url("${sourceUrl}")`,
+                          backgroundRepeat:
+                            'no-repeat',
+                          backgroundSize:
+                            '500% 500%',
+                          backgroundPosition:
+                            `${activeCornerPoint.x * 100}% ${activeCornerPoint.y * 100}%`,
+                        }}
+                      />
+
+                      <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-fuchsia-400/90 shadow-[0_0_5px_rgba(232,121,249,.95)]" />
+
+                      <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-fuchsia-400/90 shadow-[0_0_5px_rgba(232,121,249,.95)]" />
+
+                      <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-violet-500/35 shadow-[0_0_0_3px_rgba(124,58,237,.35)]" />
+
+                      <div className="absolute inset-x-2 bottom-2 rounded-xl bg-slate-950/85 px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-wide text-white backdrop-blur-sm">
+                        Točka u sredini = kut računa
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {!validQuad && (
                   <div className="absolute inset-x-4 top-4 z-30 rounded-2xl border border-red-400/30 bg-red-950/90 px-4 py-3 text-center text-xs font-black text-red-200 shadow-xl">
                     Kutovi se križaju. Vrati ih redom: gornji lijevi → gornji desni → donji desni → donji lijevi.
@@ -1828,6 +1880,19 @@ export function DocumentScannerModal({
             <p className="text-xs leading-5 text-slate-500">
               Sada svaki kut radi potpuno neovisno. Možeš npr. prvo staviti gornji desni na rub računa, zatim gornji lijevi, pa oba donja.
             </p>
+
+            <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.07] p-3">
+              <div className="flex items-center gap-2 text-xs font-black text-violet-200">
+                <ZoomIn
+                  size={15}
+                />
+                Precizno označavanje
+              </div>
+
+              <p className="mt-1.5 text-[11px] leading-5 text-slate-400">
+                Dok držiš i pomičeš bilo koji kut, gore desno se automatski pojavljuje povećalo 5× s križićem. Sredina križića pokazuje točnu točku koja će biti korištena za perspektivni izrez.
+              </p>
+            </div>
 
             <div className="grid grid-cols-2 gap-2">
               {cornerButtons.map(
