@@ -1,12 +1,14 @@
 import type { ReactNode } from 'react'
 import {
+  Activity,
   AlertTriangle,
   ArrowRight,
+  BarChart3,
   Building2,
   CheckCircle2,
-  CircleDollarSign,
   Clock3,
   CreditCard,
+  Crown,
   Euro,
   Headphones,
   RefreshCw,
@@ -14,7 +16,9 @@ import {
   ShieldCheck,
   Sparkles,
   TrendingUp,
+  UserRoundCheck,
   Users,
+  Zap,
 } from 'lucide-react'
 import {
   useCallback,
@@ -25,7 +29,9 @@ import {
 import { Link } from 'react-router'
 
 import {
+  getAdminCompanies,
   getAdminStats,
+  type AdminCompany,
   type AdminStats,
 } from './services/admin.service'
 
@@ -43,9 +49,135 @@ const emptyStats: AdminStats = {
   urgentTickets: 0,
 }
 
+type AttentionItem = {
+  id: string
+  companyId: string
+  companyName: string
+  title: string
+  description: string
+  severity: 'danger' | 'warning' | 'info'
+}
+
+type UpgradeCandidate = {
+  company: AdminCompany
+  score: number
+  reason: string
+}
+
+function parseDate(value: string | null) {
+  if (!value) return null
+
+  const parsed = new Date(value)
+
+  return Number.isNaN(parsed.getTime())
+    ? null
+    : parsed
+}
+
+function daysUntil(value: string | null) {
+  const date = parseDate(value)
+
+  if (!date) return null
+
+  const now = new Date()
+
+  const start = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+  )
+
+  const target = new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+  )
+
+  return Math.ceil(
+    (target.getTime() - start.getTime()) /
+      86_400_000,
+  )
+}
+
+function formatDate(value: string | null) {
+  const date = parseDate(value)
+
+  if (!date) return '—'
+
+  return date.toLocaleDateString('hr-HR')
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('hr-HR', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 2,
+  }).format(value)
+}
+
+function planLabel(planId: AdminCompany['planId']) {
+  if (planId === 'starter') return 'Starter'
+  if (planId === 'business') return 'Business'
+  return 'FERSYS Pro'
+}
+
+function workload(company: AdminCompany) {
+  return (
+    company.usersCount * 3 +
+    company.customersCount +
+    company.workOrdersCount * 2 +
+    company.offersCount * 2
+  )
+}
+
+function upgradeScore(company: AdminCompany) {
+  if (company.planId === 'pro') {
+    return 0
+  }
+
+  let score = 0
+
+  if (company.planId === 'starter') {
+    score += 18
+  }
+
+  if (company.planId === 'business') {
+    score += 10
+  }
+
+  score += Math.min(company.usersCount * 5, 20)
+  score += Math.min(company.customersCount / 2, 15)
+  score += Math.min(company.workOrdersCount, 25)
+  score += Math.min(company.offersCount, 22)
+
+  return Math.round(score)
+}
+
+function upgradeReason(company: AdminCompany) {
+  if (
+    company.workOrdersCount >= 25 ||
+    company.offersCount >= 25
+  ) {
+    return 'Visoko korištenje dokumenata'
+  }
+
+  if (company.usersCount >= 4) {
+    return 'Više aktivnih korisnika'
+  }
+
+  if (company.customersCount >= 20) {
+    return 'Veća baza investitora'
+  }
+
+  return 'Rast korištenja FERSYS-a'
+}
+
 export function AdminDashboardPage() {
   const [stats, setStats] =
     useState<AdminStats>(emptyStats)
+
+  const [companies, setCompanies] =
+    useState<AdminCompany[]>([])
 
   const [loading, setLoading] =
     useState(true)
@@ -56,16 +188,22 @@ export function AdminDashboardPage() {
   const [lastUpdatedAt, setLastUpdatedAt] =
     useState<Date | null>(null)
 
-  const loadStats =
+  const loadData =
     useCallback(async (): Promise<void> => {
       try {
         setLoading(true)
         setError('')
 
-        const nextStats =
-          await getAdminStats()
+        const [
+          nextStats,
+          nextCompanies,
+        ] = await Promise.all([
+          getAdminStats(),
+          getAdminCompanies(),
+        ])
 
         setStats(nextStats)
+        setCompanies(nextCompanies)
         setLastUpdatedAt(new Date())
       } catch (value) {
         setError(
@@ -79,56 +217,229 @@ export function AdminDashboardPage() {
     }, [])
 
   useEffect(() => {
-    void loadStats()
-  }, [loadStats])
+    void loadData()
+  }, [loadData])
 
   const paidSubscriptions =
-    useMemo(
-      () =>
-        stats.subscriptionsActive,
-      [stats.subscriptionsActive],
-    )
+    stats.subscriptionsActive
 
   const totalVisibleSubscriptions =
-    useMemo(
-      () =>
-        stats.subscriptionsActive +
-        stats.subscriptionsTrialing +
-        stats.subscriptionsPastDue,
-      [
-        stats.subscriptionsActive,
-        stats.subscriptionsTrialing,
-        stats.subscriptionsPastDue,
-      ],
-    )
+    stats.subscriptionsActive +
+    stats.subscriptionsTrialing +
+    stats.subscriptionsPastDue
 
   const healthySubscriptionRate =
-    useMemo(() => {
-      if (totalVisibleSubscriptions === 0) {
-        return 0
-      }
-
-      return Math.round(
-        (
-          (
+    totalVisibleSubscriptions > 0
+      ? Math.round(
+          ((
             stats.subscriptionsActive +
             stats.subscriptionsTrialing
           ) /
-          totalVisibleSubscriptions
-        ) *
-          100,
-      )
-    }, [
-      stats.subscriptionsActive,
-      stats.subscriptionsTrialing,
-      totalVisibleSubscriptions,
-    ])
+            totalVisibleSubscriptions) *
+            100,
+        )
+      : 0
+
+  const paidShare =
+    totalVisibleSubscriptions > 0
+      ? Math.round(
+          (stats.subscriptionsActive /
+            totalVisibleSubscriptions) *
+            100,
+        )
+      : 0
 
   const annualRunRate =
     stats.estimatedMrrEur * 12
 
+  const companiesOnPro = companies.filter(
+    (company) => company.planId === 'pro',
+  ).length
+
+  const totalUsers = companies.reduce(
+    (sum, company) =>
+      sum + company.usersCount,
+    0,
+  )
+
+  const totalCustomers = companies.reduce(
+    (sum, company) =>
+      sum + company.customersCount,
+    0,
+  )
+
+  const totalWorkOrders = companies.reduce(
+    (sum, company) =>
+      sum + company.workOrdersCount,
+    0,
+  )
+
+  const totalOffers = companies.reduce(
+    (sum, company) =>
+      sum + company.offersCount,
+    0,
+  )
+
+  const trialExpiringSoon = useMemo(
+    () =>
+      companies
+        .filter((company) => {
+          if (
+            company.subscriptionStatus !==
+            'trialing'
+          ) {
+            return false
+          }
+
+          const days = daysUntil(
+            company.trialEndsAt,
+          )
+
+          return (
+            days !== null &&
+            days >= 0 &&
+            days <= 7
+          )
+        })
+        .sort((a, b) => {
+          const aDays =
+            daysUntil(a.trialEndsAt) ?? 999
+          const bDays =
+            daysUntil(b.trialEndsAt) ?? 999
+
+          return aDays - bDays
+        }),
+    [companies],
+  )
+
+  const attentionItems =
+    useMemo<AttentionItem[]>(() => {
+      const result: AttentionItem[] = []
+
+      companies.forEach((company) => {
+        if (
+          company.subscriptionStatus ===
+          'past_due'
+        ) {
+          result.push({
+            id: `past-due-${company.companyId}`,
+            companyId: company.companyId,
+            companyName: company.companyName,
+            title: 'Plaćanje kasni',
+            description:
+              'Pretplata ima status past_due i zahtijeva provjeru.',
+            severity: 'danger',
+          })
+        }
+
+        if (
+          company.subscriptionStatus ===
+          'trialing'
+        ) {
+          const days = daysUntil(
+            company.trialEndsAt,
+          )
+
+          if (
+            days !== null &&
+            days >= 0 &&
+            days <= 7
+          ) {
+            result.push({
+              id: `trial-${company.companyId}`,
+              companyId: company.companyId,
+              companyName: company.companyName,
+              title:
+                days === 0
+                  ? 'Trial istječe danas'
+                  : `Trial istječe za ${days} d.`,
+              description:
+                'Dobar trenutak za kontakt i ponudu plaćenog paketa.',
+              severity:
+                days <= 2
+                  ? 'warning'
+                  : 'info',
+            })
+          }
+        }
+      })
+
+      if (stats.urgentTickets > 0) {
+        result.unshift({
+          id: 'urgent-tickets',
+          companyId: '',
+          companyName: 'Korisnička podrška',
+          title: `${stats.urgentTickets} hitnih ticketa`,
+          description:
+            'Otvoreni hitni zahtjevi trebaju prioritetnu obradu.',
+          severity: 'danger',
+        })
+      }
+
+      return result.slice(0, 8)
+    }, [companies, stats.urgentTickets])
+
+  const upgradeCandidates =
+    useMemo<UpgradeCandidate[]>(
+      () =>
+        companies
+          .filter(
+            (company) =>
+              company.planId !== 'pro' &&
+              company.subscriptionStatus !==
+                'past_due',
+          )
+          .map((company) => ({
+            company,
+            score: upgradeScore(company),
+            reason: upgradeReason(company),
+          }))
+          .filter(
+            (candidate) =>
+              candidate.score >= 35,
+          )
+          .sort(
+            (a, b) => b.score - a.score,
+          )
+          .slice(0, 6),
+      [companies],
+    )
+
+  const topCompanies = useMemo(
+    () =>
+      [...companies]
+        .sort(
+          (a, b) =>
+            workload(b) - workload(a),
+        )
+        .slice(0, 6),
+    [companies],
+  )
+
+  const newestCompanies = useMemo(
+    () =>
+      [...companies]
+        .sort((a, b) => {
+          const aTime =
+            parseDate(a.createdAt)?.getTime() ??
+            0
+          const bTime =
+            parseDate(b.createdAt)?.getTime() ??
+            0
+
+          return bTime - aTime
+        })
+        .slice(0, 5),
+    [companies],
+  )
+
+  const planTotal =
+    stats.starterCount +
+    stats.businessCount +
+    stats.proCount
+
   return (
-    <section className="mx-auto max-w-[1500px]">
+    <section className="mx-auto max-w-[1600px] pb-10">
       <header className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
         <div>
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.16em] text-violet-300">
@@ -136,14 +447,14 @@ export function AdminDashboardPage() {
             Super administrator
           </div>
 
-          <h1 className="mt-4 text-3xl font-black sm:text-4xl">
+          <h1 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">
             FERSYS kontrolni centar
           </h1>
 
-          <p className="mt-2 max-w-2xl text-slate-400">
-            Pregled svih tvrtki, pretplata,
-            prihoda i korisničke podrške na
-            jednom mjestu.
+          <p className="mt-2 max-w-3xl text-slate-400">
+            Poslovni pregled platforme, pretplata,
+            korištenja, prodajnih prilika i svega
+            što zahtijeva tvoju pažnju.
           </p>
 
           {lastUpdatedAt && (
@@ -166,12 +477,20 @@ export function AdminDashboardPage() {
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 text-sm font-black text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
           >
             <Building2 size={17} />
-            Upravljaj tvrtkama
+            Sve tvrtke
+          </Link>
+
+          <Link
+            to="/admin/support"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 px-4 text-sm font-black text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+          >
+            <Headphones size={17} />
+            Podrška
           </Link>
 
           <button
             type="button"
-            onClick={() => void loadStats()}
+            onClick={() => void loadData()}
             disabled={loading}
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
           >
@@ -183,7 +502,7 @@ export function AdminDashboardPage() {
                   : ''
               }
             />
-            Osvježi podatke
+            Osvježi
           </button>
         </div>
       </header>
@@ -198,7 +517,7 @@ export function AdminDashboardPage() {
         </div>
       )}
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         <Stat
           title="Ukupno tvrtki"
           value={stats.companiesTotal}
@@ -224,249 +543,401 @@ export function AdminDashboardPage() {
           )}
           note={`${formatCurrency(
             annualRunRate,
-          )} godišnje`}
+          )} ARR`}
           icon={<Euro size={22} />}
           loading={loading}
           accent="violet"
         />
 
         <Stat
-          title="Otvoreni ticketi"
-          value={stats.openTickets}
-          note={`${stats.urgentTickets} hitnih`}
-          icon={<Headphones size={22} />}
+          title="Korisnici"
+          value={totalUsers}
+          note={`u ${companies.length} tvrtki`}
+          icon={<Users size={22} />}
+          loading={loading}
+          accent="cyan"
+        />
+
+        <Stat
+          title="Zahtijeva pažnju"
+          value={attentionItems.length}
+          note={`${stats.urgentTickets} hitnih ticketa`}
+          icon={<AlertTriangle size={22} />}
           loading={loading}
           accent="amber"
         />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_.85fr]">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
           <SectionTitle
             icon={<TrendingUp size={22} />}
-            title="Zdravlje platforme"
-            description="Brzi pregled aktivacije i stanja pretplata."
+            title="Poslovno zdravlje"
+            description="Ključne brojke za pretplate i rast FERSYS-a."
             accent="blue"
           />
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               label="Zdrave pretplate"
               value={`${healthySubscriptionRate}%`}
-              description="Aktivne i probne pretplate"
-              icon={
-                <CheckCircle2 size={20} />
-              }
+              description="Aktivne + trial"
+              icon={<CheckCircle2 size={20} />}
             />
 
             <MetricCard
-              label="Probno razdoblje"
-              value={stats.subscriptionsTrialing}
-              description="Tvrtke u 7-dnevnom trialu"
+              label="Plaćeni udio"
+              value={`${paidShare}%`}
+              description="Aktivne od vidljivih pretplata"
+              icon={<CircleMetric />}
+            />
+
+            <MetricCard
+              label="FERSYS Pro"
+              value={companiesOnPro}
+              description="Tvrtke bez limita"
+              icon={<Crown size={20} />}
+            />
+
+            <MetricCard
+              label="Trial uskoro istječe"
+              value={trialExpiringSoon.length}
+              description="U sljedećih 7 dana"
               icon={<Clock3 size={20} />}
-            />
-
-            <MetricCard
-              label="Zaostala plaćanja"
-              value={stats.subscriptionsPastDue}
-              description="Potrebna provjera naplate"
-              icon={
-                <AlertTriangle size={20} />
-              }
             />
           </div>
 
           <div className="mt-6">
-            <div className="mb-3 flex items-center justify-between gap-4">
-              <div>
-                <h3 className="font-black">
-                  Struktura pretplata
-                </h3>
+            <p className="text-sm font-black text-white">
+              Raspodjela paketa
+            </p>
 
-                <p className="mt-1 text-xs text-slate-500">
-                  Aktivne i probne tvrtke po
-                  paketima
-                </p>
-              </div>
-
-              <span className="rounded-full bg-slate-950 px-3 py-1 text-xs font-black text-slate-400">
-                {stats.starterCount +
-                  stats.businessCount +
-                  stats.proCount}{' '}
-                ukupno
-              </span>
-            </div>
-
-            <div className="space-y-5 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
-              <PlanLine
+            <div className="mt-4 space-y-4">
+              <PlanBar
                 label="Starter"
-                value={stats.starterCount}
-                total={
-                  stats.starterCount +
-                  stats.businessCount +
-                  stats.proCount
-                }
-                badge="15 €"
-                colorClass="bg-sky-500"
+                count={stats.starterCount}
+                total={planTotal}
+                price={19.99}
+                tone="slate"
               />
 
-              <PlanLine
+              <PlanBar
                 label="Business"
-                value={stats.businessCount}
-                total={
-                  stats.starterCount +
-                  stats.businessCount +
-                  stats.proCount
-                }
-                badge="25 €"
-                colorClass="bg-violet-500"
+                count={stats.businessCount}
+                total={planTotal}
+                price={29.99}
+                tone="blue"
               />
 
-              <PlanLine
+              <PlanBar
                 label="FERSYS Pro"
-                value={stats.proCount}
-                total={
-                  stats.starterCount +
-                  stats.businessCount +
-                  stats.proCount
-                }
-                badge="45 €"
-                colorClass="bg-fuchsia-500"
+                count={stats.proCount}
+                total={planTotal}
+                price={49.99}
+                tone="violet"
               />
             </div>
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
-          <SectionTitle
-            icon={<Sparkles size={22} />}
-            title="Brze akcije"
-            description="Najvažniji dijelovi administracije."
-            accent="violet"
-          />
-
-          <div className="mt-6 space-y-3">
-            <QuickAction
-              to="/admin/companies"
-              icon={<Building2 size={20} />}
-              title="Pregled svih tvrtki"
-              description="Paketi, trial, statusi i korištenje"
-            />
-
-            <QuickAction
-              to="/admin/support"
-              icon={<Headphones size={20} />}
-              title="Korisnička podrška"
-              description={`${stats.openTickets} otvorenih ticketa`}
-            />
-
-            <QuickAction
-              to="/admin/companies"
-              icon={<CircleDollarSign size={20} />}
-              title="Pretplate i naplata"
-              description={`${stats.subscriptionsPastDue} zahtijeva pažnju`}
-            />
-          </div>
-
-          <div className="mt-5 rounded-2xl border border-violet-500/15 bg-violet-500/5 p-4 text-sm leading-6 text-slate-400">
-            <Rocket
-              className="mr-2 inline text-violet-300"
-              size={17}
-            />
-            Nakon Stripe povezivanja ovdje će
-            se prikazivati stvarne transakcije,
-            povrati novca i neuspjele naplate.
-          </div>
-        </article>
-      </div>
-
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
           <SectionTitle
             icon={<AlertTriangle size={22} />}
             title="Zahtijeva pažnju"
-            description="Stavke koje treba uskoro provjeriti."
+            description="Stvari na koje bi admin trebao reagirati."
             accent="amber"
           />
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <AttentionCard
-              label="Neuspjele naplate"
-              value={
-                stats.subscriptionsPastDue
-              }
-              description="Tvrtke sa statusom past due"
-              warning={
-                stats.subscriptionsPastDue >
-                0
-              }
-            />
+          <div className="mt-5 space-y-3">
+            {attentionItems.length === 0 ? (
+              <EmptyState
+                icon={<CheckCircle2 size={22} />}
+                title="Sve izgleda dobro"
+                description="Nema kritičnih pretplata ni triala koji uskoro istječu."
+              />
+            ) : (
+              attentionItems.map((item) => (
+                <AttentionRow
+                  key={item.id}
+                  item={item}
+                />
+              ))
+            )}
+          </div>
 
-            <AttentionCard
-              label="Hitni ticketi"
-              value={stats.urgentTickets}
-              description="Prioritetni zahtjevi korisnika"
-              warning={
-                stats.urgentTickets > 0
-              }
-            />
+          {stats.openTickets > 0 && (
+            <Link
+              to="/admin/support"
+              className="mt-4 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm font-black text-slate-300 transition hover:border-violet-500/30"
+            >
+              <span>
+                Otvori svih {stats.openTickets}{' '}
+                ticketa
+              </span>
+              <ArrowRight size={17} />
+            </Link>
+          )}
+        </article>
+      </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+          <SectionTitle
+            icon={<Crown size={22} />}
+            title="Kandidati za FERSYS Pro"
+            description="Tvrtke koje po korištenju imaju najveći potencijal za upgrade."
+            accent="violet"
+          />
+
+          <div className="mt-5 space-y-3">
+            {upgradeCandidates.length === 0 ? (
+              <EmptyState
+                icon={<Sparkles size={22} />}
+                title="Nema jakih kandidata"
+                description="Kako korištenje raste, ovdje će se pojaviti tvrtke pogodne za upgrade."
+              />
+            ) : (
+              upgradeCandidates.map(
+                ({ company, score, reason }) => (
+                  <Link
+                    key={company.companyId}
+                    to={`/admin/companies/${company.companyId}`}
+                    className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:border-violet-500/30"
+                  >
+                    <CompanyAvatar
+                      company={company}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-black text-white">
+                          {company.companyName}
+                        </p>
+
+                        <PlanBadge
+                          planId={company.planId}
+                        />
+                      </div>
+
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {reason}
+                      </p>
+
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-slate-500">
+                        <span>
+                          {company.workOrdersCount}{' '}
+                          naloga
+                        </span>
+                        <span>
+                          {company.offersCount}{' '}
+                          ponuda
+                        </span>
+                        <span>
+                          {company.usersCount}{' '}
+                          korisnika
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-slate-600">
+                        Score
+                      </p>
+                      <p className="mt-1 text-xl font-black text-violet-300">
+                        {score}
+                      </p>
+                    </div>
+                  </Link>
+                ),
+              )
+            )}
           </div>
         </article>
 
-        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
           <SectionTitle
-            icon={<Users size={22} />}
-            title="Rast platforme"
-            description="Sažetak trenutnog rasta FERSYS-a."
+            icon={<Activity size={22} />}
+            title="Najviše koriste FERSYS"
+            description="Poredak prema trenutnom volumenu podataka i rada."
             accent="green"
           />
 
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/40 p-5">
-            <div className="flex items-center justify-between gap-5">
-              <div>
-                <p className="text-sm font-semibold text-slate-500">
-                  Nove tvrtke ovaj mjesec
-                </p>
-
-                <p className="mt-2 text-4xl font-black">
-                  {loading
-                    ? '—'
-                    : stats.companiesCreatedThisMonth}
-                </p>
-              </div>
-
-              <div className="grid h-14 w-14 place-items-center rounded-2xl bg-green-500/10 text-green-300">
-                <TrendingUp size={25} />
-              </div>
-            </div>
-
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
-              <div
-                className="h-full rounded-full bg-green-500 transition-all duration-700"
-                style={{
-                  width: `${
-                    stats.companiesTotal > 0
-                      ? Math.min(
-                          100,
-                          (
-                            stats.companiesCreatedThisMonth /
-                            stats.companiesTotal
-                          ) * 100,
-                        )
-                      : 0
-                  }%`,
-                }}
+          <div className="mt-5 space-y-3">
+            {topCompanies.length === 0 ? (
+              <EmptyState
+                icon={<Building2 size={22} />}
+                title="Još nema podataka"
+                description="Aktivnost tvrtki prikazat će se nakon korištenja aplikacije."
               />
-            </div>
+            ) : (
+              topCompanies.map(
+                (company, index) => (
+                  <Link
+                    key={company.companyId}
+                    to={`/admin/companies/${company.companyId}`}
+                    className="flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:border-emerald-500/25"
+                  >
+                    <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-emerald-500/10 text-sm font-black text-emerald-300">
+                      {index + 1}
+                    </div>
 
-            <p className="mt-3 text-xs leading-5 text-slate-500">
-              Udio novih registracija u odnosu
-              na ukupan broj tvrtki.
-            </p>
+                    <CompanyAvatar
+                      company={company}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-white">
+                        {company.companyName}
+                      </p>
+
+                      <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                        <span>
+                          {company.workOrdersCount}{' '}
+                          RN
+                        </span>
+                        <span>
+                          {company.offersCount}{' '}
+                          ponuda
+                        </span>
+                        <span>
+                          {company.customersCount}{' '}
+                          investitora
+                        </span>
+                      </div>
+                    </div>
+
+                    <PlanBadge
+                      planId={company.planId}
+                    />
+                  </Link>
+                ),
+              )
+            )}
           </div>
         </article>
       </div>
+
+      <div className="mt-6 grid gap-6 xl:grid-cols-[1.05fr_.95fr]">
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+          <SectionTitle
+            icon={<BarChart3 size={22} />}
+            title="Korištenje platforme"
+            description="Ukupan volumen podataka koje firme vode kroz FERSYS."
+            accent="cyan"
+          />
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <UsageCard
+              label="Investitori"
+              value={totalCustomers}
+              icon={<Users size={19} />}
+            />
+
+            <UsageCard
+              label="Radni nalozi"
+              value={totalWorkOrders}
+              icon={<Zap size={19} />}
+            />
+
+            <UsageCard
+              label="Ponude"
+              value={totalOffers}
+              icon={<Rocket size={19} />}
+            />
+
+            <UsageCard
+              label="Korisnici"
+              value={totalUsers}
+              icon={<UserRoundCheck size={19} />}
+            />
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 sm:p-6">
+          <SectionTitle
+            icon={<Rocket size={22} />}
+            title="Nove tvrtke"
+            description="Najnovije registrirane tvrtke na platformi."
+            accent="violet"
+          />
+
+          <div className="mt-5 divide-y divide-slate-800">
+            {newestCompanies.map((company) => (
+              <Link
+                key={company.companyId}
+                to={`/admin/companies/${company.companyId}`}
+                className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
+              >
+                <CompanyAvatar
+                  company={company}
+                />
+
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-white">
+                    {company.companyName}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-slate-600">
+                    {company.ownerEmail ||
+                      'Nema emaila vlasnika'}
+                  </p>
+                </div>
+
+                <div className="text-right">
+                  <PlanBadge
+                    planId={company.planId}
+                  />
+                  <p className="mt-1 text-[10px] text-slate-600">
+                    {formatDate(company.createdAt)}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </article>
+      </div>
+
+      <section className="mt-6 rounded-3xl border border-violet-500/15 bg-gradient-to-r from-violet-950/35 via-slate-900 to-blue-950/30 p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-violet-300">
+              <Sparkles size={20} />
+              <span className="text-xs font-black uppercase tracking-[0.18em]">
+                Admin intelligence
+              </span>
+            </div>
+
+            <h2 className="mt-2 text-xl font-black text-white">
+              Fokus: pretvori aktivne Business
+              korisnike u FERSYS Pro
+            </h2>
+
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400">
+              Dashboard izdvaja firme koje imaju
+              veći broj radnih naloga, ponuda,
+              investitora i korisnika. To su
+              najbolji kandidati za paket bez
+              ograničenja.
+            </p>
+          </div>
+
+          <Link
+            to="/admin/companies"
+            className="inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white transition hover:bg-violet-500"
+          >
+            Pregledaj tvrtke
+            <ArrowRight size={17} />
+          </Link>
+        </div>
+      </section>
     </section>
+  )
+}
+
+function CircleMetric() {
+  return (
+    <div className="grid h-5 w-5 place-items-center rounded-full border-2 border-current">
+      <div className="h-1.5 w-1.5 rounded-full bg-current" />
+    </div>
   )
 }
 
@@ -479,7 +950,7 @@ function Stat({
   accent,
 }: {
   title: string
-  value: string | number
+  value: ReactNode
   note: string
   icon: ReactNode
   loading: boolean
@@ -488,40 +959,42 @@ function Stat({
     | 'green'
     | 'violet'
     | 'amber'
+    | 'cyan'
 }) {
-  const accentClasses = {
-    blue: 'bg-blue-500/10 text-blue-300',
+  const styles = {
+    blue: 'border-blue-500/15 bg-blue-500/10 text-blue-300',
     green:
-      'bg-green-500/10 text-green-300',
+      'border-emerald-500/15 bg-emerald-500/10 text-emerald-300',
     violet:
-      'bg-violet-500/10 text-violet-300',
+      'border-violet-500/15 bg-violet-500/10 text-violet-300',
     amber:
-      'bg-amber-500/10 text-amber-300',
-  }
+      'border-amber-500/15 bg-amber-500/10 text-amber-300',
+    cyan: 'border-cyan-500/15 bg-cyan-500/10 text-cyan-300',
+  }[accent]
 
   return (
-    <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5 transition hover:-translate-y-1 hover:border-slate-700">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm font-semibold text-slate-500">
-            {title}
-          </p>
-
-          <p className="mt-3 text-3xl font-black">
-            {loading ? '—' : value}
-          </p>
-
-          <p className="mt-2 text-xs text-slate-500">
-            {note}
-          </p>
-        </div>
-
-        <div
-          className={`grid h-11 w-11 place-items-center rounded-2xl ${accentClasses[accent]}`}
-        >
-          {icon}
-        </div>
+    <article className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
+      <div className={`grid h-11 w-11 place-items-center rounded-2xl border ${styles}`}>
+        {icon}
       </div>
+
+      <p className="mt-5 text-xs font-black uppercase tracking-[0.12em] text-slate-500">
+        {title}
+      </p>
+
+      <div className="mt-2 min-h-10">
+        {loading ? (
+          <div className="h-8 w-24 animate-pulse rounded-lg bg-slate-800" />
+        ) : (
+          <p className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+            {value}
+          </p>
+        )}
+      </div>
+
+      <p className="mt-2 text-xs text-slate-600">
+        {note}
+      </p>
     </article>
   )
 }
@@ -537,34 +1010,33 @@ function SectionTitle({
   description: string
   accent:
     | 'blue'
+    | 'green'
     | 'violet'
     | 'amber'
-    | 'green'
+    | 'cyan'
 }) {
-  const accentClasses = {
+  const tone = {
     blue: 'bg-blue-500/10 text-blue-300',
+    green:
+      'bg-emerald-500/10 text-emerald-300',
     violet:
       'bg-violet-500/10 text-violet-300',
     amber:
       'bg-amber-500/10 text-amber-300',
-    green:
-      'bg-green-500/10 text-green-300',
-  }
+    cyan: 'bg-cyan-500/10 text-cyan-300',
+  }[accent]
 
   return (
-    <div className="flex items-center gap-3">
-      <div
-        className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${accentClasses[accent]}`}
-      >
+    <div className="flex items-start gap-3">
+      <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-2xl ${tone}`}>
         {icon}
       </div>
 
       <div>
-        <h2 className="text-xl font-black">
+        <h2 className="text-lg font-black text-white">
           {title}
         </h2>
-
-        <p className="text-sm text-slate-500">
+        <p className="mt-1 text-xs leading-5 text-slate-500">
           {description}
         </p>
       </div>
@@ -579,75 +1051,80 @@ function MetricCard({
   icon,
 }: {
   label: string
-  value: string | number
+  value: ReactNode
   description: string
   icon: ReactNode
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs font-black uppercase tracking-[0.12em] text-slate-500">
-          {label}
-        </p>
-
-        <span className="text-violet-300">
-          {icon}
-        </span>
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4">
+      <div className="text-slate-500">
+        {icon}
       </div>
 
-      <p className="mt-4 text-3xl font-black">
+      <p className="mt-4 text-xs font-black uppercase tracking-wider text-slate-600">
+        {label}
+      </p>
+
+      <p className="mt-1 text-2xl font-black text-white">
         {value}
       </p>
 
-      <p className="mt-2 text-xs leading-5 text-slate-500">
+      <p className="mt-1 text-[11px] text-slate-600">
         {description}
       </p>
     </div>
   )
 }
 
-function PlanLine({
+function PlanBar({
   label,
-  value,
+  count,
   total,
-  badge,
-  colorClass,
+  price,
+  tone,
 }: {
   label: string
-  value: number
+  count: number
   total: number
-  badge: string
-  colorClass: string
+  price: number
+  tone: 'slate' | 'blue' | 'violet'
 }) {
   const percentage =
     total > 0
-      ? Math.min(
-          100,
-          (value / total) * 100,
-        )
+      ? Math.round((count / total) * 100)
       : 0
+
+  const barTone = {
+    slate: 'bg-slate-500',
+    blue: 'bg-blue-500',
+    violet: 'bg-violet-500',
+  }[tone]
 
   return (
     <div>
       <div className="flex items-center justify-between gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="font-bold">
+        <div>
+          <span className="font-black text-white">
             {label}
           </span>
-
-          <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-black text-slate-400">
-            {badge}
+          <span className="ml-2 text-xs text-slate-600">
+            {formatCurrency(price)}/mj.
           </span>
         </div>
 
-        <span className="font-black text-slate-300">
-          {value}
-        </span>
+        <div className="text-right">
+          <strong className="text-white">
+            {count}
+          </strong>
+          <span className="ml-2 text-xs text-slate-600">
+            {percentage}%
+          </span>
+        </div>
       </div>
 
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-800">
         <div
-          className={`h-full rounded-full transition-all duration-700 ${colorClass}`}
+          className={`h-full rounded-full ${barTone}`}
           style={{
             width: `${percentage}%`,
           }}
@@ -657,98 +1134,159 @@ function PlanLine({
   )
 }
 
-function QuickAction({
-  to,
-  icon,
-  title,
-  description,
+function AttentionRow({
+  item,
 }: {
-  to: string
-  icon: ReactNode
-  title: string
-  description: string
+  item: AttentionItem
 }) {
-  return (
-    <Link
-      to={to}
-      className="group flex items-center gap-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4 transition hover:border-violet-500/30 hover:bg-violet-500/5"
-    >
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/10 text-violet-300">
-        {icon}
+  const style = {
+    danger:
+      'border-red-500/15 bg-red-500/[0.07] text-red-300',
+    warning:
+      'border-amber-500/15 bg-amber-500/[0.07] text-amber-300',
+    info: 'border-blue-500/15 bg-blue-500/[0.07] text-blue-300',
+  }[item.severity]
+
+  const content = (
+    <>
+      <div className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl border ${style}`}>
+        <AlertTriangle size={17} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="font-black">
-          {title}
+        <p className="truncate text-sm font-black text-white">
+          {item.title}
         </p>
 
-        <p className="mt-1 truncate text-xs text-slate-500">
-          {description}
+        <p className="mt-0.5 truncate text-xs font-bold text-slate-400">
+          {item.companyName}
+        </p>
+
+        <p className="mt-1 text-xs leading-5 text-slate-600">
+          {item.description}
         </p>
       </div>
 
       <ArrowRight
-        size={18}
-        className="text-slate-600 transition group-hover:translate-x-1 group-hover:text-violet-300"
+        size={16}
+        className="shrink-0 text-slate-700"
       />
+    </>
+  )
+
+  if (!item.companyId) {
+    return (
+      <Link
+        to="/admin/support"
+        className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:border-slate-700"
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      to={`/admin/companies/${item.companyId}`}
+      className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:border-slate-700"
+    >
+      {content}
     </Link>
   )
 }
 
-function AttentionCard({
+function CompanyAvatar({
+  company,
+}: {
+  company: AdminCompany
+}) {
+  return (
+    <div className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-800 bg-slate-800">
+      {company.companyLogoUrl ? (
+        <img
+          src={company.companyLogoUrl}
+          alt=""
+          className="h-full w-full object-contain bg-white p-1"
+        />
+      ) : (
+        <Building2
+          size={19}
+          className="text-slate-500"
+        />
+      )}
+    </div>
+  )
+}
+
+function PlanBadge({
+  planId,
+}: {
+  planId: AdminCompany['planId']
+}) {
+  const tone =
+    planId === 'pro'
+      ? 'border-violet-500/20 bg-violet-500/10 text-violet-300'
+      : planId === 'business'
+        ? 'border-blue-500/20 bg-blue-500/10 text-blue-300'
+        : 'border-slate-700 bg-slate-800 text-slate-400'
+
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-1 text-[9px] font-black uppercase tracking-wider ${tone}`}>
+      {planLabel(planId)}
+    </span>
+  )
+}
+
+function UsageCard({
   label,
   value,
-  description,
-  warning,
+  icon,
 }: {
   label: string
   value: number
-  description: string
-  warning: boolean
+  icon: ReactNode
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        warning
-          ? 'border-amber-500/20 bg-amber-500/5'
-          : 'border-slate-800 bg-slate-950/40'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-sm text-slate-500">
-          {label}
-        </p>
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-cyan-300">
+          {icon}
+        </span>
 
-        {warning ? (
-          <AlertTriangle
-            size={18}
-            className="text-amber-300"
-          />
-        ) : (
-          <CheckCircle2
-            size={18}
-            className="text-green-300"
-          />
-        )}
+        <span className="text-2xl font-black text-white">
+          {value}
+        </span>
       </div>
 
-      <p className="mt-2 text-3xl font-black">
-        {value}
-      </p>
-
-      <p className="mt-2 text-xs leading-5 text-slate-500">
-        {description}
+      <p className="mt-3 text-xs font-black uppercase tracking-wider text-slate-600">
+        {label}
       </p>
     </div>
   )
 }
 
-function formatCurrency(
-  value: number,
-): string {
-  return new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(value)
+function EmptyState({
+  icon,
+  title,
+  description,
+}: {
+  icon: ReactNode
+  title: string
+  description: string
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-950/30 p-6 text-center">
+      <div className="mx-auto grid h-11 w-11 place-items-center rounded-2xl bg-slate-800 text-slate-500">
+        {icon}
+      </div>
+
+      <p className="mt-3 text-sm font-black text-slate-300">
+        {title}
+      </p>
+
+      <p className="mt-1 text-xs leading-5 text-slate-600">
+        {description}
+      </p>
+    </div>
+  )
 }
