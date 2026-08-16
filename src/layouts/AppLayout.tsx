@@ -730,14 +730,14 @@ export default function AppLayout() {
                           '/account',
                         )
                       }}
-                      className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-semibold text-slate-300 transition hover:bg-violet-500/10 hover:text-violet-300"
+                      className="my-1 flex min-h-12 w-full items-center gap-3 rounded-2xl border border-violet-500/20 bg-gradient-to-r from-violet-500/10 to-blue-500/10 px-3 text-left text-sm font-black text-white transition hover:border-violet-400/40 hover:from-violet-500/15 hover:to-blue-500/15"
                     >
                       <Gift
                         size={18}
                         className="text-violet-400"
                       />
 
-                      Moj FERSYS
+                      FERSYS Rewards
                     </button>
                   )}
 
