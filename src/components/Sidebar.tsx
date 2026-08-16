@@ -11,6 +11,7 @@ import {
   LockKeyhole,
   Package,
   ReceiptText,
+  Truck,
   Settings,
   ShieldCheck,
   Users,
@@ -145,6 +146,15 @@ const navigationItems: Array<{
     name: 'Skladište',
     path: '/inventory',
     icon: Package,
+    permission:
+      'inventory.view',
+    feature: 'inventory',
+  },
+
+  {
+    name: 'Otpremnice',
+    path: '/inventory/delivery-notes',
+    icon: Truck,
     permission:
       'inventory.view',
     feature: 'inventory',

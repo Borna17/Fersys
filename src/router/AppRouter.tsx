@@ -219,6 +219,16 @@ const InventoryQrScannerPage = lazy(
     ),
 )
 
+const DeliveryNotesPage = lazy(
+  () =>
+    import('../pages/DeliveryNotesPage').then(
+      (module) => ({
+        default:
+          module.DeliveryNotesPage,
+      }),
+    ),
+)
+
 const InvoicesPage = lazy(
   () =>
     import('../pages/InvoicesPage').then(
@@ -1069,6 +1079,18 @@ function RouterContent() {
                 feature="inventory"
               >
                 <InventoryPage />
+              </Guard>
+            }
+          />
+
+          <Route
+            path="/inventory/delivery-notes"
+            element={
+              <Guard
+                permission="inventory.view"
+                feature="inventory"
+              >
+                <DeliveryNotesPage />
               </Guard>
             }
           />
