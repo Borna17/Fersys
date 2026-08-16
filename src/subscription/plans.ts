@@ -150,18 +150,19 @@ export const plans: Record<
     id: 'starter',
     name: 'Starter',
 
-    price: 15,
-    monthlyPrice: 15,
-    yearlyPrice: 150,
+    // Usklađeno s fersys.app landing stranicom.
+    price: 19.99,
+    monthlyPrice: 19.99,
+    yearlyPrice: 199.9,
 
     description:
-      'Za obrtnike i samostalne korisnike koji trebaju osnovne poslovne alate uz jasne mjesečne limite.',
+      'Vodim mali obrt i želim digitalizirati osnovne stvari.',
 
     recommended: false,
 
     limits: {
       users: 1,
-      customers: 10,
+      customers: 15,
       work_orders_monthly: 30,
       offers_monthly: 30,
     },
@@ -172,7 +173,7 @@ export const plans: Record<
 
     highlights: [
       '1 korisnik',
-      'Do 10 investitora',
+      'Do 15 investitora',
       '30 radnih naloga mjesečno',
       '30 ponuda mjesečno',
       'Kalendar',
@@ -185,12 +186,13 @@ export const plans: Record<
     id: 'business',
     name: 'Business',
 
-    price: 30,
-    monthlyPrice: 30,
-    yearlyPrice: 300,
+    // Usklađeno s fersys.app landing stranicom.
+    price: 29.99,
+    monthlyPrice: 29.99,
+    yearlyPrice: 299.9,
 
     description:
-      'Za male i srednje tvrtke kojima trebaju tim, računi, skladište, AI i veći mjesečni kapacitet.',
+      'Imam malu firmu i nekoliko zaposlenika.',
 
     recommended: false,
 
@@ -212,9 +214,9 @@ export const plans: Record<
       '60 ponuda mjesečno',
       'Računi i ulazni računi',
       'Skladište i vozni park',
-      'Zaposlenici i prava pristupa',
+      'Zaposlenici i ovlasti',
       'AI pomoćnik',
-      'Napredni PDF dokumenti',
+      'Napredni PDF i branding',
     ],
   },
 
@@ -222,12 +224,13 @@ export const plans: Record<
     id: 'pro',
     name: 'FERSYS Pro',
 
-    price: 50,
-    monthlyPrice: 50,
-    yearlyPrice: 500,
+    // Usklađeno s fersys.app landing stranicom.
+    price: 49.99,
+    monthlyPrice: 49.99,
+    yearlyPrice: 499.9,
 
     description:
-      'Za tvrtke koje žele puni FERSYS bez mjesečnih ograničenja i bez razmišljanja o limitima.',
+      'FERSYS mi je glavni poslovni sustav i ne želim razmišljati o ograničenjima.',
 
     recommended: true,
 
@@ -247,10 +250,10 @@ export const plans: Record<
       'Neograničeno investitora',
       'Neograničeni radni nalozi',
       'Neograničene ponude',
+      'Sve FERSYS funkcije bez limita',
       'Skladište i vozni park',
-      'Sve FERSYS funkcije',
-      'Napredna analiza i AI',
-      'Automatizacije i Excel',
+      'Napredne financije i AI',
+      'Automatizacije i Excel izvoz',
       'Više lokacija',
       'Prioritetna podrška',
     ],
