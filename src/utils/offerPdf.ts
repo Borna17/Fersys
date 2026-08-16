@@ -412,44 +412,35 @@ function estimatedRowUnits(
   const descriptionUnits =
     item.description.trim()
       ? Math.min(
-          1.05,
+          1.1,
           item.description.length /
-            145,
+            135,
         )
       : 0
-
-  const nameUnits =
-    Math.min(
-      0.35,
-      Math.max(
-        0,
-        item.name.length - 55,
-      ) / 140,
-    )
 
   const imageUnits =
     settings.showItemImages &&
     item.imageDataUrl
-      ? 1.55
+      ? 1.75
       : 0
 
   return (
     1 +
     descriptionUnits +
-    nameUnits +
     imageUnits
   )
 }
 
 /**
- * Pametnija raspodjela stranica:
+ * Pravilo stranica za FERSYS ponude:
  *
- * - ne radi posebnu 3. stranicu samo za 1-2 stavke + završni blok
- * - kod ponude poput P-2026-001 cilj je 2 stranice:
- *   prva = početni dio + stavke
- *   druga = nastavak stavki + napomene + iznosi + potpisi + plaćanje
- * - ako ponuda stvarno ne može stati, tek tada dodaje iduću stranicu
- * - slike uz stavke automatski smanjuju kapacitet
+ * - maksimalno 10 stavki po stranici
+ * - prva stranica se puni do 10 stavki prije nego se radi nastavak
+ * - završni blok (napomene, ukupno, potpisi, plaćanje i HUB3)
+ *   pokušava ostati na zadnjoj stranici zajedno s preostalim stavkama
+ * - ako zadnja stranica ima previše sadržaja za završni blok,
+ *   završni blok ide na novu čistu stranicu
+ * - slike i vrlo dugi opisi dodatno smanjuju siguran broj stavki
  */
 function paginateItems(
   items: OfferPdfItem[],
@@ -464,6 +455,8 @@ function paginateItems(
       },
     ]
   }
+
+  const MAX_ITEMS_PER_PAGE = 10
 
   const hasImages =
     settings.showItemImages &&
@@ -485,234 +478,70 @@ function paginateItems(
     )
 
   /*
-   * Prva stranica ima logo, podatke klijenta i podatke ponude,
-   * pa je njezin kapacitet manji.
-   *
-   * Nastavak ima vrlo malo zaglavlje, zato na njemu možemo
-   * imati više stavki i još uvijek ostaviti završni blok.
+   * Završni blok zauzima dosta visine.
+   * Bez slika na continuation stranici sigurno ga držimo
+   * uz otprilike 6 normalnih stavki. U compact modu može malo više.
    */
-  const firstFinalCapacity =
+  const finalUnitsCapacity =
     hasImages
-      ? 5.0
+      ? 5.4
       : settings.density ===
           'compact'
-        ? 9.4
-        : 8.9
+        ? 8.2
+        : 7.2
 
-  const firstRegularCapacity =
-    hasImages
-      ? 9.0
-      : settings.density ===
-          'compact'
-        ? 14.2
-        : 13.2
+  const pages: OfferPage[] = []
 
-  /*
-   * KLJUČNA IZMJENA:
-   * Stara vrijednost za završnu continuation stranicu bila je
-   * previše konzervativna, pa je 12 stavki završavalo na 3 stranice.
-   *
-   * Na stvarnom PDF-u se vidi da nastavak ima dovoljno slobodnog
-   * prostora da na istoj stranici drži približno 5-7 normalnih
-   * tekstualnih stavki + završni blok.
-   */
-  const continuationFinalCapacity =
-    hasImages
-      ? 7.2
-      : settings.density ===
-          'compact'
-        ? 14.8
-        : 13.8
-
-  const continuationRegularCapacity =
-    hasImages
-      ? 11.4
-      : settings.density ===
-          'compact'
-        ? 18.0
-        : 16.8
-
-  const minimumFinalUnits =
-    hasImages
-      ? 2.0
-      : 3.2
-
-  const totalUnits =
-    unitsOf(items)
-
-  if (
-    totalUnits <=
-    firstFinalCapacity
+  for (
+    let index = 0;
+    index < items.length;
+    index += MAX_ITEMS_PER_PAGE
   ) {
-    return [
-      {
-        items,
-        first: true,
-        final: true,
-      },
-    ]
-  }
-
-  const pages: OfferPage[] =
-    []
-
-  let cursor = 0
-  let first = true
-
-  while (
-    cursor < items.length
-  ) {
-    const remaining =
-      items.slice(cursor)
-
-    const remainingUnits =
-      unitsOf(remaining)
-
-    const finalCapacity =
-      first
-        ? firstFinalCapacity
-        : continuationFinalCapacity
-
-    /*
-     * Ako sve preostale stavke + završni blok realno stanu,
-     * odmah završavamo na toj stranici.
-     *
-     * Ovo je upravo ono što uklanja nepotrebnu 3. stranicu.
-     */
-    if (
-      remainingUnits <=
-      finalCapacity
-    ) {
-      pages.push({
-        items: remaining,
-        first,
-        final: true,
-      })
-
-      cursor =
-        items.length
-      break
-    }
-
-    const regularCapacity =
-      first
-        ? firstRegularCapacity
-        : continuationRegularCapacity
-
-    /*
-     * Ako smo samo malo iznad završnog kapaciteta,
-     * ne ostavljamo umjetno samo 1-2 stavke za zasebnu stranicu.
-     * Umjesto toga prvu/continuation stranicu punimo razumno,
-     * a ostatak ostavljamo za zadnju.
-     */
-    const desiredRemainingForFinal =
-      continuationFinalCapacity *
-      0.82
-
-    const targetUnits =
-      first
-        ? Math.min(
-            regularCapacity,
-            Math.max(
-              1,
-              remainingUnits -
-                desiredRemainingForFinal,
-            ),
-          )
-        : Math.min(
-            regularCapacity,
-            Math.max(
-              1,
-              remainingUnits -
-                minimumFinalUnits,
-            ),
-          )
-
-    const pageItems:
-      OfferPdfItem[] = []
-
-    let pageUnits = 0
-
-    while (
-      cursor < items.length
-    ) {
-      const item =
-        items[cursor]
-
-      const itemUnits =
-        estimatedRowUnits(
-          item,
-          settings,
-        )
-
-      if (
-        pageItems.length > 0 &&
-        pageUnits +
-          itemUnits >
-          targetUnits
-      ) {
-        break
-      }
-
-      pageItems.push(item)
-      pageUnits +=
-        itemUnits
-      cursor += 1
-    }
-
-    if (!pageItems.length) {
-      pageItems.push(
-        items[cursor],
-      )
-      cursor += 1
-    }
-
     pages.push({
-      items: pageItems,
-      first,
+      items: items.slice(
+        index,
+        index +
+          MAX_ITEMS_PER_PAGE,
+      ),
+      first:
+        index === 0,
       final: false,
     })
-
-    first = false
   }
 
+  const lastPage =
+    pages[
+      pages.length - 1
+    ]
+
+  const lastPageUnits =
+    unitsOf(
+      lastPage.items,
+    )
+
   /*
-   * Dodatna zaštita:
-   * ako algoritam ipak napravi pretposljednju + zadnju stranicu
-   * gdje bi se njihove stavke zajedno mogle smjestiti na jednu
-   * završnu continuation stranicu, spajamo ih.
+   * Ako na zadnjoj stranici ima dovoljno mjesta,
+   * završni blok ostaje odmah ispod zadnjih stavki.
+   * Primjer: 12 stavki => 10 na prvoj, 2 + završni blok na drugoj.
    */
   if (
-    pages.length >= 3
+    lastPage.items.length <
+      MAX_ITEMS_PER_PAGE &&
+    lastPageUnits <=
+      finalUnitsCapacity
   ) {
-    const previous =
-      pages[
-        pages.length - 2
-      ]
-
-    const last =
-      pages[
-        pages.length - 1
-      ]
-
-    if (
-      !previous.first &&
-      unitsOf([
-        ...previous.items,
-        ...last.items,
-      ]) <=
-        continuationFinalCapacity
-    ) {
-      previous.items = [
-        ...previous.items,
-        ...last.items,
-      ]
-
-      previous.final =
-        true
-
-      pages.pop()
-    }
+    lastPage.final = true
+  } else {
+    /*
+     * Ako je zadnja stranica puna ili su stavke previsoke,
+     * ne stišćemo sadržaj. Dodajemo posebnu završnu stranicu
+     * samo za napomene, iznose, potpise i plaćanje.
+     */
+    pages.push({
+      items: [],
+      first: false,
+      final: true,
+    })
   }
 
   pages.forEach(
@@ -728,7 +557,6 @@ function paginateItems(
 
   return pages
 }
-
 
 function companyHtml(
   settings: OfferPdfSettings,
