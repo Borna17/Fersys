@@ -24,6 +24,7 @@ import AdminLayout from '../admin/AdminLayout'
 import FersysLoader from '../components/FersysLoader'
 import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
+import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNoteContextShortcut'
 import AppLayout from '../layouts/AppLayout'
 
 import {
@@ -225,6 +226,36 @@ const DeliveryNotesPage = lazy(
       (module) => ({
         default:
           module.DeliveryNotesPage,
+      }),
+    ),
+)
+
+const NewDeliveryNotePage = lazy(
+  () =>
+    import('../pages/NewDeliveryNotePage').then(
+      (module) => ({
+        default:
+          module.NewDeliveryNotePage,
+      }),
+    ),
+)
+
+const DeliveryNoteDetailsPage = lazy(
+  () =>
+    import('../pages/DeliveryNoteDetailsPage').then(
+      (module) => ({
+        default:
+          module.DeliveryNoteDetailsPage,
+      }),
+    ),
+)
+
+const DeliveryNoteSettingsPage = lazy(
+  () =>
+    import('../pages/DeliveryNoteSettingsPage').then(
+      (module) => ({
+        default:
+          module.DeliveryNoteSettingsPage,
       }),
     ),
 )
@@ -1096,6 +1127,42 @@ function RouterContent() {
           />
 
           <Route
+            path="/inventory/delivery-notes/new"
+            element={
+              <Guard
+                permission="inventory.manage"
+                feature="inventory"
+              >
+                <NewDeliveryNotePage />
+              </Guard>
+            }
+          />
+
+          <Route
+            path="/inventory/delivery-notes/:id"
+            element={
+              <Guard
+                permission="inventory.view"
+                feature="inventory"
+              >
+                <DeliveryNoteDetailsPage />
+              </Guard>
+            }
+          />
+
+          <Route
+            path="/settings/delivery-notes"
+            element={
+              <Guard
+                permission="settings.manage"
+                feature="inventory"
+              >
+                <DeliveryNoteSettingsPage />
+              </Guard>
+            }
+          />
+
+          <Route
             path="/inventory/items/new"
             element={
               <Guard
@@ -1311,6 +1378,7 @@ export function AppRouter() {
     <AuthProvider>
       <SubscriptionProvider>
         <ReferralClaimBridge />
+        <DeliveryNoteContextShortcut />
         <RouterContent />
       </SubscriptionProvider>
     </AuthProvider>
