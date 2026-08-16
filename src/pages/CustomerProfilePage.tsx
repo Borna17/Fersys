@@ -14,11 +14,13 @@ import {
   Building,
   Building2,
   CalendarDays,
+  ChevronRight,
   ClipboardList,
   Edit3,
   FileText,
   Image,
   ImagePlus,
+  Loader2,
   Mail,
   MapPin,
   NotebookPen,
@@ -39,11 +41,132 @@ import {
   getCustomerById,
   updateCustomer,
 } from '../services/customers.service'
+import { getInvoices } from '../services/invoices.service'
+import { getOffers } from '../services/offers.service'
+import {
+  getWorkOrders,
+  type CloudWorkOrder,
+} from '../services/workOrders.service'
+import type { Offer } from '../types/offers'
 import type {
   Customer,
   CustomerStatus,
   CustomerType,
 } from '../types/customer'
+
+type CustomerInvoice = {
+  id: string
+  invoiceNumber: string
+  issueDate: string
+  dueDate?: string
+  status: string
+  customerId?: string
+  customerName?: string
+  oib?: string
+  paidAmount?: number
+  items?: Array<{
+    quantity?: number
+    price?: number
+    discount?: number
+    vat?: number
+  }>
+}
+
+function normalizeName(value: string | undefined) {
+  return (value ?? '')
+    .trim()
+    .toLocaleLowerCase('hr-HR')
+    .replace(/\s+/g, ' ')
+}
+
+function normalizeOib(value: string | undefined) {
+  return (value ?? '').replace(/\D/g, '')
+}
+
+function belongsToCustomer(
+  customer: Customer,
+  record: {
+    customerId?: string
+    customerName?: string
+    oib?: string
+  },
+) {
+  if (
+    record.customerId &&
+    record.customerId === customer.id
+  ) {
+    return true
+  }
+
+  const customerOib = normalizeOib(customer.oib)
+  const recordOib = normalizeOib(record.oib)
+
+  if (
+    customerOib.length === 11 &&
+    recordOib === customerOib
+  ) {
+    return true
+  }
+
+  return (
+    normalizeName(record.customerName) !== '' &&
+    normalizeName(record.customerName) ===
+      normalizeName(customer.name)
+  )
+}
+
+function calculateOfferTotal(offer: Offer) {
+  return offer.items.reduce((sum, item) => {
+    const base =
+      (Number(item.quantity) || 0) *
+      (Number(item.price) || 0)
+    const discount =
+      base * ((Number(item.discount) || 0) / 100)
+    const net = base - discount
+    const vat =
+      net * ((Number(item.vat) || 0) / 100)
+
+    return sum + net + vat
+  }, 0)
+}
+
+function calculateInvoiceTotal(invoice: CustomerInvoice) {
+  return (invoice.items ?? []).reduce((sum, item) => {
+    const base =
+      (Number(item.quantity) || 0) *
+      (Number(item.price) || 0)
+    const discount =
+      base * ((Number(item.discount) || 0) / 100)
+    const net = base - discount
+    const vat =
+      net * ((Number(item.vat) || 0) / 100)
+
+    return sum + net + vat
+  }, 0)
+}
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('hr-HR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value)
+}
+
+function formatDocumentDate(value: string | undefined) {
+  if (!value) return '—'
+
+  const date = new Date(`${value}T12:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return value
+  }
+
+  return new Intl.DateTimeFormat('hr-HR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(date)
+}
 
 type CustomerTab =
   | 'overview'
@@ -175,6 +298,16 @@ export function CustomerProfilePage() {
     useState(false)
   const [isDeleting, setIsDeleting] =
     useState(false)
+  const [relationsLoading, setRelationsLoading] =
+    useState(false)
+  const [relationsError, setRelationsError] =
+    useState('')
+  const [linkedWorkOrders, setLinkedWorkOrders] =
+    useState<CloudWorkOrder[]>([])
+  const [linkedOffers, setLinkedOffers] =
+    useState<Offer[]>([])
+  const [linkedInvoices, setLinkedInvoices] =
+    useState<CustomerInvoice[]>([])
 
   const [activeTab, setActiveTab] =
     useState<CustomerTab>('overview')
@@ -246,6 +379,81 @@ export function CustomerProfilePage() {
       cancelled = true
     }
   }, [id])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRelations() {
+      if (!customer) {
+        setLinkedWorkOrders([])
+        setLinkedOffers([])
+        setLinkedInvoices([])
+        return
+      }
+
+      try {
+        setRelationsLoading(true)
+        setRelationsError('')
+
+        const [workOrders, offers, invoices] =
+          await Promise.all([
+            getWorkOrders(),
+            getOffers(),
+            getInvoices<CustomerInvoice>(),
+          ])
+
+        if (cancelled) return
+
+        setLinkedWorkOrders(
+          workOrders.filter((order) =>
+            belongsToCustomer(customer, {
+              customerId: order.customerId,
+              customerName: order.customerName,
+              oib: order.customerOib,
+            }),
+          ),
+        )
+
+        setLinkedOffers(
+          offers.filter((offer) =>
+            belongsToCustomer(customer, {
+              customerId: offer.customerId,
+              customerName: offer.customerName,
+              oib: offer.oib,
+            }),
+          ),
+        )
+
+        setLinkedInvoices(
+          invoices.filter((invoice) =>
+            belongsToCustomer(customer, {
+              customerId: invoice.customerId,
+              customerName: invoice.customerName,
+              oib: invoice.oib,
+            }),
+          ),
+        )
+      } catch (error) {
+        if (!cancelled) {
+          setRelationsError(
+            error instanceof Error
+              ? error.message
+              : 'Povezane dokumente nije moguće učitati.',
+          )
+        }
+      } finally {
+        if (!cancelled) {
+          setRelationsLoading(false)
+        }
+      }
+    }
+
+    void loadRelations()
+
+    return () => {
+      cancelled = true
+    }
+  }, [customer])
 
   useEffect(() => {
     document.body.style.overflow =
@@ -523,10 +731,38 @@ export function CustomerProfilePage() {
     .join(', ')
 
   const documentsCount = 0
+  const displayedWorkOrders =
+    relationsLoading
+      ? customer.workOrders
+      : linkedWorkOrders.length
   const activeServices =
-    customer.workOrders > 0
+    displayedWorkOrders > 0
       ? 1
       : 0
+  const linkedDocumentValue =
+    linkedWorkOrders.reduce(
+      (sum, order) =>
+        sum + (Number(order.totalPrice) || 0),
+      0,
+    )
+  const openInvoiceValue =
+    linkedInvoices
+      .filter(
+        (invoice) =>
+          !['Plaćeno', 'Stornirano'].includes(
+            invoice.status,
+          ),
+      )
+      .reduce(
+        (sum, invoice) =>
+          sum +
+          Math.max(
+            0,
+            calculateInvoiceTotal(invoice) -
+              (Number(invoice.paidAmount) || 0),
+          ),
+        0,
+      )
 
   return (
     <>
@@ -620,7 +856,7 @@ export function CustomerProfilePage() {
               <SummaryMetric
                 label="Nalozi"
                 value={String(
-                  customer.workOrders,
+                  displayedWorkOrders,
                 )}
               />
               <SummaryMetric
@@ -689,7 +925,7 @@ export function CustomerProfilePage() {
             label="Novi nalog"
             onClick={() =>
               navigate(
-                '/work-orders/new',
+                `/work-orders/new?customerId=${customer.id}`,
               )
             }
           />
@@ -697,14 +933,18 @@ export function CustomerProfilePage() {
             icon={<FileText size={20} />}
             label="Nova ponuda"
             onClick={() =>
-              navigate('/offers/new')
+              navigate(
+                `/offers/new?customerId=${customer.id}`,
+              )
             }
           />
           <QuickAction
             icon={<ReceiptText size={20} />}
             label="Novi račun"
             onClick={() =>
-              navigate('/invoices/new')
+              navigate(
+                `/invoices/new?customerId=${customer.id}`,
+              )
             }
           />
           <QuickAction
@@ -891,14 +1131,16 @@ export function CustomerProfilePage() {
 
                 <div className="mt-4 space-y-4">
                   <FinanceRow
-                    label="Ukupna vrijednost"
-                    value={
-                      customer.totalSpent
-                    }
+                    label="Vrijednost naloga"
+                    value={formatMoney(
+                      linkedDocumentValue,
+                    )}
                   />
                   <FinanceRow
                     label="Otvoreni računi"
-                    value="0 €"
+                    value={formatMoney(
+                      openInvoiceValue,
+                    )}
                   />
 
                   <div className="flex items-center justify-between border-t border-slate-800 pt-4">
@@ -916,39 +1158,96 @@ export function CustomerProfilePage() {
         )}
 
         {activeTab === 'work-orders' && (
-          <EmptySection
+          <LinkedRecordsSection
+            loading={relationsLoading}
+            error={relationsError}
             icon={<ClipboardList size={25} />}
-            title="Nema povezanih radnih naloga"
-            description="Ovdje će se prikazivati svi radni nalozi povezani s ovim investitorom."
+            emptyTitle="Nema povezanih radnih naloga"
+            emptyDescription="Ovdje će se prikazivati svi radni nalozi povezani s ovim investitorom."
             buttonLabel="Novi radni nalog"
-            onClick={() =>
-              navigate('/work-orders/new')
+            onCreate={() =>
+              navigate(
+                `/work-orders/new?customerId=${customer.id}`,
+              )
             }
-          />
+          >
+            {linkedWorkOrders.map((order) => (
+              <LinkedRecordCard
+                key={order.id}
+                icon={<ClipboardList size={19} />}
+                title={order.orderNumber}
+                subtitle={order.title || 'Radni nalog'}
+                date={formatDocumentDate(order.date)}
+                status={order.status}
+                value={formatMoney(order.totalPrice)}
+                onClick={() =>
+                  navigate(`/work-orders/${order.id}`)
+                }
+              />
+            ))}
+          </LinkedRecordsSection>
         )}
 
         {activeTab === 'offers' && (
-          <EmptySection
+          <LinkedRecordsSection
+            loading={relationsLoading}
+            error={relationsError}
             icon={<FileText size={25} />}
-            title="Nema ponuda"
-            description="Izradi prvu ponudu za ovog investitora."
+            emptyTitle="Nema ponuda"
+            emptyDescription="Izradi prvu ponudu za ovog investitora."
             buttonLabel="Nova ponuda"
-            onClick={() =>
-              navigate('/offers/new')
+            onCreate={() =>
+              navigate(
+                `/offers/new?customerId=${customer.id}`,
+              )
             }
-          />
+          >
+            {linkedOffers.map((offer) => (
+              <LinkedRecordCard
+                key={offer.id}
+                icon={<FileText size={19} />}
+                title={offer.offerNumber}
+                subtitle={offer.description || 'Ponuda'}
+                date={formatDocumentDate(offer.date)}
+                status={offer.status}
+                value={formatMoney(calculateOfferTotal(offer))}
+                onClick={() =>
+                  navigate(`/offers/${offer.id}`)
+                }
+              />
+            ))}
+          </LinkedRecordsSection>
         )}
 
         {activeTab === 'invoices' && (
-          <EmptySection
+          <LinkedRecordsSection
+            loading={relationsLoading}
+            error={relationsError}
             icon={<ReceiptText size={25} />}
-            title="Nema računa"
-            description="Ovdje će se nalaziti izdani računi, statusi plaćanja i otvorena dugovanja."
+            emptyTitle="Nema računa"
+            emptyDescription="Ovdje će se nalaziti izdani računi, statusi plaćanja i otvorena dugovanja."
             buttonLabel="Novi račun"
-            onClick={() =>
-              navigate('/invoices/new')
+            onCreate={() =>
+              navigate(
+                `/invoices/new?customerId=${customer.id}`,
+              )
             }
-          />
+          >
+            {linkedInvoices.map((invoice) => (
+              <LinkedRecordCard
+                key={invoice.id}
+                icon={<ReceiptText size={19} />}
+                title={invoice.invoiceNumber}
+                subtitle="Izdani račun"
+                date={formatDocumentDate(invoice.issueDate)}
+                status={invoice.status}
+                value={formatMoney(calculateInvoiceTotal(invoice))}
+                onClick={() =>
+                  navigate(`/invoices/${invoice.id}/edit`)
+                }
+              />
+            ))}
+          </LinkedRecordsSection>
         )}
 
         {activeTab === 'documents' && (
@@ -1354,6 +1653,157 @@ export function CustomerProfilePage() {
         </div>
       )}
     </>
+  )
+}
+
+function LinkedRecordsSection({
+  loading,
+  error,
+  icon,
+  emptyTitle,
+  emptyDescription,
+  buttonLabel,
+  onCreate,
+  children,
+}: {
+  loading: boolean
+  error: string
+  icon: ReactNode
+  emptyTitle: string
+  emptyDescription: string
+  buttonLabel: string
+  onCreate: () => void
+  children: ReactNode
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-3xl border border-slate-800 bg-slate-900 px-5 py-16 text-center">
+        <Loader2
+          size={28}
+          className="mx-auto animate-spin text-blue-400"
+        />
+        <p className="mt-4 text-sm font-bold text-slate-400">
+          Učitavanje povezanih dokumenata...
+        </p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-3xl border border-red-500/20 bg-slate-900 p-6">
+        <p className="font-black text-red-300">
+          Dokumente nije moguće učitati
+        </p>
+        <p className="mt-2 text-sm text-slate-400">
+          {error}
+        </p>
+      </div>
+    )
+  }
+
+  const hasChildren =
+    Array.isArray(children)
+      ? children.length > 0
+      : Boolean(children)
+
+  if (!hasChildren) {
+    return (
+      <EmptySection
+        icon={icon}
+        title={emptyTitle}
+        description={emptyDescription}
+        buttonLabel={buttonLabel}
+        onClick={onCreate}
+      />
+    )
+  }
+
+  return (
+    <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+            POVEZANO S INVESTITOROM
+          </p>
+          <h2 className="mt-1 text-lg font-black text-white">
+            Evidencija
+          </h2>
+        </div>
+
+        <button
+          type="button"
+          onClick={onCreate}
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-black text-white active:scale-[0.98]"
+        >
+          <Plus size={16} />
+          {buttonLabel}
+        </button>
+      </div>
+
+      <div className="grid gap-3">
+        {children}
+      </div>
+    </section>
+  )
+}
+
+function LinkedRecordCard({
+  icon,
+  title,
+  subtitle,
+  date,
+  status,
+  value,
+  onClick,
+}: {
+  icon: ReactNode
+  title: string
+  subtitle: string
+  date: string
+  status: string
+  value: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group grid w-full grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-3 text-left transition hover:border-slate-700 hover:bg-slate-800/55 active:scale-[0.995] sm:p-4"
+    >
+      <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-500/12 text-blue-300">
+        {icon}
+      </span>
+
+      <span className="min-w-0">
+        <span className="flex flex-wrap items-center gap-2">
+          <strong className="truncate text-sm font-black text-white sm:text-base">
+            {title}
+          </strong>
+          <span className="rounded-full bg-slate-800 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-slate-400">
+            {status}
+          </span>
+        </span>
+
+        <span className="mt-1 block truncate text-xs text-slate-400">
+          {subtitle}
+        </span>
+
+        <span className="mt-1 block text-[10px] font-bold text-slate-600">
+          {date}
+        </span>
+      </span>
+
+      <span className="flex items-center gap-2 pl-2">
+        <strong className="hidden whitespace-nowrap text-sm font-black text-white sm:block">
+          {value}
+        </strong>
+        <ChevronRight
+          size={18}
+          className="text-slate-600 transition group-hover:translate-x-0.5 group-hover:text-slate-300"
+        />
+      </span>
+    </button>
   )
 }
 
