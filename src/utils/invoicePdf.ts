@@ -2,6 +2,11 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import {
+  notifyDownloadError,
+  notifyDownloadPreparing,
+  saveBlobDownload,
+} from '../services/downloadFeedback'
+import {
   getCompanySettings,
 } from '../services/companySettings.service'
 import {
@@ -2640,19 +2645,20 @@ async function renderHtmlPagesToPdf(
         await html2canvas(
           pages[index],
           {
-            scale: 4,
+            scale: 2.2,
             backgroundColor,
             useCORS: true,
             allowTaint:
               false,
             logging: false,
+            imageTimeout: 5000,
           },
         )
 
       const image =
         canvas.toDataURL(
-          'image/png',
-          1,
+          'image/jpeg',
+          0.92,
         )
 
       if (index > 0) {
@@ -2661,7 +2667,7 @@ async function renderHtmlPagesToPdf(
 
       pdf.addImage(
         image,
-        'PNG',
+        'JPEG',
         0,
         0,
         210,
@@ -2671,7 +2677,15 @@ async function renderHtmlPagesToPdf(
       )
     }
 
-    pdf.save(fileName)
+    const blob =
+      pdf.output(
+        'blob',
+      )
+
+    saveBlobDownload(
+      blob,
+      fileName,
+    )
   } finally {
     iframe.remove()
   }
@@ -2742,6 +2756,19 @@ export async function downloadInvoicePdf(
   customSettings:
     Partial<InvoicePdfSettings> = {},
 ) {
+  const fileName =
+    `${safeFileName(
+      data.invoiceNumber ||
+        'Racun',
+    )}-${safeFileName(
+      data.customerName ||
+        'Kupac',
+    )}.pdf`
+
+  notifyDownloadPreparing(
+    fileName,
+  )
+
   try {
     const settings =
       await preparePdfSettings(
@@ -2755,15 +2782,6 @@ export async function downloadInvoicePdf(
         settings,
       )
 
-    const fileName =
-      `${safeFileName(
-        data.invoiceNumber ||
-          'Racun',
-      )}-${safeFileName(
-        data.customerName ||
-          'Kupac',
-      )}.pdf`
-
     await renderHtmlPagesToPdf(
       html,
       fileName,
@@ -2776,10 +2794,18 @@ export async function downloadInvoicePdf(
       error,
     )
 
-    window.alert(
+    const message =
       error instanceof Error
         ? `PDF nije moguće izraditi: ${error.message}`
-        : 'PDF nije moguće izraditi.',
+        : 'PDF nije moguće izraditi.'
+
+    notifyDownloadError(
+      message,
+      fileName,
+    )
+
+    window.alert(
+      message,
     )
   }
 }

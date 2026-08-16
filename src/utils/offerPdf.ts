@@ -2,6 +2,11 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import {
+  notifyDownloadError,
+  notifyDownloadPreparing,
+  saveBlobDownload,
+} from '../services/downloadFeedback'
+import {
   getCompanySettings,
 } from '../services/companySettings.service'
 import {
@@ -2600,21 +2605,22 @@ async function renderHtmlPagesToPdf(
           page,
           {
             /**
-             * 4x render daje čišći tekst, linije i fotografije
-             * na A4 PDF-u bez promjene fizičke veličine elemenata.
+             * 2.2x je dovoljno oštro za A4, a na mobitelu
+             * koristi višestruko manje memorije i vremena od 4x.
              */
-            scale: 4,
+            scale: 2.2,
             backgroundColor,
             useCORS: true,
             allowTaint: false,
             logging: false,
+            imageTimeout: 5000,
           },
         )
 
       const image =
         canvas.toDataURL(
-          'image/png',
-          1,
+          'image/jpeg',
+          0.92,
         )
 
       if (index > 0) {
@@ -2623,7 +2629,7 @@ async function renderHtmlPagesToPdf(
 
       pdf.addImage(
         image,
-        'PNG',
+        'JPEG',
         0,
         0,
         210,
@@ -2633,7 +2639,15 @@ async function renderHtmlPagesToPdf(
       )
     }
 
-    pdf.save(fileName)
+    const blob =
+      pdf.output(
+        'blob',
+      )
+
+    saveBlobDownload(
+      blob,
+      fileName,
+    )
   } finally {
     iframe.remove()
   }
@@ -2697,6 +2711,19 @@ export async function downloadOfferPdf(
   customSettings:
     Partial<OfferPdfSettings> = {},
 ) {
+  const fileName =
+    `${safeFileName(
+      data.offerNumber ||
+        'Ponuda',
+    )}-${safeFileName(
+      data.customerName ||
+        'Investitor',
+    )}.pdf`
+
+  notifyDownloadPreparing(
+    fileName,
+  )
+
   try {
     const settings =
       await prepareOfferPdfSettings(
@@ -2710,15 +2737,6 @@ export async function downloadOfferPdf(
         settings,
       )
 
-    const fileName =
-      `${safeFileName(
-        data.offerNumber ||
-          'Ponuda',
-      )}-${safeFileName(
-        data.customerName ||
-          'Investitor',
-      )}.pdf`
-
     await renderHtmlPagesToPdf(
       html,
       fileName,
@@ -2731,10 +2749,18 @@ export async function downloadOfferPdf(
       error,
     )
 
-    window.alert(
+    const message =
       error instanceof Error
         ? `PDF nije moguće izraditi: ${error.message}`
-        : 'PDF nije moguće izraditi.',
+        : 'PDF nije moguće izraditi.'
+
+    notifyDownloadError(
+      message,
+      fileName,
+    )
+
+    window.alert(
+      message,
     )
   }
 }

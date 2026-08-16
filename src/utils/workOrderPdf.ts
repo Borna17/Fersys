@@ -1,6 +1,11 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
+import {
+  notifyDownloadError,
+  notifyDownloadPreparing,
+  saveBlobDownload,
+} from '../services/downloadFeedback'
 import type {
   WorkOrder,
   WorkOrderBranding,
@@ -1425,20 +1430,25 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 4,
+        scale: 2.2,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
         logging: false,
+        imageTimeout: 5000,
       })
 
-      const image = canvas.toDataURL('image/png')
+      const image =
+        canvas.toDataURL(
+          'image/jpeg',
+          0.92,
+        )
 
       if (index > 0) doc.addPage()
 
       doc.addImage(
         image,
-        'PNG',
+        'JPEG',
         0,
         0,
         210,
@@ -1514,13 +1524,45 @@ export async function downloadWorkOrderPdf(
   order: WorkOrder,
   branding: WorkOrderBranding,
 ) {
-  const doc = await buildPdfDocument(order, branding)
-
-  doc.save(
+  const fileName =
     `${safeFileName(
-      order.orderNumber || 'radni-nalog',
-    )}.pdf`,
+      order.orderNumber ||
+        'radni-nalog',
+    )}.pdf`
+
+  notifyDownloadPreparing(
+    fileName,
   )
+
+  try {
+    const doc =
+      await buildPdfDocument(
+        order,
+        branding,
+      )
+
+    const blob =
+      doc.output(
+        'blob',
+      )
+
+    saveBlobDownload(
+      blob,
+      fileName,
+    )
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? `PDF nije moguće izraditi: ${error.message}`
+        : 'PDF nije moguće izraditi.'
+
+    notifyDownloadError(
+      message,
+      fileName,
+    )
+
+    throw error
+  }
 }
 
 export async function getWorkOrderPdfBlob(

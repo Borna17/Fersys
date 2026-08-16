@@ -11,16 +11,22 @@ import {
   useState,
 } from 'react'
 
-type DownloadToast = {
-  id: number
+type DownloadState = {
   status:
     | 'preparing'
     | 'success'
     | 'warning'
+    | 'error'
   title: string
   message: string
   fileName?: string
   openUrl?: string
+}
+
+type DownloadEventDetail = {
+  fileName?: string
+  openUrl?: string
+  message?: string
 }
 
 const DOWNLOAD_BUTTON_PATTERN =
@@ -29,14 +35,15 @@ const DOWNLOAD_BUTTON_PATTERN =
 const EXCLUDED_BUTTON_PATTERN =
   /\b(preuzmi aplikaciju|instaliraj aplikaciju)\b/i
 
-const PREPARING_TIMEOUT =
-  45_000
+const SLOW_WARNING_MS =
+  10_000
 
-const SUCCESS_TIMEOUT =
+const SUCCESS_TIMEOUT_MS =
   12_000
 
-function isDownloadIntentElement(
-  target: EventTarget | null,
+function findDownloadButton(
+  target:
+    EventTarget | null,
 ) {
   if (
     !(target instanceof
@@ -88,150 +95,55 @@ function isDownloadIntentElement(
   return element
 }
 
-function downloadLabel(
-  element:
-    HTMLElement | null,
+function displayName(
+  fileName?: string,
 ) {
-  if (!element) {
-    return 'datoteke'
+  if (!fileName) {
+    return 'datoteku'
   }
 
-  const explicit =
-    element.dataset
-      .downloadLabel
-      ?.trim()
-
-  if (explicit) {
-    return explicit
-  }
-
-  const text =
-    (
-      element.innerText ||
-      element.textContent ||
-      ''
-    )
-      .replace(
-        /\s+/g,
-        ' ',
-      )
-      .trim()
+  if (
+    fileName
       .toLowerCase()
-
-  if (
-    text.includes(
-      'ponud',
-    )
+      .endsWith(
+        '.pdf',
+      )
   ) {
-    return 'PDF ponude'
+    return 'PDF'
   }
 
-  if (
-    text.includes(
-      'račun',
-    ) ||
-    text.includes(
-      'racun',
-    )
-  ) {
-    return 'PDF računa'
-  }
-
-  if (
-    text.includes(
-      'radni',
-    ) &&
-    text.includes(
-      'nalog',
-    )
-  ) {
-    return 'PDF radnog naloga'
-  }
-
-  if (
-    text.includes(
-      'excel',
-    ) ||
-    text.includes(
-      'izvezi',
-    )
-  ) {
-    return 'datoteke'
-  }
-
-  if (
-    text.includes(
-      'pdf',
-    )
-  ) {
-    return 'PDF dokumenta'
-  }
-
-  return 'datoteke'
-}
-
-function safeAnchorHref(
-  anchor:
-    HTMLAnchorElement,
-) {
-  const href =
-    anchor.href?.trim()
-
-  if (!href) {
-    return undefined
-  }
-
-  if (
-    href.startsWith(
-      'blob:',
-    ) ||
-    href.startsWith(
-      'data:',
-    ) ||
-    href.startsWith(
-      'http://',
-    ) ||
-    href.startsWith(
-      'https://',
-    )
-  ) {
-    return href
-  }
-
-  return undefined
+  return 'datoteku'
 }
 
 export default function DownloadFeedbackCenter() {
   const [
-    toast,
-    setToast,
+    state,
+    setState,
   ] =
     useState<
-      DownloadToast | null
+      DownloadState | null
     >(null)
 
-  const sourceElementRef =
+  const activeButton =
     useRef<
       HTMLElement | null
     >(null)
 
-  const preparingTimerRef =
+  const slowTimer =
     useRef<
       number | null
     >(null)
 
-  const dismissTimerRef =
+  const dismissTimer =
     useRef<
       number | null
     >(null)
-
-  const sequenceRef =
-    useRef(0)
 
   function clearTimer(
-    ref: React.MutableRefObject<
-      number | null
-    >,
+    ref:
+      React.MutableRefObject<
+        number | null
+      >,
   ) {
     if (
       ref.current !==
@@ -244,145 +156,137 @@ export default function DownloadFeedbackCenter() {
     }
   }
 
-  function resetButton() {
-    const element =
-      sourceElementRef.current
-
-    if (element) {
-      delete element.dataset
+  function clearButton() {
+    if (
+      activeButton.current
+    ) {
+      delete activeButton
+        .current.dataset
         .fersysDownloadState
 
-      element.removeAttribute(
-        'aria-busy',
-      )
+      activeButton.current
+        .removeAttribute(
+          'aria-busy',
+        )
     }
 
-    sourceElementRef.current =
+    activeButton.current =
       null
   }
 
-  function beginPreparing(
-    element:
-      HTMLElement,
-  ) {
+  function scheduleSlowWarning() {
     clearTimer(
-      dismissTimerRef,
-    )
-    clearTimer(
-      preparingTimerRef,
+      slowTimer,
     )
 
-    resetButton()
-
-    sourceElementRef.current =
-      element
-
-    element.dataset
-      .fersysDownloadState =
-      'loading'
-
-    element.setAttribute(
-      'aria-busy',
-      'true',
-    )
-
-    const label =
-      downloadLabel(
-        element,
-      )
-
-    sequenceRef.current +=
-      1
-
-    setToast({
-      id:
-        sequenceRef.current,
-      status:
-        'preparing',
-      title:
-        `Pripremam ${label}...`,
-      message:
-        'Pričekaj trenutak. FERSYS izrađuje datoteku za preuzimanje.',
-    })
-
-    preparingTimerRef.current =
+    slowTimer.current =
       window.setTimeout(
         () => {
-          resetButton()
+          clearButton()
 
-          sequenceRef.current +=
-            1
-
-          setToast({
-            id:
-              sequenceRef.current,
+          setState({
             status:
               'warning',
             title:
-              'Preuzimanje traje dulje',
+              'Izrada traje dulje nego inače',
             message:
-              'Ako se datoteka nije pojavila u Preuzimanjima, pokušaj ponovno.',
+              'Dokument se još priprema. Pričekaj još trenutak ili pokušaj ponovno.',
           })
-
-          dismissTimerRef.current =
-            window.setTimeout(
-              () =>
-                setToast(
-                  null,
-                ),
-              7000,
-            )
         },
-        PREPARING_TIMEOUT,
+        SLOW_WARNING_MS,
       )
   }
 
-  function markDownloaded(
-    anchor:
-      HTMLAnchorElement,
+  function showPreparing(
+    fileName?: string,
   ) {
     clearTimer(
-      preparingTimerRef,
+      dismissTimer,
+    )
+
+    setState({
+      status:
+        'preparing',
+      title:
+        `Pripremam ${displayName(
+          fileName,
+        )}...`,
+      message:
+        'FERSYS izrađuje dokument. To bi trebalo trajati samo nekoliko sekundi.',
+      fileName,
+    })
+
+    scheduleSlowWarning()
+  }
+
+  function showSuccess(
+    detail:
+      DownloadEventDetail,
+  ) {
+    clearTimer(
+      slowTimer,
     )
     clearTimer(
-      dismissTimerRef,
+      dismissTimer,
     )
+    clearButton()
 
-    const fileName =
-      anchor.download
-        ?.trim() ||
-      undefined
-
-    const openUrl =
-      safeAnchorHref(
-        anchor,
-      )
-
-    resetButton()
-
-    sequenceRef.current +=
-      1
-
-    setToast({
-      id:
-        sequenceRef.current,
+    setState({
       status:
         'success',
       title:
-        'Preuzimanje je pokrenuto',
+        'PDF je spreman',
       message:
-        fileName
-          ? `${fileName} je poslan u Preuzimanja.`
-          : 'Datoteka je poslana u Preuzimanja.',
-      fileName,
-      openUrl,
+        detail.fileName
+          ? `${detail.fileName} je poslan u Preuzimanja.`
+          : 'Preuzimanje je pokrenuto.',
+      fileName:
+        detail.fileName,
+      openUrl:
+        detail.openUrl,
     })
 
-    dismissTimerRef.current =
+    dismissTimer.current =
       window.setTimeout(
         () =>
-          setToast(null),
-        SUCCESS_TIMEOUT,
+          setState(
+            null,
+          ),
+        SUCCESS_TIMEOUT_MS,
+      )
+  }
+
+  function showError(
+    detail:
+      DownloadEventDetail,
+  ) {
+    clearTimer(
+      slowTimer,
+    )
+    clearTimer(
+      dismissTimer,
+    )
+    clearButton()
+
+    setState({
+      status:
+        'error',
+      title:
+        'Preuzimanje nije uspjelo',
+      message:
+        detail.message ||
+        'Pokušaj ponovno.',
+      fileName:
+        detail.fileName,
+    })
+
+    dismissTimer.current =
+      window.setTimeout(
+        () =>
+          setState(
+            null,
+          ),
+        9000,
       )
   }
 
@@ -393,27 +297,43 @@ export default function DownloadFeedbackCenter() {
 
     HTMLAnchorElement
       .prototype.click =
-      function patchedAnchorClick() {
-        const shouldTrack =
-          Boolean(
-            this.download,
-          ) ||
-          this.href.startsWith(
-            'blob:',
-          )
+      function patchedClick() {
+        const skip =
+          this.dataset
+            .fersysSkipDownloadFeedback ===
+          'true'
 
         if (
-          shouldTrack
+          !skip &&
+          (
+            Boolean(
+              this.download,
+            ) ||
+            this.href.startsWith(
+              'blob:',
+            )
+          )
         ) {
+          const fileName =
+            this.download ||
+            undefined
+
+          const openUrl =
+            this.href.startsWith(
+              'blob:',
+            )
+              ? this.href
+              : undefined
+
           window.setTimeout(
             () => {
               window.dispatchEvent(
                 new CustomEvent(
-                  'fersys:download-started',
+                  'fersys:download-complete',
                   {
                     detail: {
-                      anchor:
-                        this,
+                      fileName,
+                      openUrl,
                     },
                   },
                 ),
@@ -428,83 +348,127 @@ export default function DownloadFeedbackCenter() {
         )
       }
 
-    function handleUserClick(
+    function userClick(
       event: MouseEvent,
     ) {
-      const element =
-        isDownloadIntentElement(
+      const button =
+        findDownloadButton(
           event.target,
         )
 
-      if (!element) {
+      if (!button) {
         return
       }
 
-      /*
-       * Ako je klik direktno na <a download>, browser
-       * odmah pokreće preuzimanje pa ne prikazujemo
-       * nepotrebno dugo "pripremam".
-       *
-       * Za PDF gumbe jsPDF prvo generira dokument,
-       * pa spinner ostaje dok se ne pojavi stvarni
-       * download anchor.
-       */
-      if (
-        element instanceof
-          HTMLAnchorElement &&
-        element.download
-      ) {
-        return
-      }
+      clearButton()
 
-      beginPreparing(
-        element,
+      activeButton.current =
+        button
+
+      button.dataset
+        .fersysDownloadState =
+        'loading'
+
+      button.setAttribute(
+        'aria-busy',
+        'true',
+      )
+
+      showPreparing()
+    }
+
+    function preparing(
+      event: Event,
+    ) {
+      const detail =
+        (
+          event as
+            CustomEvent<
+              DownloadEventDetail
+            >
+        ).detail ??
+        {}
+
+      showPreparing(
+        detail.fileName,
       )
     }
 
-    function handleStarted(
+    function complete(
       event: Event,
     ) {
-      const customEvent =
-        event as CustomEvent<{
-          anchor?:
-            HTMLAnchorElement
-        }>
+      const detail =
+        (
+          event as
+            CustomEvent<
+              DownloadEventDetail
+            >
+        ).detail ??
+        {}
 
-      const anchor =
-        customEvent.detail
-          ?.anchor
+      showSuccess(
+        detail,
+      )
+    }
 
-      if (!anchor) {
-        return
-      }
+    function error(
+      event: Event,
+    ) {
+      const detail =
+        (
+          event as
+            CustomEvent<
+              DownloadEventDetail
+            >
+        ).detail ??
+        {}
 
-      markDownloaded(
-        anchor,
+      showError(
+        detail,
       )
     }
 
     document.addEventListener(
       'click',
-      handleUserClick,
+      userClick,
       true,
     )
 
     window.addEventListener(
-      'fersys:download-started',
-      handleStarted,
+      'fersys:download-preparing',
+      preparing,
+    )
+
+    window.addEventListener(
+      'fersys:download-complete',
+      complete,
+    )
+
+    window.addEventListener(
+      'fersys:download-error',
+      error,
     )
 
     return () => {
       document.removeEventListener(
         'click',
-        handleUserClick,
+        userClick,
         true,
       )
 
       window.removeEventListener(
-        'fersys:download-started',
-        handleStarted,
+        'fersys:download-preparing',
+        preparing,
+      )
+
+      window.removeEventListener(
+        'fersys:download-complete',
+        complete,
+      )
+
+      window.removeEventListener(
+        'fersys:download-error',
+        error,
       )
 
       HTMLAnchorElement
@@ -512,34 +476,36 @@ export default function DownloadFeedbackCenter() {
         originalAnchorClick
 
       clearTimer(
-        preparingTimerRef,
+        slowTimer,
       )
-
       clearTimer(
-        dismissTimerRef,
+        dismissTimer,
       )
-
-      resetButton()
+      clearButton()
     }
   }, [])
 
-  if (!toast) {
+  if (!state) {
     return (
-      <DownloadFeedbackStyles />
+      <Styles />
     )
   }
 
+  const preparing =
+    state.status ===
+    'preparing'
+
   const success =
-    toast.status ===
+    state.status ===
     'success'
 
-  const preparing =
-    toast.status ===
-    'preparing'
+  const error =
+    state.status ===
+    'error'
 
   return (
     <>
-      <DownloadFeedbackStyles />
+      <Styles />
 
       <div
         className="fersys-download-toast"
@@ -548,21 +514,23 @@ export default function DownloadFeedbackCenter() {
       >
         <div
           className={`fersys-download-icon ${
-            success
-              ? 'is-success'
-              : preparing
-                ? 'is-loading'
-                : 'is-warning'
+            preparing
+              ? 'is-loading'
+              : success
+                ? 'is-success'
+                : error
+                  ? 'is-error'
+                  : 'is-warning'
           }`}
         >
-          {success ? (
-            <CheckCircle2
-              size={24}
-            />
-          ) : preparing ? (
+          {preparing ? (
             <LoaderCircle
               size={24}
               className="fersys-download-spin"
+            />
+          ) : success ? (
+            <CheckCircle2
+              size={24}
             />
           ) : (
             <Download
@@ -573,22 +541,22 @@ export default function DownloadFeedbackCenter() {
 
         <div className="fersys-download-copy">
           <strong>
-            {toast.title}
+            {state.title}
           </strong>
 
           <span>
-            {toast.message}
+            {state.message}
           </span>
         </div>
 
         {success &&
-          toast.openUrl && (
+          state.openUrl && (
             <button
               type="button"
               className="fersys-download-open"
               onClick={() => {
                 window.open(
-                  toast.openUrl,
+                  state.openUrl,
                   '_blank',
                   'noopener,noreferrer',
                 )
@@ -603,22 +571,22 @@ export default function DownloadFeedbackCenter() {
 
         <button
           type="button"
-          aria-label="Zatvori obavijest"
           className="fersys-download-close"
+          aria-label="Zatvori"
           onClick={() => {
             clearTimer(
-              dismissTimerRef,
+              slowTimer,
             )
-
             clearTimer(
-              preparingTimerRef,
+              dismissTimer,
             )
-
-            resetButton()
-            setToast(null)
+            clearButton()
+            setState(null)
           }}
         >
-          <X size={17} />
+          <X
+            size={17}
+          />
         </button>
 
         {preparing && (
@@ -631,7 +599,7 @@ export default function DownloadFeedbackCenter() {
   )
 }
 
-function DownloadFeedbackStyles() {
+function Styles() {
   return (
     <style>{`
       [data-fersys-download-state="loading"] {
@@ -639,12 +607,8 @@ function DownloadFeedbackStyles() {
         overflow: hidden !important;
         pointer-events: none !important;
         cursor: wait !important;
-        transform: translateY(0) scale(.985) !important;
-        opacity: .82 !important;
-        transition:
-          transform .16s ease,
-          opacity .16s ease,
-          box-shadow .16s ease !important;
+        transform: scale(.985) !important;
+        opacity: .84 !important;
       }
 
       [data-fersys-download-state="loading"]::after {
@@ -661,12 +625,12 @@ function DownloadFeedbackStyles() {
           );
         transform: translateX(-120%);
         animation:
-          fersys-download-button-shimmer
-          1.05s linear infinite;
+          fersys-download-shimmer
+          .9s linear infinite;
         pointer-events: none;
       }
 
-      @keyframes fersys-download-button-shimmer {
+      @keyframes fersys-download-shimmer {
         to {
           transform: translateX(120%);
         }
@@ -678,7 +642,7 @@ function DownloadFeedbackStyles() {
         left: 50%;
         bottom:
           max(
-            22px,
+            20px,
             env(safe-area-inset-bottom)
           );
         width:
@@ -686,44 +650,41 @@ function DownloadFeedbackStyles() {
             calc(100vw - 28px),
             560px
           );
-        min-height: 76px;
+        min-height: 74px;
         display: grid;
         grid-template-columns:
           48px minmax(0,1fr)
           auto auto;
         align-items: center;
         gap: 12px;
-        padding: 13px 13px 13px 14px;
+        padding:
+          12px 13px;
         border:
           1px solid
           rgba(148,163,184,.22);
         border-radius: 20px;
         background:
-          rgba(8,15,31,.96);
+          rgba(8,15,31,.97);
         box-shadow:
           0 22px 70px
-          rgba(0,0,0,.45),
-          inset 0 1px 0
-          rgba(255,255,255,.04);
+          rgba(0,0,0,.45);
         color: #f8fafc;
         backdrop-filter:
-          blur(20px);
-        -webkit-backdrop-filter:
           blur(20px);
         transform:
           translateX(-50%);
         overflow: hidden;
         animation:
-          fersys-download-toast-in
-          .22s ease-out both;
+          fersys-toast-in
+          .18s ease-out both;
       }
 
-      @keyframes fersys-download-toast-in {
+      @keyframes fersys-toast-in {
         from {
           opacity: 0;
           transform:
-            translate(-50%, 18px)
-            scale(.97);
+            translate(-50%, 12px)
+            scale(.98);
         }
 
         to {
@@ -757,13 +718,19 @@ function DownloadFeedbackStyles() {
         color: #fbbf24;
       }
 
-      .fersys-download-spin {
-        animation:
-          fersys-download-spin
-          .85s linear infinite;
+      .fersys-download-icon.is-error {
+        background:
+          rgba(239,68,68,.14);
+        color: #f87171;
       }
 
-      @keyframes fersys-download-spin {
+      .fersys-download-spin {
+        animation:
+          fersys-spin
+          .7s linear infinite;
+      }
+
+      @keyframes fersys-spin {
         to {
           transform:
             rotate(360deg);
@@ -788,21 +755,15 @@ function DownloadFeedbackStyles() {
       }
 
       .fersys-download-copy span {
-        overflow: hidden;
         color: #94a3b8;
         font-size: 11px;
         line-height: 1.45;
-        text-overflow:
-          ellipsis;
-        white-space: nowrap;
       }
 
       .fersys-download-open {
         min-height: 40px;
         display: inline-flex;
         align-items: center;
-        justify-content:
-          center;
         gap: 7px;
         padding: 0 13px;
         border:
@@ -818,11 +779,6 @@ function DownloadFeedbackStyles() {
         cursor: pointer;
       }
 
-      .fersys-download-open:hover {
-        background:
-          rgba(37,99,235,.22);
-      }
-
       .fersys-download-close {
         width: 36px;
         height: 36px;
@@ -833,12 +789,6 @@ function DownloadFeedbackStyles() {
         background: transparent;
         color: #64748b;
         cursor: pointer;
-      }
-
-      .fersys-download-close:hover {
-        background:
-          rgba(148,163,184,.08);
-        color: #cbd5e1;
       }
 
       .fersys-download-progress {
@@ -854,9 +804,8 @@ function DownloadFeedbackStyles() {
 
       .fersys-download-progress span {
         display: block;
-        width: 38%;
+        width: 42%;
         height: 100%;
-        border-radius: 999px;
         background:
           linear-gradient(
             90deg,
@@ -865,19 +814,19 @@ function DownloadFeedbackStyles() {
             #d946ef
           );
         animation:
-          fersys-download-progress
-          1.15s ease-in-out infinite;
+          fersys-progress
+          .9s ease-in-out infinite;
       }
 
-      @keyframes fersys-download-progress {
-        0% {
+      @keyframes fersys-progress {
+        from {
           transform:
             translateX(-110%);
         }
 
-        100% {
+        to {
           transform:
-            translateX(370%);
+            translateX(340%);
         }
       }
 
@@ -892,9 +841,9 @@ function DownloadFeedbackStyles() {
             44px minmax(0,1fr)
             auto;
           gap: 10px;
-          min-height: 72px;
+          min-height: 70px;
           padding:
-            11px 10px 11px 11px;
+            10px 10px 10px 11px;
           border-radius: 18px;
         }
 
@@ -907,24 +856,11 @@ function DownloadFeedbackStyles() {
         .fersys-download-open {
           grid-column: 2 / 4;
           width: 100%;
-          min-height: 38px;
-          margin-top: 1px;
-        }
-
-        .fersys-download-close {
-          width: 34px;
-          height: 34px;
+          justify-content: center;
         }
 
         .fersys-download-copy strong {
           font-size: 13px;
-        }
-
-        .fersys-download-copy span {
-          white-space: normal;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
         }
       }
 
