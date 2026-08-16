@@ -21,6 +21,7 @@ import {
   Loader2,
   Plus,
   Save,
+  ScanLine,
   Search,
   Send,
   Trash2,
@@ -34,6 +35,10 @@ import DraftAutosaveBadge, {
 } from '../components/DraftAutosaveBadge'
 import FersysLoader from '../components/FersysLoader'
 import OfferTemplatesPanel from '../components/OfferTemplatesPanel'
+import {
+  OfferImportModal,
+  type OfferImportPayload,
+} from '../components/OfferImportModal'
 import { getCustomers } from '../services/customers.service'
 import {
   getCompanySettings,
@@ -705,6 +710,12 @@ export function NewOfferPage() {
     setSaveMessage,
   ] =
     useState('')
+
+  const [
+    offerImportOpen,
+    setOfferImportOpen,
+  ] =
+    useState(false)
 
   const isEditing =
     Boolean(editingOffer)
@@ -1683,6 +1694,122 @@ export function NewOfferPage() {
     )
   }
 
+  function handleImportedOffer(
+    payload: OfferImportPayload,
+  ) {
+    const importedItems: OfferItem[] =
+      payload.items.map(
+        (item) => ({
+          id: createId('item'),
+          name: item.name,
+          description:
+            item.description,
+          quantity:
+            item.quantity,
+          unit:
+            item.unit,
+          price:
+            item.price,
+          discount:
+            item.discount,
+          vat:
+            item.vat,
+          imageDataUrl:
+            undefined,
+          imageName:
+            undefined,
+        }),
+      )
+
+    if (
+      importedItems.length ===
+      0
+    ) {
+      setErrors(
+        (current) => ({
+          ...current,
+          items:
+            'AI nije pronašao stavke za uvoz.',
+        }),
+      )
+      return
+    }
+
+    setItems(
+      importedItems,
+    )
+
+    if (
+      !description.trim() &&
+      payload.description.trim()
+    ) {
+      setDescription(
+        payload.description.trim(),
+      )
+    }
+
+    if (
+      payload.paymentTerms.trim() &&
+      paymentTermOptions.includes(
+        payload.paymentTerms.trim(),
+      )
+    ) {
+      setPaymentTerms(
+        payload.paymentTerms.trim(),
+      )
+    }
+
+    const sourceParts = [
+      payload.source.supplierName
+        ? `dobavljač: ${payload.source.supplierName}`
+        : '',
+      payload.source.offerNumber
+        ? `ponuda: ${payload.source.offerNumber}`
+        : '',
+      payload.source.offerDate
+        ? `datum: ${payload.source.offerDate}`
+        : '',
+    ].filter(Boolean)
+
+    const importNote =
+      sourceParts.length > 0
+        ? `AI uvoz iz skenirane ponude (${sourceParts.join(' · ')}). Provjeriti sve stavke, količine, PDV i cijene prije slanja.`
+        : 'AI uvoz iz skenirane ponude. Provjeriti sve stavke, količine, PDV i cijene prije slanja.'
+
+    setInternalNote(
+      (current) =>
+        current.trim()
+          ? `${current.trim()}\n\n${importNote}`
+          : importNote,
+    )
+
+    setErrors(
+      (current) => ({
+        ...current,
+        items: '',
+        save: '',
+      }),
+    )
+
+    setSaveMessage(
+      `AI je uvezao ${importedItems.length} stavki. Ponuda još nije spremljena — provjeri i uredi sve podatke prije spremanja.`,
+    )
+
+    window.setTimeout(
+      () => {
+        document
+          .getElementById(
+            `offer-item-${importedItems[0].id}`,
+          )
+          ?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          })
+      },
+      120,
+    )
+  }
+
   function validateOffer() {
     const nextErrors:
       Record<string, string> =
@@ -2168,6 +2295,23 @@ export function NewOfferPage() {
           </div>
 
           <div className="relative mt-4 hidden gap-2 sm:flex">
+            {!isEditing && (
+              <button
+                type="button"
+                onClick={() =>
+                  setOfferImportOpen(
+                    true,
+                  )
+                }
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-5 text-sm font-black text-cyan-200"
+              >
+                <ScanLine
+                  size={18}
+                />
+                Skeniraj ponudu
+              </button>
+            )}
+
             <button
               type="button"
               onClick={
@@ -2214,6 +2358,23 @@ export function NewOfferPage() {
             </button>
           </div>
         </section>
+
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={() =>
+              setOfferImportOpen(
+                true,
+              )
+            }
+            className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-4 text-sm font-black text-cyan-200 sm:hidden"
+          >
+            <ScanLine
+              size={18}
+            />
+            Skeniraj postojeću ponudu
+          </button>
+        )}
 
         {saveMessage && (
           <div className="flex items-center gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-200">
@@ -3143,6 +3304,20 @@ export function NewOfferPage() {
           </button>
         </div>
       </div>
+
+      <OfferImportModal
+        open={
+          offerImportOpen
+        }
+        onClose={() =>
+          setOfferImportOpen(
+            false,
+          )
+        }
+        onImport={
+          handleImportedOffer
+        }
+      />
 
       {isSaving && (
         <FersysLoader

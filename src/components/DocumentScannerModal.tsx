@@ -43,6 +43,12 @@ type Props = {
   onConfirm: (
     file: File,
   ) => void | Promise<void>
+  documentLabel?: string
+  title?: string
+  helperText?: string
+  emptyTitle?: string
+  emptyText?: string
+  confirmLabel?: string
 }
 
 const DEFAULT_CORNERS: Corners = {
@@ -813,6 +819,12 @@ export function DocumentScannerModal({
   open,
   onClose,
   onConfirm,
+  documentLabel = 'račun',
+  title,
+  helperText,
+  emptyTitle,
+  emptyText,
+  confirmLabel,
 }: Props) {
   const [
     sourceUrl,
@@ -1517,7 +1529,7 @@ export function DocumentScannerModal({
 
     if (!validQuad) {
       setError(
-        'Kutovi se ne smiju križati. Postavi svaki kut na odgovarajući kut računa.',
+        `Kutovi se ne smiju križati. Postavi svaki kut na odgovarajući kut ${documentLabel}.`,
       )
       return
     }
@@ -1630,11 +1642,12 @@ export function DocumentScannerModal({
             </div>
 
             <h2 className="mt-1 text-xl font-black text-white">
-              Označi sva 4 kuta računa
+              {title ?? `Označi sva 4 kuta ${documentLabel}`}
             </h2>
 
             <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">
-              Svaki ljubičasti krug pomiče se zasebno. Postavi gornji lijevi, gornji desni, donji desni i donji lijevi točno na rub papira. FERSYS će račun automatski izravnati.
+              {helperText ??
+                `Svaki ljubičasti krug pomiče se zasebno. Postavi sva četiri kuta točno na rub papira. FERSYS će ${documentLabel} automatski izravnati.`}
             </p>
           </div>
 
@@ -1662,11 +1675,12 @@ export function DocumentScannerModal({
                 </div>
 
                 <h3 className="mt-5 text-xl font-black text-white">
-                  Fotografiraj račun
+                  {emptyTitle ?? `Fotografiraj ${documentLabel}`}
                 </h3>
 
                 <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Može biti fotografiran i malo ukoso. Nakon toga ćeš označiti sva četiri kuta papira.
+                  {emptyText ??
+                    `Dokument može biti fotografiran i malo ukoso. Nakon toga označi sva četiri kuta papira.`}
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -1854,7 +1868,7 @@ export function DocumentScannerModal({
                       <div className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-violet-500/35 shadow-[0_0_0_3px_rgba(124,58,237,.35)]" />
 
                       <div className="absolute inset-x-2 bottom-2 rounded-xl bg-slate-950/85 px-2 py-1.5 text-center text-[9px] font-black uppercase tracking-wide text-white backdrop-blur-sm">
-                        Točka u sredini = kut računa
+                        Točka u sredini = kut dokumenta
                       </div>
                     </div>
                   </div>
@@ -1878,7 +1892,7 @@ export function DocumentScannerModal({
             </div>
 
             <p className="text-xs leading-5 text-slate-500">
-              Sada svaki kut radi potpuno neovisno. Možeš npr. prvo staviti gornji desni na rub računa, zatim gornji lijevi, pa oba donja.
+              Sada svaki kut radi potpuno neovisno. Postavi svaki ljubičasti krug točno na odgovarajući rub dokumenta.
             </p>
 
             <div className="rounded-2xl border border-violet-500/20 bg-violet-500/[0.07] p-3">
@@ -2195,7 +2209,7 @@ export function DocumentScannerModal({
                     />
                     {processing
                       ? 'Izravnavanje...'
-                      : 'Koristi ovaj sken i pročitaj AI-em'}
+                      : (confirmLabel ?? 'Koristi ovaj sken i pročitaj AI-em')}
                   </button>
 
                   <button
