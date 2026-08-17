@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register'
 
 import App from './App'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
+import FirstTenMinutes from './components/FirstTenMinutes'
 import MobileNotificationBell from './components/MobileNotificationBell'
 import VideoTutorialCenter from './components/VideoTutorialCenter'
 import './index.css'
@@ -55,6 +56,12 @@ createRoot(
        * Globalno mobilno zvonce.
        */}
       <MobileNotificationBell />
+
+      {/*
+       * FERSYS First 10 Minutes.
+       * Na Dashboardu automatski vodi novog korisnika kroz prve korake.
+       */}
+      <FirstTenMinutes />
 
       {/*
        * Kontekstualni Video pomoć gumb + centralna biblioteka tutorijala.
