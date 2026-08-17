@@ -120,8 +120,7 @@ const CustomerProfilePage = lazy(
   () =>
     import('../pages/CustomerProfilePage').then(
       (module) => ({
-        default:
-          module.CustomerProfilePage,
+        default: module.default,
       }),
     ),
 )

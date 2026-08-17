@@ -1,4 +1,3 @@
-
 import { supabase } from '../lib/supabase'
 import { assertCanCreate } from '../subscription/subscription.service'
 import type {
@@ -15,7 +14,7 @@ type CustomerRow = {
   name: string
   contact_person: string | null
   logo_data_url: string | null
-  oib: string
+  oib: string | null
   phone: string | null
   email: string | null
   street: string | null
@@ -58,7 +57,7 @@ function mapCustomer(
     logo:
       row.logo_data_url ??
       undefined,
-    oib: row.oib,
+    oib: row.oib ?? '',
     phone: row.phone ?? '',
     email: row.email ?? '',
     street: row.street ?? '',
@@ -163,6 +162,12 @@ export async function createCustomer(
   const companyId =
     await getCurrentCompanyId()
 
+  const cleanOib =
+    input.oib.replace(
+      /\D/g,
+      '',
+    )
+
   const { data, error } =
     await supabase
       .from('customers')
@@ -186,10 +191,7 @@ export async function createCustomer(
               null
             : null,
         oib:
-          input.oib.replace(
-            /\D/g,
-            '',
-          ),
+          cleanOib || null,
         phone:
           input.phone.trim() ||
           null,
@@ -244,6 +246,12 @@ export async function updateCustomer(
   customerId: string,
   input: CustomerInput,
 ): Promise<Customer> {
+  const cleanOib =
+    input.oib.replace(
+      /\D/g,
+      '',
+    )
+
   const { data, error } =
     await supabase
       .from('customers')
@@ -265,10 +273,7 @@ export async function updateCustomer(
               null
             : null,
         oib:
-          input.oib.replace(
-            /\D/g,
-            '',
-          ),
+          cleanOib || null,
         phone:
           input.phone.trim() ||
           null,

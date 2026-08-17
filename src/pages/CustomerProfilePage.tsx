@@ -761,9 +761,9 @@ export function CustomerProfilePage() {
       return
     }
 
-    if (cleanOib.length !== 11) {
+    if (cleanOib && cleanOib.length !== 11) {
       alert(
-        'OIB mora sadržavati točno 11 znamenki.',
+        'Ako unosite OIB, mora sadržavati točno 11 znamenki.',
       )
       return
     }
@@ -1025,9 +1025,11 @@ export function CustomerProfilePage() {
                     {customer.status}
                   </span>
 
-                  <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-black text-slate-400">
-                    OIB {customer.oib}
-                  </span>
+                  {customer.oib && (
+                    <span className="rounded-full bg-slate-800 px-2.5 py-1 text-[10px] font-black text-slate-400">
+                      OIB {customer.oib}
+                    </span>
+                  )}
                 </div>
 
                 {customer.contactPerson && (
@@ -1221,7 +1223,7 @@ export function CustomerProfilePage() {
                   />
                   <InfoCard
                     label="OIB"
-                    value={customer.oib}
+                    value={customer.oib || 'Nije uneseno'}
                   />
                   <InfoCard
                     label="Telefon"
@@ -2430,3 +2432,5 @@ function TypeButton({
     </button>
   )
 }
+
+export default CustomerProfilePage

@@ -292,8 +292,8 @@ export function CustomersPage() {
       return
     }
 
-    if (cleanOib.length !== 11) {
-      alert('OIB mora sadržavati točno 11 znamenki.')
+    if (cleanOib && cleanOib.length !== 11) {
+      alert('Ako unosite OIB, mora sadržavati točno 11 znamenki.')
       return
     }
 
@@ -613,7 +613,7 @@ export function CustomersPage() {
                       </td>
 
                       <td className="px-6 py-5 text-sm text-slate-300">
-                        {customer.oib}
+                        {customer.oib || '—'}
                       </td>
 
                       <td className="px-6 py-5">
@@ -848,9 +848,8 @@ export function CustomersPage() {
                   </Field>
                 )}
 
-                <Field label="OIB">
+                <Field label="OIB (nije obavezno)">
                   <input
-                    required
                     inputMode="numeric"
                     maxLength={11}
                     value={oib}
@@ -861,11 +860,13 @@ export function CustomersPage() {
                           .slice(0, 11),
                       )
                     }
-                    placeholder="11 znamenki"
+                    placeholder="11 znamenki · nije obavezno"
                     className={inputClass}
                   />
                   <p className="mt-1.5 text-xs text-slate-500">
-                    Uneseno {oib.length}/11
+                    {oib
+                      ? `Uneseno ${oib.length}/11`
+                      : 'OIB možete ostaviti prazan.'}
                   </p>
                 </Field>
 
