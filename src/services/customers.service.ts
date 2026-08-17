@@ -27,6 +27,7 @@ type CustomerRow = {
   status: CustomerStatus
   created_at: string
   updated_at: string
+  deleted_at?: string | null
 }
 
 function formatCurrency(
@@ -112,6 +113,10 @@ Promise<Customer[]> {
     await supabase
       .from('customers')
       .select('*')
+      .is(
+        'deleted_at',
+        null,
+      )
       .order(
         'created_at',
         {
@@ -138,6 +143,10 @@ export async function getCustomerById(
       .eq(
         'id',
         customerId,
+      )
+      .is(
+        'deleted_at',
+        null,
       )
       .maybeSingle()
 
@@ -308,6 +317,10 @@ export async function updateCustomer(
         'id',
         customerId,
       )
+      .is(
+        'deleted_at',
+        null,
+      )
       .select('*')
       .single()
 
@@ -328,19 +341,52 @@ export async function updateCustomer(
   )
 }
 
+/**
+ * Investitore ne brišemo fizički iz baze jer mogu biti povezani
+ * s ponudama, računima, nalozima, fotografijama i drugim dokumentima.
+ *
+ * Soft delete:
+ * - investitor odmah nestaje iz FERSYS liste
+ * - postojeći dokumenti i njihove veze ostaju sačuvani
+ * - OIB se oslobađa kako bi se kasnije mogao koristiti na novom zapisu
+ * - izbjegavamo FK greške "investitora nije moguće obrisati"
+ */
 export async function deleteCustomer(
   customerId: string,
 ): Promise<void> {
-  const { error } =
+  const companyId =
+    await getCurrentCompanyId()
+
+  const { data, error } =
     await supabase
       .from('customers')
-      .delete()
+      .update({
+        deleted_at:
+          new Date().toISOString(),
+        oib: null,
+      })
       .eq(
         'id',
         customerId,
       )
+      .eq(
+        'company_id',
+        companyId,
+      )
+      .is(
+        'deleted_at',
+        null,
+      )
+      .select('id')
+      .maybeSingle()
 
   if (error) {
     throw error
+  }
+
+  if (!data) {
+    throw new Error(
+      'Investitor nije pronađen ili je već obrisan.',
+    )
   }
 }

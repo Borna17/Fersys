@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register'
 
 import App from './App'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
+import FirstStepsControlCenter from './components/FirstStepsControlCenter'
 import FirstTenMinutes from './components/FirstTenMinutes'
 import MobileNotificationBell from './components/MobileNotificationBell'
 import VideoTutorialCenter from './components/VideoTutorialCenter'
@@ -47,26 +48,21 @@ createRoot(
     <BrowserRouter>
       <App />
 
-      {/*
-       * Globalni feedback za sva preuzimanja u FERSYS-u.
-       */}
       <DownloadFeedbackCenter />
-
-      {/*
-       * Globalno mobilno zvonce.
-       */}
       <MobileNotificationBell />
 
       {/*
-       * FERSYS First 10 Minutes.
-       * Na Dashboardu automatski vodi novog korisnika kroz prve korake.
+       * Početni vodič na Dashboardu.
        */}
       <FirstTenMinutes />
 
       {/*
-       * Kontekstualni Video pomoć gumb + centralna biblioteka tutorijala.
-       * Sam prepoznaje trenutnu rutu i nudi odgovarajući video.
+       * Kontrola vodiča:
+       * - korisnik: /settings
+       * - super admin: /admin/companies/:companyId
        */}
+      <FirstStepsControlCenter />
+
       <VideoTutorialCenter />
     </BrowserRouter>
   </StrictMode>,

@@ -30,6 +30,9 @@ import {
   getCustomers,
 } from '../services/customers.service'
 import {
+  getFirstStepsPreferences,
+} from '../services/firstSteps.service'
+import {
   getOffers,
 } from '../services/offers.service'
 import {
@@ -48,10 +51,11 @@ type StoredState = {
   hidden?: boolean
   aiVisited?: boolean
   collapsed?: boolean
+  seenForceToken?: string
 }
 
 const STORAGE_PREFIX =
-  'fersys_first_10_minutes_v1'
+  'fersys_first_10_minutes_v2'
 
 function storageKey(
   companyId?: string,
@@ -116,22 +120,14 @@ function companyIsReady(
     return false
   }
 
-  const hasIdentity =
-    Boolean(
-      company.name?.trim(),
-    )
-
-  const hasUsefulProfileData =
-    Boolean(
+  return Boolean(
+    company.name?.trim() &&
+    (
       company.logoUrl ||
       company.address ||
       company.email ||
-      company.phone,
-    )
-
-  return (
-    hasIdentity &&
-    hasUsefulProfileData
+      company.phone
+    ),
   )
 }
 
@@ -172,6 +168,12 @@ export default function FirstTenMinutes() {
       {},
     )
 
+  const [
+    enabled,
+    setEnabled,
+  ] =
+    useState(false)
+
   const companyId =
     data.company?.id
 
@@ -191,12 +193,14 @@ export default function FirstTenMinutes() {
         customersResult,
         offersResult,
         workOrdersResult,
+        preferencesResult,
       ] =
         await Promise.allSettled([
           getCompanySettings(),
           getCustomers(),
           getOffers(),
           getWorkOrders(),
+          getFirstStepsPreferences(),
         ])
 
       if (cancelled) {
@@ -227,6 +231,53 @@ export default function FirstTenMinutes() {
           ? workOrdersResult.value.length
           : 0
 
+      const preferences =
+        preferencesResult.status ===
+        'fulfilled'
+          ? preferencesResult.value
+          : {
+              enabled: false,
+              forceToken: '',
+              explicit: false,
+            }
+
+      const isNewCompany =
+        customers === 0 &&
+        offers === 0 &&
+        workOrders === 0
+
+      const shouldEnable =
+        preferences.explicit
+          ? preferences.enabled
+          : isNewCompany
+
+      const stored =
+        readState(
+          company?.id,
+        )
+
+      let nextState =
+        stored
+
+      if (
+        preferences.forceToken &&
+        preferences.forceToken !==
+          stored.seenForceToken
+      ) {
+        nextState = {
+          ...stored,
+          hidden: false,
+          collapsed: false,
+          seenForceToken:
+            preferences.forceToken,
+        }
+
+        writeState(
+          company?.id,
+          nextState,
+        )
+      }
+
       setData({
         company,
         customers,
@@ -235,9 +286,11 @@ export default function FirstTenMinutes() {
       })
 
       setState(
-        readState(
-          company?.id,
-        ),
+        nextState,
+      )
+
+      setEnabled(
+        shouldEnable,
       )
 
       setLoading(false)
@@ -350,7 +403,10 @@ export default function FirstTenMinutes() {
         100,
     )
 
-  if (!isDashboard) {
+  if (
+    !isDashboard ||
+    !enabled
+  ) {
     return null
   }
 
@@ -364,6 +420,7 @@ export default function FirstTenMinutes() {
     }
 
     setState(next)
+
     writeState(
       companyId,
       next,
