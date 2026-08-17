@@ -2,16 +2,14 @@ import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import {
-  notifyDownloadError,
-  notifyDownloadPreparing,
-  saveBlobDownload,
-} from './downloadFeedback'
-import {
   getCompanySettings,
 } from '../services/companySettings.service'
 import {
   getDocumentAppearanceSettings,
 } from '../services/documentAppearance.service'
+import {
+  getOfferPricingSettings,
+} from '../services/offerPricing.service'
 import {
   createPresetAppearance,
   type DocumentAppearance,
@@ -19,6 +17,11 @@ import {
 import {
   createHub3Pdf417DataUrl,
 } from './hub3Barcode'
+import {
+  notifyDownloadError,
+  notifyDownloadPreparing,
+  saveBlobDownload,
+} from './downloadFeedback'
 
 export type OfferPdfItem = {
   id: string
@@ -65,6 +68,9 @@ export type OfferPdfData = {
   deliveryPlace?: string
   deliveryMethod?: string
   deliveryPeriod?: string
+
+  globalDiscount?: number
+  defaultVat?: number
 }
 
 export type OfferPdfSettings = {
@@ -281,6 +287,160 @@ function itemTotal(
     itemNet(item) +
     itemVat(item)
   )
+}
+
+
+function clampPercent(
+  value: unknown,
+  fallback = 0,
+) {
+  const numeric =
+    Number(value)
+
+  if (
+    !Number.isFinite(
+      numeric,
+    )
+  ) {
+    return fallback
+  }
+
+  return Math.min(
+    100,
+    Math.max(
+      0,
+      numeric,
+    ),
+  )
+}
+
+type VatSummaryRow = {
+  rate: number
+  amount: number
+}
+
+function offerPricingSummary(
+  items: OfferPdfItem[],
+  globalDiscountValue:
+    number | undefined,
+) {
+  const base =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemBase(item),
+      0,
+    )
+
+  const itemNetTotal =
+    items.reduce(
+      (sum, item) =>
+        sum +
+        itemNet(item),
+      0,
+    )
+
+  const itemDiscount =
+    base -
+    itemNetTotal
+
+  const globalDiscount =
+    clampPercent(
+      globalDiscountValue,
+      0,
+    )
+
+  const globalFactor =
+    1 -
+    globalDiscount /
+      100
+
+  const globalDiscountAmount =
+    itemNetTotal *
+    (
+      globalDiscount /
+      100
+    )
+
+  const net =
+    itemNetTotal -
+    globalDiscountAmount
+
+  const vatMap =
+    new Map<
+      number,
+      number
+    >()
+
+  items.forEach(
+    (item) => {
+      const rate =
+        clampPercent(
+          item.vat,
+          0,
+        )
+
+      const taxable =
+        itemNet(item) *
+        globalFactor
+
+      const amount =
+        taxable *
+        (
+          rate /
+          100
+        )
+
+      vatMap.set(
+        rate,
+        (
+          vatMap.get(
+            rate,
+          ) || 0
+        ) +
+          amount,
+      )
+    },
+  )
+
+  const vatGroups:
+    VatSummaryRow[] =
+    [...vatMap.entries()]
+      .map(
+        ([
+          rate,
+          amount,
+        ]) => ({
+          rate,
+          amount,
+        }),
+      )
+      .sort(
+        (a, b) =>
+          a.rate -
+          b.rate,
+      )
+
+  const vat =
+    vatGroups.reduce(
+      (sum, row) =>
+        sum +
+        row.amount,
+      0,
+    )
+
+  return {
+    base,
+    itemDiscount,
+    itemNetTotal,
+    globalDiscount,
+    globalDiscountAmount,
+    net,
+    vat,
+    vatGroups,
+    total:
+      net + vat,
+  }
 }
 
 function safeFileName(
@@ -987,11 +1147,10 @@ function itemRows(
 
 function notesAndTotalsHtml(
   offer: OfferPdfData,
-  base: number,
-  net: number,
-  vat: number,
-  discount: number,
-  total: number,
+  summary:
+    ReturnType<
+      typeof offerPricingSummary
+    >,
 ) {
   const notes = [
     offer.description,
@@ -1000,6 +1159,26 @@ function notesAndTotalsHtml(
     (value) =>
       value?.trim(),
   )
+
+  const vatRows =
+    summary.vatGroups
+      .map(
+        (row) => `
+          <div class="total-line">
+            <span>
+              ${number(
+                row.rate,
+              )}% PDV
+            </span>
+            <strong>
+              ${currency(
+                row.amount,
+              )}
+            </strong>
+          </div>
+        `,
+      )
+      .join('')
 
   return `
     <section class="summary-grid">
@@ -1027,25 +1206,30 @@ function notesAndTotalsHtml(
       </div>
 
       <div class="totals">
-        <div class="total-line">
-          <span>
-            Ukupno prije popusta
-          </span>
-          <strong>
-            ${currency(
-              base,
-            )}
-          </strong>
-        </div>
-
         ${
-          discount > 0
+          summary.globalDiscount >
+          0
             ? `
               <div class="total-line">
-                <span>Popust</span>
+                <span>
+                  Prije ukupnog popusta
+                </span>
+                <strong>
+                  ${currency(
+                    summary.itemNetTotal,
+                  )}
+                </strong>
+              </div>
+
+              <div class="total-line discount-line">
+                <span>
+                  Ukupni popust ${number(
+                    summary.globalDiscount,
+                  )}%
+                </span>
                 <strong>
                   − ${currency(
-                    discount,
+                    summary.globalDiscountAmount,
                   )}
                 </strong>
               </div>
@@ -1053,31 +1237,26 @@ function notesAndTotalsHtml(
             : ''
         }
 
-        <div class="total-line">
-          <span>Osnovica</span>
-          <strong>
-            ${currency(
-              net,
-            )}
-          </strong>
-        </div>
-
-        <div class="total-line">
-          <span>PDV</span>
-          <strong>
-            ${currency(
-              vat,
-            )}
-          </strong>
-        </div>
-
-        <div class="grand-total">
+        <div class="total-line ex-vat-line">
           <span>
-            UKUPNO ZA PLATITI
+            Ukupno ex. PDV
           </span>
           <strong>
             ${currency(
-              total,
+              summary.net,
+            )}
+          </strong>
+        </div>
+
+        ${vatRows}
+
+        <div class="grand-total">
+          <span>
+            UKUPNO
+          </span>
+          <strong>
+            ${currency(
+              summary.total,
             )}
           </strong>
         </div>
@@ -1592,7 +1771,7 @@ function css(
 
     .block-title {
       color: ${p};
-      font-size: 8px;
+      font-size: 10px;
       font-weight: 950;
       text-transform: uppercase;
       letter-spacing: .04em;
@@ -1600,7 +1779,7 @@ function css(
 
     .client-name {
       margin-top: 7px;
-      font-size: 11.5px;
+      font-size: 13.5px;
       line-height: 1.2;
       font-weight: 950;
     }
@@ -1611,7 +1790,7 @@ function css(
         t,
         'A6',
       )};
-      font-size: 8px;
+      font-size: 10px;
       line-height: 1.45;
     }
 
@@ -1627,8 +1806,8 @@ function css(
           b,
           '99',
         )};
-      font-size: 7.7px;
-      line-height: 1.25;
+      font-size: 9.7px;
+      line-height: 1.3;
     }
 
     .info-line:last-child {
@@ -1801,7 +1980,7 @@ function css(
       display: grid;
       grid-template-columns:
         minmax(0, 1fr)
-        285px;
+        305px;
       gap: 22px;
       align-items: start;
       margin-top: 14px;
@@ -1831,8 +2010,8 @@ function css(
         t,
         'A4',
       )};
-      font-size: 7.6px;
-      line-height: 1.38;
+      font-size: 9.6px;
+      line-height: 1.42;
     }
 
     .totals {
@@ -1850,10 +2029,25 @@ function css(
           b,
           'AA',
         )};
-      font-size: 8px;
+      font-size: 10px;
     }
 
     .total-line strong {
+      font-weight: 950;
+    }
+
+    .total-line.discount-line {
+      color: #b45309;
+    }
+
+    .total-line.ex-vat-line {
+      margin-top: 3px;
+      border-top:
+        1px solid ${alpha(
+          p,
+          '66',
+        )};
+      color: ${p};
       font-weight: 950;
     }
 
@@ -1874,12 +2068,12 @@ function css(
             : `linear-gradient(90deg, ${p}, ${a})`
         };
       color: #fff;
-      font-size: 10.5px;
+      font-size: 12.5px;
       font-weight: 950;
     }
 
     .grand-total strong {
-      font-size: 15px;
+      font-size: 17px;
       white-space: nowrap;
     }
 
@@ -1929,15 +2123,10 @@ function css(
       gap: 8px;
     }
 
-    .signature-image {
-      max-width: 205px;
-      max-height: 68px;
-      object-fit: contain;
-    }
-
+    .signature-image,
     .stamp-image {
-      max-width: 185px;
-      max-height: 98px;
+      max-width: 83px;
+      max-height: 47px;
       object-fit: contain;
     }
 
@@ -2110,13 +2299,10 @@ function buildFirstOrOnlyPage(
   startIndex: number,
   offer: OfferPdfData,
   settings: OfferPdfSettings,
-  totals: {
-    base: number
-    net: number
-    vat: number
-    discount: number
-    total: number
-  },
+  summary:
+    ReturnType<
+      typeof offerPricingSummary
+    >,
 ) {
   return `
     <section class="page">
@@ -2194,11 +2380,7 @@ function buildFirstOrOnlyPage(
             ? `
               ${notesAndTotalsHtml(
                 offer,
-                totals.base,
-                totals.net,
-                totals.vat,
-                totals.discount,
-                totals.total,
+                summary,
               )}
 
               ${signatureAndPaymentHtml(
@@ -2236,35 +2418,11 @@ export function buildOfferPdfHtml(
         item.name.trim(),
     )
 
-  const base =
-    items.reduce(
-      (sum, item) =>
-        sum +
-        itemBase(item),
-      0,
+  const summary =
+    offerPricingSummary(
+      items,
+      offer.globalDiscount,
     )
-
-  const net =
-    items.reduce(
-      (sum, item) =>
-        sum +
-        itemNet(item),
-      0,
-    )
-
-  const vat =
-    items.reduce(
-      (sum, item) =>
-        sum +
-        itemVat(item),
-      0,
-    )
-
-  const discount =
-    base - net
-
-  const total =
-    net + vat
 
   const pages =
     paginateItems(
@@ -2294,13 +2452,7 @@ export function buildOfferPdfHtml(
             startIndex,
             offer,
             settings,
-            {
-              base,
-              net,
-              vat,
-              discount,
-              total,
-            },
+            summary,
           )
         },
       )
@@ -2391,12 +2543,10 @@ async function prepareOfferPdfSettings(
     )
 
   const total =
-    items.reduce(
-      (sum, item) =>
-        sum +
-        itemTotal(item),
-      0,
-    )
+    offerPricingSummary(
+      items,
+      offer.globalDiscount,
+    ).total
 
   const iban =
     settings.companyIban
@@ -2610,22 +2760,21 @@ async function renderHtmlPagesToPdf(
           page,
           {
             /**
-             * 2.2x je dovoljno oštro za A4, a na mobitelu
-             * koristi višestruko manje memorije i vremena od 4x.
+             * 4x render daje čišći tekst, linije i fotografije
+             * na A4 PDF-u bez promjene fizičke veličine elemenata.
              */
-            scale: 2.2,
+            scale: 4,
             backgroundColor,
             useCORS: true,
             allowTaint: false,
             logging: false,
-            imageTimeout: 5000,
           },
         )
 
       const image =
         canvas.toDataURL(
-          'image/jpeg',
-          0.92,
+          'image/png',
+          1,
         )
 
       if (index > 0) {
@@ -2634,7 +2783,7 @@ async function renderHtmlPagesToPdf(
 
       pdf.addImage(
         image,
-        'JPEG',
+        'PNG',
         0,
         0,
         210,
@@ -2644,17 +2793,58 @@ async function renderHtmlPagesToPdf(
       )
     }
 
-    const blob =
+    saveBlobDownload(
       pdf.output(
         'blob',
-      )
-
-    saveBlobDownload(
-      blob,
+      ),
       fileName,
     )
   } finally {
     iframe.remove()
+  }
+}
+
+async function resolveOfferPricing(
+  offer: OfferPdfData,
+): Promise<OfferPdfData> {
+  if (
+    typeof offer.globalDiscount ===
+      'number' &&
+    typeof offer.defaultVat ===
+      'number'
+  ) {
+    return offer
+  }
+
+  try {
+    const pricing =
+      await getOfferPricingSettings(
+        offer.id,
+      )
+
+    return {
+      ...offer,
+      globalDiscount:
+        typeof offer.globalDiscount ===
+        'number'
+          ? offer.globalDiscount
+          : pricing.globalDiscount,
+      defaultVat:
+        typeof offer.defaultVat ===
+        'number'
+          ? offer.defaultVat
+          : pricing.defaultVat,
+    }
+  } catch {
+    return {
+      ...offer,
+      globalDiscount:
+        offer.globalDiscount ??
+        0,
+      defaultVat:
+        offer.defaultVat ??
+        25,
+    }
   }
 }
 
@@ -2682,15 +2872,20 @@ export function openOfferPdf(
 
   void (async () => {
     try {
+      const pricedOffer =
+        await resolveOfferPricing(
+          offer,
+        )
+
       const settings =
         await prepareOfferPdfSettings(
-          offer,
+          pricedOffer,
           customSettings,
         )
 
       const html =
         buildOfferPdfHtml(
-          offer,
+          pricedOffer,
           settings,
         )
 
@@ -2730,15 +2925,20 @@ export async function downloadOfferPdf(
   )
 
   try {
+    const pricedOffer =
+      await resolveOfferPricing(
+        data,
+      )
+
     const settings =
       await prepareOfferPdfSettings(
-        data,
+        pricedOffer,
         customSettings,
       )
 
     const html =
       buildOfferPdfHtml(
-        data,
+        pricedOffer,
         settings,
       )
 
@@ -2756,8 +2956,8 @@ export async function downloadOfferPdf(
 
     const message =
       error instanceof Error
-        ? `PDF nije moguće izraditi: ${error.message}`
-        : 'PDF nije moguće izraditi.'
+        ? error.message
+        : 'PDF ponude nije moguće izraditi.'
 
     notifyDownloadError(
       message,
@@ -2765,7 +2965,7 @@ export async function downloadOfferPdf(
     )
 
     window.alert(
-      message,
+      `PDF nije moguće izraditi: ${message}`,
     )
   }
 }

@@ -6,6 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import App from './App'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import MobileNotificationBell from './components/MobileNotificationBell'
+import VideoTutorialCenter from './components/VideoTutorialCenter'
 import './index.css'
 
 const updateServiceWorker = registerSW({
@@ -46,18 +47,20 @@ createRoot(
       <App />
 
       {/*
-       * Globalni feedback za sva preuzimanja u FERSYS-u:
-       * - animira gumb dok se datoteka priprema
-       * - pokazuje "Preuzimanje je pokrenuto"
-       * - na mobitelu i desktopu nudi "Otvori" kada je moguće
+       * Globalni feedback za sva preuzimanja u FERSYS-u.
        */}
       <DownloadFeedbackCenter />
 
       {/*
-       * Mobilno zvonce je globalno, ali se samo skriva
-       * na login/register/admin stranicama i na desktopu.
+       * Globalno mobilno zvonce.
        */}
       <MobileNotificationBell />
+
+      {/*
+       * Kontekstualni Video pomoć gumb + centralna biblioteka tutorijala.
+       * Sam prepoznaje trenutnu rutu i nudi odgovarajući video.
+       */}
+      <VideoTutorialCenter />
     </BrowserRouter>
   </StrictMode>,
 )

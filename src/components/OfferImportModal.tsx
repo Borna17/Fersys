@@ -127,6 +127,21 @@ export function OfferImportModal({
   ] =
     useState(0)
 
+
+  const [
+    priceVatMode,
+    setPriceVatMode,
+  ] =
+    useState<
+      'keep' | 'remove'
+    >('keep')
+
+  const [
+    removeVatRate,
+    setRemoveVatRate,
+  ] =
+    useState(25)
+
   const [
     error,
     setError,
@@ -166,6 +181,8 @@ export function OfferImportModal({
     setReading(false)
     setMarkup(0)
     setImportPrices(true)
+    setPriceVatMode('keep')
+    setRemoveVatRate(25)
     setSourceName('')
     setScanPages([])
   }
@@ -365,9 +382,24 @@ export function OfferImportModal({
                     Number(
                       (
                         (
-                          Number(
-                            item.price,
-                          ) || 0
+                          (
+                            Number(
+                              item.price,
+                            ) || 0
+                          ) /
+                          (
+                            priceVatMode ===
+                            'remove'
+                              ? 1 +
+                                Math.max(
+                                  0,
+                                  Number(
+                                    removeVatRate,
+                                  ) || 0,
+                                ) /
+                                  100
+                              : 1
+                          )
                         ) *
                         multiplier
                       ).toFixed(
@@ -387,15 +419,26 @@ export function OfferImportModal({
                 ),
               ),
             vat:
-              Math.max(
-                0,
-                Math.min(
-                  100,
-                  Number(
-                    item.vat,
-                  ) || 0,
-                ),
-              ),
+              priceVatMode ===
+              'remove'
+                ? Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      Number(
+                        removeVatRate,
+                      ) || 0,
+                    ),
+                  )
+                : Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      Number(
+                        item.vat,
+                      ) || 0,
+                    ),
+                  ),
           }),
         )
 
@@ -606,6 +649,115 @@ export function OfferImportModal({
                     </span>
                   </span>
                 </label>
+
+                {importPrices && (
+                  <div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/[0.06] p-3">
+                    <p className="text-xs font-black text-blue-200">
+                      Sadrže li skenirane cijene PDV?
+                    </p>
+
+                    <div className="mt-3 grid gap-2">
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
+                        <input
+                          type="radio"
+                          name="scan-price-vat-mode"
+                          checked={
+                            priceVatMode ===
+                            'keep'
+                          }
+                          onChange={() =>
+                            setPriceVatMode(
+                              'keep',
+                            )
+                          }
+                          className="mt-1 accent-violet-500"
+                        />
+
+                        <span>
+                          <strong className="block text-sm text-white">
+                            Ostavi cijene kako su skenirane
+                          </strong>
+                          <span className="mt-1 block text-[11px] leading-5 text-slate-500">
+                            Koristi ovo ako su cijene već neto ili nisi siguran. Svaku cijenu, popust i PDV možeš nakon uvoza ručno promijeniti.
+                          </span>
+                        </span>
+                      </label>
+
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-slate-950/50 p-3">
+                        <input
+                          type="radio"
+                          name="scan-price-vat-mode"
+                          checked={
+                            priceVatMode ===
+                            'remove'
+                          }
+                          onChange={() =>
+                            setPriceVatMode(
+                              'remove',
+                            )
+                          }
+                          className="mt-1 accent-violet-500"
+                        />
+
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-sm text-white">
+                            Cijene sadrže PDV – ukloni ga iz svih cijena
+                          </strong>
+                          <span className="mt-1 block text-[11px] leading-5 text-slate-500">
+                            Primjer: 125,00 € s 25% PDV-a postaje 100,00 € neto. FERSYS ne oduzima 25%, nego ispravno dijeli cijenu s 1,25.
+                          </span>
+                        </span>
+                      </label>
+                    </div>
+
+                    {priceVatMode ===
+                      'remove' && (
+                      <label className="mt-3 block">
+                        <span className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+                          PDV za uklanjanje
+                        </span>
+
+                        <div className="relative mt-2">
+                          <input
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="1"
+                            value={
+                              removeVatRate
+                            }
+                            onChange={(
+                              event,
+                            ) =>
+                              setRemoveVatRate(
+                                Math.min(
+                                  100,
+                                  Math.max(
+                                    0,
+                                    Number(
+                                      event
+                                        .target
+                                        .value,
+                                    ) || 0,
+                                  ),
+                                ),
+                              )
+                            }
+                            className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 pr-10 text-sm font-black text-white outline-none focus:border-violet-500"
+                          />
+
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
+                            %
+                          </span>
+                        </div>
+
+                        <p className="mt-2 text-[10px] leading-4 text-slate-600">
+                          Nakon uvoza svim tim stavkama postavlja se ista PDV stopa, ali svaku stavku i dalje možeš zasebno urediti.
+                        </p>
+                      </label>
+                    )}
+                  </div>
+                )}
 
                 {importPrices && (
                   <label className="mt-4 block">

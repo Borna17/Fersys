@@ -56,6 +56,10 @@ import {
   getOfferById,
   updateOffer,
 } from '../services/offers.service'
+import {
+  getOfferPricingSettings,
+  saveOfferPricingSettings,
+} from '../services/offerPricing.service'
 import type { Customer } from '../types/customer'
 import type {
   CustomerType,
@@ -386,6 +390,7 @@ function getCustomerIcon(
 async function openOfferEmailDraft(
   offer: Offer,
   company: CompanySettings,
+  globalDiscount = 0,
 ) {
   const recipient =
     offer.email.trim()
@@ -397,13 +402,41 @@ async function openOfferEmailDraft(
     return
   }
 
+  const safeGlobalDiscount =
+    Math.min(
+      100,
+      Math.max(
+        0,
+        Number(
+          globalDiscount,
+        ) || 0,
+      ),
+    )
+
+  const globalFactor =
+    1 -
+    safeGlobalDiscount /
+      100
+
   const total =
     offer.items.reduce(
-      (sum, item) =>
-        sum +
-        calculateItemTotal(
-          item,
-        ),
+      (sum, item) => {
+        const net =
+          calculateItemNet(
+            item,
+          ) *
+          globalFactor
+
+        return (
+          sum +
+          net +
+          net *
+            (
+              item.vat /
+              100
+            )
+        )
+      },
       0,
     )
 
@@ -660,6 +693,18 @@ export function NewOfferPage() {
     )
 
   const [
+    globalDiscount,
+    setGlobalDiscount,
+  ] =
+    useState(0)
+
+  const [
+    defaultVat,
+    setDefaultVat,
+  ] =
+    useState(25)
+
+  const [
     responsiblePerson,
     setResponsiblePerson,
   ] =
@@ -780,6 +825,19 @@ export function NewOfferPage() {
     )
     setCustomerSearch(
       offer.customerName,
+    )
+
+    void getOfferPricingSettings(
+      offer.id,
+    ).then(
+      (pricing) => {
+        setGlobalDiscount(
+          pricing.globalDiscount,
+        )
+        setDefaultVat(
+          pricing.defaultVat,
+        )
+      },
     )
 
     setItems(
@@ -1006,6 +1064,28 @@ export function NewOfferPage() {
           value.paymentTerms ??
             'Plaćanje po završetku radova.',
         )
+        setGlobalDiscount(
+          Math.min(
+            100,
+            Math.max(
+              0,
+              Number(
+                value.globalDiscount,
+              ) || 0,
+            ),
+          ),
+        )
+        setDefaultVat(
+          Math.min(
+            100,
+            Math.max(
+              0,
+              Number(
+                value.defaultVat,
+              ) || 25,
+            ),
+          ),
+        )
         setResponsiblePerson(
           value.responsiblePerson ??
             responsiblePerson,
@@ -1101,6 +1181,8 @@ export function NewOfferPage() {
                     description,
                     internalNote,
                     paymentTerms,
+                    globalDiscount,
+                    defaultVat,
                     responsiblePerson,
                     items,
                     customerSearch,
@@ -1154,6 +1236,8 @@ export function NewOfferPage() {
     description,
     internalNote,
     paymentTerms,
+    globalDiscount,
+    defaultVat,
     responsiblePerson,
     items,
     customerSearch,
@@ -1227,7 +1311,7 @@ export function NewOfferPage() {
           0,
         )
 
-      const discount =
+      const itemDiscount =
         items.reduce(
           (sum, item) =>
             sum +
@@ -1237,7 +1321,7 @@ export function NewOfferPage() {
           0,
         )
 
-      const net =
+      const netBeforeGlobal =
         items.reduce(
           (sum, item) =>
             sum +
@@ -1247,25 +1331,143 @@ export function NewOfferPage() {
           0,
         )
 
-      const vat =
-        items.reduce(
-          (sum, item) =>
-            sum +
-            calculateItemVat(
+      const safeGlobalDiscount =
+        Math.min(
+          100,
+          Math.max(
+            0,
+            Number(
+              globalDiscount,
+            ) || 0,
+          ),
+        )
+
+      const globalDiscountAmount =
+        netBeforeGlobal *
+        (
+          safeGlobalDiscount /
+          100
+        )
+
+      const factor =
+        1 -
+        safeGlobalDiscount /
+          100
+
+      const vatMap =
+        new Map<
+          number,
+          number
+        >()
+
+      items.forEach(
+        (item) => {
+          const rate =
+            Math.min(
+              100,
+              Math.max(
+                0,
+                Number(
+                  item.vat,
+                ) || 0,
+              ),
+            )
+
+          const taxable =
+            calculateItemNet(
               item,
-            ),
+            ) *
+            factor
+
+          vatMap.set(
+            rate,
+            (
+              vatMap.get(
+                rate,
+              ) || 0
+            ) +
+              taxable *
+                (
+                  rate /
+                  100
+                ),
+          )
+        },
+      )
+
+      const vatGroups =
+        [...vatMap.entries()]
+          .map(
+            ([
+              rate,
+              amount,
+            ]) => ({
+              rate,
+              amount,
+            }),
+          )
+          .sort(
+            (a, b) =>
+              a.rate -
+              b.rate,
+          )
+
+      const net =
+        netBeforeGlobal -
+        globalDiscountAmount
+
+      const vat =
+        vatGroups.reduce(
+          (sum, group) =>
+            sum +
+            group.amount,
           0,
         )
 
       return {
         base,
-        discount,
+        itemDiscount,
+        netBeforeGlobal,
+        globalDiscountAmount,
         net,
         vat,
+        vatGroups,
         total:
           net + vat,
       }
-    }, [items])
+    }, [
+      items,
+      globalDiscount,
+    ])
+
+  function applyVatToAllItems() {
+    const rate =
+      Math.min(
+        100,
+        Math.max(
+          0,
+          Number(
+            defaultVat,
+          ) || 0,
+        ),
+      )
+
+    setDefaultVat(rate)
+
+    setItems(
+      (current) =>
+        current.map(
+          (item) => ({
+            ...item,
+            vat: rate,
+          }),
+        ),
+    )
+
+    setSaveMessage(
+      `PDV ${rate}% primijenjen je na sve stavke. Svaku stavku i dalje možeš zasebno promijeniti.`,
+    )
+  }
 
   function applyOfferTemplate(
     template: OfferTemplate,
@@ -1573,8 +1775,19 @@ export function NewOfferPage() {
   }
 
   function addItem() {
-    const newItem =
-      createEmptyItem()
+    const newItem = {
+      ...createEmptyItem(),
+      vat:
+        Math.min(
+          100,
+          Math.max(
+            0,
+            Number(
+              defaultVat,
+            ) || 0,
+          ),
+        ),
+    }
 
     setItems(
       (current) => [
@@ -1739,6 +1952,27 @@ export function NewOfferPage() {
       importedItems,
     )
 
+    const importedVatRates =
+      Array.from(
+        new Set(
+          importedItems.map(
+            (item) =>
+              Number(
+                item.vat,
+              ) || 0,
+          ),
+        ),
+      )
+
+    if (
+      importedVatRates.length ===
+      1
+    ) {
+      setDefaultVat(
+        importedVatRates[0],
+      )
+    }
+
     if (
       !description.trim() &&
       payload.description.trim()
@@ -1860,6 +2094,22 @@ export function NewOfferPage() {
         'Provjeri količinu, cijenu, popust i PDV stavki.'
     }
 
+    if (
+      globalDiscount < 0 ||
+      globalDiscount > 100
+    ) {
+      nextErrors.pricing =
+        'Ukupni popust mora biti između 0% i 100%.'
+    }
+
+    if (
+      defaultVat < 0 ||
+      defaultVat > 100
+    ) {
+      nextErrors.pricing =
+        'Zadani PDV mora biti između 0% i 100%.'
+    }
+
     setErrors(
       nextErrors,
     )
@@ -1964,6 +2214,8 @@ export function NewOfferPage() {
         internalNote.trim(),
       paymentTerms:
         paymentTerms.trim(),
+      globalDiscount,
+      defaultVat,
       items:
         getCleanItems(),
       createdAt:
@@ -2110,6 +2362,14 @@ export function NewOfferPage() {
               payload,
             )
 
+      await saveOfferPricingSettings(
+        savedOffer.id,
+        {
+          globalDiscount,
+          defaultVat,
+        },
+      )
+
       if (
         !isEditing &&
         !isDuplicating
@@ -2139,6 +2399,7 @@ export function NewOfferPage() {
         void openOfferEmailDraft(
           savedOffer,
           companySettings,
+          globalDiscount,
         )
       }
 
@@ -2626,7 +2887,7 @@ export function NewOfferPage() {
             />
           </Field>
 
-          <Field label="OIB">
+          <Field label="OIB (nije obavezno)">
             <input
               inputMode="numeric"
               maxLength={11}
@@ -2641,7 +2902,7 @@ export function NewOfferPage() {
                     .slice(0, 11),
                 )
               }
-              placeholder="11 znamenki"
+              placeholder="Opcionalno · 11 znamenki"
               className={inputClass}
             />
           </Field>
@@ -3112,6 +3373,177 @@ export function NewOfferPage() {
           </div>
         </MobileSection>
 
+        <section className="rounded-3xl border border-amber-500/20 bg-gradient-to-br from-slate-900 to-amber-950/20 p-4 sm:p-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-400">
+                OBRAČUN CIJELE PONUDE
+              </p>
+              <h2 className="mt-1 text-lg font-black text-white">
+                Ukupni popust i PDV
+              </h2>
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-400">
+                Popust po pojedinoj stavci ostaje neovisan. Ukupni popust se zatim primjenjuje na cijelu neto vrijednost ponude. Zadani PDV služi za brzo postavljanje svih stavki, a svaku stavku možeš poslije ručno promijeniti.
+              </p>
+            </div>
+
+            <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-xl">
+              <label className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Ukupni popust
+                </span>
+
+                <div className="relative mt-2">
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={
+                      globalDiscount
+                    }
+                    onChange={(
+                      event,
+                    ) =>
+                      setGlobalDiscount(
+                        Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            Number(
+                              event
+                                .target
+                                .value,
+                            ) || 0,
+                          ),
+                        ),
+                      )
+                    }
+                    className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 pr-10 text-sm font-black text-white outline-none focus:border-amber-500"
+                  />
+
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
+                    %
+                  </span>
+                </div>
+              </label>
+
+              <div className="rounded-2xl border border-white/10 bg-slate-950/55 p-3">
+                <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
+                  Zadani PDV za sve stavke
+                </span>
+
+                <div className="mt-2 flex gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={
+                        defaultVat
+                      }
+                      onChange={(
+                        event,
+                      ) =>
+                        setDefaultVat(
+                          Math.min(
+                            100,
+                            Math.max(
+                              0,
+                              Number(
+                                event
+                                  .target
+                                  .value,
+                              ) || 0,
+                            ),
+                          ),
+                        )
+                      }
+                      className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 pr-10 text-sm font-black text-white outline-none focus:border-amber-500"
+                    />
+
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
+                      %
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={
+                      applyVatToAllItems
+                    }
+                    className="min-h-11 shrink-0 rounded-xl bg-amber-500 px-4 text-xs font-black text-slate-950"
+                  >
+                    Primijeni na sve
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {errors.pricing && (
+            <div className="mt-4 rounded-2xl bg-red-500/10 p-3 text-sm font-black text-red-300">
+              {errors.pricing}
+            </div>
+          )}
+
+          <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <TotalBox
+              label="Prije ukupnog popusta"
+              value={formatCurrency(
+                totals.netBeforeGlobal,
+              )}
+            />
+            <TotalBox
+              label={`Ukupni popust ${globalDiscount || 0}%`}
+              value={
+                globalDiscount >
+                0
+                  ? `− ${formatCurrency(
+                      totals.globalDiscountAmount,
+                    )}`
+                  : formatCurrency(
+                      0,
+                    )
+              }
+            />
+            <TotalBox
+              label="Ukupno ex. PDV"
+              value={formatCurrency(
+                totals.net,
+              )}
+            />
+            <TotalBox
+              label="Ukupno s PDV-om"
+              value={formatCurrency(
+                totals.total,
+              )}
+              strong
+            />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {totals.vatGroups.map(
+              (group) => (
+                <span
+                  key={
+                    group.rate
+                  }
+                  className="rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2 text-xs font-bold text-slate-300"
+                >
+                  {group.rate}% PDV:{' '}
+                  <strong className="text-white">
+                    {formatCurrency(
+                      group.amount,
+                    )}
+                  </strong>
+                </span>
+              ),
+            )}
+          </div>
+        </section>
+
         <MobileSection
           number="4"
           title="Opis i uvjeti"
@@ -3203,16 +3635,23 @@ export function NewOfferPage() {
 
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <TotalBox
-              label="Osnovica"
+              label="Ukupno ex. PDV"
               value={formatCurrency(
-                totals.base,
+                totals.net,
               )}
             />
             <TotalBox
-              label="Popust"
-              value={formatCurrency(
-                totals.discount,
-              )}
+              label="Ukupni popust"
+              value={
+                globalDiscount >
+                0
+                  ? `− ${formatCurrency(
+                      totals.globalDiscountAmount,
+                    )}`
+                  : formatCurrency(
+                      0,
+                    )
+              }
             />
             <TotalBox
               label="PDV"
@@ -3227,6 +3666,26 @@ export function NewOfferPage() {
               )}
               strong
             />
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {totals.vatGroups.map(
+              (group) => (
+                <span
+                  key={
+                    group.rate
+                  }
+                  className="rounded-xl bg-slate-950/45 px-3 py-2 text-xs font-bold text-slate-400"
+                >
+                  {group.rate}% PDV:{' '}
+                  <strong className="text-slate-200">
+                    {formatCurrency(
+                      group.amount,
+                    )}
+                  </strong>
+                </span>
+              ),
+            )}
           </div>
         </section>
 
