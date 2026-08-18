@@ -48,9 +48,13 @@ import {
 } from '../auth/AuthProvider'
 
 import {
-  roleLabels,
   type PermissionKey,
 } from '../auth/permissions'
+
+import {
+  getCompanyRoleLabel,
+  useCompanyRoleLabelsSync,
+} from '../services/companyRoleLabels.service'
 
 import {
   useSubscription,
@@ -188,6 +192,8 @@ const navigationItems: Array<{
 ]
 
 export default function Sidebar() {
+  useCompanyRoleLabelsSync()
+
   const location =
     useLocation()
 
@@ -286,7 +292,9 @@ export default function Sidebar() {
 
   const displayRole =
     role
-      ? roleLabels[role]
+      ? getCompanyRoleLabel(
+          role,
+        )
       : 'Korisnik'
 
   return (

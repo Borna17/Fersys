@@ -472,7 +472,10 @@ export async function updateEmployeeRole(
 
   const { error } = await supabase
     .from('company_members')
-    .update({ role })
+    .update({
+      role,
+      permissions: {},
+    })
     .eq('id', membershipId)
     .eq('company_id', companyId)
 

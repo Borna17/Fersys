@@ -279,6 +279,81 @@ export function AuthProvider({
     refreshAccess,
   ])
 
+  useEffect(() => {
+    const userId =
+      session?.user.id
+
+    if (!userId) {
+      return
+    }
+
+    let timer = 0
+
+    const channel =
+      supabase
+        .channel(
+          `current-access:${userId}`,
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table:
+              'company_members',
+            filter:
+              `user_id=eq.${userId}`,
+          },
+          () => {
+            window.clearTimeout(
+              timer,
+            )
+
+            timer =
+              window.setTimeout(
+                () => {
+                  void refreshAccess()
+                },
+                150,
+              )
+          },
+        )
+        .subscribe()
+
+    function refreshOnFocus() {
+      if (
+        document.visibilityState ===
+        'visible'
+      ) {
+        void refreshAccess()
+      }
+    }
+
+    document.addEventListener(
+      'visibilitychange',
+      refreshOnFocus,
+    )
+
+    return () => {
+      window.clearTimeout(
+        timer,
+      )
+
+      document.removeEventListener(
+        'visibilitychange',
+        refreshOnFocus,
+      )
+
+      void supabase
+        .removeChannel(
+          channel,
+        )
+    }
+  }, [
+    refreshAccess,
+    session?.user.id,
+  ])
+
   async function signOut(): Promise<void> {
     const { error } =
       await supabase.auth.signOut()

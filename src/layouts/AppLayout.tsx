@@ -22,7 +22,6 @@ import {
 } from 'react'
 import {
   NavLink,
-  Outlet,
   useLocation,
   useNavigate,
 } from 'react-router'
@@ -34,6 +33,7 @@ import CompanyLogo from '../components/CompanyLogo'
 import ModuleSetupModal from '../components/onboarding/ModuleSetupModal'
 import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
+import RealtimeOutlet from '../components/RealtimeOutlet'
 import TrialBanner from '../components/subscription/TrialBanner'
 import Topbar from '../components/Topbar'
 import { supabase } from '../lib/supabase'
@@ -816,7 +816,7 @@ export default function AppLayout() {
         <TrialBanner />
 
         <main className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-3 pb-28 pt-3 sm:px-4 sm:pt-4 md:p-6 md:pb-6 lg:p-8">
-          <Outlet />
+          <RealtimeOutlet />
         </main>
       </div>
 

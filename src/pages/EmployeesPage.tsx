@@ -30,6 +30,11 @@ import {
   type PermissionKey,
 } from '../auth/permissions'
 import FersysLoader from '../components/FersysLoader'
+import RoleLabelsEditor from '../components/RoleLabelsEditor'
+import {
+  getCompanyRoleLabel,
+  useCompanyRoleLabelsSync,
+} from '../services/companyRoleLabels.service'
 import {
   cancelInvitation,
   copyInvitationLink,
@@ -39,7 +44,6 @@ import {
   getInvitations,
   removeEmployee,
   renewInvitation,
-  roleLabels,
   statusLabels,
   updateEmployeePermissions,
   updateEmployeeRole,
@@ -299,6 +303,8 @@ function getInvitationStatusClassName(
 }
 
 export function EmployeesPage() {
+  useCompanyRoleLabelsSync()
+
   const [
     activeTab,
     setActiveTab,
@@ -453,9 +459,9 @@ export function EmployeesPage() {
             employee.fullName,
             employee.email,
             employee.phone,
-            roleLabels[
-              employee.role
-            ],
+            getCompanyRoleLabel(
+              employee.role,
+            ),
             statusLabels[
               employee.status
             ],
@@ -494,9 +500,9 @@ export function EmployeesPage() {
             invitation.inviteeName,
             invitation.email,
             invitation.inviteCode,
-            roleLabels[
-              invitation.role
-            ],
+            getCompanyRoleLabel(
+              invitation.role,
+            ),
             getInvitationStatusLabel(
               invitation.status,
             ),
@@ -618,13 +624,14 @@ export function EmployeesPage() {
                 ? {
                     ...item,
                     role,
+                    permissions: {},
                   }
                 : item,
           ),
       )
 
       setActionSuccess(
-        `Uloga korisnika ${employee.fullName} promijenjena je u ${roleLabels[role]}.`,
+        `Uloga korisnika ${employee.fullName} promijenjena je u ${getCompanyRoleLabel(role)}.`,
       )
     } catch (error) {
       setActionError(
@@ -1065,6 +1072,10 @@ export function EmployeesPage() {
             <HeroMetric label="Pozivnice" value={stats.pendingInvitations} />
           </div>
 
+          <div className="relative mt-3 sm:hidden">
+            <RoleLabelsEditor />
+          </div>
+
           <div className="relative mt-4 hidden gap-2 sm:flex">
             <button
               type="button"
@@ -1079,6 +1090,8 @@ export function EmployeesPage() {
 
               Osvježi
             </button>
+
+            <RoleLabelsEditor />
 
             <button
               type="button"
@@ -1448,9 +1461,9 @@ function EmployeesList({
                       )}`}
                     >
                       {
-                        roleLabels[
-                          employee.role
-                        ]
+                        getCompanyRoleLabel(
+                          employee.role,
+                        )
                       }
                     </span>
                   </div>
@@ -1494,9 +1507,9 @@ function EmployeesList({
                               }
                             >
                               {
-                                roleLabels[
-                                  role
-                                ]
+                                getCompanyRoleLabel(
+                                  role,
+                                )
                               }
                             </option>
                           ),
@@ -1748,6 +1761,23 @@ function PermissionsModal({
     setError('')
   }
 
+  function enableAllPermissions() {
+    const next:
+      AuthEmployeePermissions =
+      {}
+
+    for (
+      const permission of
+        allPermissions
+    ) {
+      next[permission] =
+        true
+    }
+
+    setOverrides(next)
+    setError('')
+  }
+
   async function save() {
     if (isSaving) {
       return
@@ -1801,9 +1831,9 @@ function PermissionsModal({
                   }{' '}
                   ·{' '}
                   {
-                    roleLabels[
-                      employee.role
-                    ]
+                    getCompanyRoleLabel(
+                      employee.role,
+                    )
                   }
                 </p>
               </div>
@@ -1996,6 +2026,20 @@ function PermissionsModal({
             Vrati zadano za rank
           </button>
 
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={
+              enableAllPermissions
+            }
+            className="flex h-11 items-center justify-center gap-2 rounded-2xl bg-blue-500/10 px-4 text-sm font-bold text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50"
+          >
+            <CheckCircle2
+              size={16}
+            />
+            Uključi sve
+          </button>
+
           <div className="flex gap-3">
             <button
               type="button"
@@ -2101,9 +2145,9 @@ function InvitationsList({
                     )}`}
                   >
                     {
-                      roleLabels[
-                        invitation.role
-                      ]
+                      getCompanyRoleLabel(
+                        invitation.role,
+                      )
                     }
                   </span>
                 </div>
@@ -2493,9 +2537,9 @@ function InvitationModal({
                       }
                     >
                       {
-                        roleLabels[
-                          invitationRole
-                        ]
+                        getCompanyRoleLabel(
+                          invitationRole,
+                        )
                       }
                     </option>
                   ),
@@ -2603,9 +2647,9 @@ function EmployeeIdentity({
             )}`}
           >
             {
-              roleLabels[
-                employee.role
-              ]
+              getCompanyRoleLabel(
+                employee.role,
+              )
             }
           </span>
         </div>
