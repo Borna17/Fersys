@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 
-export type AiAssistantRole = 'user' | 'assistant'
+export type AiAssistantRole =
+  | 'user'
+  | 'assistant'
 
 export type AiAssistantMessage = {
   id: string
@@ -12,6 +14,7 @@ export type AiAssistantMessage = {
 export type AiActionType =
   | 'create_calendar_event'
   | 'change_offer_status'
+  | 'create_customer'
   | 'create_work_order'
   | 'create_offer'
   | 'create_vehicle'
@@ -54,8 +57,14 @@ export type AiAssistantResponse = {
   clientAction: AiClientAction | null
 }
 
-const AI_FUNCTION_SLUG = 'dynamic-handler-v2'
-const AI_TIMEOUT_MS = 40_000
+const AI_FUNCTION_SLUG =
+  'dynamic-handler-v2'
+
+/*
+ * 22 s je dovoljno za običan tekstualni upit.
+ * Govor i skeniranja imaju svoj duži timeout.
+ */
+const AI_TIMEOUT_MS = 22_000
 
 async function withTimeout<T>(
   promise: Promise<T>,
@@ -63,76 +72,124 @@ async function withTimeout<T>(
 ): Promise<T> {
   let timeoutId = 0
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(
-        new Error(
-          'FERSYS AI nije odgovorio na vrijeme. Pokušaj ponovno.',
-        ),
-      )
-    }, timeoutMs)
-  })
+  const timeoutPromise =
+    new Promise<never>(
+      (_, reject) => {
+        timeoutId =
+          window.setTimeout(
+            () => {
+              reject(
+                new Error(
+                  'FERSYS AI nije odgovorio na vrijeme. Pokušaj ponovno.',
+                ),
+              )
+            },
+            timeoutMs,
+          )
+      },
+    )
 
   try {
-    return await Promise.race([promise, timeoutPromise])
+    return await Promise.race([
+      promise,
+      timeoutPromise,
+    ])
   } finally {
-    window.clearTimeout(timeoutId)
+    window.clearTimeout(
+      timeoutId,
+    )
   }
 }
 
-function parseResponse(data: unknown): AiAssistantResponse {
-  if (!data || typeof data !== 'object') {
+function parseResponse(
+  data: unknown,
+): AiAssistantResponse {
+  if (
+    !data ||
+    typeof data !== 'object'
+  ) {
     throw new Error(
       'FERSYS AI nije vratio ispravan odgovor.',
     )
   }
 
-  const value = data as Record<string, unknown>
+  const value =
+    data as Record<
+      string,
+      unknown
+    >
 
-  if (typeof value.message !== 'string') {
+  if (
+    typeof value.message !==
+    'string'
+  ) {
     throw new Error(
       'FERSYS AI nije vratio tekstualni odgovor.',
     )
   }
 
   return {
-    message: value.message,
+    message:
+      value.message,
     proposedAction:
       value.proposedAction &&
-      typeof value.proposedAction === 'object'
-        ? (value.proposedAction as AiProposedAction)
+      typeof value.proposedAction ===
+        'object'
+        ? value.proposedAction as
+            AiProposedAction
         : null,
     clientAction:
       value.clientAction &&
-      typeof value.clientAction === 'object'
-        ? (value.clientAction as AiClientAction)
+      typeof value.clientAction ===
+        'object'
+        ? value.clientAction as
+            AiClientAction
         : null,
   }
 }
 
 export async function askAiAssistant(
   message: string,
-  conversation: AiAssistantMessage[],
+  conversation:
+    AiAssistantMessage[],
 ): Promise<AiAssistantResponse> {
-  const cleanMessage = message.trim()
+  const cleanMessage =
+    message.trim()
 
   if (!cleanMessage) {
-    throw new Error('Upiši ili izgovori poruku.')
+    throw new Error(
+      'Upiši ili izgovori poruku.',
+    )
   }
 
-  const result = await withTimeout(
-    supabase.functions.invoke(AI_FUNCTION_SLUG, {
-      body: {
-        message: cleanMessage,
-        conversation: conversation
-          .slice(-16)
-          .map((item) => ({
-            role: item.role,
-            content: item.content,
-          })),
-      },
-    }),
-  )
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        AI_FUNCTION_SLUG,
+        {
+          body: {
+            message:
+              cleanMessage,
+
+            /*
+             * Kraći kontekst = manji payload i manje
+             * nepotrebnog rada na Edge Functionu.
+             */
+            conversation:
+              conversation
+                .slice(-8)
+                .map(
+                  (item) => ({
+                    role:
+                      item.role,
+                    content:
+                      item.content,
+                  }),
+                ),
+          },
+        },
+      ),
+    )
 
   if (result.error) {
     throw new Error(
@@ -141,19 +198,26 @@ export async function askAiAssistant(
     )
   }
 
-  return parseResponse(result.data)
+  return parseResponse(
+    result.data,
+  )
 }
 
 export async function confirmAiAction(
   action: AiProposedAction,
 ): Promise<AiAssistantResponse> {
-  const result = await withTimeout(
-    supabase.functions.invoke(AI_FUNCTION_SLUG, {
-      body: {
-        confirmAction: action,
-      },
-    }),
-  )
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        AI_FUNCTION_SLUG,
+        {
+          body: {
+            confirmAction:
+              action,
+          },
+        },
+      ),
+    )
 
   if (result.error) {
     throw new Error(
@@ -162,12 +226,22 @@ export async function confirmAiAction(
     )
   }
 
-  return parseResponse(result.data)
+  return parseResponse(
+    result.data,
+  )
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer)
-  const chunkSize = 0x8000
+function arrayBufferToBase64(
+  buffer: ArrayBuffer,
+) {
+  const bytes =
+    new Uint8Array(
+      buffer,
+    )
+
+  const chunkSize =
+    0x8000
+
   let binary = ''
 
   for (
@@ -175,12 +249,17 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
     index < bytes.length;
     index += chunkSize
   ) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(
-        index,
-        Math.min(index + chunkSize, bytes.length),
-      ),
-    )
+    binary +=
+      String.fromCharCode(
+        ...bytes.subarray(
+          index,
+          Math.min(
+            index +
+              chunkSize,
+            bytes.length,
+          ),
+        ),
+      )
   }
 
   return btoa(binary)
@@ -189,17 +268,27 @@ function arrayBufferToBase64(buffer: ArrayBuffer) {
 export async function transcribeAiAudio(
   blob: Blob,
 ): Promise<string> {
-  const buffer = await blob.arrayBuffer()
+  const buffer =
+    await blob.arrayBuffer()
 
-  const result = await withTimeout(
-    supabase.functions.invoke(AI_FUNCTION_SLUG, {
-      body: {
-        audioBase64: arrayBufferToBase64(buffer),
-        audioMimeType: blob.type || 'audio/webm',
-      },
-    }),
-    50_000,
-  )
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        AI_FUNCTION_SLUG,
+        {
+          body: {
+            audioBase64:
+              arrayBufferToBase64(
+                buffer,
+              ),
+            audioMimeType:
+              blob.type ||
+              'audio/webm',
+          },
+        },
+      ),
+      50_000,
+    )
 
   if (result.error) {
     throw new Error(
@@ -209,8 +298,12 @@ export async function transcribeAiAudio(
   }
 
   const transcript =
-    typeof result.data?.transcript === 'string'
-      ? result.data.transcript.trim()
+    typeof result.data
+      ?.transcript ===
+      'string'
+      ? result.data
+          .transcript
+          .trim()
       : ''
 
   if (!transcript) {

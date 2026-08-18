@@ -26,9 +26,9 @@ VideoTutorial[] = [
     duration: '00:60',
     videoSrc:
       '/tutorials/fersys-overview.mp4',
-    routes: [
-      /^\/dashboard(?:\/|$)/,
-    ],
+   routes: [
+  /^\/fersys-overview(?:\/|$)/,
+],
     steps: [
       {
         time: '00–06 s',

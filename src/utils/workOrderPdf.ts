@@ -1151,8 +1151,14 @@ function css(
       gap: ${compact ? 8 : 10}px;
     }
 
-    .photos-1 { grid-template-columns: 1fr; }
-    .photos-2 { grid-template-columns: repeat(2,1fr); }
+    .photos-1 {
+      grid-template-columns: 1fr;
+      justify-items: center;
+    }
+
+    .photos-2 {
+      grid-template-columns: repeat(2,1fr);
+    }
 
     .photos-3,
     .photos-4 {
@@ -1160,20 +1166,41 @@ function css(
     }
 
     .photo-card {
+      width: 100%;
       margin: 0;
       overflow: hidden;
       border: 1px solid ${border};
-      border-radius: 6px;
-      background: white;
+      border-radius: 7px;
+      background: #fff;
       break-inside: avoid;
+    }
+
+    .photos-1 .photo-card {
+      width: 72%;
+      max-width: 510px;
     }
 
     .photo-card img {
       display: block;
       width: 100%;
-      height: ${compact ? 142 : 154}px;
+      height: ${compact ? 118 : 128}px;
+      padding: 6px;
       object-fit: contain;
-      background: ${alpha(border, '18')};
+      object-position: center;
+      background: #fff;
+    }
+
+    .photos-1 .photo-card img {
+      height: ${compact ? 176 : 194}px;
+    }
+
+    .photos-2 .photo-card img {
+      height: ${compact ? 132 : 145}px;
+    }
+
+    .photos-3 .photo-card img,
+    .photos-4 .photo-card img {
+      height: ${compact ? 106 : 118}px;
     }
 
     .photo-card figcaption {
@@ -1209,9 +1236,12 @@ function css(
 
     .signature-image {
       display: block;
-      max-width: 205px;
-      max-height: ${compact ? 58 : 68}px;
+      width: auto;
+      height: auto;
+      max-width: ${compact ? 158 : 172}px;
+      max-height: ${compact ? 50 : 58}px;
       object-fit: contain;
+      object-position: center;
     }
 
     .signature-line {
@@ -1231,9 +1261,12 @@ function css(
 
     .stamp-image {
       display: block;
-      max-width: ${compact ? 165 : 185}px;
-      max-height: ${compact ? 88 : 98}px;
+      width: auto;
+      height: auto;
+      max-width: ${compact ? 116 : 128}px;
+      max-height: ${compact ? 62 : 70}px;
       object-fit: contain;
+      object-position: center;
     }
 
     .footer {
@@ -1430,7 +1463,7 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 2.2,
+        scale: 2.5,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
@@ -1441,7 +1474,7 @@ async function buildPdfDocument(
       const image =
         canvas.toDataURL(
           'image/jpeg',
-          0.92,
+          0.94,
         )
 
       if (index > 0) doc.addPage()
