@@ -7,6 +7,7 @@ import App from './App'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FirstStepsControlCenter from './components/FirstStepsControlCenter'
 import FirstTenMinutes from './components/FirstTenMinutes'
+import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import MobileNotificationBell from './components/MobileNotificationBell'
 import VideoTutorialCenter from './components/VideoTutorialCenter'
 import './index.css'
@@ -50,6 +51,14 @@ createRoot(
 
       <DownloadFeedbackCenter />
       <MobileNotificationBell />
+
+      {/*
+       * Google Calendar PWA bridge:
+       * - desktop zadržava postojeći Google popup
+       * - mobitel / instalirana PWA koristi redirect OAuth
+       * - nakon povratka automatski vraća token CalendarPageu
+       */}
+      <GoogleCalendarOAuthBridge />
 
       {/*
        * Početni vodič na Dashboardu.
