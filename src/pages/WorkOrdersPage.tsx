@@ -7,6 +7,7 @@ import {
   Clock3,
   Download,
   Eye,
+  LoaderCircle,
   MapPin,
   Plus,
   Search,
@@ -26,10 +27,22 @@ import {
   type CloudWorkOrder,
   type CloudWorkOrderStatus,
 } from '../services/workOrders.service'
-import { downloadWorkOrderPdf } from '../utils/workOrderPdf'
+import {
+  updateWorkOrderQuickStatus,
+} from '../services/quickStatus.service'
 import {
   getWorkOrderBrandingFromCompanySettings,
 } from '../services/workOrderBranding.service'
+import { downloadWorkOrderPdf } from '../utils/workOrderPdf'
+
+const workOrderStatuses:
+readonly CloudWorkOrderStatus[] = [
+  'Novi',
+  'Zakazan',
+  'U tijeku',
+  'Završen',
+  'Otkazan',
+]
 
 function formatDate(date: string) {
   if (!date) return '—'
@@ -82,22 +95,22 @@ function getStatusClassName(
   status: CloudWorkOrderStatus,
 ) {
   if (status === 'Završen') {
-    return 'bg-emerald-500/15 text-emerald-300'
+    return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/20'
   }
 
   if (status === 'U tijeku') {
-    return 'bg-violet-500/15 text-violet-300'
+    return 'bg-violet-500/15 text-violet-300 border-violet-500/20'
   }
 
   if (status === 'Zakazan') {
-    return 'bg-amber-500/15 text-amber-300'
+    return 'bg-amber-500/15 text-amber-300 border-amber-500/20'
   }
 
   if (status === 'Otkazan') {
-    return 'bg-red-500/15 text-red-300'
+    return 'bg-red-500/15 text-red-300 border-red-500/20'
   }
 
-  return 'bg-blue-500/15 text-blue-300'
+  return 'bg-blue-500/15 text-blue-300 border-blue-500/20'
 }
 
 export function WorkOrdersPage() {
@@ -156,15 +169,22 @@ export function WorkOrdersPage() {
     downloadingId,
     setDownloadingId,
   ] =
-    useState<
-      string | null
-    >(null)
+    useState<string | null>(
+      null,
+    )
+
+  const [
+    savingStatusId,
+    setSavingStatusId,
+  ] =
+    useState<string | null>(
+      null,
+    )
 
   useEffect(() => {
     let cancelled = false
 
-    async function
-    loadWorkOrders() {
+    async function loadWorkOrders() {
       try {
         setIsLoading(true)
         setLoadError('')
@@ -173,24 +193,19 @@ export function WorkOrdersPage() {
           await getWorkOrders()
 
         if (!cancelled) {
-          setOrders(
-            savedOrders,
-          )
+          setOrders(savedOrders)
         }
       } catch (error) {
         if (!cancelled) {
           setLoadError(
-            error instanceof
-              Error
+            error instanceof Error
               ? error.message
               : 'Radne naloge nije moguće učitati.',
           )
         }
       } finally {
         if (!cancelled) {
-          setIsLoading(
-            false,
-          )
+          setIsLoading(false)
         }
       }
     }
@@ -214,10 +229,8 @@ export function WorkOrdersPage() {
       return orders.filter(
         (order) => {
           const matchesStatus =
-            status ===
-              'all' ||
-            order.status ===
-              status
+            status === 'all' ||
+            order.status === status
 
           const text = [
             order.orderNumber,
@@ -285,6 +298,70 @@ export function WorkOrdersPage() {
       [orders],
     )
 
+  async function handleStatusChange(
+    order: CloudWorkOrder,
+    nextStatus:
+      CloudWorkOrderStatus,
+  ) {
+    if (
+      !canManageWorkOrders ||
+      order.status ===
+        nextStatus ||
+      savingStatusId ===
+        order.id
+    ) {
+      return
+    }
+
+    const previousStatus =
+      order.status
+
+    setOrders((current) =>
+      current.map((item) =>
+        item.id === order.id
+          ? {
+              ...item,
+              status:
+                nextStatus,
+            }
+          : item,
+      ),
+    )
+
+    setSavingStatusId(
+      order.id,
+    )
+
+    try {
+      await updateWorkOrderQuickStatus(
+        order.id,
+        nextStatus,
+      )
+    } catch (error) {
+      setOrders((current) =>
+        current.map((item) =>
+          item.id === order.id
+            ? {
+                ...item,
+                status:
+                  previousStatus,
+              }
+            : item,
+        ),
+      )
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Status radnog naloga nije moguće spremiti.',
+      )
+    } finally {
+      setSavingStatusId(
+        null,
+      )
+    }
+  }
+
   async function handleDownloadPdf(
     order: CloudWorkOrder,
   ) {
@@ -305,7 +382,7 @@ export function WorkOrdersPage() {
         branding,
       )
     } catch (error) {
-      alert(
+      window.alert(
         error instanceof Error
           ? error.message
           : 'PDF nije moguće izraditi.',
@@ -345,8 +422,7 @@ export function WorkOrdersPage() {
           <button
             type="button"
             onClick={() =>
-              window.location
-                .reload()
+              window.location.reload()
             }
             className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
@@ -360,10 +436,8 @@ export function WorkOrdersPage() {
   const statCards = [
     {
       key: 'all',
-      label:
-        'Ukupno',
-      value:
-        stats.total,
+      label: 'Ukupno',
+      value: stats.total,
       Icon:
         ClipboardList,
       color:
@@ -377,18 +451,15 @@ export function WorkOrdersPage() {
     },
     {
       key: 'active',
-      label:
-        'Aktivni',
+      label: 'Aktivni',
       value:
         stats.active,
-      Icon:
-        Clock3,
+      Icon: Clock3,
       color:
         'text-violet-300',
       bg:
         'bg-violet-500/10',
-      active:
-        false,
+      active: false,
       onClick: () => {
         setStatus('all')
         setSearch('')
@@ -396,8 +467,7 @@ export function WorkOrdersPage() {
     },
     {
       key: 'done',
-      label:
-        'Završeni',
+      label: 'Završeni',
       value:
         stats.completed,
       Icon:
@@ -416,8 +486,7 @@ export function WorkOrdersPage() {
     },
     {
       key: 'urgent',
-      label:
-        'Hitni',
+      label: 'Hitni',
       value:
         stats.urgent,
       Icon:
@@ -426,8 +495,7 @@ export function WorkOrdersPage() {
         'text-red-300',
       bg:
         'bg-red-500/10',
-      active:
-        false,
+      active: false,
       onClick: () =>
         setSearch('Hitno'),
     },
@@ -471,7 +539,6 @@ export function WorkOrdersPage() {
                 )
               }
               className="hidden h-12 shrink-0 items-center justify-center rounded-2xl bg-blue-600 px-5 text-white shadow-lg shadow-blue-950/30 active:scale-95 sm:flex sm:gap-2"
-              aria-label="Novi radni nalog"
             >
               <Plus size={21} />
               <span className="hidden text-sm font-black sm:inline">
@@ -484,8 +551,12 @@ export function WorkOrdersPage() {
         {canManageWorkOrders && (
           <button
             type="button"
-            onClick={() => navigate('/work-orders/new')}
-            className="relative flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-lg shadow-blue-950/30 active:scale-[0.99] sm:hidden"
+            onClick={() =>
+              navigate(
+                '/work-orders/new',
+              )
+            }
+            className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white sm:hidden"
           >
             <Plus size={20} />
             Novi radni nalog
@@ -558,44 +629,37 @@ export function WorkOrdersPage() {
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:hidden">
           {[
             'all',
-            'Novi',
-            'Zakazan',
-            'U tijeku',
-            'Završen',
-            'Otkazan',
-          ].map(
-            (value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() =>
-                  setStatus(
-                    value as
-                      | 'all'
-                      | CloudWorkOrderStatus,
-                  )
-                }
-                className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-black ${
-                  status ===
-                  value
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                {value ===
-                'all'
-                  ? 'Svi'
-                  : value}
-              </button>
-            ),
-          )}
+            ...workOrderStatuses,
+          ].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() =>
+                setStatus(
+                  value as
+                    | 'all'
+                    | CloudWorkOrderStatus,
+                )
+              }
+              className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-black ${
+                status === value
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-800 text-slate-400'
+              }`}
+            >
+              {value === 'all'
+                ? 'Svi'
+                : value}
+            </button>
+          ))}
         </div>
 
         <select
           value={status}
           onChange={(event) =>
             setStatus(
-              event.target.value as
+              event.target
+                .value as
                 | 'all'
                 | CloudWorkOrderStatus,
             )
@@ -605,13 +669,8 @@ export function WorkOrdersPage() {
           <option value="all">
             Svi statusi
           </option>
-          {[
-            'Novi',
-            'Zakazan',
-            'U tijeku',
-            'Završen',
-            'Otkazan',
-          ].map(
+
+          {workOrderStatuses.map(
             (value) => (
               <option
                 key={value}
@@ -625,15 +684,15 @@ export function WorkOrdersPage() {
       </section>
 
       <section>
-        <div className="mb-3 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-              POPIS
-            </p>
-            <h2 className="mt-1 text-lg font-black text-white">
-              {filtered.length} prikazano
-            </h2>
-          </div>
+        <div className="mb-3">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
+            POPIS
+          </p>
+
+          <h2 className="mt-1 text-lg font-black text-white">
+            {filtered.length}{' '}
+            prikazano
+          </h2>
         </div>
 
         <div className="space-y-3 lg:hidden">
@@ -643,6 +702,86 @@ export function WorkOrdersPage() {
                 key={order.id}
                 className="rounded-3xl border border-slate-800 bg-slate-900 p-4"
               >
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/work-orders/${order.id}`,
+                      )
+                    }
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wider text-blue-400">
+                      {
+                        order.orderNumber
+                      }
+                    </p>
+
+                    <h3 className="mt-1 truncate font-black text-white">
+                      {order.title}
+                    </h3>
+
+                    <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+                      {
+                        order.customerName
+                      }
+                    </p>
+                  </button>
+
+                  {canManageWorkOrders ? (
+                    <div className="relative shrink-0">
+                      <select
+                        value={
+                          order.status
+                        }
+                        disabled={
+                          savingStatusId ===
+                          order.id
+                        }
+                        onChange={(event) =>
+                          void handleStatusChange(
+                            order,
+                            event.target
+                              .value as CloudWorkOrderStatus,
+                          )
+                        }
+                        className={`min-w-[112px] appearance-none rounded-xl border px-2.5 py-2 pr-8 text-[11px] font-black outline-none ${getStatusClassName(
+                          order.status,
+                        )}`}
+                      >
+                        {workOrderStatuses.map(
+                          (value) => (
+                            <option
+                              key={value}
+                              value={value}
+                              className="bg-slate-900 text-white"
+                            >
+                              {value}
+                            </option>
+                          ),
+                        )}
+                      </select>
+
+                      {savingStatusId ===
+                      order.id ? (
+                        <LoaderCircle
+                          size={14}
+                          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 animate-spin"
+                        />
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span
+                      className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black ${getStatusClassName(
+                        order.status,
+                      )}`}
+                    >
+                      {order.status}
+                    </span>
+                  )}
+                </div>
+
                 <button
                   type="button"
                   onClick={() =>
@@ -650,83 +789,49 @@ export function WorkOrdersPage() {
                       `/work-orders/${order.id}`,
                     )
                   }
-                  className="w-full text-left"
+                  className="mt-4 grid w-full grid-cols-2 gap-2 text-left"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-black uppercase tracking-wider text-blue-400">
-                        {
-                          order.orderNumber
-                        }
-                      </p>
+                  <MobileInfo
+                    icon={
+                      <CalendarDays
+                        size={14}
+                      />
+                    }
+                    label="Datum"
+                    value={formatDate(
+                      order.date,
+                    )}
+                  />
 
-                      <h3 className="mt-1 truncate font-black text-white">
-                        {
-                          order.title
-                        }
-                      </h3>
+                  <MobileInfo
+                    icon={
+                      <Clock3
+                        size={14}
+                      />
+                    }
+                    label="Vrijeme"
+                    value={`${
+                      order.arrivalTime ||
+                      '—'
+                    } – ${
+                      order.departureTime ||
+                      '—'
+                    }`}
+                  />
 
-                      <p className="mt-1 truncate text-xs font-semibold text-slate-400">
-                        {
-                          order.customerName
-                        }
-                      </p>
-                    </div>
-
-                    <span
-                      className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black ${getStatusClassName(
-                        order.status,
-                      )}`}
-                    >
-                      {
-                        order.status
-                      }
-                    </span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <MobileInfo
-                      icon={
-                        <CalendarDays
-                          size={14}
-                        />
-                      }
-                      label="Datum"
-                      value={formatDate(
-                        order.date,
-                      )}
-                    />
-
-                    <MobileInfo
-                      icon={
-                        <Clock3
-                          size={14}
-                        />
-                      }
-                      label="Vrijeme"
-                      value={`${
-                        order.arrivalTime ||
-                        '—'
-                      } – ${
-                        order.departureTime ||
-                        '—'
-                      }`}
-                    />
-
-                    <MobileInfo
-                      icon={
-                        <MapPin
-                          size={14}
-                        />
-                      }
-                      label="Lokacija"
-                      value={
-                        order.address ||
-                        '—'
-                      }
-                      className="col-span-2"
-                    />
-                  </div>
+                  <MobileInfo
+                    icon={
+                      <MapPin
+                        size={14}
+                      />
+                    }
+                    label="Lokacija"
+                    value={
+                      order.address ||
+                      '—'
+                    }
+                    className="col-span-2"
+                  />
                 </button>
 
                 <div className="mt-4 flex items-end justify-between gap-3 border-t border-slate-800 pt-4">
@@ -761,11 +866,8 @@ export function WorkOrdersPage() {
                         )
                       }
                       className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-200"
-                      aria-label="Otvori nalog"
                     >
-                      <Eye
-                        size={17}
-                      />
+                      <Eye size={17} />
                     </button>
 
                     <button
@@ -775,16 +877,23 @@ export function WorkOrdersPage() {
                         order.id
                       }
                       onClick={() =>
-                        handleDownloadPdf(
+                        void handleDownloadPdf(
                           order,
                         )
                       }
                       className="grid h-11 w-11 place-items-center rounded-xl bg-blue-600 text-white disabled:opacity-50"
-                      aria-label="Preuzmi PDF"
                     >
-                      <Download
-                        size={17}
-                      />
+                      {downloadingId ===
+                      order.id ? (
+                        <LoaderCircle
+                          size={17}
+                          className="animate-spin"
+                        />
+                      ) : (
+                        <Download
+                          size={17}
+                        />
+                      )}
                     </button>
                   </div>
                 </div>
@@ -840,9 +949,7 @@ export function WorkOrdersPage() {
 
                       <td className="px-6 py-5">
                         <p className="font-semibold text-white">
-                          {
-                            order.title
-                          }
+                          {order.title}
                         </p>
                         <p className="mt-1 text-sm text-slate-400">
                           {
@@ -905,15 +1012,67 @@ export function WorkOrdersPage() {
                       </td>
 
                       <td className="px-6 py-5">
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusClassName(
-                            order.status,
-                          )}`}
-                        >
-                          {
-                            order.status
-                          }
-                        </span>
+                        {canManageWorkOrders ? (
+                          <div className="relative inline-block">
+                            <select
+                              value={
+                                order.status
+                              }
+                              disabled={
+                                savingStatusId ===
+                                order.id
+                              }
+                              onChange={(event) =>
+                                void handleStatusChange(
+                                  order,
+                                  event.target
+                                    .value as CloudWorkOrderStatus,
+                                )
+                              }
+                              className={`min-w-[125px] cursor-pointer appearance-none rounded-xl border px-3 py-2 pr-9 text-xs font-black outline-none transition focus:ring-2 focus:ring-blue-500/30 ${getStatusClassName(
+                                order.status,
+                              )}`}
+                            >
+                              {workOrderStatuses.map(
+                                (
+                                  value,
+                                ) => (
+                                  <option
+                                    key={
+                                      value
+                                    }
+                                    value={
+                                      value
+                                    }
+                                    className="bg-slate-900 text-white"
+                                  >
+                                    {
+                                      value
+                                    }
+                                  </option>
+                                ),
+                              )}
+                            </select>
+
+                            {savingStatusId ===
+                            order.id ? (
+                              <LoaderCircle
+                                size={14}
+                                className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin"
+                              />
+                            ) : null}
+                          </div>
+                        ) : (
+                          <span
+                            className={`rounded-full border px-3 py-1 text-xs font-semibold ${getStatusClassName(
+                              order.status,
+                            )}`}
+                          >
+                            {
+                              order.status
+                            }
+                          </span>
+                        )}
                       </td>
 
                       <td className="px-6 py-5">
@@ -926,7 +1085,6 @@ export function WorkOrdersPage() {
                               )
                             }
                             className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300"
-                            title="Otvori"
                           >
                             <Eye
                               size={18}
@@ -940,16 +1098,23 @@ export function WorkOrdersPage() {
                               order.id
                             }
                             onClick={() =>
-                              handleDownloadPdf(
+                              void handleDownloadPdf(
                                 order,
                               )
                             }
                             className="grid h-10 w-10 place-items-center rounded-xl bg-blue-600 text-white disabled:opacity-50"
-                            title="Preuzmi PDF"
                           >
-                            <Download
-                              size={18}
-                            />
+                            {downloadingId ===
+                            order.id ? (
+                              <LoaderCircle
+                                size={18}
+                                className="animate-spin"
+                              />
+                            ) : (
+                              <Download
+                                size={18}
+                              />
+                            )}
                           </button>
                         </div>
                       </td>
@@ -979,24 +1144,6 @@ export function WorkOrdersPage() {
                 ? 'Izradi prvi radni nalog i kreni s radom.'
                 : 'Promijeni pretragu ili odabrani status.'}
             </p>
-
-            {orders.length === 0 &&
-              canManageWorkOrders && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      '/work-orders/new',
-                    )
-                  }
-                  className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white"
-                >
-                  <Plus
-                    size={18}
-                  />
-                  Novi radni nalog
-                </button>
-              )}
           </div>
         )}
       </section>
