@@ -64,7 +64,7 @@ const targetConfig: Record<
     draftType: 'work-order',
   },
   delivery_note: {
-    route: '/delivery-notes/new',
+    route: '/inventory/delivery-notes/new',
   },
   invoice: {
     route: '/invoices/new',
@@ -403,7 +403,7 @@ export async function getDocumentSummary(
           '',
         ),
       route:
-        `/delivery-notes/${data.id}`,
+        `/inventory/delivery-notes/${data.id}`,
     }
   }
 
@@ -1345,7 +1345,7 @@ export async function prepareDocumentConversion(
       alreadyExists:
         false,
       route:
-        `/delivery-notes/new?${param}=${encodeURIComponent(
+        `/inventory/delivery-notes/new?${param}=${encodeURIComponent(
           sourceId,
         )}`,
     }
@@ -1705,7 +1705,7 @@ export function documentRoute(
     type ===
     'delivery_note'
   ) {
-    return `/delivery-notes/${id}`
+    return `/inventory/delivery-notes/${id}`
   }
 
   return `/invoices/${id}`

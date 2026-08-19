@@ -67,7 +67,7 @@ function routeDocument(
         type:
           'delivery_note',
         regex:
-          /^\/delivery-notes\/([0-9a-f-]{20,})(?:\/|$)/i,
+          /^\/inventory\/delivery-notes\/([0-9a-f-]{20,})(?:\/|$)/i,
       },
       {
         type:
