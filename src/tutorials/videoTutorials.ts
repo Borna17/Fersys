@@ -69,44 +69,50 @@ VideoTutorial[] = [
     ],
   },
   {
-    id: 'dashboard',
-    title: 'Kako koristiti Dashboard',
-    shortTitle: 'Dashboard',
-    description:
-      'Gdje pronaći najvažnije brojke, aktivnosti i pregled poslovanja.',
-    duration: '00:30',
-    videoSrc:
-      '/tutorials/dashboard.mp4',
-    routes: [
-      /^\/dashboard(?:\/|$)/,
-    ],
-    steps: [
-      {
-        time: '00–05 s',
-        title: 'Pregled',
-        text:
-          'Kratki zoom na glavne kartice i statistiku.',
-      },
-      {
-        time: '05–15 s',
-        title: 'Aktivni podaci',
-        text:
-          'Prikaži radne naloge, investitore i aktualne aktivnosti.',
-      },
-      {
-        time: '15–24 s',
-        title: 'Brze akcije',
-        text:
-          'Pokaži gumb Novo i najčešće akcije.',
-      },
-      {
-        time: '24–30 s',
-        title: 'Završetak',
-        text:
-          'Istakni da se Dashboard automatski puni podacima tvrtke.',
-      },
-    ],
-  },
+  id: 'dashboard',
+  title: 'Kako koristiti Dashboard',
+  shortTitle: 'Dashboard',
+  description:
+    'Gdje pronaći najvažnije brojke, aktivnosti i pregled poslovanja.',
+  duration: '00:30',
+
+  videoSrc:
+    new URL(
+      './dashboard.mp4',
+      import.meta.url,
+    ).href,
+
+  routes: [
+    /^\/dashboard(?:\/|$)/,
+  ],
+
+  steps: [
+    {
+      time: '00–05 s',
+      title: 'Pregled',
+      text:
+        'Kratki zoom na glavne kartice i statistiku.',
+    },
+    {
+      time: '05–15 s',
+      title: 'Aktivni podaci',
+      text:
+        'Prikaži radne naloge, investitore i aktualne aktivnosti.',
+    },
+    {
+      time: '15–24 s',
+      title: 'Brze akcije',
+      text:
+        'Pokaži gumb Novo i najčešće akcije.',
+    },
+    {
+      time: '24–30 s',
+      title: 'Završetak',
+      text:
+        'Istakni da se Dashboard automatski puni podacima tvrtke.',
+    },
+  ],
+},
   {
     id: 'customers',
     title: 'Investitori i profili',
