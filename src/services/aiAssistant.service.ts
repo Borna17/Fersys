@@ -1,8 +1,6 @@
 import { supabase } from '../lib/supabase'
 
-export type AiAssistantRole =
-  | 'user'
-  | 'assistant'
+export type AiAssistantRole = 'user' | 'assistant'
 
 export type AiAssistantMessage = {
   id: string
@@ -57,258 +55,155 @@ export type AiAssistantResponse = {
   clientAction: AiClientAction | null
 }
 
-const AI_FUNCTION_SLUG =
-  'dynamic-handler-v2'
-
-/*
- * 22 s je dovoljno za običan tekstualni upit.
- * Govor i skeniranja imaju svoj duži timeout.
- */
-const AI_TIMEOUT_MS = 22_000
+const AI_FUNCTION_SLUG = 'dynamic-handler-v3'
+const AI_TIMEOUT_MS = 45_000
+const AUDIO_TIMEOUT_MS = 60_000
 
 async function withTimeout<T>(
   promise: Promise<T>,
-  timeoutMs = AI_TIMEOUT_MS,
+  timeoutMs: number,
+  timeoutMessage: string,
 ): Promise<T> {
-  let timeoutId = 0
+  let timeoutId: number | undefined
 
-  const timeoutPromise =
-    new Promise<never>(
-      (_, reject) => {
-        timeoutId =
-          window.setTimeout(
-            () => {
-              reject(
-                new Error(
-                  'FERSYS AI nije odgovorio na vrijeme. Pokušaj ponovno.',
-                ),
-              )
-            },
-            timeoutMs,
-          )
-      },
-    )
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
 
   try {
-    return await Promise.race([
-      promise,
-      timeoutPromise,
-    ])
+    return await Promise.race([promise, timeoutPromise])
   } finally {
-    window.clearTimeout(
-      timeoutId,
-    )
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId)
+    }
   }
 }
 
-function parseResponse(
-  data: unknown,
-): AiAssistantResponse {
-  if (
-    !data ||
-    typeof data !== 'object'
-  ) {
-    throw new Error(
-      'FERSYS AI nije vratio ispravan odgovor.',
-    )
+function parseResponse(data: unknown): AiAssistantResponse {
+  if (!data || typeof data !== 'object') {
+    throw new Error('FERSYS AI nije vratio ispravan odgovor.')
   }
 
-  const value =
-    data as Record<
-      string,
-      unknown
-    >
+  const value = data as Record<string, unknown>
 
-  if (
-    typeof value.message !==
-    'string'
-  ) {
-    throw new Error(
-      'FERSYS AI nije vratio tekstualni odgovor.',
-    )
+  if (typeof value.message !== 'string') {
+    throw new Error('FERSYS AI nije vratio tekstualni odgovor.')
   }
 
   return {
-    message:
-      value.message,
+    message: value.message,
     proposedAction:
       value.proposedAction &&
-      typeof value.proposedAction ===
-        'object'
-        ? value.proposedAction as
-            AiProposedAction
+      typeof value.proposedAction === 'object'
+        ? (value.proposedAction as AiProposedAction)
         : null,
     clientAction:
       value.clientAction &&
-      typeof value.clientAction ===
-        'object'
-        ? value.clientAction as
-            AiClientAction
+      typeof value.clientAction === 'object'
+        ? (value.clientAction as AiClientAction)
         : null,
   }
+}
+
+async function invokeAi(
+  body: Record<string, unknown>,
+  timeoutMs: number,
+  timeoutMessage: string,
+) {
+  const result = await withTimeout(
+    supabase.functions.invoke(AI_FUNCTION_SLUG, { body }),
+    timeoutMs,
+    timeoutMessage,
+  )
+
+  if (result.error) {
+    throw new Error(
+      result.error.message || 'FERSYS AI funkcija nije dostupna.',
+    )
+  }
+
+  return result.data
 }
 
 export async function askAiAssistant(
   message: string,
-  conversation:
-    AiAssistantMessage[],
+  conversation: AiAssistantMessage[],
 ): Promise<AiAssistantResponse> {
-  const cleanMessage =
-    message.trim()
+  const cleanMessage = message.trim()
 
   if (!cleanMessage) {
-    throw new Error(
-      'Upiši ili izgovori poruku.',
-    )
+    throw new Error('Upiši ili izgovori poruku.')
   }
 
-  const result =
-    await withTimeout(
-      supabase.functions.invoke(
-        AI_FUNCTION_SLUG,
-        {
-          body: {
-            message:
-              cleanMessage,
-
-            /*
-             * Kraći kontekst = manji payload i manje
-             * nepotrebnog rada na Edge Functionu.
-             */
-            conversation:
-              conversation
-                .slice(-8)
-                .map(
-                  (item) => ({
-                    role:
-                      item.role,
-                    content:
-                      item.content,
-                  }),
-                ),
-          },
-        },
-      ),
-    )
-
-  if (result.error) {
-    throw new Error(
-      result.error.message ||
-        'FERSYS AI funkcija nije dostupna.',
-    )
-  }
-
-  return parseResponse(
-    result.data,
+  const data = await invokeAi(
+    {
+      message: cleanMessage,
+      conversation: conversation.slice(-10).map((item) => ({
+        role: item.role,
+        content: item.content,
+      })),
+    },
+    AI_TIMEOUT_MS,
+    'FERSYS AI trenutačno obrađuje zahtjev dulje nego inače. Provjeri internet i pokušaj ponovno.',
   )
+
+  return parseResponse(data)
 }
 
 export async function confirmAiAction(
   action: AiProposedAction,
 ): Promise<AiAssistantResponse> {
-  const result =
-    await withTimeout(
-      supabase.functions.invoke(
-        AI_FUNCTION_SLUG,
-        {
-          body: {
-            confirmAction:
-              action,
-          },
-        },
-      ),
-    )
-
-  if (result.error) {
-    throw new Error(
-      result.error.message ||
-        'Radnju nije moguće izvršiti.',
-    )
-  }
-
-  return parseResponse(
-    result.data,
+  const data = await invokeAi(
+    {
+      confirmAction: action,
+    },
+    AI_TIMEOUT_MS,
+    'Radnja se nije dovršila na vrijeme. Provjeri je li zapis već napravljen prije ponovnog pokušaja.',
   )
+
+  return parseResponse(data)
 }
 
-function arrayBufferToBase64(
-  buffer: ArrayBuffer,
-) {
-  const bytes =
-    new Uint8Array(
-      buffer,
-    )
-
-  const chunkSize =
-    0x8000
-
+function arrayBufferToBase64(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
   let binary = ''
 
-  for (
-    let index = 0;
-    index < bytes.length;
-    index += chunkSize
-  ) {
-    binary +=
-      String.fromCharCode(
-        ...bytes.subarray(
-          index,
-          Math.min(
-            index +
-              chunkSize,
-            bytes.length,
-          ),
-        ),
-      )
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(
+      ...bytes.subarray(index, Math.min(index + chunkSize, bytes.length)),
+    )
   }
 
   return btoa(binary)
 }
 
-export async function transcribeAiAudio(
-  blob: Blob,
-): Promise<string> {
-  const buffer =
-    await blob.arrayBuffer()
-
-  const result =
-    await withTimeout(
-      supabase.functions.invoke(
-        AI_FUNCTION_SLUG,
-        {
-          body: {
-            audioBase64:
-              arrayBufferToBase64(
-                buffer,
-              ),
-            audioMimeType:
-              blob.type ||
-              'audio/webm',
-          },
-        },
-      ),
-      50_000,
-    )
-
-  if (result.error) {
-    throw new Error(
-      result.error.message ||
-        'Govor nije moguće pretvoriti u tekst.',
-    )
+export async function transcribeAiAudio(blob: Blob): Promise<string> {
+  if (blob.size === 0) {
+    throw new Error('Snimka je prazna. Pokušaj ponovno.')
   }
 
+  const buffer = await blob.arrayBuffer()
+
+  const data = await invokeAi(
+    {
+      audioBase64: arrayBufferToBase64(buffer),
+      audioMimeType: blob.type || 'audio/webm',
+    },
+    AUDIO_TIMEOUT_MS,
+    'Pretvaranje govora u tekst traje predugo. Provjeri internet i pokušaj ponovno.',
+  )
+
   const transcript =
-    typeof result.data
-      ?.transcript ===
-      'string'
-      ? result.data
-          .transcript
-          .trim()
+    typeof data?.transcript === 'string'
+      ? data.transcript.trim()
       : ''
 
   if (!transcript) {
     throw new Error(
-      'Nisam prepoznao govor. Pokušaj ponovno.',
+      'Nisam prepoznao govor. Pokušaj ponovno malo sporije i bliže mikrofonu.',
     )
   }
 

@@ -8,11 +8,9 @@ import {
 import {
   useAuth,
 } from '../auth/AuthProvider'
-
 import {
   supabase,
 } from '../lib/supabase'
-
 import {
   askAiAssistant,
   confirmAiAction,
@@ -20,18 +18,25 @@ import {
   type AiClientAction,
   type AiProposedAction,
 } from '../services/aiAssistant.service'
+import {
+  confirmLocalCustomerCreation,
+  tryCustomerFastPath,
+} from './aiCustomerFastPath'
 
 const CHANGE_EVENT =
   'fersys:ai-conversation-change'
 
 export const AI_WELCOME_TEXT =
-  'Pozdrav! Pitaj me prirodno. Mogu pronaći kupce, ponude i radne naloge, otvoriti spremljene zapise, generirati PDF postojećih dokumenata i raditi s kalendarom.'
+  'Pozdrav! Pitaj me prirodno. Mogu pronaći i otvoriti investitore, kreirati novog kupca uz potvrdu, raditi s ponudama i radnim nalozima te pomoći s kalendarom.'
 
 type ConversationSnapshot = {
   userId: string
-  messages: AiAssistantMessage[]
-  action: AiProposedAction | null
-  clientAction: AiClientAction | null
+  messages:
+    AiAssistantMessage[]
+  action:
+    AiProposedAction | null
+  clientAction:
+    AiClientAction | null
 }
 
 type ConversationRow = {
@@ -41,15 +46,20 @@ type ConversationRow = {
 }
 
 function createMessage(
-  role: AiAssistantMessage['role'],
+  role:
+    AiAssistantMessage[
+      'role'
+    ],
   content: string,
 ): AiAssistantMessage {
   return {
-    id: crypto.randomUUID(),
+    id:
+      crypto.randomUUID(),
     role,
     content,
     createdAt:
-      new Date().toISOString(),
+      new Date()
+        .toISOString(),
   }
 }
 
@@ -67,7 +77,8 @@ function isMessage(
   value: unknown,
 ): value is AiAssistantMessage {
   if (
-    typeof value !== 'object' ||
+    typeof value !==
+      'object' ||
     value === null ||
     Array.isArray(value)
   ) {
@@ -81,27 +92,36 @@ function isMessage(
     >
 
   return (
-    typeof message.id === 'string' &&
+    typeof message.id ===
+      'string' &&
     (
-      message.role === 'user' ||
-      message.role === 'assistant'
+      message.role ===
+        'user' ||
+      message.role ===
+        'assistant'
     ) &&
-    typeof message.content === 'string' &&
-    typeof message.createdAt === 'string'
+    typeof message.content ===
+      'string' &&
+    typeof message.createdAt ===
+      'string'
   )
 }
 
 function parseMessages(
   value: unknown,
 ): AiAssistantMessage[] {
-  if (!Array.isArray(value)) {
+  if (
+    !Array.isArray(value)
+  ) {
     return defaultMessages()
   }
 
   const parsed =
-    value.filter(isMessage)
+    value.filter(
+      isMessage,
+    )
 
-  return parsed.length > 0
+  return parsed.length
     ? parsed
     : defaultMessages()
 }
@@ -110,7 +130,8 @@ function parseObjectOrNull<T>(
   value: unknown,
 ): T | null {
   if (
-    typeof value === 'object' &&
+    typeof value ===
+      'object' &&
     value !== null &&
     !Array.isArray(value)
   ) {
@@ -121,20 +142,19 @@ function parseObjectOrNull<T>(
 }
 
 function clearLegacyAiLocalStorage() {
-  /*
-   * Brišemo sve stare lokalne AI ključeve.
-   * Od ove verzije povijest više uopće
-   * nije spremljena u browseru.
-   */
-  const keysToRemove: string[] = []
+  const keysToRemove:
+    string[] = []
 
   for (
     let index = 0;
-    index < localStorage.length;
+    index <
+    localStorage.length;
     index += 1
   ) {
     const key =
-      localStorage.key(index)
+      localStorage.key(
+        index,
+      )
 
     if (
       key &&
@@ -150,15 +170,19 @@ function clearLegacyAiLocalStorage() {
         )
       )
     ) {
-      keysToRemove.push(key)
+      keysToRemove.push(
+        key,
+      )
     }
   }
 
   for (
     const key of
-    keysToRemove
+      keysToRemove
   ) {
-    localStorage.removeItem(key)
+    localStorage.removeItem(
+      key,
+    )
   }
 }
 
@@ -167,9 +191,10 @@ Promise<string> {
   const {
     data,
     error,
-  } = await supabase.rpc(
-    'current_company_id',
-  )
+  } =
+    await supabase.rpc(
+      'current_company_id',
+    )
 
   if (error) {
     throw new Error(
@@ -189,9 +214,12 @@ Promise<string> {
 async function loadConversation(
   userId: string,
 ): Promise<{
-  messages: AiAssistantMessage[]
-  action: AiProposedAction | null
-  clientAction: AiClientAction | null
+  messages:
+    AiAssistantMessage[]
+  action:
+    AiProposedAction | null
+  clientAction:
+    AiClientAction | null
 }> {
   const companyId =
     await getCurrentCompanyId()
@@ -199,22 +227,23 @@ async function loadConversation(
   const {
     data,
     error,
-  } = await supabase
-    .from(
-      'ai_user_conversations',
-    )
-    .select(
-      'messages,proposed_action,client_action',
-    )
-    .eq(
-      'company_id',
-      companyId,
-    )
-    .eq(
-      'user_id',
-      userId,
-    )
-    .maybeSingle()
+  } =
+    await supabase
+      .from(
+        'ai_user_conversations',
+      )
+      .select(
+        'messages,proposed_action,client_action',
+      )
+      .eq(
+        'company_id',
+        companyId,
+      )
+      .eq(
+        'user_id',
+        userId,
+      )
+      .maybeSingle()
 
   if (error) {
     throw new Error(
@@ -226,31 +255,28 @@ async function loadConversation(
     return {
       messages:
         defaultMessages(),
-
       action:
         null,
-
       clientAction:
         null,
     }
   }
 
   const row =
-    data as ConversationRow
+    data as
+      ConversationRow
 
   return {
     messages:
       parseMessages(
         row.messages,
       ),
-
     action:
       parseObjectOrNull<
         AiProposedAction
       >(
         row.proposed_action,
       ),
-
     clientAction:
       parseObjectOrNull<
         AiClientAction
@@ -262,7 +288,8 @@ async function loadConversation(
 
 async function saveConversation(
   userId: string,
-  messages: AiAssistantMessage[],
+  messages:
+    AiAssistantMessage[],
   action:
     AiProposedAction | null,
   clientAction:
@@ -273,31 +300,28 @@ async function saveConversation(
 
   const {
     error,
-  } = await supabase
-    .from(
-      'ai_user_conversations',
-    )
-    .upsert(
-      {
-        company_id:
-          companyId,
-
-        user_id:
-          userId,
-
-        messages,
-
-        proposed_action:
-          action,
-
-        client_action:
-          clientAction,
-      },
-      {
-        onConflict:
-          'company_id,user_id',
-      },
-    )
+  } =
+    await supabase
+      .from(
+        'ai_user_conversations',
+      )
+      .upsert(
+        {
+          company_id:
+            companyId,
+          user_id:
+            userId,
+          messages,
+          proposed_action:
+            action,
+          client_action:
+            clientAction,
+        },
+        {
+          onConflict:
+            'company_id,user_id',
+        },
+      )
 
   if (error) {
     throw new Error(
@@ -314,7 +338,8 @@ async function saveConversation(
           messages,
           action,
           clientAction,
-        } satisfies ConversationSnapshot,
+        } satisfies
+          ConversationSnapshot,
       },
     ),
   )
@@ -329,15 +354,17 @@ export function useAiConversation() {
     user?.id ?? null
 
   const activeUserIdRef =
-    useRef<string | null>(
-      userId,
-    )
+    useRef<
+      string | null
+    >(userId)
 
   const [
     messages,
     setMessages,
   ] =
-    useState<AiAssistantMessage[]>(
+    useState<
+      AiAssistantMessage[]
+    >(
       () =>
         defaultMessages(),
     )
@@ -346,32 +373,35 @@ export function useAiConversation() {
     proposedAction,
     setProposedAction,
   ] =
-    useState<AiProposedAction | null>(
-      null,
-    )
+    useState<
+      AiProposedAction | null
+    >(null)
 
   const [
     clientAction,
     setClientAction,
   ] =
-    useState<AiClientAction | null>(
-      null,
-    )
+    useState<
+      AiClientAction | null
+    >(null)
 
   const [
     isSending,
     setIsSending,
-  ] = useState(false)
+  ] =
+    useState(false)
 
   const [
     error,
     setError,
-  ] = useState('')
+  ] =
+    useState('')
 
   const [
     isConversationLoading,
     setIsConversationLoading,
-  ] = useState(true)
+  ] =
+    useState(true)
 
   const loadCurrentConversation =
     useCallback(
@@ -380,19 +410,15 @@ export function useAiConversation() {
           setMessages(
             defaultMessages(),
           )
-
           setProposedAction(
             null,
           )
-
           setClientAction(
             null,
           )
-
           setIsConversationLoading(
             false,
           )
-
           return
         }
 
@@ -403,7 +429,6 @@ export function useAiConversation() {
           setIsConversationLoading(
             true,
           )
-
           setError('')
 
           const conversation =
@@ -411,34 +436,30 @@ export function useAiConversation() {
               requestedUserId,
             )
 
-          /*
-           * Ako se u međuvremenu korisnik
-           * odjavio/prijavio drugim računom,
-           * rezultat starog korisnika se
-           * ne smije prikazati.
-           */
           if (
-            activeUserIdRef.current !==
-              requestedUserId
+            activeUserIdRef
+              .current !==
+            requestedUserId
           ) {
             return
           }
 
           setMessages(
-            conversation.messages,
+            conversation
+              .messages,
           )
-
           setProposedAction(
             conversation.action,
           )
-
           setClientAction(
-            conversation.clientAction,
+            conversation
+              .clientAction,
           )
         } catch (value) {
           if (
-            activeUserIdRef.current !==
-              requestedUserId
+            activeUserIdRef
+              .current !==
+            requestedUserId
           ) {
             return
           }
@@ -446,24 +467,23 @@ export function useAiConversation() {
           setMessages(
             defaultMessages(),
           )
-
           setProposedAction(
             null,
           )
-
           setClientAction(
             null,
           )
-
           setError(
-            value instanceof Error
+            value instanceof
+              Error
               ? value.message
               : 'AI razgovor nije moguće učitati.',
           )
         } finally {
           if (
-            activeUserIdRef.current ===
-              requestedUserId
+            activeUserIdRef
+              .current ===
+            requestedUserId
           ) {
             setIsConversationLoading(
               false,
@@ -476,24 +496,22 @@ export function useAiConversation() {
 
   useEffect(() => {
     clearLegacyAiLocalStorage()
-
     activeUserIdRef.current =
       userId
 
     setMessages(
       defaultMessages(),
     )
-
     setProposedAction(
       null,
     )
-
     setClientAction(
       null,
     )
-
     setError('')
-    setIsSending(false)
+    setIsSending(
+      false,
+    )
 
     void loadCurrentConversation()
   }, [
@@ -506,29 +524,32 @@ export function useAiConversation() {
       event: Event,
     ) {
       const custom =
-        event as CustomEvent<
-          ConversationSnapshot
-        >
+        event as
+          CustomEvent<
+            ConversationSnapshot
+          >
 
       if (
         !custom.detail ||
         !userId ||
-        custom.detail.userId !==
+        custom.detail
+          .userId !==
           userId
       ) {
         return
       }
 
       setMessages(
-        custom.detail.messages,
+        custom.detail
+          .messages,
       )
-
       setProposedAction(
-        custom.detail.action,
+        custom.detail
+          .action,
       )
-
       setClientAction(
-        custom.detail.clientAction,
+        custom.detail
+          .clientAction,
       )
     }
 
@@ -550,10 +571,8 @@ export function useAiConversation() {
       async (
         nextMessages:
           AiAssistantMessage[],
-
         nextAction:
           AiProposedAction | null,
-
         nextClientAction:
           AiClientAction | null,
       ) => {
@@ -561,15 +580,12 @@ export function useAiConversation() {
           setMessages(
             nextMessages,
           )
-
           setProposedAction(
             nextAction,
           )
-
           setClientAction(
             nextClientAction,
           )
-
           return
         }
 
@@ -579,11 +595,9 @@ export function useAiConversation() {
         setMessages(
           nextMessages,
         )
-
         setProposedAction(
           nextAction,
         )
-
         setClientAction(
           nextClientAction,
         )
@@ -597,16 +611,17 @@ export function useAiConversation() {
           )
         } catch (value) {
           if (
-            activeUserIdRef.current ===
-              requestedUserId
+            activeUserIdRef
+              .current ===
+            requestedUserId
           ) {
             setError(
-              value instanceof Error
+              value instanceof
+                Error
                 ? value.message
                 : 'AI razgovor nije moguće spremiti.',
             )
           }
-
           throw value
         }
       },
@@ -633,7 +648,6 @@ export function useAiConversation() {
           setError(
             'Korisnik nije prijavljen.',
           )
-
           return
         }
 
@@ -665,22 +679,34 @@ export function useAiConversation() {
             null,
           )
 
+          /*
+           * FAST PATH:
+           * investitori se rješavaju izravno iz Supabasea,
+           * bez čekanja AI Edge Functiona.
+           */
+          const customerFast =
+            await tryCustomerFastPath(
+              clean,
+              before,
+            )
+
           const response =
+            customerFast ??
             await askAiAssistant(
               clean,
               next,
             )
 
           if (
-            activeUserIdRef.current !==
-              requestedUserId
+            activeUserIdRef
+              .current !==
+            requestedUserId
           ) {
             return
           }
 
           const completed = [
             ...next,
-
             createMessage(
               'assistant',
               response.message,
@@ -689,29 +715,34 @@ export function useAiConversation() {
 
           await replace(
             completed,
-            response.proposedAction,
-            response.clientAction,
+            response
+              .proposedAction,
+            response
+              .clientAction,
           )
         } catch (value) {
           if (
-            activeUserIdRef.current !==
-              requestedUserId
+            activeUserIdRef
+              .current !==
+            requestedUserId
           ) {
             return
           }
 
           const message =
-            value instanceof Error
+            value instanceof
+              Error
               ? value.message
               : 'AI pomoćnik trenutačno nije dostupan.'
 
-          setError(message)
+          setError(
+            message,
+          )
 
           try {
             await replace(
               [
                 ...next,
-
                 createMessage(
                   'assistant',
                   `Nisam uspio obraditi zahtjev.\n\n${message}`,
@@ -725,10 +756,13 @@ export function useAiConversation() {
           }
         } finally {
           if (
-            activeUserIdRef.current ===
-              requestedUserId
+            activeUserIdRef
+              .current ===
+            requestedUserId
           ) {
-            setIsSending(false)
+            setIsSending(
+              false,
+            )
           }
         }
       },
@@ -763,14 +797,26 @@ export function useAiConversation() {
         setIsSending(true)
 
         try {
+          /*
+           * create_customer se izvršava lokalno preko
+           * postojećeg customers.service.ts.
+           * Nema drugog odlaska na Edge Function.
+           */
+          const localResponse =
+            await confirmLocalCustomerCreation(
+              action,
+            )
+
           const response =
+            localResponse ??
             await confirmAiAction(
               action,
             )
 
           if (
-            activeUserIdRef.current !==
-              requestedUserId
+            activeUserIdRef
+              .current !==
+            requestedUserId
           ) {
             return
           }
@@ -778,32 +824,37 @@ export function useAiConversation() {
           await replace(
             [
               ...messages,
-
               createMessage(
                 'assistant',
                 response.message,
               ),
             ],
             null,
-            response.clientAction,
+            response
+              .clientAction,
           )
         } catch (value) {
           if (
-            activeUserIdRef.current ===
-              requestedUserId
+            activeUserIdRef
+              .current ===
+            requestedUserId
           ) {
             setError(
-              value instanceof Error
+              value instanceof
+                Error
                 ? value.message
                 : 'Radnju nije moguće izvršiti.',
             )
           }
         } finally {
           if (
-            activeUserIdRef.current ===
-              requestedUserId
+            activeUserIdRef
+              .current ===
+            requestedUserId
           ) {
-            setIsSending(false)
+            setIsSending(
+              false,
+            )
           }
         }
       },
@@ -818,29 +869,35 @@ export function useAiConversation() {
     )
 
   const cancelAction =
-    useCallback(() => {
-      void replace(
+    useCallback(
+      () => {
+        void replace(
+          messages,
+          null,
+          null,
+        )
+      },
+      [
         messages,
-        null,
-        null,
-      )
-    }, [
-      messages,
-      replace,
-    ])
+        replace,
+      ],
+    )
 
   const clearClientAction =
-    useCallback(() => {
-      void replace(
+    useCallback(
+      () => {
+        void replace(
+          messages,
+          proposedAction,
+          null,
+        )
+      },
+      [
         messages,
         proposedAction,
-        null,
-      )
-    }, [
-      messages,
-      proposedAction,
-      replace,
-    ])
+        replace,
+      ],
+    )
 
   const appendAssistantMessage =
     useCallback(
@@ -857,7 +914,6 @@ export function useAiConversation() {
         void replace(
           [
             ...messages,
-
             createMessage(
               'assistant',
               clean,
@@ -876,15 +932,18 @@ export function useAiConversation() {
     )
 
   const clear =
-    useCallback(() => {
-      setError('')
+    useCallback(
+      () => {
+        setError('')
 
-      void replace(
-        defaultMessages(),
-        null,
-        null,
-      )
-    }, [replace])
+        void replace(
+          defaultMessages(),
+          null,
+          null,
+        )
+      },
+      [replace],
+    )
 
   return {
     messages,
