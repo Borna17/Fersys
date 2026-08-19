@@ -1902,10 +1902,9 @@ export function CustomerProfilePage() {
                   </Field>
                 )}
 
-                <Field label="OIB">
-                  <input
-                    required
-                    inputMode="numeric"
+                <Field label="OIB (nije obavezno)">
+  <input
+    inputMode="numeric"
                     maxLength={11}
                     value={editOib}
                     onChange={(event) =>

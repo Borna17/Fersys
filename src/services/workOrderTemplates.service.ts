@@ -1,409 +1,342 @@
 import { supabase } from '../lib/supabase'
-
 import type {
   WorkOrderMaterial,
   WorkOrderPriority,
 } from '../types/workOrder'
 
-export type WorkOrderTemplateMaterial = {
-  name: string
-  quantity: number
-  unit: string
-}
-
 export type WorkOrderTemplate = {
   id: string
   companyId: string
   createdBy: string
-
   name: string
   title: string
   description: string
-  materials: WorkOrderTemplateMaterial[]
-  priority: WorkOrderPriority
-
+  materials:
+    WorkOrderMaterial[]
+  priority:
+    WorkOrderPriority
   createdAt: string
   updatedAt: string
 }
 
-type TemplateRow = {
+export type WorkOrderTemplateInput = {
+  name: string
+  title: string
+  description: string
+  materials:
+    WorkOrderMaterial[]
+  priority:
+    WorkOrderPriority
+}
+
+type WorkOrderTemplateRow = {
   id: string
   company_id: string
   created_by: string
-
   name: string
   title: string
   description: string
   materials: unknown
   priority: string
-
   created_at: string
   updated_at: string
 }
 
-export type SaveWorkOrderTemplateInput = {
-  name: string
-  title: string
-  description: string
-  materials: WorkOrderMaterial[]
-  priority: WorkOrderPriority
+const priorities:
+WorkOrderPriority[] = [
+  'Nizak',
+  'Normalan',
+  'Visok',
+  'Hitno',
+]
+
+function validPriority(
+  value: unknown,
+): WorkOrderPriority {
+  return priorities.includes(
+    value as
+      WorkOrderPriority,
+  )
+    ? value as
+        WorkOrderPriority
+    : 'Normalan'
 }
 
-function parseMaterials(
+function cleanMaterials(
   value: unknown,
-): WorkOrderTemplateMaterial[] {
+): WorkOrderMaterial[] {
   if (!Array.isArray(value)) {
     return []
   }
 
   return value
-    .map((item) => {
-      if (
-        typeof item !== 'object' ||
-        item === null ||
-        Array.isArray(item)
-      ) {
-        return null
-      }
-
-      const record =
-        item as Record<string, unknown>
-
-      const name =
-        typeof record.name === 'string'
-          ? record.name.trim()
-          : ''
-
-      if (!name) {
-        return null
-      }
-
-      return {
-        name,
-        quantity:
-          Math.max(
-            0,
-            Number(record.quantity) || 0,
-          ),
-
-        unit:
-          typeof record.unit === 'string' &&
-          record.unit.trim()
-            ? record.unit.trim()
-            : 'kom',
-      }
-    })
     .filter(
-      (
-        item,
-      ): item is WorkOrderTemplateMaterial =>
-        item !== null,
+      (item) =>
+        item &&
+        typeof item === 'object',
     )
-}
+    .map(
+      (item) => {
+        const row =
+          item as Record<
+            string,
+            unknown
+          >
 
-function parsePriority(
-  value: string,
-): WorkOrderPriority {
-  if (
-    value === 'Nizak' ||
-    value === 'Normalan' ||
-    value === 'Visok' ||
-    value === 'Hitno'
-  ) {
-    return value
-  }
-
-  return 'Normalan'
+        return {
+          id:
+            typeof row.id ===
+              'string' &&
+            row.id
+              ? row.id
+              : crypto.randomUUID(),
+          name:
+            String(
+              row.name ?? '',
+            ),
+          quantity:
+            Number(
+              row.quantity ?? 1,
+            ) || 0,
+          unit:
+            String(
+              row.unit ?? 'kom',
+            ),
+          unitPrice:
+            Number(
+              row.unitPrice ??
+              0,
+            ) || 0,
+        } satisfies WorkOrderMaterial
+      },
+    )
 }
 
 function mapRow(
-  row: TemplateRow,
+  row:
+    WorkOrderTemplateRow,
 ): WorkOrderTemplate {
   return {
     id: row.id,
-    companyId: row.company_id,
-    createdBy: row.created_by,
-
+    companyId:
+      row.company_id,
+    createdBy:
+      row.created_by,
     name: row.name,
     title: row.title,
-    description: row.description,
-
+    description:
+      row.description,
     materials:
-      parseMaterials(
+      cleanMaterials(
         row.materials,
       ),
-
     priority:
-      parsePriority(
+      validPriority(
         row.priority,
       ),
-
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+    createdAt:
+      row.created_at,
+    updatedAt:
+      row.updated_at,
   }
 }
 
-async function getCurrentCompanyId():
-Promise<string> {
-  const {
-    data,
-    error,
-  } = await supabase.rpc(
-    'current_company_id',
-  )
-
-  if (error) {
-    throw error
+function cleanInput(
+  input:
+    WorkOrderTemplateInput,
+) {
+  return {
+    name:
+      input.name.trim(),
+    title:
+      input.title.trim(),
+    description:
+      input.description.trim(),
+    priority:
+      validPriority(
+        input.priority,
+      ),
+    materials:
+      input.materials
+        .map(
+          (material) => ({
+            ...material,
+            name:
+              material.name.trim(),
+            unit:
+              material.unit.trim() ||
+              'kom',
+            quantity:
+              Number(
+                material.quantity,
+              ) || 0,
+            unitPrice:
+              Number(
+                material.unitPrice,
+              ) || 0,
+          }),
+        )
+        .filter(
+          (material) =>
+            material.name !==
+            '',
+        ),
   }
-
-  if (!data) {
-    throw new Error(
-      'Korisnik nije povezan s aktivnom tvrtkom.',
-    )
-  }
-
-  return String(data)
-}
-
-async function getCurrentUserId():
-Promise<string> {
-  const {
-    data: {
-      user,
-    },
-    error,
-  } =
-    await supabase.auth.getUser()
-
-  if (error) {
-    throw error
-  }
-
-  if (!user) {
-    throw new Error(
-      'Korisnik nije prijavljen.',
-    )
-  }
-
-  return user.id
 }
 
 export async function getWorkOrderTemplates():
 Promise<WorkOrderTemplate[]> {
-  const companyId =
-    await getCurrentCompanyId()
-
   const {
     data,
     error,
-  } = await supabase
-    .from(
-      'work_order_templates',
-    )
-    .select('*')
-    .eq(
-      'company_id',
-      companyId,
-    )
-    .order(
-      'name',
-      {
-        ascending: true,
-      },
-    )
+  } =
+    await supabase
+      .from(
+        'work_order_templates',
+      )
+      .select('*')
+      .order(
+        'name',
+        {
+          ascending: true,
+        },
+      )
 
   if (error) {
-    throw error
+    throw new Error(
+      `Predloške radnih naloga nije moguće učitati: ${error.message}`,
+    )
   }
 
   return (
-    (data ?? []) as TemplateRow[]
+    (
+      data ??
+      []
+    ) as WorkOrderTemplateRow[]
   ).map(mapRow)
 }
 
 export async function createWorkOrderTemplate(
-  input: SaveWorkOrderTemplateInput,
+  input:
+    WorkOrderTemplateInput,
 ): Promise<WorkOrderTemplate> {
-  const [
-    companyId,
-    userId,
-  ] =
-    await Promise.all([
-      getCurrentCompanyId(),
-      getCurrentUserId(),
-    ])
+  const clean =
+    cleanInput(input)
 
-  const cleanName =
-    input.name.trim()
-
-  if (!cleanName) {
+  if (!clean.name) {
     throw new Error(
       'Unesite naziv predloška.',
     )
   }
 
-  const materials =
-    input.materials
-      .map(
-        (material) => ({
-          name:
-            material.name.trim(),
-
-          quantity:
-            Math.max(
-              0,
-              Number(
-                material.quantity,
-              ) || 0,
-            ),
-
-          unit:
-            material.unit.trim() ||
-            'kom',
-        }),
-      )
-      .filter(
-        (material) =>
-          material.name !== '',
-      )
-
   const {
     data,
     error,
-  } = await supabase
-    .from(
-      'work_order_templates',
+  } =
+    await supabase.rpc(
+      'save_work_order_template_v1',
+      {
+        p_id: null,
+        p_name:
+          clean.name,
+        p_title:
+          clean.title,
+        p_description:
+          clean.description,
+        p_materials:
+          clean.materials,
+        p_priority:
+          clean.priority,
+      },
     )
-    .insert({
-      company_id:
-        companyId,
-
-      created_by:
-        userId,
-
-      name:
-        cleanName,
-
-      title:
-        input.title.trim(),
-
-      description:
-        input.description.trim(),
-
-      materials,
-
-      priority:
-        input.priority,
-    })
-    .select('*')
-    .single()
 
   if (error) {
-    throw error
+    throw new Error(
+      `Predložak radnog naloga nije moguće spremiti: ${error.message}`,
+    )
+  }
+
+  if (!data) {
+    throw new Error(
+      'Predložak radnog naloga nije spremljen. Server nije vratio zapis.',
+    )
   }
 
   return mapRow(
-    data as TemplateRow,
+    data as WorkOrderTemplateRow,
   )
 }
 
 export async function updateWorkOrderTemplate(
-  id: string,
-  input: SaveWorkOrderTemplateInput,
+  templateId: string,
+  input:
+    WorkOrderTemplateInput,
 ): Promise<WorkOrderTemplate> {
-  const companyId =
-    await getCurrentCompanyId()
+  const clean =
+    cleanInput(input)
 
-  const materials =
-    input.materials
-      .map(
-        (material) => ({
-          name:
-            material.name.trim(),
-
-          quantity:
-            Math.max(
-              0,
-              Number(
-                material.quantity,
-              ) || 0,
-            ),
-
-          unit:
-            material.unit.trim() ||
-            'kom',
-        }),
-      )
-      .filter(
-        (material) =>
-          material.name !== '',
-      )
+  if (!clean.name) {
+    throw new Error(
+      'Unesite naziv predloška.',
+    )
+  }
 
   const {
     data,
     error,
-  } = await supabase
-    .from(
-      'work_order_templates',
+  } =
+    await supabase.rpc(
+      'save_work_order_template_v1',
+      {
+        p_id:
+          templateId,
+        p_name:
+          clean.name,
+        p_title:
+          clean.title,
+        p_description:
+          clean.description,
+        p_materials:
+          clean.materials,
+        p_priority:
+          clean.priority,
+      },
     )
-    .update({
-      name:
-        input.name.trim(),
-
-      title:
-        input.title.trim(),
-
-      description:
-        input.description.trim(),
-
-      materials,
-
-      priority:
-        input.priority,
-    })
-    .eq(
-      'company_id',
-      companyId,
-    )
-    .eq(
-      'id',
-      id,
-    )
-    .select('*')
-    .single()
 
   if (error) {
-    throw error
+    throw new Error(
+      `Predložak radnog naloga nije moguće ažurirati: ${error.message}`,
+    )
+  }
+
+  if (!data) {
+    throw new Error(
+      'Predložak radnog naloga nije ažuriran. Server nije vratio zapis.',
+    )
   }
 
   return mapRow(
-    data as TemplateRow,
+    data as WorkOrderTemplateRow,
   )
 }
 
 export async function deleteWorkOrderTemplate(
-  id: string,
+  templateId: string,
 ): Promise<void> {
-  const companyId =
-    await getCurrentCompanyId()
-
   const {
     error,
-  } = await supabase
-    .from(
-      'work_order_templates',
-    )
-    .delete()
-    .eq(
-      'company_id',
-      companyId,
-    )
-    .eq(
-      'id',
-      id,
+  } =
+    await supabase.rpc(
+      'delete_work_order_template_v1',
+      {
+        p_id:
+          templateId,
+      },
     )
 
   if (error) {
-    throw error
+    throw new Error(
+      `Predložak radnog naloga nije moguće obrisati: ${error.message}`,
+    )
   }
 }
