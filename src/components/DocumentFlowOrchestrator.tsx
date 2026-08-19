@@ -532,14 +532,22 @@ export default function DocumentFlowOrchestrator() {
     )
 
   return (
-    <div className="pointer-events-none fixed bottom-[calc(78px+env(safe-area-inset-bottom))] right-3 z-[180] sm:bottom-6 sm:right-6">
+    <div
+      className={`pointer-events-none fixed z-[180] ${
+        open
+          ? 'bottom-[calc(78px+env(safe-area-inset-bottom))] right-3 md:bottom-auto md:right-4 md:top-1/2 md:-translate-y-1/2'
+          : 'bottom-[calc(78px+env(safe-area-inset-bottom))] right-3 md:bottom-auto md:right-2 md:top-[44%] md:-translate-y-1/2'
+      }`}
+    >
       {!open ? (
         <button
           type="button"
           onClick={() =>
             setOpen(true)
           }
-          className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-2xl border border-violet-400/20 bg-slate-950/95 px-4 text-sm font-black text-white shadow-2xl shadow-black/40 backdrop-blur-xl transition hover:border-violet-400/40 active:scale-[0.98]"
+          className="pointer-events-auto flex min-h-12 items-center gap-2 rounded-2xl border border-violet-400/20 bg-slate-950/95 px-4 text-sm font-black text-white shadow-2xl shadow-black/40 backdrop-blur-xl transition hover:border-violet-400/40 active:scale-[0.98] md:h-12 md:w-12 md:justify-center md:rounded-l-2xl md:rounded-r-lg md:px-0"
+          title="FERSYS Smart Flow"
+          aria-label="Otvori FERSYS Smart Flow"
         >
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-blue-600 to-violet-600">
             <Network
@@ -547,7 +555,9 @@ export default function DocumentFlowOrchestrator() {
             />
           </span>
 
-          FERSYS Flow
+          <span className="md:hidden">
+            FERSYS Flow
+          </span>
 
           {loading ? (
             <LoaderCircle
@@ -557,12 +567,12 @@ export default function DocumentFlowOrchestrator() {
           ) : (
             <ChevronUp
               size={15}
-              className="text-slate-500"
+              className="text-slate-500 md:hidden"
             />
           )}
         </button>
       ) : (
-        <section className="pointer-events-auto w-[min(94vw,430px)] overflow-hidden rounded-[1.6rem] border border-violet-400/20 bg-slate-950/98 shadow-2xl shadow-black/50 backdrop-blur-2xl">
+        <section className="pointer-events-auto w-[min(94vw,430px)] max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[1.6rem] border border-violet-400/20 bg-slate-950/98 shadow-2xl shadow-black/50 backdrop-blur-2xl">
           <div className="border-b border-white/5 bg-gradient-to-r from-blue-600/10 via-violet-600/10 to-fuchsia-600/10 p-4">
             <div className="flex items-start gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-blue-600 to-violet-600 text-white">

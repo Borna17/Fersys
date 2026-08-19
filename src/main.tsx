@@ -8,6 +8,7 @@ import DocumentFlowOrchestrator from './components/DocumentFlowOrchestrator'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FirstStepsControlCenter from './components/FirstStepsControlCenter'
 import FirstTenMinutes from './components/FirstTenMinutes'
+import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import MobileNotificationBell from './components/MobileNotificationBell'
 import VideoTutorialCenter from './components/VideoTutorialCenter'
@@ -50,6 +51,7 @@ createRoot(
     <BrowserRouter>
       <App />
 
+      <FloatingUiLayoutFix />
       <DownloadFeedbackCenter />
       <MobileNotificationBell />
       <GoogleCalendarOAuthBridge />
