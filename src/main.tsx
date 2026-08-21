@@ -11,6 +11,7 @@ import FirstTenMinutes from './components/FirstTenMinutes'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import MobileNotificationBell from './components/MobileNotificationBell'
+import NumericInputExperience from './components/NumericInputExperience'
 import VideoTutorialCenter from './components/VideoTutorialCenter'
 import './index.css'
 
@@ -52,6 +53,7 @@ createRoot(
       <App />
 
       <FloatingUiLayoutFix />
+      <NumericInputExperience />
       <DownloadFeedbackCenter />
       <MobileNotificationBell />
       <GoogleCalendarOAuthBridge />
