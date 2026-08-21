@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+:root {
+  --fersys-safe-top: env(safe-area-inset-top, 0px);
+  --fersys-safe-right: env(safe-area-inset-right, 0px);
+  --fersys-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fersys-safe-left: env(safe-area-inset-left, 0px);
+}
+
 html,
 body,
 #root {
@@ -53,6 +60,35 @@ select {
   max-width: 100%;
 }
 
+/*
+ * FERSYS mobile foundations
+ *
+ * - iOS notch / Dynamic Island / home indicator
+ * - prevents the mobile shell and fixed controls from touching system UI
+ * - keeps a single source of truth for safe-area offsets
+ */
+.fersys-mobile-safe-top {
+  padding-top: var(--fersys-safe-top);
+}
+
+.fersys-mobile-safe-bottom {
+  padding-bottom: var(--fersys-safe-bottom);
+}
+
+.fersys-mobile-safe-x {
+  padding-left: var(--fersys-safe-left);
+  padding-right: var(--fersys-safe-right);
+}
+
+.fersys-mobile-fixed-top {
+  top: calc(0.625rem + var(--fersys-safe-top));
+  left: calc(0.75rem + var(--fersys-safe-left));
+}
+
+.fersys-mobile-bottom-offset {
+  bottom: calc(0.75rem + var(--fersys-safe-bottom));
+}
+
 /* iOS: sprječava automatski zoom pri fokusu polja. */
 @media (max-width: 767px) {
   input,
@@ -74,11 +110,10 @@ select {
 /* PWA safe-area pomoć za uređaje s notchom. */
 @supports (padding: env(safe-area-inset-top)) {
   body {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
+    padding-left: var(--fersys-safe-left);
+    padding-right: var(--fersys-safe-right);
   }
 }
-
 
 /* FERSYS: scroll ostaje aktivan, ali bez ružne vidljive scrollbar trake. */
 .fersys-scrollbar-hidden {
