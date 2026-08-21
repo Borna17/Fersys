@@ -19,10 +19,7 @@ import {
   useMemo,
   useState,
 } from 'react'
-import {
-  useNavigate,
-  useParams,
-} from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
@@ -32,9 +29,7 @@ import {
   getEmployees,
   type CompanyEmployee,
 } from '../services/employees.service'
-import {
-  getWorkOrderEditAccess,
-} from '../services/workOrderAccess.service'
+import { getWorkOrderEditAccess } from '../services/workOrderAccess.service'
 import {
   getWorkOrderById,
   updateWorkOrder,
@@ -46,35 +41,21 @@ import type {
   WorkOrderPriority,
   WorkOrderStatus,
 } from '../types/workOrder'
-import {
-  fileToCompressedDataUrl,
-} from '../utils/imageUtils'
+import { fileToCompressedDataUrl } from '../utils/imageUtils'
 
 const inputClass =
   'h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600'
 
-function calculateDuration(
-  arrival: string,
-  departure: string,
-) {
+function calculateDuration(arrival: string, departure: string) {
   if (!arrival || !departure) return 0
 
-  const [arrivalHour, arrivalMinute] =
-    arrival.split(':').map(Number)
+  const [arrivalHour, arrivalMinute] = arrival.split(':').map(Number)
+  const [departureHour, departureMinute] = departure.split(':').map(Number)
 
-  const [departureHour, departureMinute] =
-    departure.split(':').map(Number)
+  const start = arrivalHour * 60 + arrivalMinute
+  let end = departureHour * 60 + departureMinute
 
-  const start =
-    arrivalHour * 60 + arrivalMinute
-
-  let end =
-    departureHour * 60 + departureMinute
-
-  if (end < start) {
-    end += 24 * 60
-  }
-
+  if (end < start) end += 24 * 60
   return end - start
 }
 
@@ -82,20 +63,12 @@ function durationText(minutes: number) {
   const hours = Math.floor(minutes / 60)
   const rest = minutes % 60
 
-  if (hours && rest) {
-    return `${hours} h ${rest} min`
-  }
-
-  if (hours) {
-    return `${hours} h`
-  }
-
+  if (hours && rest) return `${hours} h ${rest} min`
+  if (hours) return `${hours} h`
   return `${rest} min`
 }
 
-function getRoleLabel(
-  role: CompanyEmployee['role'],
-) {
+function getRoleLabel(role: CompanyEmployee['role']) {
   switch (role) {
     case 'owner':
       return 'Vlasnik'
@@ -122,101 +95,50 @@ export function EditWorkOrderPage() {
   const navigate = useNavigate()
   const { id } = useParams()
   const { can } = useAuth()
+  const canViewPrices = can('workOrders.viewPrices')
 
-  const canViewPrices =
-    can('workOrders.viewPrices')
+  const [customers, setCustomers] = useState<Customer[]>([])
+  const [workers, setWorkers] = useState<CompanyEmployee[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [workersError, setWorkersError] = useState('')
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState('')
 
-  const [customers, setCustomers] =
-    useState<Customer[]>([])
-  const [workers, setWorkers] =
-    useState<CompanyEmployee[]>([])
-
-  const [isLoading, setIsLoading] =
-    useState(true)
-  const [isSaving, setIsSaving] =
-    useState(false)
-  const [loadError, setLoadError] =
-    useState('')
-  const [workersError, setWorkersError] =
-    useState('')
-  const [
-    accessDeniedMessage,
-    setAccessDeniedMessage,
-  ] = useState('')
-
-  const [customerId, setCustomerId] =
-    useState('')
-  const [customerName, setCustomerName] =
-    useState('')
-  const [
-    customerContactPerson,
-    setCustomerContactPerson,
-  ] = useState('')
-  const [
-    customerPhone,
-    setCustomerPhone,
-  ] = useState('')
-  const [
-    customerEmail,
-    setCustomerEmail,
-  ] = useState('')
-  const [customerOib, setCustomerOib] =
-    useState('')
-  const [address, setAddress] =
-    useState('')
+  const [customerId, setCustomerId] = useState('')
+  const [customerName, setCustomerName] = useState('')
+  const [customerContactPerson, setCustomerContactPerson] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
+  const [customerOib, setCustomerOib] = useState('')
+  const [address, setAddress] = useState('')
 
   const [date, setDate] = useState('')
-  const [arrivalTime, setArrivalTime] =
-    useState('')
-  const [
-    departureTime,
-    setDepartureTime,
-  ] = useState('')
-  const [status, setStatus] =
-    useState<WorkOrderStatus>('Novi')
-  const [priority, setPriority] =
-    useState<WorkOrderPriority>(
-      'Normalan',
-    )
+  const [arrivalTime, setArrivalTime] = useState('')
+  const [departureTime, setDepartureTime] = useState('')
+  const [status, setStatus] = useState<WorkOrderStatus>('Novi')
+  const [priority, setPriority] = useState<WorkOrderPriority>('Normalan')
 
-  const [title, setTitle] =
-    useState('')
-  const [description, setDescription] =
-    useState('')
-  const [
-    assignedWorkers,
-    setAssignedWorkers,
-  ] = useState<string[]>([])
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [assignedWorkers, setAssignedWorkers] = useState<string[]>([])
 
-  const [materials, setMaterials] =
-    useState<WorkOrderMaterial[]>([])
-  const [labourPrice, setLabourPrice] =
-    useState('0')
-  const [vatRate, setVatRate] =
-    useState('25')
-  const [priceNote, setPriceNote] =
-    useState('')
+  const [materials, setMaterials] = useState<WorkOrderMaterial[]>([])
+  const [labourPrice, setLabourPrice] = useState('')
+  const [vatRate, setVatRate] = useState('25')
+  const [priceNote, setPriceNote] = useState('')
 
-  const [investorName, setInvestorName] =
-    useState('')
-  const [
-    investorSignature,
-    setInvestorSignature,
-  ] = useState('')
-
-  const [images, setImages] =
-    useState<WorkOrderImage[]>([])
-  const [isUploading, setIsUploading] =
-    useState(false)
+  const [investorName, setInvestorName] = useState('')
+  const [investorSignature, setInvestorSignature] = useState('')
+  const [images, setImages] = useState<WorkOrderImage[]>([])
+  const [isUploading, setIsUploading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
 
     async function load() {
       if (!id) {
-        setLoadError(
-          'Radni nalog nije pronađen.',
-        )
+        setLoadError('Radni nalog nije pronađen.')
         setIsLoading(false)
         return
       }
@@ -226,124 +148,59 @@ export function EditWorkOrderPage() {
         setLoadError('')
         setWorkersError('')
 
-        const [
-          savedOrder,
-          savedCustomers,
-          employees,
-        ] =
-          await Promise.all([
-            getWorkOrderById(id),
-            getCustomers(),
-            getEmployees(),
-          ])
+        const [savedOrder, savedCustomers, employees] = await Promise.all([
+          getWorkOrderById(id),
+          getCustomers(),
+          getEmployees(),
+        ])
 
         if (cancelled) return
-
         if (!savedOrder) {
-          setLoadError(
-            'Radni nalog nije pronađen.',
-          )
+          setLoadError('Radni nalog nije pronađen.')
           return
         }
 
-        const access =
-          await getWorkOrderEditAccess(
-            savedOrder,
-          )
-
+        const access = await getWorkOrderEditAccess(savedOrder)
         if (!access.allowed) {
-          setAccessDeniedMessage(
-            access.reason,
-          )
+          setAccessDeniedMessage(access.reason)
           return
         }
 
         setAccessDeniedMessage('')
         setCustomers(savedCustomers)
-
         setWorkers(
           employees
-            .filter(
-              (employee) =>
-                employee.status === 'active',
-            )
+            .filter((employee) => employee.status === 'active')
             .sort((first, second) => {
-              if (
-                first.role === 'owner' &&
-                second.role !== 'owner'
-              ) {
-                return -1
-              }
-
-              if (
-                second.role === 'owner' &&
-                first.role !== 'owner'
-              ) {
-                return 1
-              }
-
-              return first.fullName.localeCompare(
-                second.fullName,
-                'hr',
-              )
+              if (first.role === 'owner' && second.role !== 'owner') return -1
+              if (second.role === 'owner' && first.role !== 'owner') return 1
+              return first.fullName.localeCompare(second.fullName, 'hr')
             }),
         )
 
         setCustomerId(savedOrder.customerId)
-        setCustomerName(
-          savedOrder.customerName,
-        )
-        setCustomerContactPerson(
-          savedOrder.customerContactPerson,
-        )
-        setCustomerPhone(
-          savedOrder.customerPhone,
-        )
-        setCustomerEmail(
-          savedOrder.customerEmail,
-        )
-        setCustomerOib(
-          savedOrder.customerOib,
-        )
+        setCustomerName(savedOrder.customerName)
+        setCustomerContactPerson(savedOrder.customerContactPerson)
+        setCustomerPhone(savedOrder.customerPhone)
+        setCustomerEmail(savedOrder.customerEmail)
+        setCustomerOib(savedOrder.customerOib)
         setAddress(savedOrder.address)
-
         setDate(savedOrder.date)
-        setArrivalTime(
-          savedOrder.arrivalTime,
-        )
-        setDepartureTime(
-          savedOrder.departureTime,
-        )
+        setArrivalTime(savedOrder.arrivalTime)
+        setDepartureTime(savedOrder.departureTime)
         setStatus(savedOrder.status)
         setPriority(savedOrder.priority)
-
         setTitle(savedOrder.title)
-        setDescription(
-          savedOrder.description,
-        )
-        setAssignedWorkers(
-          savedOrder.assignedWorkers,
-        )
-
-        setMaterials(
-          savedOrder.materials,
-        )
+        setDescription(savedOrder.description)
+        setAssignedWorkers(savedOrder.assignedWorkers)
+        setMaterials(savedOrder.materials)
         setLabourPrice(
-          String(savedOrder.labourPrice),
+          savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice),
         )
-        setVatRate(
-          String(savedOrder.vatRate),
-        )
-        setPriceNote(
-          savedOrder.priceNote,
-        )
-
-        setInvestorName(
-          savedOrder.investorName,
-        )
-        setInvestorSignature(
-          savedOrder.investorSignature,
-        )
+        setVatRate(String(savedOrder.vatRate))
+        setPriceNote(savedOrder.priceNote)
+        setInvestorName(savedOrder.investorName)
+        setInvestorSignature(savedOrder.investorSignature)
         setImages(savedOrder.images)
       } catch (error) {
         if (!cancelled) {
@@ -354,115 +211,69 @@ export function EditWorkOrderPage() {
           )
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+        if (!cancelled) setIsLoading(false)
       }
     }
 
     void load()
-
     return () => {
       cancelled = true
     }
   }, [id])
 
-  const durationMinutes =
-    useMemo(
-      () =>
-        calculateDuration(
-          arrivalTime,
-          departureTime,
-        ),
-      [
-        arrivalTime,
-        departureTime,
-      ],
-    )
+  const durationMinutes = useMemo(
+    () => calculateDuration(arrivalTime, departureTime),
+    [arrivalTime, departureTime],
+  )
 
-  const materialPrice =
-    useMemo(
-      () =>
-        materials.reduce(
-          (sum, material) =>
-            sum +
-            material.quantity *
-              material.unitPrice,
-          0,
-        ),
-      [materials],
-    )
+  const materialPrice = useMemo(
+    () =>
+      materials.reduce(
+        (sum, material) => sum + material.quantity * material.unitPrice,
+        0,
+      ),
+    [materials],
+  )
 
-  const subtotal =
-    materialPrice +
-    (Number(labourPrice) || 0)
+  const subtotal = materialPrice + (Number(labourPrice) || 0)
+  const totalPrice = subtotal + subtotal * ((Number(vatRate) || 0) / 100)
 
-  const totalPrice =
-    subtotal +
-    subtotal *
-      ((Number(vatRate) || 0) / 100)
-
-  function handleCustomerChange(
-    value: string,
-  ) {
+  function handleCustomerChange(value: string) {
     setCustomerId(value)
-
-    const customer =
-      customers.find(
-        (item) => item.id === value,
-      )
-
+    const customer = customers.find((item) => item.id === value)
     if (!customer) return
 
     setCustomerName(customer.name)
-    setCustomerContactPerson(
-      customer.contactPerson ?? '',
-    )
+    setCustomerContactPerson(customer.contactPerson ?? '')
     setCustomerPhone(customer.phone)
     setCustomerEmail(customer.email)
     setCustomerOib(customer.oib)
-
     setAddress(
-      [
-        customer.street,
-        customer.postalCode,
-        customer.city,
-      ]
+      [customer.street, customer.postalCode, customer.city]
         .filter(Boolean)
         .join(', '),
     )
   }
 
-  function toggleWorker(
-    workerName: string,
-  ) {
-    setAssignedWorkers(
-      (current) =>
-        current.includes(workerName)
-          ? current.filter(
-              (worker) =>
-                worker !== workerName,
-            )
-          : [
-              ...current,
-              workerName,
-            ],
+  function toggleWorker(workerName: string) {
+    setAssignedWorkers((current) =>
+      current.includes(workerName)
+        ? current.filter((worker) => worker !== workerName)
+        : [...current, workerName],
     )
   }
 
   function addMaterial() {
-    setMaterials(
-      (current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          name: '',
-          quantity: 1,
-          unit: 'kom',
-          unitPrice: 0,
-        },
-      ],
-    )
+    setMaterials((current) => [
+      ...current,
+      {
+        id: crypto.randomUUID(),
+        name: '',
+        quantity: 1,
+        unit: 'kom',
+        unitPrice: 0,
+      },
+    ])
   }
 
   function updateMaterial(
@@ -470,250 +281,118 @@ export function EditWorkOrderPage() {
     key: keyof WorkOrderMaterial,
     value: string | number,
   ) {
-    setMaterials(
-      (current) =>
-        current.map(
-          (material) =>
-            material.id === materialId
-              ? {
-                  ...material,
-                  [key]: value,
-                }
-              : material,
-        ),
+    setMaterials((current) =>
+      current.map((material) =>
+        material.id === materialId ? { ...material, [key]: value } : material,
+      ),
     )
   }
 
-  function removeMaterial(
-    materialId: string,
-  ) {
-    setMaterials(
-      (current) =>
-        current.filter(
-          (material) =>
-            material.id !==
-            materialId,
-        ),
+  function removeMaterial(materialId: string) {
+    setMaterials((current) =>
+      current.filter((material) => material.id !== materialId),
     )
   }
 
-  async function handleImages(
-    event: ChangeEvent<HTMLInputElement>,
-  ) {
-    const selected =
-      Array.from(
-        event.target.files ?? [],
-      )
+  async function handleImages(event: ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files ?? [])
+    if (selected.length === 0) return
 
-    if (selected.length === 0) {
-      return
-    }
-
-    const remainingSlots =
-      12 - images.length
-
+    const remainingSlots = 12 - images.length
     if (remainingSlots <= 0) {
-      alert(
-        'Možete dodati najviše 12 fotografija.',
-      )
+      alert('Možete dodati najviše 12 fotografija.')
       event.target.value = ''
       return
     }
 
     setIsUploading(true)
-
     try {
-      const compressed =
-        await Promise.all(
-          selected
-            .slice(0, remainingSlots)
-            .map(
-              async (file) => ({
-                id: crypto.randomUUID(),
-                name: file.name,
-                dataUrl:
-                  await fileToCompressedDataUrl(
-                    file,
-                  ),
-              }),
-            ),
-        )
-
-      setImages(
-        (current) => [
-          ...current,
-          ...compressed,
-        ],
+      const compressed = await Promise.all(
+        selected.slice(0, remainingSlots).map(async (file) => ({
+          id: crypto.randomUUID(),
+          name: file.name,
+          dataUrl: await fileToCompressedDataUrl(file),
+        })),
       )
+      setImages((current) => [...current, ...compressed])
     } catch {
-      alert(
-        'Jednu ili više slika nije moguće učitati.',
-      )
+      alert('Jednu ili više slika nije moguće učitati.')
     } finally {
       setIsUploading(false)
       event.target.value = ''
     }
   }
 
-  function removeImage(
-    imageId: string,
-  ) {
-    setImages(
-      (current) =>
-        current.filter(
-          (image) =>
-            image.id !== imageId,
-        ),
-    )
+  function removeImage(imageId: string) {
+    setImages((current) => current.filter((image) => image.id !== imageId))
   }
 
-  async function submit(
-    event: FormEvent<HTMLFormElement>,
-  ) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-
-    if (!id || isSaving) {
-      return
-    }
+    if (!id || isSaving) return
 
     if (!customerId) {
-      alert(
-        'Odaberite investitora.',
-      )
+      alert('Odaberite investitora.')
       return
     }
-
     if (!title.trim()) {
-      alert(
-        'Unesite naziv radnog naloga.',
-      )
+      alert('Unesite naziv radnog naloga.')
       return
     }
-
     if (!date) {
-      alert(
-        'Odaberite datum.',
-      )
+      alert('Odaberite datum.')
       return
     }
 
-    const cleanMaterials =
-      materials
-        .map((material) => ({
-          ...material,
-          name:
-            material.name.trim(),
-          unit:
-            material.unit.trim() ||
-            'kom',
-          quantity:
-            Math.max(
-              0,
-              Number(
-                material.quantity,
-              ) || 0,
-            ),
-          unitPrice:
-            Math.max(
-              0,
-              Number(
-                material.unitPrice,
-              ) || 0,
-            ),
-        }))
-        .filter(
-          (material) =>
-            material.name !== '',
-        )
+    const cleanMaterials = materials
+      .map((material) => ({
+        ...material,
+        name: material.name.trim(),
+        unit: material.unit.trim() || 'kom',
+        quantity: Math.max(0, Number(material.quantity) || 0),
+        unitPrice: Math.max(0, Number(material.unitPrice) || 0),
+      }))
+      .filter((material) => material.name !== '')
 
     try {
       setIsSaving(true)
+      const saved = await updateWorkOrder(id, {
+        customerId,
+        customerName: customerName.trim(),
+        customerContactPerson: customerContactPerson.trim(),
+        customerPhone: customerPhone.trim(),
+        customerEmail: customerEmail.trim(),
+        customerOib: customerOib.replace(/\D/g, '').slice(0, 11),
+        address: address.trim(),
+        date,
+        arrivalTime,
+        departureTime,
+        durationMinutes,
+        title: title.trim(),
+        description: description.trim(),
+        materials: cleanMaterials,
+        assignedWorkers,
+        ...(canViewPrices
+          ? {
+              labourPrice: Math.max(0, Number(labourPrice) || 0),
+              materialPrice: cleanMaterials.reduce(
+                (sum, material) =>
+                  sum + material.quantity * material.unitPrice,
+                0,
+              ),
+              vatRate: Math.max(0, Number(vatRate) || 0),
+              totalPrice: Math.max(0, totalPrice),
+              priceNote: priceNote.trim(),
+            }
+          : {}),
+        investorName: investorName.trim(),
+        investorSignature,
+        images,
+        status,
+        priority,
+      })
 
-      const saved =
-        await updateWorkOrder(
-          id,
-          {
-            customerId,
-            customerName:
-              customerName.trim(),
-            customerContactPerson:
-              customerContactPerson.trim(),
-            customerPhone:
-              customerPhone.trim(),
-            customerEmail:
-              customerEmail.trim(),
-            customerOib:
-              customerOib
-                .replace(/\D/g, '')
-                .slice(0, 11),
-            address:
-              address.trim(),
-
-            date,
-            arrivalTime,
-            departureTime,
-            durationMinutes,
-
-            title:
-              title.trim(),
-            description:
-              description.trim(),
-            materials:
-              cleanMaterials,
-            assignedWorkers,
-
-            ...(canViewPrices
-              ? {
-                  labourPrice:
-                    Math.max(
-                      0,
-                      Number(
-                        labourPrice,
-                      ) || 0,
-                    ),
-                  materialPrice:
-                    cleanMaterials.reduce(
-                      (
-                        sum,
-                        material,
-                      ) =>
-                        sum +
-                        material.quantity *
-                          material.unitPrice,
-                      0,
-                    ),
-                  vatRate:
-                    Math.max(
-                      0,
-                      Number(
-                        vatRate,
-                      ) || 0,
-                    ),
-                  totalPrice:
-                    Math.max(
-                      0,
-                      totalPrice,
-                    ),
-                  priceNote:
-                    priceNote.trim(),
-                }
-              : {}),
-
-            investorName:
-              investorName.trim(),
-            investorSignature,
-            images,
-            status,
-            priority,
-          },
-        )
-
-      navigate(
-        `/work-orders/${saved.id}`,
-        {
-          replace: true,
-        },
-      )
+      navigate(`/work-orders/${saved.id}`, { replace: true })
     } catch (error) {
       alert(
         error instanceof Error
@@ -726,11 +405,7 @@ export function EditWorkOrderPage() {
   }
 
   if (isLoading) {
-    return (
-      <FersysLoader
-        text="Učitavanje radnog naloga..."
-      />
-    )
+    return <FersysLoader text="Učitavanje radnog naloga..." />
   }
 
   if (accessDeniedMessage) {
@@ -740,18 +415,12 @@ export function EditWorkOrderPage() {
           <h1 className="text-xl font-black text-white sm:text-2xl">
             Nemaš pravo uređivati ovaj nalog
           </h1>
-
           <p className="mt-3 text-sm leading-6 text-amber-200">
             {accessDeniedMessage}
           </p>
-
           <button
             type="button"
-            onClick={() =>
-              navigate(
-                `/work-orders/${id}`,
-              )
-            }
+            onClick={() => navigate(`/work-orders/${id}`)}
             className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
             Povratak na nalog
@@ -768,16 +437,10 @@ export function EditWorkOrderPage() {
           <h1 className="text-xl font-black text-white sm:text-2xl">
             Radni nalog nije moguće učitati
           </h1>
-
-          <p className="mt-3 break-words text-sm text-red-300">
-            {loadError}
-          </p>
-
+          <p className="mt-3 break-words text-sm text-red-300">{loadError}</p>
           <button
             type="button"
-            onClick={() =>
-              navigate('/work-orders')
-            }
+            onClick={() => navigate('/work-orders')}
             className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
           >
             Povratak
@@ -796,11 +459,7 @@ export function EditWorkOrderPage() {
       >
         <button
           type="button"
-          onClick={() =>
-            navigate(
-              `/work-orders/${id}`,
-            )
-          }
+          onClick={() => navigate(`/work-orders/${id}`)}
           className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
         >
           <ArrowLeft size={18} />
@@ -809,28 +468,21 @@ export function EditWorkOrderPage() {
 
         <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
-
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
                 UREĐIVANJE NALOGA
               </p>
-
               <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
                 Uredi radni nalog
               </h1>
-
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Ispravi ili dopuni postojeće podatke i spremi promjene.
               </p>
             </div>
-
             <button
               type="submit"
-              disabled={
-                isSaving ||
-                isUploading
-              }
+              disabled={isSaving || isUploading}
               className="hidden h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50 sm:flex"
             >
               <Save size={18} />
@@ -839,32 +491,11 @@ export function EditWorkOrderPage() {
           </div>
 
           <div className="relative mt-5 grid grid-cols-3 gap-2 sm:hidden">
+            <HeroMetric label="Investitor" value={customerName || 'Nije odabran'} />
+            <HeroMetric label="Trajanje" value={durationText(durationMinutes)} />
             <HeroMetric
-              label="Investitor"
-              value={
-                customerName ||
-                'Nije odabran'
-              }
-            />
-            <HeroMetric
-              label="Trajanje"
-              value={durationText(
-                durationMinutes,
-              )}
-            />
-            <HeroMetric
-              label={
-                canViewPrices
-                  ? 'Ukupno'
-                  : 'Cijena'
-              }
-              value={
-                canViewPrices
-                  ? `${totalPrice.toFixed(
-                      2,
-                    )} €`
-                  : 'Skriveno'
-              }
+              label={canViewPrices ? 'Ukupno' : 'Cijena'}
+              value={canViewPrices ? `${totalPrice.toFixed(2)} €` : 'Skriveno'}
             />
           </div>
         </section>
@@ -874,47 +505,26 @@ export function EditWorkOrderPage() {
           title="Investitor i lokacija"
           description="Promijeni investitora, kontakt ili adresu radova."
         >
-          <Field
-            label="Investitor"
-            className="sm:col-span-2"
-          >
+          <Field label="Investitor" className="sm:col-span-2">
             <select
               required
               value={customerId}
-              onChange={(event) =>
-                handleCustomerChange(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => handleCustomerChange(event.target.value)}
               className={inputClass}
             >
-              <option value="">
-                Odaberi investitora
-              </option>
-
-              {customers.map(
-                (customer) => (
-                  <option
-                    key={customer.id}
-                    value={customer.id}
-                  >
-                    {customer.name}
-                  </option>
-                ),
-              )}
+              <option value="">Odaberi investitora</option>
+              {customers.map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.name}
+                </option>
+              ))}
             </select>
           </Field>
 
           <Field label="Kontakt osoba">
             <input
-              value={
-                customerContactPerson
-              }
-              onChange={(event) =>
-                setCustomerContactPerson(
-                  event.target.value,
-                )
-              }
+              value={customerContactPerson}
+              onChange={(event) => setCustomerContactPerson(event.target.value)}
               className={inputClass}
             />
           </Field>
@@ -923,11 +533,7 @@ export function EditWorkOrderPage() {
             <input
               inputMode="tel"
               value={customerPhone}
-              onChange={(event) =>
-                setCustomerPhone(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setCustomerPhone(event.target.value)}
               className={inputClass}
             />
           </Field>
@@ -936,11 +542,7 @@ export function EditWorkOrderPage() {
             <input
               type="email"
               value={customerEmail}
-              onChange={(event) =>
-                setCustomerEmail(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setCustomerEmail(event.target.value)}
               className={inputClass}
             />
           </Field>
@@ -952,19 +554,14 @@ export function EditWorkOrderPage() {
               value={customerOib}
               onChange={(event) =>
                 setCustomerOib(
-                  event.target.value
-                    .replace(/\D/g, '')
-                    .slice(0, 11),
+                  event.target.value.replace(/\D/g, '').slice(0, 11),
                 )
               }
               className={inputClass}
             />
           </Field>
 
-          <Field
-            label="Adresa radova"
-            className="sm:col-span-2"
-          >
+          <Field label="Adresa radova" className="sm:col-span-2">
             <div className="relative">
               <MapPin
                 size={18}
@@ -972,11 +569,7 @@ export function EditWorkOrderPage() {
               />
               <input
                 value={address}
-                onChange={(event) =>
-                  setAddress(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setAddress(event.target.value)}
                 className={`${inputClass} pl-11`}
               />
             </div>
@@ -987,22 +580,13 @@ export function EditWorkOrderPage() {
           number="2"
           title="Datum, vrijeme i status"
           description="Ažuriraj termin, status i prioritet naloga."
-          icon={
-            <Clock3
-              size={20}
-              className="text-blue-400"
-            />
-          }
+          icon={<Clock3 size={20} className="text-blue-400" />}
         >
           <Field label="Datum">
             <input
               type="date"
               value={date}
-              onChange={(event) =>
-                setDate(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setDate(event.target.value)}
               className={`${inputClass} [color-scheme:dark]`}
             />
           </Field>
@@ -1012,24 +596,15 @@ export function EditWorkOrderPage() {
               <input
                 type="time"
                 value={arrivalTime}
-                onChange={(event) =>
-                  setArrivalTime(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setArrivalTime(event.target.value)}
                 className={`${inputClass} px-3 [color-scheme:dark]`}
               />
             </Field>
-
             <Field label="Odlazak">
               <input
                 type="time"
                 value={departureTime}
-                onChange={(event) =>
-                  setDepartureTime(
-                    event.target.value,
-                  )
-                }
+                onChange={(event) => setDepartureTime(event.target.value)}
                 className={`${inputClass} px-3 [color-scheme:dark]`}
               />
             </Field>
@@ -1040,9 +615,7 @@ export function EditWorkOrderPage() {
               Trajanje
             </p>
             <p className="mt-1 text-xl font-black text-white">
-              {durationText(
-                durationMinutes,
-              )}
+              {durationText(durationMinutes)}
             </p>
           </div>
 
@@ -1050,27 +623,17 @@ export function EditWorkOrderPage() {
             <select
               value={status}
               onChange={(event) =>
-                setStatus(
-                  event.target
-                    .value as WorkOrderStatus,
-                )
+                setStatus(event.target.value as WorkOrderStatus)
               }
               className={inputClass}
             >
-              {[
-                'Novi',
-                'Zakazan',
-                'U tijeku',
-                'Završen',
-                'Otkazan',
-              ].map((value) => (
-                <option
-                  key={value}
-                  value={value}
-                >
-                  {value}
-                </option>
-              ))}
+              {['Novi', 'Zakazan', 'U tijeku', 'Završen', 'Otkazan'].map(
+                (value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ),
+              )}
             </select>
           </Field>
 
@@ -1078,23 +641,12 @@ export function EditWorkOrderPage() {
             <select
               value={priority}
               onChange={(event) =>
-                setPriority(
-                  event.target
-                    .value as WorkOrderPriority,
-                )
+                setPriority(event.target.value as WorkOrderPriority)
               }
               className={inputClass}
             >
-              {[
-                'Nizak',
-                'Normalan',
-                'Visok',
-                'Hitno',
-              ].map((value) => (
-                <option
-                  key={value}
-                  value={value}
-                >
+              {['Nizak', 'Normalan', 'Visok', 'Hitno'].map((value) => (
+                <option key={value} value={value}>
                   {value}
                 </option>
               ))}
@@ -1107,110 +659,67 @@ export function EditWorkOrderPage() {
           title="Radovi i radnici"
           description="Ispravi naziv, opis ili odabrane radnike."
         >
-          <Field
-            label="Naziv naloga"
-            className="sm:col-span-2"
-          >
+          <Field label="Naziv naloga" className="sm:col-span-2">
             <input
               value={title}
-              onChange={(event) =>
-                setTitle(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setTitle(event.target.value)}
               className={inputClass}
             />
           </Field>
 
-          <Field
-            label="Opis radova"
-            className="sm:col-span-2"
-          >
+          <Field label="Opis radova" className="sm:col-span-2">
             <textarea
               rows={6}
               value={description}
-              onChange={(event) =>
-                setDescription(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setDescription(event.target.value)}
               className="w-full resize-none rounded-2xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
             />
           </Field>
 
           <div className="sm:col-span-2">
-            <p className="text-sm font-black text-slate-300">
-              Radnici
-            </p>
-
+            <p className="text-sm font-black text-slate-300">Radnici</p>
             {workersError && (
               <p className="mt-2 rounded-2xl bg-red-500/10 p-3 text-sm text-red-300">
                 {workersError}
               </p>
             )}
-
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
-              {workers.map(
-                (worker) => {
-                  const workerName =
-                    worker.fullName.trim()
-
-                  const selected =
-                    assignedWorkers.includes(
-                      workerName,
-                    )
-
-                  return (
-                    <button
-                      key={
-                        worker.membershipId
-                      }
-                      type="button"
-                      onClick={() =>
-                        toggleWorker(
-                          workerName,
-                        )
-                      }
-                      className={`min-h-[86px] rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
-                        selected
-                          ? 'border-blue-500 bg-blue-500/10'
-                          : 'border-slate-700 bg-slate-800'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2">
-                        <span
-                          className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
-                            selected
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-slate-700 text-slate-400'
-                          }`}
-                        >
-                          {selected ? (
-                            <Check
-                              size={17}
-                            />
-                          ) : (
-                            <UserRound
-                              size={17}
-                            />
-                          )}
-                        </span>
-
-                        <div className="min-w-0">
-                          <p className="line-clamp-2 text-xs font-black leading-4 text-white sm:text-sm">
-                            {workerName}
-                          </p>
-                          <p className="mt-1 text-[10px] font-semibold text-slate-500">
-                            {getRoleLabel(
-                              worker.role,
-                            )}
-                          </p>
-                        </div>
+              {workers.map((worker) => {
+                const workerName = worker.fullName.trim()
+                const selected = assignedWorkers.includes(workerName)
+                return (
+                  <button
+                    key={worker.membershipId}
+                    type="button"
+                    onClick={() => toggleWorker(workerName)}
+                    className={`min-h-[86px] rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
+                      selected
+                        ? 'border-blue-500 bg-blue-500/10'
+                        : 'border-slate-700 bg-slate-800'
+                    }`}
+                  >
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
+                          selected
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-slate-700 text-slate-400'
+                        }`}
+                      >
+                        {selected ? <Check size={17} /> : <UserRound size={17} />}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="line-clamp-2 text-xs font-black leading-4 text-white sm:text-sm">
+                          {workerName}
+                        </p>
+                        <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                          {getRoleLabel(worker.role)}
+                        </p>
                       </div>
-                    </button>
-                  )
-                },
-              )}
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </MobileSection>
@@ -1225,117 +734,92 @@ export function EditWorkOrderPage() {
               onClick={addMaterial}
               className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
             >
-              <PackagePlus
-                size={16}
-              />
+              <PackagePlus size={16} />
               Dodaj
             </button>
           }
         >
           <div className="space-y-3 sm:col-span-2">
-            {materials.map(
-              (material) => (
+            {materials.map((material) => (
+              <div
+                key={material.id}
+                className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3"
+              >
+                <div className="flex items-start gap-2">
+                  <input
+                    value={material.name}
+                    onChange={(event) =>
+                      updateMaterial(material.id, 'name', event.target.value)
+                    }
+                    placeholder="Naziv materijala"
+                    className="h-11 min-w-0 flex-1 rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeMaterial(material.id)}
+                    className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400"
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                </div>
+
                 <div
-                  key={material.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3"
+                  className={`mt-2 grid gap-2 ${
+                    canViewPrices ? 'grid-cols-3' : 'grid-cols-2'
+                  }`}
                 >
-                  <div className="flex items-start gap-2">
+                  <MiniInput label="Količina">
                     <input
-                      value={material.name}
+                      type="number"
+                      inputMode="decimal"
+                      min="0"
+                      step="0.01"
+                      value={material.quantity}
                       onChange={(event) =>
                         updateMaterial(
                           material.id,
-                          'name',
-                          event.target.value,
+                          'quantity',
+                          Number(event.target.value),
                         )
                       }
-                      placeholder="Naziv materijala"
-                      className="h-11 min-w-0 flex-1 rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
                     />
+                  </MiniInput>
 
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeMaterial(
-                          material.id,
-                        )
+                  <MiniInput label="Jedinica">
+                    <input
+                      value={material.unit}
+                      onChange={(event) =>
+                        updateMaterial(material.id, 'unit', event.target.value)
                       }
-                      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-red-500/10 text-red-400"
-                    >
-                      <Trash2
-                        size={17}
-                      />
-                    </button>
-                  </div>
+                      className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                    />
+                  </MiniInput>
 
-                  <div
-                    className={`mt-2 grid gap-2 ${
-                      canViewPrices
-                        ? 'grid-cols-3'
-                        : 'grid-cols-2'
-                    }`}
-                  >
-                    <MiniInput label="Količina">
+                  {canViewPrices && (
+                    <MiniInput label="Cijena €">
                       <input
                         type="number"
+                        inputMode="decimal"
                         min="0"
                         step="0.01"
-                        value={
-                          material.quantity
-                        }
+                        value={material.unitPrice === 0 ? '' : material.unitPrice}
                         onChange={(event) =>
                           updateMaterial(
                             material.id,
-                            'quantity',
-                            Number(
-                              event.target.value,
-                            ),
+                            'unitPrice',
+                            event.target.value === ''
+                              ? 0
+                              : Number(event.target.value),
                           )
                         }
                         className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
                       />
                     </MiniInput>
-
-                    <MiniInput label="Jedinica">
-                      <input
-                        value={material.unit}
-                        onChange={(event) =>
-                          updateMaterial(
-                            material.id,
-                            'unit',
-                            event.target.value,
-                          )
-                        }
-                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
-                      />
-                    </MiniInput>
-
-                    {canViewPrices && (
-                      <MiniInput label="Cijena €">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={
-                            material.unitPrice
-                          }
-                          onChange={(event) =>
-                            updateMaterial(
-                              material.id,
-                              'unitPrice',
-                              Number(
-                                event.target.value,
-                              ),
-                            )
-                          }
-                          className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
-                        />
-                      </MiniInput>
-                    )}
-                  </div>
+                  )}
                 </div>
-              ),
-            )}
+              </div>
+            ))}
 
             {materials.length === 0 && (
               <div className="rounded-2xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
@@ -1350,14 +834,11 @@ export function EditWorkOrderPage() {
                 <div className="relative">
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     step="0.01"
                     value={labourPrice}
-                    onChange={(event) =>
-                      setLabourPrice(
-                        event.target.value,
-                      )
-                    }
+                    onChange={(event) => setLabourPrice(event.target.value)}
                     className={`${inputClass} pr-11`}
                   />
                   <Euro
@@ -1370,14 +851,11 @@ export function EditWorkOrderPage() {
               <Field label="PDV %">
                 <input
                   type="number"
+                  inputMode="decimal"
                   min="0"
                   max="100"
                   value={vatRate}
-                  onChange={(event) =>
-                    setVatRate(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setVatRate(event.target.value)}
                   className={inputClass}
                 />
               </Field>
@@ -1391,18 +869,11 @@ export function EditWorkOrderPage() {
                 </p>
               </div>
 
-              <Field
-                label="Napomena uz cijenu"
-                className="sm:col-span-2"
-              >
+              <Field label="Napomena uz cijenu" className="sm:col-span-2">
                 <textarea
                   rows={3}
                   value={priceNote}
-                  onChange={(event) =>
-                    setPriceNote(
-                      event.target.value,
-                    )
-                  }
+                  onChange={(event) => setPriceNote(event.target.value)}
                   className="w-full resize-none rounded-2xl bg-slate-800 p-4 text-white outline-none focus:ring-2 focus:ring-blue-600"
                 />
               </Field>
@@ -1414,19 +885,11 @@ export function EditWorkOrderPage() {
           number="5"
           title="Fotografije"
           description={`${images.length}/12 fotografija dodano.`}
-          icon={
-            <Camera
-              size={20}
-              className="text-violet-400"
-            />
-          }
+          icon={<Camera size={20} className="text-violet-400" />}
         >
           <div className="grid grid-cols-2 gap-2 sm:col-span-2 sm:gap-3">
             <label className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-blue-500/20 bg-blue-500/10 p-3 text-center text-xs font-black text-white">
-              <Camera
-                size={22}
-                className="text-blue-300"
-              />
+              <Camera size={22} className="text-blue-300" />
               Slikaj sada
               <input
                 type="file"
@@ -1436,12 +899,8 @@ export function EditWorkOrderPage() {
                 className="hidden"
               />
             </label>
-
             <label className="flex min-h-[100px] cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/10 p-3 text-center text-xs font-black text-white">
-              <ImagePlus
-                size={22}
-                className="text-violet-300"
-              />
+              <ImagePlus size={22} className="text-violet-300" />
               Galerija
               <input
                 type="file"
@@ -1455,43 +914,31 @@ export function EditWorkOrderPage() {
 
           {isUploading && (
             <div className="sm:col-span-2">
-              <FersysLoader
-                compact
-                text="Obrada fotografija..."
-              />
+              <FersysLoader compact text="Obrada fotografija..." />
             </div>
           )}
 
           {images.length > 0 && (
             <div className="grid grid-cols-3 gap-2 sm:col-span-2 sm:grid-cols-4 md:grid-cols-5">
-              {images.map(
-                (image) => (
-                  <div
-                    key={image.id}
-                    className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800"
+              {images.map((image) => (
+                <div
+                  key={image.id}
+                  className="relative overflow-hidden rounded-2xl border border-slate-700 bg-slate-800"
+                >
+                  <img
+                    src={image.dataUrl}
+                    alt={image.name}
+                    className="aspect-square w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(image.id)}
+                    className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-xl bg-black/75 text-white"
                   >
-                    <img
-                      src={image.dataUrl}
-                      alt={image.name}
-                      className="aspect-square w-full object-cover"
-                    />
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeImage(
-                          image.id,
-                        )
-                      }
-                      className="absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-xl bg-black/75 text-white"
-                    >
-                      <Trash2
-                        size={15}
-                      />
-                    </button>
-                  </div>
-                ),
-              )}
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </MobileSection>
@@ -1501,29 +948,17 @@ export function EditWorkOrderPage() {
           title="Potpis investitora"
           description="Ažuriraj ime ili potpis ako je potrebno."
         >
-          <Field
-            label="Ime i prezime investitora"
-            className="sm:col-span-2"
-          >
+          <Field label="Ime i prezime investitora" className="sm:col-span-2">
             <input
               value={investorName}
-              onChange={(event) =>
-                setInvestorName(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setInvestorName(event.target.value)}
               className={inputClass}
             />
           </Field>
-
           <div className="min-w-0 sm:col-span-2">
             <SignaturePad
-              value={
-                investorSignature
-              }
-              onChange={
-                setInvestorSignature
-              }
+              value={investorSignature}
+              onChange={setInvestorSignature}
             />
           </div>
         </MobileSection>
@@ -1532,28 +967,18 @@ export function EditWorkOrderPage() {
           <button
             type="button"
             disabled={isSaving}
-            onClick={() =>
-              navigate(
-                `/work-orders/${id}`,
-              )
-            }
+            onClick={() => navigate(`/work-orders/${id}`)}
             className="h-12 rounded-2xl bg-slate-800 px-6 font-black text-white disabled:opacity-50"
           >
             Odustani
           </button>
-
           <button
             type="submit"
-            disabled={
-              isSaving ||
-              isUploading
-            }
+            disabled={isSaving || isUploading}
             className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-6 font-black text-white disabled:opacity-50"
           >
             <Save size={19} />
-            {isSaving
-              ? 'Spremanje...'
-              : 'Spremi izmjene'}
+            {isSaving ? 'Spremanje...' : 'Spremi izmjene'}
           </button>
         </div>
       </form>
@@ -1562,25 +987,15 @@ export function EditWorkOrderPage() {
         <button
           type="submit"
           form="mobile-edit-work-order-form"
-          disabled={
-            isSaving ||
-            isUploading
-          }
+          disabled={isSaving || isUploading}
           className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
         >
           <Save size={18} />
-          {isSaving
-            ? 'Spremanje...'
-            : 'Spremi izmjene'}
+          {isSaving ? 'Spremanje...' : 'Spremi izmjene'}
         </button>
       </div>
 
-      {isSaving && (
-        <FersysLoader
-          fullScreen
-          text="Spremanje izmjena..."
-        />
-      )}
+      {isSaving && <FersysLoader fullScreen text="Spremanje izmjena..." />}
     </>
   )
 }
@@ -1607,28 +1022,18 @@ function MobileSection({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-blue-500/12 text-xs font-black text-blue-300">
             {icon ?? number}
           </span>
-
           <div className="min-w-0">
             <h2 className="text-lg font-black text-white sm:text-xl">
               {number}. {title}
             </h2>
-
             <p className="mt-1 text-xs leading-5 text-slate-500 sm:text-sm">
               {description}
             </p>
           </div>
         </div>
-
-        {action && (
-          <div className="shrink-0">
-            {action}
-          </div>
-        )}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {children}
-      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
     </section>
   )
 }
@@ -1644,50 +1049,30 @@ function Field({
 }) {
   return (
     <label className={className}>
-      <span className="text-sm font-black text-slate-300">
-        {label}
-      </span>
-      <div className="mt-2">
-        {children}
-      </div>
+      <span className="text-sm font-black text-slate-300">{label}</span>
+      <div className="mt-2">{children}</div>
     </label>
   )
 }
 
-function MiniInput({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
+function MiniInput({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="min-w-0">
       <span className="block truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
         {label}
       </span>
-      <div className="mt-1">
-        {children}
-      </div>
+      <div className="mt-1">{children}</div>
     </label>
   )
 }
 
-function HeroMetric({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
       <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className="mt-1 truncate text-xs font-black text-white">
-        {value}
-      </p>
+      <p className="mt-1 truncate text-xs font-black text-white">{value}</p>
     </div>
   )
 }

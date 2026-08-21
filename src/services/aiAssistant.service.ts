@@ -1,4 +1,9 @@
 import { supabase } from '../lib/supabase'
+import {
+  buildAiRuntimeContext,
+  resolveLocalAiNavigation,
+  type AiRuntimeContext,
+} from './aiContext.service'
 
 export type AiAssistantRole =
   | 'user'
@@ -14,6 +19,7 @@ export type AiAssistantMessage = {
 export type AiActionType =
   | 'create_calendar_event'
   | 'change_offer_status'
+  | 'change_work_order_status'
   | 'create_customer'
   | 'create_work_order'
   | 'create_offer'
@@ -36,6 +42,8 @@ export type AiClientActionType =
   | 'add_vehicle_service'
   | 'generate_offer_pdf'
   | 'generate_work_order_pdf'
+  | 'change_offer_status'
+  | 'change_work_order_status'
 
 export type AiClientAction = {
   type: AiClientActionType
@@ -53,10 +61,8 @@ export type AiProposedAction = {
 
 export type AiAssistantResponse = {
   message: string
-  proposedAction:
-    AiProposedAction | null
-  clientAction:
-    AiClientAction | null
+  proposedAction: AiProposedAction | null
+  clientAction: AiClientAction | null
 }
 
 const AI_FUNCTION_SLUG =
@@ -69,21 +75,19 @@ async function withTimeout<T>(
   timeoutMs: number,
   timeoutMessage: string,
 ): Promise<T> {
-  let timeoutId:
-    number | undefined
+  let timeoutId: number | undefined
 
   const timeoutPromise =
     new Promise<never>(
       (_, reject) => {
         timeoutId =
           window.setTimeout(
-            () => {
+            () =>
               reject(
                 new Error(
                   timeoutMessage,
                 ),
-              )
-            },
+              ),
             timeoutMs,
           )
       },
@@ -95,20 +99,15 @@ async function withTimeout<T>(
       timeoutPromise,
     ])
   } finally {
-    if (
-      timeoutId !== undefined
-    ) {
-      window.clearTimeout(
-        timeoutId,
-      )
+    if (timeoutId !== undefined) {
+      window.clearTimeout(timeoutId)
     }
   }
 }
 
 function isRecord(
   value: unknown,
-): value is
-  Record<string, unknown> {
+): value is Record<string, unknown> {
   return (
     Boolean(value) &&
     typeof value === 'object' &&
@@ -126,41 +125,28 @@ function parseResponse(
   }
 
   if (
-    typeof data.message !==
-    'string'
+    typeof data.message !== 'string'
   ) {
     throw new Error(
       'FERSYS AI nije vratio tekstualni odgovor.',
     )
   }
 
-  const proposedAction =
-    isRecord(
-      data.proposedAction,
-    )
-      ? (data.proposedAction as
-          AiProposedAction)
-      : null
-
-  const clientAction =
-    isRecord(data.clientAction)
-      ? (data.clientAction as
-          AiClientAction)
-      : null
-
   return {
-    message:
-      data.message.trim(),
-    proposedAction,
-    clientAction,
+    message: data.message.trim(),
+    proposedAction:
+      isRecord(data.proposedAction)
+        ? (data.proposedAction as AiProposedAction)
+        : null,
+    clientAction:
+      isRecord(data.clientAction)
+        ? (data.clientAction as AiClientAction)
+        : null,
   }
 }
 
 async function invokeAi(
-  body: Record<
-    string,
-    unknown
-  >,
+  body: Record<string, unknown>,
   timeoutMs: number,
   timeoutMessage: string,
 ) {
@@ -184,10 +170,26 @@ async function invokeAi(
   return result.data
 }
 
+function compactContext(
+  context: AiRuntimeContext,
+) {
+  return {
+    generatedAt:
+      context.generatedAt,
+    terminology:
+      context.terminology,
+    customers:
+      context.customers,
+    workOrders:
+      context.workOrders,
+    offers:
+      context.offers,
+  }
+}
+
 export async function askAiAssistant(
   message: string,
-  conversation:
-    AiAssistantMessage[],
+  conversation: AiAssistantMessage[],
 ): Promise<AiAssistantResponse> {
   const cleanMessage =
     message.trim()
@@ -195,6 +197,40 @@ export async function askAiAssistant(
   if (!cleanMessage) {
     throw new Error(
       'Upiši ili izgovori poruku.',
+    )
+  }
+
+  try {
+    const local =
+      await resolveLocalAiNavigation(
+        cleanMessage,
+      )
+
+    if (local.handled) {
+      return {
+        message: local.message,
+        proposedAction: null,
+        clientAction:
+          local.clientAction,
+      }
+    }
+  } catch (error) {
+    console.error(
+      'Lokalni FERSYS AI resolver:',
+      error,
+    )
+  }
+
+  let context:
+    AiRuntimeContext | null = null
+
+  try {
+    context =
+      await buildAiRuntimeContext()
+  } catch (error) {
+    console.error(
+      'FERSYS AI kontekst nije učitan:',
+      error,
     )
   }
 
@@ -210,6 +246,10 @@ export async function askAiAssistant(
               content:
                 item.content,
             })),
+        context:
+          context
+            ? compactContext(context)
+            : null,
       },
       AI_TIMEOUT_MS,
       'FERSYS AI trenutačno obrađuje zahtjev dulje nego inače. Provjeri internet i pokušaj ponovno.',
@@ -270,27 +310,22 @@ export async function transcribeAiAudio(
     )
   }
 
-  const buffer =
-    await blob.arrayBuffer()
-
   const data =
     await invokeAi(
       {
         audioBase64:
           arrayBufferToBase64(
-            buffer,
+            await blob.arrayBuffer(),
           ),
         audioMimeType:
-          blob.type ||
-          'audio/webm',
+          blob.type || 'audio/webm',
       },
       AUDIO_TIMEOUT_MS,
       'Pretvaranje govora u tekst traje predugo. Provjeri internet i pokušaj ponovno.',
     )
 
   const transcript =
-    typeof data?.transcript ===
-      'string'
+    typeof data?.transcript === 'string'
       ? data.transcript.trim()
       : ''
 

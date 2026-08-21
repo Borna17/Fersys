@@ -1352,6 +1352,7 @@ export function NewInvoicePage() {
                         type="number"
                         min="0"
                         step="0.01"
+                        inputMode="decimal"
                         value={item.quantity}
                         onChange={(event) =>
                           updateItem(
@@ -1388,7 +1389,9 @@ export function NewInvoicePage() {
                         type="number"
                         min="0"
                         step="0.01"
-                        value={item.price}
+                        inputMode="decimal"
+                        value={item.price === 0 ? '' : item.price}
+                        placeholder="0,00"
                         onChange={(event) =>
                           updateItem(
                             item.id,
@@ -1396,7 +1399,7 @@ export function NewInvoicePage() {
                             Number(event.target.value),
                           )
                         }
-                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none placeholder:text-slate-600"
                       />
                     </MiniField>
 
@@ -1406,7 +1409,9 @@ export function NewInvoicePage() {
                         min="0"
                         max="100"
                         step="0.01"
-                        value={item.discount}
+                        inputMode="decimal"
+                        value={item.discount === 0 ? '' : item.discount}
+                        placeholder="0"
                         onChange={(event) =>
                           updateItem(
                             item.id,
@@ -1414,7 +1419,7 @@ export function NewInvoicePage() {
                             Number(event.target.value),
                           )
                         }
-                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none placeholder:text-slate-600"
                       />
                     </MiniField>
 
@@ -1422,7 +1427,9 @@ export function NewInvoicePage() {
                       <input
                         type="number"
                         min="0"
+                        max="100"
                         step="0.01"
+                        inputMode="decimal"
                         value={item.vat}
                         onChange={(event) =>
                           updateItem(
@@ -1573,7 +1580,7 @@ export function NewInvoicePage() {
         </section>
       </section>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+var(--fersys-safe-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
         <div className="mx-auto grid max-w-xl grid-cols-[auto_1fr] gap-2">
           <button
             type="button"

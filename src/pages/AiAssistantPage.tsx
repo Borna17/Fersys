@@ -26,6 +26,10 @@ import {
   type AiClientAction,
   type AiProposedAction,
 } from '../services/aiAssistant.service'
+import { updateOfferStatus } from '../services/offers.service'
+import { updateWorkOrderQuickStatus } from '../services/quickStatus.service'
+import type { OfferStatus } from '../types/offers'
+import type { CloudWorkOrderStatus } from '../services/workOrders.service'
 
 type SpeechRecognitionAlternativeLike = {
   transcript: string
@@ -101,7 +105,7 @@ function createMessage(
 }
 
 const welcomeText =
-  'Bok! Reci mi što treba napraviti u FERSYS-u. Mogu pomoći s kalendarom, investitorima, radnim nalozima i ponudama. Radnju koja mijenja podatke prvo ću ti pokazati i tražiti potvrdu.'
+  'Bok! Piši ili govori prirodno, kao u razgovoru. Razumijem investitore/kupce, radne naloge, ponude i kalendar. Možeš reći npr. „napravi investitora Marko Horvat”, „napravi mu nalog sutra u 8”, „stavi zadnju ponudu na prihvaćeno” ili „koji nalozi kasne”. Sve što mijenja podatke prvo traži tvoju potvrdu.'
 
 export function AiAssistantPage() {
   const navigate = useNavigate()
@@ -269,7 +273,7 @@ export function AiAssistantPage() {
   }, [input])
 
 
-  function runClientAction(
+  async function runClientAction(
     action: AiClientAction | null,
   ) {
     if (!action) return
@@ -321,6 +325,77 @@ export function AiAssistantPage() {
         JSON.stringify(payload),
       )
       navigate('/offers/new')
+      return
+    }
+
+
+    if (
+      action.type ===
+      'change_offer_status'
+    ) {
+      const offerId =
+        String(
+          payload.offerId ?? '',
+        ).trim()
+      const status =
+        String(
+          payload.status ?? '',
+        ).trim() as OfferStatus
+
+      if (
+        offerId &&
+        status
+      ) {
+        await updateOfferStatus(
+          offerId,
+          status,
+        )
+
+        setMessages(
+          (current) => [
+            ...current,
+            createMessage(
+              'assistant',
+              `Status ponude promijenjen je u „${status}”.`,
+            ),
+          ],
+        )
+      }
+      return
+    }
+
+    if (
+      action.type ===
+      'change_work_order_status'
+    ) {
+      const workOrderId =
+        String(
+          payload.workOrderId ?? '',
+        ).trim()
+      const status =
+        String(
+          payload.status ?? '',
+        ).trim() as CloudWorkOrderStatus
+
+      if (
+        workOrderId &&
+        status
+      ) {
+        await updateWorkOrderQuickStatus(
+          workOrderId,
+          status,
+        )
+
+        setMessages(
+          (current) => [
+            ...current,
+            createMessage(
+              'assistant',
+              `Status radnog naloga promijenjen je u „${status}”.`,
+            ),
+          ],
+        )
+      }
       return
     }
 
@@ -429,7 +504,7 @@ export function AiAssistantPage() {
         response.proposedAction,
       )
 
-      runClientAction(
+      await runClientAction(
         response.clientAction,
       )
     } catch (sendError) {
@@ -470,7 +545,7 @@ export function AiAssistantPage() {
 
       setProposedAction(null)
 
-      runClientAction(
+      await runClientAction(
         response.clientAction,
       )
     } catch (confirmError) {
@@ -721,7 +796,7 @@ export function AiAssistantPage() {
               placeholder={
                 isListening
                   ? 'Slušam...'
-                  : 'Npr. napravi investitora Marko Horvat...'
+                  : 'Npr. napravi investitora Marko Horvat, pa mu sutra u 8 napravi nalog...'
               }
               className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base text-white outline-none placeholder:text-slate-600"
             />

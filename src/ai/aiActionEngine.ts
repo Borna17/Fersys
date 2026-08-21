@@ -952,5 +952,76 @@ export async function executeAiClientAction(
           `PDF radnog naloga ${order.orderNumber} je pokrenut za preuzimanje.`,
       }
     }
+
+    case 'change_offer_status': {
+      const offerId =
+        requiredString(
+          action.payload.offerId,
+          'ID ponude',
+        )
+
+      const status =
+        requiredString(
+          action.payload.status,
+          'status ponude',
+        )
+
+      const {
+        updateOfferStatus,
+      } =
+        await import(
+          '../services/offers.service'
+        )
+
+      await updateOfferStatus(
+        offerId,
+        status as Parameters<
+          typeof updateOfferStatus
+        >[1],
+      )
+
+      return {
+        message:
+          `Status ponude promijenjen je u „${status}”.`,
+      }
+    }
+
+    case 'change_work_order_status': {
+      const workOrderId =
+        requiredString(
+          action.payload.workOrderId,
+          'ID radnog naloga',
+        )
+
+      const status =
+        requiredString(
+          action.payload.status,
+          'status radnog naloga',
+        )
+
+      const {
+        updateWorkOrderQuickStatus,
+      } =
+        await import(
+          '../services/quickStatus.service'
+        )
+
+      await updateWorkOrderQuickStatus(
+        workOrderId,
+        status as Parameters<
+          typeof updateWorkOrderQuickStatus
+        >[1],
+      )
+
+      return {
+        message:
+          `Status radnog naloga promijenjen je u „${status}”.`,
+      }
+    }
+
   }
+
+  throw new Error(
+    'Nepodržana AI akcija.',
+  )
 }
