@@ -529,7 +529,7 @@ MobileNotificationBell() {
   return (
     <div
       ref={panelRef}
-      className="fixed left-3 top-2.5 z-[85] md:hidden"
+      className="fersys-mobile-fixed-top fixed z-[85] md:hidden"
     >
       <button
         type="button"
@@ -545,6 +545,8 @@ MobileNotificationBell() {
             : 'border-slate-800'
         }`}
         aria-label="Obavijesti"
+        aria-expanded={open}
+        aria-haspopup="dialog"
       >
         {unread > 0 ? (
           <BellRing
@@ -566,7 +568,11 @@ MobileNotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute left-0 top-[calc(100%+0.65rem)] w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/70">
+        <div
+          role="dialog"
+          aria-label="Obavijesti"
+          className="absolute left-0 top-[calc(100%+0.65rem)] w-[min(22rem,calc(100vw-1.5rem-var(--fersys-safe-left)-var(--fersys-safe-right)))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/70"
+        >
           <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
             <div>
               <p className="font-black text-white">
@@ -681,94 +687,75 @@ MobileNotificationBell() {
                     size={26}
                     className="mx-auto text-slate-700"
                   />
-
-                  <p className="mt-3 text-sm font-bold text-slate-400">
-                    Nema novih obavijesti.
+                  <p className="mt-3 text-sm font-black text-white">
+                    Nema novih obavijesti
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-slate-500">
+                    Ovdje će se pojaviti važne FERSYS obavijesti.
                   </p>
                 </div>
               )}
 
-            {notifications
-              .slice(0, 25)
-              .map(
-                (item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() =>
-                      void openItem(
-                        item,
-                      )
-                    }
-                    className={`block w-full border-b border-slate-800/70 px-4 py-3 text-left transition last:border-b-0 ${
-                      item.isRead
-                        ? 'bg-slate-900 hover:bg-slate-800/60'
-                        : 'bg-blue-500/[0.06] hover:bg-blue-500/10'
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span
-                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
-                          item.isRead
-                            ? 'bg-slate-700'
-                            : 'bg-blue-400 shadow-[0_0_10px_rgba(96,165,250,.7)]'
-                        }`}
-                      />
+            {notifications.map(
+              (item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() =>
+                    void openItem(item)
+                  }
+                  className={`block w-full border-b border-slate-800/80 px-4 py-3 text-left transition last:border-b-0 hover:bg-slate-800/70 ${
+                    item.isRead
+                      ? 'bg-transparent'
+                      : 'bg-blue-500/[0.06]'
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span
+                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                        item.isRead
+                          ? 'bg-slate-700'
+                          : 'bg-blue-400'
+                      }`}
+                    />
 
-                      <div className="min-w-0 flex-1">
-                        <p
-                          className={`text-xs leading-5 ${
-                            item.isRead
-                              ? 'font-bold text-slate-300'
-                              : 'font-black text-white'
-                          }`}
-                        >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="min-w-0 flex-1 text-sm font-black leading-5 text-white">
                           {item.title}
                         </p>
-
-                        {item.description && (
-                          <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-slate-500">
-                            {item.description}
-                          </p>
-                        )}
-
-                        <p className="mt-1.5 text-[10px] font-semibold text-slate-600">
+                        <span className="shrink-0 text-[10px] text-slate-600">
                           {formatDate(
                             item.createdAt,
                           )}
-                        </p>
+                        </span>
                       </div>
+
+                      {item.message && (
+                        <p className="mt-1 line-clamp-3 text-xs leading-5 text-slate-400">
+                          {item.message}
+                        </p>
+                      )}
                     </div>
-                  </button>
-                ),
-              )}
+                  </div>
+                </button>
+              ),
+            )}
           </div>
 
-          <div className="flex gap-2 border-t border-slate-800 p-2">
+          <div className="border-t border-slate-800 p-2">
             <button
               type="button"
               onClick={() => {
                 setOpen(false)
                 navigate(
-                  '/settings',
+                  '/settings/notifications',
                 )
               }}
-              className="flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl text-xs font-black text-slate-400 transition hover:bg-slate-800 hover:text-white"
+              className="flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs font-black text-slate-400 transition hover:bg-slate-800 hover:text-white"
             >
-              <Settings
-                size={15}
-              />
+              <Settings size={16} />
               Postavke obavijesti
-            </button>
-
-            <button
-              type="button"
-              onClick={() =>
-                void load()
-              }
-              className="min-h-10 rounded-xl px-3 text-xs font-black text-blue-300 transition hover:bg-blue-500/10"
-            >
-              Osvježi
             </button>
           </div>
         </div>
