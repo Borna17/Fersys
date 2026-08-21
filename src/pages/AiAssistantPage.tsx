@@ -17,11 +17,13 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import { useNavigate } from 'react-router'
 
 import {
   askAiAssistant,
   confirmAiAction,
   type AiAssistantMessage,
+  type AiClientAction,
   type AiProposedAction,
 } from '../services/aiAssistant.service'
 
@@ -32,14 +34,16 @@ type SpeechRecognitionAlternativeLike = {
 type SpeechRecognitionResultLike = {
   isFinal: boolean
   length: number
-  [index: number]: SpeechRecognitionAlternativeLike
+  [index: number]:
+    SpeechRecognitionAlternativeLike
 }
 
 type SpeechRecognitionEventLike = {
   resultIndex: number
   results: {
     length: number
-    [index: number]: SpeechRecognitionResultLike
+    [index: number]:
+      SpeechRecognitionResultLike
   }
 }
 
@@ -54,77 +58,98 @@ type SpeechRecognitionLike = {
   onstart: (() => void) | null
   onend: (() => void) | null
   onresult:
-    | ((event: SpeechRecognitionEventLike) => void)
+    | ((
+        event:
+          SpeechRecognitionEventLike,
+      ) => void)
     | null
   onerror:
-    | ((event: SpeechRecognitionErrorLike) => void)
+    | ((
+        event:
+          SpeechRecognitionErrorLike,
+      ) => void)
     | null
   start: () => void
   stop: () => void
   abort: () => void
 }
 
-type SpeechRecognitionConstructor = new () => SpeechRecognitionLike
+type SpeechRecognitionConstructor =
+  new () => SpeechRecognitionLike
 
 declare global {
   interface Window {
-    SpeechRecognition?: SpeechRecognitionConstructor
-    webkitSpeechRecognition?: SpeechRecognitionConstructor
+    SpeechRecognition?:
+      SpeechRecognitionConstructor
+    webkitSpeechRecognition?:
+      SpeechRecognitionConstructor
   }
 }
 
 function createMessage(
-  role: AiAssistantMessage['role'],
+  role:
+    AiAssistantMessage['role'],
   content: string,
 ): AiAssistantMessage {
   return {
     id: crypto.randomUUID(),
     role,
     content,
-    createdAt: new Date().toISOString(),
+    createdAt:
+      new Date().toISOString(),
   }
 }
 
-const welcomeMessage = createMessage(
-  'assistant',
-  'Pozdrav! Možeš mi pisati ili govoriti. Primjer: „Rezerviraj 20. 8. u 10 sati montažu klime kod Ivana Horvata.” Prije spremanja uvijek ću prikazati pregled i tražiti potvrdu.',
-)
+const welcomeText =
+  'Bok! Reci mi što treba napraviti u FERSYS-u. Mogu pomoći s kalendarom, investitorima, radnim nalozima i ponudama. Radnju koja mijenja podatke prvo ću ti pokazati i tražiti potvrdu.'
 
 export function AiAssistantPage() {
+  const navigate = useNavigate()
   const [messages, setMessages] =
-    useState<AiAssistantMessage[]>([
-      welcomeMessage,
+    useState<
+      AiAssistantMessage[]
+    >([
+      createMessage(
+        'assistant',
+        welcomeText,
+      ),
     ])
-
   const [input, setInput] =
     useState('')
-
-  const [isSending, setIsSending] =
-    useState(false)
-
-  const [isListening, setIsListening] =
-    useState(false)
-
-  const [speechSupported, setSpeechSupported] =
-    useState(true)
-
+  const [
+    isSending,
+    setIsSending,
+  ] = useState(false)
+  const [
+    isListening,
+    setIsListening,
+  ] = useState(false)
+  const [
+    speechSupported,
+    setSpeechSupported,
+  ] = useState(true)
   const [error, setError] =
     useState('')
-
   const [
     proposedAction,
     setProposedAction,
-  ] = useState<AiProposedAction | null>(
-    null,
-  )
+  ] =
+    useState<AiProposedAction | null>(
+      null,
+    )
 
   const recognitionRef =
     useRef<SpeechRecognitionLike | null>(
       null,
     )
-
   const endRef =
-    useRef<HTMLDivElement | null>(null)
+    useRef<HTMLDivElement | null>(
+      null,
+    )
+  const textareaRef =
+    useRef<HTMLTextAreaElement | null>(
+      null,
+    )
 
   useEffect(() => {
     const Constructor =
@@ -152,19 +177,27 @@ export function AiAssistantPage() {
       setIsListening(false)
     }
 
-    recognition.onerror = (event) => {
+    recognition.onerror = (
+      event,
+    ) => {
       setIsListening(false)
 
-      if (event.error === 'not-allowed') {
+      if (
+        event.error ===
+        'not-allowed'
+      ) {
         setError(
-          'Pristup mikrofonu nije dopušten. Omogućite mikrofon u postavkama preglednika.',
+          'Mikrofon nije dopušten. Omogući pristup mikrofonu u postavkama preglednika.',
         )
         return
       }
 
-      if (event.error === 'no-speech') {
+      if (
+        event.error ===
+        'no-speech'
+      ) {
         setError(
-          'Govor nije prepoznat. Pokušajte ponovno.',
+          'Govor nije prepoznat. Pokušaj ponovno.',
         )
         return
       }
@@ -174,12 +207,16 @@ export function AiAssistantPage() {
       )
     }
 
-    recognition.onresult = (event) => {
+    recognition.onresult = (
+      event,
+    ) => {
       let transcript = ''
 
       for (
-        let index = event.resultIndex;
-        index < event.results.length;
+        let index =
+          event.resultIndex;
+        index <
+        event.results.length;
         index += 1
       ) {
         transcript +=
@@ -187,7 +224,9 @@ export function AiAssistantPage() {
             ?.transcript ?? ''
       }
 
-      setInput(transcript.trim())
+      setInput(
+        transcript.trim(),
+      )
     }
 
     recognitionRef.current =
@@ -195,24 +234,126 @@ export function AiAssistantPage() {
 
     return () => {
       recognition.abort()
-      recognitionRef.current = null
+      recognitionRef.current =
+        null
     }
   }, [])
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({
-      behavior: 'smooth',
-    })
+    endRef.current?.scrollIntoView(
+      {
+        behavior: 'smooth',
+        block: 'end',
+      },
+    )
   }, [
     messages,
     proposedAction,
     isSending,
   ])
 
+  useEffect(() => {
+    const textarea =
+      textareaRef.current
+
+    if (!textarea) return
+
+    textarea.style.height =
+      'auto'
+
+    textarea.style.height =
+      `${Math.min(
+        textarea.scrollHeight,
+        128,
+      )}px`
+  }, [input])
+
+
+  function runClientAction(
+    action: AiClientAction | null,
+  ) {
+    if (!action) return
+
+    const payload = action.payload
+
+    if (action.type === 'open_customer') {
+      const customerId =
+        String(payload.customerId ?? '').trim()
+
+      if (customerId) {
+        navigate(`/customers/${customerId}`)
+      }
+      return
+    }
+
+    if (action.type === 'open_offer') {
+      const offerId =
+        String(payload.offerId ?? '').trim()
+
+      if (offerId) {
+        navigate(`/offers/${offerId}`)
+      }
+      return
+    }
+
+    if (action.type === 'open_work_order') {
+      const workOrderId =
+        String(payload.workOrderId ?? '').trim()
+
+      if (workOrderId) {
+        navigate(`/work-orders/${workOrderId}`)
+      }
+      return
+    }
+
+    if (action.type === 'create_work_order') {
+      sessionStorage.setItem(
+        'fersys_ai_work_order_prefill',
+        JSON.stringify(payload),
+      )
+      navigate('/work-orders/new')
+      return
+    }
+
+    if (action.type === 'create_offer') {
+      sessionStorage.setItem(
+        'fersys_ai_offer_prefill',
+        JSON.stringify(payload),
+      )
+      navigate('/offers/new')
+      return
+    }
+
+    if (action.type === 'generate_offer_pdf') {
+      const offerId =
+        String(payload.offerId ?? '').trim()
+
+      if (offerId) {
+        navigate(`/offers/${offerId}`)
+      }
+      return
+    }
+
+    if (action.type === 'generate_work_order_pdf') {
+      const workOrderId =
+        String(payload.workOrderId ?? '').trim()
+
+      if (workOrderId) {
+        navigate(`/work-orders/${workOrderId}`)
+      }
+      return
+    }
+
+    /*
+     * Vozila se zasad ostavljaju backendu / postojećem modulu.
+     * Ne izmišljamo nepostojeću rutu.
+     */
+  }
+
   function toggleListening() {
     if (!speechSupported) {
       setError(
-        'Ovaj preglednik ne podržava izravno glasovno prepoznavanje. Poruku možeš upisati, a kasnije ćemo dodati univerzalno snimanje i AI transkripciju.',
+        'Ovaj preglednik ne podržava izravno glasovno prepoznavanje. Poruku možeš upisati.',
       )
       return
     }
@@ -220,9 +361,7 @@ export function AiAssistantPage() {
     const recognition =
       recognitionRef.current
 
-    if (!recognition) {
-      return
-    }
+    if (!recognition) return
 
     if (isListening) {
       recognition.stop()
@@ -242,31 +381,30 @@ export function AiAssistantPage() {
   }
 
   async function sendMessage(
-    event?: FormEvent<HTMLFormElement>,
+    event?:
+      FormEvent<HTMLFormElement>,
   ) {
     event?.preventDefault()
 
-    const cleanInput = input.trim()
+    const clean =
+      input.trim()
 
-    if (
-      !cleanInput ||
-      isSending
-    ) {
+    if (!clean || isSending) {
       return
     }
 
     const userMessage =
       createMessage(
         'user',
-        cleanInput,
+        clean,
       )
 
-    const nextConversation = [
+    const conversation = [
       ...messages,
       userMessage,
     ]
 
-    setMessages(nextConversation)
+    setMessages(conversation)
     setInput('')
     setError('')
     setProposedAction(null)
@@ -275,8 +413,8 @@ export function AiAssistantPage() {
     try {
       const response =
         await askAiAssistant(
-          cleanInput,
-          nextConversation,
+          clean,
+          conversation,
         )
 
       setMessages((current) => [
@@ -289,6 +427,10 @@ export function AiAssistantPage() {
 
       setProposedAction(
         response.proposedAction,
+      )
+
+      runClientAction(
+        response.clientAction,
       )
     } catch (sendError) {
       setError(
@@ -327,6 +469,10 @@ export function AiAssistantPage() {
       ])
 
       setProposedAction(null)
+
+      runClientAction(
+        response.clientAction,
+      )
     } catch (confirmError) {
       setError(
         confirmError instanceof Error
@@ -342,66 +488,67 @@ export function AiAssistantPage() {
     setMessages([
       createMessage(
         'assistant',
-        welcomeMessage.content,
+        welcomeText,
       ),
     ])
-
     setInput('')
     setProposedAction(null)
     setError('')
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-110px)] w-full max-w-[1500px] flex-col pb-2 sm:min-h-[calc(100vh-150px)]">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4 sm:pb-6">
-        <div>
+    <section className="mx-auto flex min-h-[calc(100dvh-var(--fersys-mobile-header-height)-var(--fersys-mobile-nav-height)-var(--fersys-safe-top)-var(--fersys-safe-bottom)-1rem)] w-full max-w-[1500px] flex-col pb-1">
+      <header className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
+        <div className="min-w-0">
           <div className="flex items-center gap-3">
-            <div className="grid h-12 w-12 place-items-center rounded-2xl bg-violet-500/15 text-violet-400">
-              <Bot size={25} />
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-violet-400">
+              <Bot size={23} />
             </div>
 
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.18em] text-violet-400">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
                 FERSYS AI
               </p>
-
-              <h1 className="mt-1 text-3xl font-black text-white">
+              <h1 className="mt-1 truncate text-2xl font-black text-white">
                 AI pomoćnik
               </h1>
             </div>
           </div>
 
-          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-400 sm:text-base">
-            Govori ili piši. AI prvo priprema radnju i traži tvoju potvrdu prije spremanja.
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400">
+            Govori ili piši. Prije
+            promjene podataka AI traži
+            tvoju potvrdu.
           </p>
         </div>
 
         <button
           type="button"
           onClick={clearConversation}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 transition active:scale-95 hover:bg-slate-700 hover:text-white sm:flex sm:w-auto sm:gap-2 sm:px-4"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
           aria-label="Novi razgovor"
         >
           <Trash2 size={17} />
-          <span className="hidden sm:inline">Novi razgovor</span>
         </button>
-      </div>
+      </header>
 
-      <div className="mt-4 grid min-h-0 flex-1 grid-cols-1 gap-4 sm:mt-6 xl:grid-cols-[1fr_340px] xl:gap-6">
-        <div className="flex min-h-[calc(100dvh-250px)] flex-col overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-900 sm:min-h-[650px] sm:rounded-3xl">
-          <div className="flex-1 space-y-4 overflow-y-auto p-3 pb-4 sm:space-y-5 sm:p-6">
-            {messages.map((message) => (
+      <div className="mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-900">
+        <div className="fersys-scrollbar-hidden min-h-0 flex-1 space-y-4 overflow-y-auto p-3 pb-4 sm:p-5">
+          {messages.map(
+            (message) => (
               <div
                 key={message.id}
                 className={`flex ${
-                  message.role === 'user'
+                  message.role ===
+                  'user'
                     ? 'justify-end'
                     : 'justify-start'
                 }`}
               >
                 <div
-                  className={`max-w-[92%] rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[75%] sm:leading-7 ${
-                    message.role === 'user'
+                  className={`max-w-[92%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-sm leading-6 sm:max-w-[75%] ${
+                    message.role ===
+                    'user'
                       ? 'rounded-br-md bg-blue-600 text-white'
                       : 'rounded-bl-md border border-slate-800 bg-slate-950/70 text-slate-300'
                   }`}
@@ -409,236 +556,212 @@ export function AiAssistantPage() {
                   {message.content}
                 </div>
               </div>
-            ))}
+            ),
+          )}
 
-            {isSending && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-3 rounded-2xl rounded-bl-md border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
-                  <LoaderCircle
-                    size={17}
-                    className="animate-spin"
-                  />
-                  AI obrađuje zahtjev...
-                </div>
+          {isSending && (
+            <div className="flex justify-start">
+              <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/70 px-4 py-3 text-sm text-slate-400">
+                <LoaderCircle
+                  size={17}
+                  className="animate-spin"
+                />
+                AI obrađuje zahtjev...
               </div>
-            )}
-
-            {proposedAction && (
-              <div className="rounded-3xl border border-violet-500/30 bg-violet-500/10 p-4 sm:p-5">
-                <div className="flex items-start gap-3">
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/20 text-violet-300">
-                    <CalendarDays size={20} />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-violet-300">
-                      Predložena radnja
-                    </p>
-
-                    <h2 className="mt-2 text-lg font-black text-white">
-                      {proposedAction.title}
-                    </h2>
-
-                    <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
-                      {proposedAction.description}
-                    </p>
-
-                    {proposedAction.warnings.length >
-                      0 && (
-                      <div className="mt-4 space-y-2">
-                        {proposedAction.warnings.map(
-                          (warning) => (
-                            <div
-                              key={warning}
-                              className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300"
-                            >
-                              <CircleAlert
-                                size={16}
-                                className="mt-0.5 shrink-0"
-                              />
-                              {warning}
-                            </div>
-                          ),
-                        )}
-                      </div>
-                    )}
-
-                    <div className="mt-5 grid grid-cols-1 gap-2 sm:flex sm:flex-row sm:gap-3">
-                      <button
-                        type="button"
-                        disabled={isSending}
-                        onClick={() => {
-                          void confirmAction()
-                        }}
-                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 text-sm font-black text-white transition hover:bg-emerald-500 disabled:opacity-50"
-                      >
-                        <Check size={17} />
-                        Potvrdi i spremi
-                      </button>
-
-                      <button
-                        type="button"
-                        disabled={isSending}
-                        onClick={() =>
-                          setProposedAction(null)
-                        }
-                        className="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-5 text-sm font-bold text-slate-300 transition hover:bg-slate-700 disabled:opacity-50"
-                      >
-                        <X size={17} />
-                        Odustani
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={endRef} />
-          </div>
-
-          {error && (
-            <div className="mx-4 mb-3 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300 sm:mx-6">
-              <CircleAlert
-                size={18}
-                className="mt-0.5 shrink-0"
-              />
-
-              <span className="min-w-0 flex-1 break-words">
-                {error}
-              </span>
-
-              <button
-                type="button"
-                onClick={() => setError('')}
-                className="shrink-0 text-red-300 hover:text-white"
-              >
-                <X size={17} />
-              </button>
             </div>
           )}
 
-          <form
-            onSubmit={sendMessage}
-            className="sticky bottom-0 border-t border-slate-800 bg-slate-950/95 p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] backdrop-blur-xl sm:p-4"
-          >
-            <div className="flex items-end gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2 focus-within:border-blue-500">
-              <button
-                type="button"
-                onClick={toggleListening}
-                className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl transition ${
-                  isListening
-                    ? 'animate-pulse bg-red-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                }`}
-                aria-label={
-                  isListening
-                    ? 'Zaustavi slušanje'
-                    : 'Pokreni mikrofon'
-                }
-              >
-                {isListening ? (
-                  <MicOff size={20} />
-                ) : (
-                  <Mic size={20} />
-                )}
-              </button>
+          {proposedAction && (
+            <div className="rounded-3xl border border-violet-500/30 bg-violet-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/20 text-violet-300">
+                  <CalendarDays
+                    size={20}
+                  />
+                </div>
 
-              <textarea
-                rows={1}
-                value={input}
-                onChange={(event) =>
-                  setInput(event.target.value)
-                }
-                onKeyDown={(event) => {
-                  if (
-                    event.key === 'Enter' &&
-                    !event.shiftKey
-                  ) {
-                    event.preventDefault()
-                    void sendMessage()
-                  }
-                }}
-                placeholder={
-                  isListening
-                    ? 'Slušam...'
-                    : 'Napiši ili izgovori zahtjev...'
-                }
-                className="max-h-36 min-h-11 min-w-0 flex-1 resize-none bg-transparent px-2 py-2.5 text-sm leading-6 text-white outline-none placeholder:text-slate-500"
-              />
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-violet-300">
+                    PREDLOŽENA RADNJA
+                  </p>
+                  <h2 className="mt-2 text-lg font-black text-white">
+                    {
+                      proposedAction.title
+                    }
+                  </h2>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                    {
+                      proposedAction.description
+                    }
+                  </p>
 
-              <button
-                type="submit"
-                disabled={
-                  !input.trim() ||
-                  isSending
-                }
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-600 text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
-                aria-label="Pošalji poruku"
-              >
-                <Send size={19} />
-              </button>
+                  {proposedAction
+                    .warnings.length >
+                    0 && (
+                    <div className="mt-4 space-y-2">
+                      {proposedAction.warnings.map(
+                        (warning) => (
+                          <div
+                            key={warning}
+                            className="flex items-start gap-2 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-300"
+                          >
+                            <CircleAlert
+                              size={16}
+                              className="mt-0.5 shrink-0"
+                            />
+                            {warning}
+                          </div>
+                        ),
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isSending}
+                      onClick={() =>
+                        void confirmAction()
+                      }
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-50"
+                    >
+                      <Check size={17} />
+                      Potvrdi
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isSending}
+                      onClick={() =>
+                        setProposedAction(
+                          null,
+                        )
+                      }
+                      className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-slate-300 disabled:opacity-50"
+                    >
+                      <X size={17} />
+                      Odustani
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
+          )}
 
-            <p className="mt-2 hidden px-2 text-xs text-slate-500 sm:block">
-              Enter šalje poruku, Shift + Enter dodaje novi red.
-            </p>
-          </form>
+          <div ref={endRef} />
         </div>
 
-        <aside className="space-y-4 sm:space-y-5">
-          <div className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-            <div className="flex items-center gap-3">
-              <Sparkles className="text-violet-400" />
+        {error && (
+          <div className="mx-3 mb-2 flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 px-3 py-3 text-sm text-red-300">
+            <CircleAlert
+              size={18}
+              className="mt-0.5 shrink-0"
+            />
+            <span className="min-w-0 flex-1 break-words">
+              {error}
+            </span>
+            <button
+              type="button"
+              onClick={() =>
+                setError('')
+              }
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
 
-              <h2 className="font-black text-white">
-                Primjeri naredbi
-              </h2>
-            </div>
+        <form
+          onSubmit={sendMessage}
+          className="shrink-0 border-t border-slate-800 bg-slate-950/95 p-2.5 pb-[max(0.625rem,var(--fersys-safe-bottom))] backdrop-blur-xl"
+        >
+          <div className="flex items-end gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2 focus-within:border-blue-500">
+            <button
+              type="button"
+              onClick={
+                toggleListening
+              }
+              className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
+                isListening
+                  ? 'animate-pulse bg-red-600 text-white'
+                  : 'bg-slate-800 text-slate-300'
+              }`}
+              aria-label={
+                isListening
+                  ? 'Zaustavi mikrofon'
+                  : 'Pokreni mikrofon'
+              }
+            >
+              {isListening ? (
+                <MicOff size={20} />
+              ) : (
+                <Mic size={20} />
+              )}
+            </button>
 
-            <div className="mt-4 flex snap-x gap-2 overflow-x-auto pb-1 xl:block xl:space-y-3 xl:overflow-visible">
-              {[
-                'Rezerviraj 20. 8. u 10 sati montažu klime.',
-                'Provjeri imam li slobodan termin sutra poslije 12.',
-                'Prikaži današnje radne naloge.',
-                'Koliko imam otvorenih ponuda?',
-              ].map((example) => (
-                <button
-                  key={example}
-                  type="button"
-                  onClick={() =>
-                    setInput(example)
-                  }
-                  className="min-w-[250px] snap-start rounded-2xl bg-slate-800/70 px-4 py-3 text-left text-sm leading-6 text-slate-300 transition active:scale-[0.99] hover:bg-slate-800 hover:text-white xl:w-full xl:min-w-0"
-                >
-                  {example}
-                </button>
-              ))}
-            </div>
+            <textarea
+              ref={textareaRef}
+              rows={1}
+              value={input}
+              onChange={(event) =>
+                setInput(
+                  event.target.value,
+                )
+              }
+              onKeyDown={(event) => {
+                if (
+                  event.key ===
+                    'Enter' &&
+                  !event.shiftKey
+                ) {
+                  event.preventDefault()
+                  void sendMessage()
+                }
+              }}
+              placeholder={
+                isListening
+                  ? 'Slušam...'
+                  : 'Npr. napravi investitora Marko Horvat...'
+              }
+              className="max-h-32 min-h-11 flex-1 resize-none bg-transparent px-2 py-2.5 text-base text-white outline-none placeholder:text-slate-600"
+            />
+
+            <button
+              type="submit"
+              disabled={
+                !input.trim() ||
+                isSending
+              }
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-600 text-white disabled:opacity-35"
+              aria-label="Pošalji"
+            >
+              {isSending ? (
+                <LoaderCircle
+                  size={19}
+                  className="animate-spin"
+                />
+              ) : (
+                <Send size={19} />
+              )}
+            </button>
           </div>
 
-          <div className="rounded-3xl border border-blue-500/20 bg-blue-500/10 p-5">
-            <h2 className="font-black text-blue-300">
-              Sigurno izvršavanje
-            </h2>
-
-            <p className="mt-3 text-sm leading-6 text-slate-400">
-              AI neće samostalno spremiti termin, kupca, ponudu ili nalog. Prvo prikazuje pregled, upozorenja i traži potvrdu.
+          <div className="mt-2 flex items-center justify-between gap-3 px-1">
+            <p className="truncate text-[10px] text-slate-600">
+              {speechSupported
+                ? 'Mikrofon + tipkanje'
+                : 'Tipkanje'}
             </p>
-          </div>
 
-          {!speechSupported && (
-            <div className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5">
-              <h2 className="font-black text-amber-300">
-                Mikrofon nije podržan
-              </h2>
-
-              <p className="mt-3 text-sm leading-6 text-slate-400">
-                Pisanje radi normalno. U sljedećoj fazi dodat ćemo snimanje zvuka i AI transkripciju koja radi i na preglednicima bez ugrađenog prepoznavanja govora.
-              </p>
+            <div className="flex items-center gap-1 text-[10px] font-black text-violet-400">
+              <Sparkles size={12} />
+              potvrda prije spremanja
             </div>
-          )}
-        </aside>
+          </div>
+        </form>
       </div>
     </section>
   )
 }
+
+export default AiAssistantPage

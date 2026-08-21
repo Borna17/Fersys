@@ -110,44 +110,26 @@ const inputClass =
 
 function getDateString(date: Date) {
   const year = date.getFullYear()
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, '0')
-  const day = String(
-    date.getDate(),
-  ).padStart(2, '0')
-
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
 
-function addDays(
-  dateString: string,
-  days: number,
-) {
-  const date = new Date(
-    `${dateString}T12:00:00`,
-  )
-  date.setDate(
-    date.getDate() + days,
-  )
-
+function addDays(dateString: string, days: number) {
+  const date = new Date(`${dateString}T12:00:00`)
+  date.setDate(date.getDate() + days)
   return getDateString(date)
 }
 
 function formatCurrency(value: number) {
-  return new Intl.NumberFormat(
-    'hr-HR',
-    {
-      style: 'currency',
-      currency: 'EUR',
-    },
-  ).format(value)
+  return new Intl.NumberFormat('hr-HR', {
+    style: 'currency',
+    currency: 'EUR',
+  }).format(value)
 }
 
 function createId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 8)}`
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function createEmptyItem(): OfferItem {
@@ -165,41 +147,19 @@ function createEmptyItem(): OfferItem {
   }
 }
 
-function readImageFile(
-  file: File,
-): Promise<string> {
-  return new Promise(
-    (resolve, reject) => {
-      const reader =
-        new FileReader()
-
-      reader.onload = () => {
-        if (
-          typeof reader.result ===
-          'string'
-        ) {
-          resolve(reader.result)
-          return
-        }
-
-        reject(
-          new Error(
-            'Slika se nije mogla učitati.',
-          ),
-        )
+function readImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
       }
-
-      reader.onerror = () => {
-        reject(
-          new Error(
-            'Slika se nije mogla učitati.',
-          ),
-        )
-      }
-
-      reader.readAsDataURL(file)
-    },
-  )
+      reject(new Error('Slika se nije mogla učitati.'))
+    }
+    reader.onerror = () => reject(new Error('Slika se nije mogla učitati.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function compressImage(
@@ -208,182 +168,75 @@ function compressImage(
   maxHeight = 1200,
   quality = 0.82,
 ): Promise<string> {
-  return new Promise(
-    (resolve, reject) => {
-      const image =
-        new Image()
+  return new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => {
+      let width = image.width
+      let height = image.height
+      const ratio = Math.min(maxWidth / width, maxHeight / height, 1)
+      width = Math.round(width * ratio)
+      height = Math.round(height * ratio)
 
-      image.onload = () => {
-        let width =
-          image.width
-        let height =
-          image.height
-
-        const ratio =
-          Math.min(
-            maxWidth / width,
-            maxHeight / height,
-            1,
-          )
-
-        width =
-          Math.round(
-            width * ratio,
-          )
-
-        height =
-          Math.round(
-            height * ratio,
-          )
-
-        const canvas =
-          document.createElement(
-            'canvas',
-          )
-
-        canvas.width = width
-        canvas.height = height
-
-        const context =
-          canvas.getContext('2d')
-
-        if (!context) {
-          reject(
-            new Error(
-              'Slika se nije mogla obraditi.',
-            ),
-          )
-          return
-        }
-
-        context.drawImage(
-          image,
-          0,
-          0,
-          width,
-          height,
-        )
-
-        resolve(
-          canvas.toDataURL(
-            'image/jpeg',
-            quality,
-          ),
-        )
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) {
+        reject(new Error('Slika se nije mogla obraditi.'))
+        return
       }
-
-      image.onerror = () => {
-        reject(
-          new Error(
-            'Slika se nije mogla obraditi.',
-          ),
-        )
-      }
-
-      image.src =
-        imageDataUrl
-    },
-  )
+      context.drawImage(image, 0, 0, width, height)
+      resolve(canvas.toDataURL('image/jpeg', quality))
+    }
+    image.onerror = () => reject(new Error('Slika se nije mogla obraditi.'))
+    image.src = imageDataUrl
+  })
 }
 
-function calculateItemBase(
-  item: OfferItem,
-) {
-  return (
-    item.quantity * item.price
-  )
+function calculateItemBase(item: OfferItem) {
+  return item.quantity * item.price
 }
 
-function calculateItemDiscount(
-  item: OfferItem,
-) {
-  return (
-    calculateItemBase(item) *
-    (item.discount / 100)
-  )
+function calculateItemDiscount(item: OfferItem) {
+  return calculateItemBase(item) * (item.discount / 100)
 }
 
-function calculateItemNet(
-  item: OfferItem,
-) {
-  return (
-    calculateItemBase(item) -
-    calculateItemDiscount(item)
-  )
+function calculateItemNet(item: OfferItem) {
+  return calculateItemBase(item) - calculateItemDiscount(item)
 }
 
-function calculateItemVat(
-  item: OfferItem,
-) {
-  return (
-    calculateItemNet(item) *
-    (item.vat / 100)
-  )
+function calculateItemVat(item: OfferItem) {
+  return calculateItemNet(item) * (item.vat / 100)
 }
 
-function calculateItemTotal(
-  item: OfferItem,
-) {
-  return (
-    calculateItemNet(item) +
-    calculateItemVat(item)
-  )
+function calculateItemTotal(item: OfferItem) {
+  return calculateItemNet(item) + calculateItemVat(item)
 }
 
-function mapCustomerType(
-  customer: Customer,
-): CustomerType {
-  if (
-    customer.type === 'company'
-  ) {
-    return 'Tvrtka'
-  }
-
-  if (
-    customer.type === 'building'
-  ) {
-    return 'Zgrada'
-  }
-
+function mapCustomerType(customer: Customer): CustomerType {
+  if (customer.type === 'company') return 'Tvrtka'
+  if (customer.type === 'building') return 'Zgrada'
   return 'Fizička osoba'
 }
 
-function mapCustomer(
-  customer: Customer,
-): CustomerSuggestion {
+function mapCustomer(customer: Customer): CustomerSuggestion {
   return {
     id: customer.id,
     name: customer.name,
-    type:
-      mapCustomerType(customer),
+    type: mapCustomerType(customer),
     oib: customer.oib,
     email: customer.email,
     phone: customer.phone,
     address: customer.street,
-    postalCode:
-      customer.postalCode,
+    postalCode: customer.postalCode,
     city: customer.city,
-    contactPerson:
-      customer.contactPerson ??
-      '',
+    contactPerson: customer.contactPerson ?? '',
   }
 }
 
-function getCustomerIcon(
-  customerType: CustomerType,
-) {
-  if (
-    customerType === 'Tvrtka'
-  ) {
-    return Building2
-  }
-
-  if (
-    customerType === 'Zgrada'
-  ) {
-    return UsersRound
-  }
-
+function getCustomerIcon(customerType: CustomerType) {
+  if (customerType === 'Tvrtka') return Building2
+  if (customerType === 'Zgrada') return UsersRound
   return UserRound
 }
 
@@ -392,9 +245,7 @@ async function openOfferEmailDraft(
   company: CompanySettings,
   globalDiscount = 0,
 ) {
-  const recipient =
-    offer.email.trim()
-
+  const recipient = offer.email.trim()
   if (!recipient) {
     window.alert(
       'Ponuda je spremljena, ali investitor nema unesenu e-mail adresu.',
@@ -402,71 +253,27 @@ async function openOfferEmailDraft(
     return
   }
 
-  const safeGlobalDiscount =
-    Math.min(
-      100,
-      Math.max(
-        0,
-        Number(
-          globalDiscount,
-        ) || 0,
-      ),
-    )
+  const safeGlobalDiscount = Math.min(
+    100,
+    Math.max(0, Number(globalDiscount) || 0),
+  )
+  const globalFactor = 1 - safeGlobalDiscount / 100
+  const total = offer.items.reduce((sum, item) => {
+    const net = calculateItemNet(item) * globalFactor
+    return sum + net + net * (item.vat / 100)
+  }, 0)
 
-  const globalFactor =
-    1 -
-    safeGlobalDiscount /
-      100
+  const formattedTotal = new Intl.NumberFormat('hr-HR', {
+    style: 'currency',
+    currency: company.currency || 'EUR',
+  }).format(total)
 
-  const total =
-    offer.items.reduce(
-      (sum, item) => {
-        const net =
-          calculateItemNet(
-            item,
-          ) *
-          globalFactor
+  const formattedValidUntil = offer.validUntil
+    ? new Date(`${offer.validUntil}T12:00:00`).toLocaleDateString('hr-HR')
+    : 'nije navedeno'
 
-        return (
-          sum +
-          net +
-          net *
-            (
-              item.vat /
-              100
-            )
-        )
-      },
-      0,
-    )
-
-  const formattedTotal =
-    new Intl.NumberFormat(
-      'hr-HR',
-      {
-        style: 'currency',
-        currency:
-          company.currency ||
-          'EUR',
-      },
-    ).format(total)
-
-  const formattedValidUntil =
-    offer.validUntil
-      ? new Date(
-          `${offer.validUntil}T12:00:00`,
-        ).toLocaleDateString(
-          'hr-HR',
-        )
-      : 'nije navedeno'
-
-  const companyName =
-    company.name.trim() ||
-    'Tvrtka'
-
-  const subject =
-    `Ponuda ${offer.offerNumber} – ${companyName}`
-
+  const companyName = company.name.trim() || 'Tvrtka'
+  const subject = `Ponuda ${offer.offerNumber} – ${companyName}`
   const body = [
     `Poštovani/a ${offer.customerName},`,
     '',
@@ -481,380 +288,107 @@ async function openOfferEmailDraft(
     '',
     'Lijep pozdrav,',
     companyName,
-    company.phone
-      ? `Telefon: ${company.phone}`
-      : '',
-    company.email
-      ? `E-mail: ${company.email}`
-      : '',
+    company.phone ? `Telefon: ${company.phone}` : '',
+    company.email ? `E-mail: ${company.email}` : '',
   ]
-    .filter(
-      (
-        line,
-        index,
-        lines,
-      ) =>
-        line !== '' ||
-        lines[index - 1] !== '',
-    )
+    .filter((line, index, lines) => line !== '' || lines[index - 1] !== '')
     .join('\n')
 
   downloadOfferPdf(offer)
-
-  const mailtoUrl =
-    `mailto:${encodeURIComponent(
-      recipient,
-    )}?subject=${encodeURIComponent(
-      subject,
-    )}&body=${encodeURIComponent(
-      body,
-    )}`
-
+  const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(
+    subject,
+  )}&body=${encodeURIComponent(body)}`
   window.setTimeout(() => {
-    window.location.href =
-      mailtoUrl
+    window.location.href = mailtoUrl
   }, 250)
 }
 
 export function NewOfferPage() {
-  const navigate =
-    useNavigate()
+  const navigate = useNavigate()
+  const { offerId } = useParams<{ offerId: string }>()
+  const [searchParams] = useSearchParams()
+  const duplicateId = searchParams.get('duplicate')
+  const today = getDateString(new Date())
 
-  const { offerId } =
-    useParams<{
-      offerId: string
-    }>()
+  const [autosaveState, setAutosaveState] =
+    useState<DraftAutosaveState>('idle')
+  const [autosaveText, setAutosaveText] = useState('')
+  const [draftReady, setDraftReady] = useState(false)
+  const [editingOffer, setEditingOffer] = useState<Offer | null>(null)
+  const [duplicateSource, setDuplicateSource] = useState<Offer | null>(null)
+  const [customers, setCustomers] = useState<CustomerSuggestion[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [loadError, setLoadError] = useState('')
+  const [companySettings, setCompanySettings] =
+    useState<CompanySettings | null>(null)
 
-  const [searchParams] =
-    useSearchParams()
+  const [offerNumber, setOfferNumber] = useState('Automatski')
+  const [date, setDate] = useState(today)
+  const [validUntil, setValidUntil] = useState(addDays(today, 30))
+  const [customerId, setCustomerId] = useState('')
+  const [customerType, setCustomerType] =
+    useState<CustomerType>('Fizička osoba')
+  const [customerName, setCustomerName] = useState('')
+  const [oib, setOib] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [address, setAddress] = useState('')
+  const [postalCode, setPostalCode] = useState('')
+  const [city, setCity] = useState('Slavonski Brod')
+  const [description, setDescription] = useState('')
+  const [internalNote, setInternalNote] = useState('')
+  const [paymentTerms, setPaymentTerms] = useState(
+    'Plaćanje po završetku radova.',
+  )
+  const [globalDiscount, setGlobalDiscount] = useState(0)
+  const [defaultVat, setDefaultVat] = useState(25)
+  const [responsiblePerson, setResponsiblePerson] = useState('Borna Ferfolja')
+  const [items, setItems] = useState<OfferItem[]>([createEmptyItem()])
+  const [itemImageUrls, setItemImageUrls] = useState<Record<string, string>>({})
+  const [loadingImageItemId, setLoadingImageItemId] = useState<string | null>(
+    null,
+  )
+  const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerResults, setShowCustomerResults] = useState(false)
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [saveMessage, setSaveMessage] = useState('')
+  const [offerImportOpen, setOfferImportOpen] = useState(false)
 
-  const duplicateId =
-    searchParams.get(
-      'duplicate',
-    )
+  const isEditing = Boolean(editingOffer)
+  const isDuplicating = Boolean(duplicateSource)
 
-  const today =
-    getDateString(new Date())
-
-  const [
-    autosaveState,
-    setAutosaveState,
-  ] =
-    useState<DraftAutosaveState>(
-      'idle',
-    )
-
-  const [
-    autosaveText,
-    setAutosaveText,
-  ] =
-    useState('')
-
-  const [
-    draftReady,
-    setDraftReady,
-  ] =
-    useState(false)
-
-  const [
-    editingOffer,
-    setEditingOffer,
-  ] =
-    useState<Offer | null>(
-      null,
-    )
-
-  const [
-    duplicateSource,
-    setDuplicateSource,
-  ] =
-    useState<Offer | null>(
-      null,
-    )
-
-  const [
-    customers,
-    setCustomers,
-  ] =
-    useState<
-      CustomerSuggestion[]
-    >([])
-
-  const [
-    isLoading,
-    setIsLoading,
-  ] =
-    useState(true)
-
-  const [
-    isSaving,
-    setIsSaving,
-  ] =
-    useState(false)
-
-  const [
-    loadError,
-    setLoadError,
-  ] =
-    useState('')
-
-  const [
-    companySettings,
-    setCompanySettings,
-  ] =
-    useState<CompanySettings | null>(
-      null,
-    )
-
-  const [
-    offerNumber,
-    setOfferNumber,
-  ] =
-    useState('Automatski')
-
-  const [
-    date,
-    setDate,
-  ] =
-    useState(today)
-
-  const [
-    validUntil,
-    setValidUntil,
-  ] =
-    useState(
-      addDays(today, 30),
-    )
-
-  const [
-    customerId,
-    setCustomerId,
-  ] =
-    useState('')
-
-  const [
-    customerType,
-    setCustomerType,
-  ] =
-    useState<CustomerType>(
-      'Fizička osoba',
-    )
-
-  const [
-    customerName,
-    setCustomerName,
-  ] =
-    useState('')
-
-  const [oib, setOib] =
-    useState('')
-
-  const [email, setEmail] =
-    useState('')
-
-  const [phone, setPhone] =
-    useState('')
-
-  const [
-    address,
-    setAddress,
-  ] =
-    useState('')
-
-  const [
-    postalCode,
-    setPostalCode,
-  ] =
-    useState('')
-
-  const [city, setCity] =
-    useState(
-      'Slavonski Brod',
-    )
-
-  const [
-    description,
-    setDescription,
-  ] =
-    useState('')
-
-  const [
-    internalNote,
-    setInternalNote,
-  ] =
-    useState('')
-
-  const [
-    paymentTerms,
-    setPaymentTerms,
-  ] =
-    useState(
-      'Plaćanje po završetku radova.',
-    )
-
-  const [
-    globalDiscount,
-    setGlobalDiscount,
-  ] =
-    useState(0)
-
-  const [
-    defaultVat,
-    setDefaultVat,
-  ] =
-    useState(25)
-
-  const [
-    responsiblePerson,
-    setResponsiblePerson,
-  ] =
-    useState(
-      'Borna Ferfolja',
-    )
-
-  const [
-    items,
-    setItems,
-  ] =
-    useState<OfferItem[]>([
-      createEmptyItem(),
-    ])
-
-  const [
-    itemImageUrls,
-    setItemImageUrls,
-  ] = useState<Record<string, string>>({})
-
-  const [
-    loadingImageItemId,
-    setLoadingImageItemId,
-  ] = useState<string | null>(null)
-
-  const [
-    customerSearch,
-    setCustomerSearch,
-  ] =
-    useState('')
-
-  const [
-    showCustomerResults,
-    setShowCustomerResults,
-  ] =
-    useState(false)
-
-  const [
-    errors,
-    setErrors,
-  ] =
-    useState<
-      Record<string, string>
-    >({})
-
-  const [
-    saveMessage,
-    setSaveMessage,
-  ] =
-    useState('')
-
-  const [
-    offerImportOpen,
-    setOfferImportOpen,
-  ] =
-    useState(false)
-
-  const isEditing =
-    Boolean(editingOffer)
-
-  const isDuplicating =
-    Boolean(
-      duplicateSource,
-    )
-
-  function populateFromOffer(
-    offer: Offer,
-    duplicate: boolean,
-  ) {
-    setOfferNumber(
-      duplicate
-        ? 'Automatski'
-        : offer.offerNumber,
-    )
-
-    setDate(
-      duplicate
-        ? today
-        : offer.date,
-    )
-
-    setValidUntil(
-      duplicate
-        ? addDays(today, 30)
-        : offer.validUntil,
-    )
-
-    setCustomerId(
-      offer.customerId ?? '',
-    )
-    setCustomerType(
-      offer.customerType,
-    )
-    setCustomerName(
-      offer.customerName,
-    )
+  function populateFromOffer(offer: Offer, duplicate: boolean) {
+    setOfferNumber(duplicate ? 'Automatski' : offer.offerNumber)
+    setDate(duplicate ? today : offer.date)
+    setValidUntil(duplicate ? addDays(today, 30) : offer.validUntil)
+    setCustomerId(offer.customerId ?? '')
+    setCustomerType(offer.customerType)
+    setCustomerName(offer.customerName)
     setOib(offer.oib)
     setEmail(offer.email)
     setPhone(offer.phone)
-    setAddress(
-      offer.address,
-    )
-    setPostalCode(
-      offer.postalCode ?? '',
-    )
+    setAddress(offer.address)
+    setPostalCode(offer.postalCode ?? '')
     setCity(offer.city)
-    setDescription(
-      offer.description,
-    )
-    setInternalNote(
-      offer.internalNote,
-    )
-    setPaymentTerms(
-      offer.paymentTerms,
-    )
-    setResponsiblePerson(
-      offer.responsiblePerson,
-    )
-    setCustomerSearch(
-      offer.customerName,
-    )
+    setDescription(offer.description)
+    setInternalNote(offer.internalNote)
+    setPaymentTerms(offer.paymentTerms)
+    setResponsiblePerson(offer.responsiblePerson)
+    setCustomerSearch(offer.customerName)
 
-    void getOfferPricingSettings(
-      offer.id,
-    ).then(
-      (pricing) => {
-        setGlobalDiscount(
-          pricing.globalDiscount,
-        )
-        setDefaultVat(
-          pricing.defaultVat,
-        )
-      },
-    )
+    void getOfferPricingSettings(offer.id).then((pricing) => {
+      setGlobalDiscount(pricing.globalDiscount)
+      setDefaultVat(pricing.defaultVat)
+    })
 
     setItems(
       offer.items.length > 0
-        ? offer.items.map(
-            (item) => ({
-              ...item,
-              id: duplicate
-                ? createId(
-                    'item',
-                  )
-                : item.id,
-            }),
-          )
-        : [
-            createEmptyItem(),
-          ],
+        ? offer.items.map((item) => ({
+            ...item,
+            id: duplicate ? createId('item') : item.id,
+          }))
+        : [createEmptyItem()],
     )
   }
 
@@ -866,358 +400,509 @@ export function NewOfferPage() {
         setIsLoading(true)
         setLoadError('')
 
-        const [
-          savedCustomers,
-          loadedCompanySettings,
-          loadedOffer,
-        ] =
+        const [savedCustomers, loadedCompanySettings, loadedOffer] =
           await Promise.all([
             getCustomers(),
             getCompanySettings(),
             offerId
-              ? getOfferById(
-                  offerId,
-                )
+              ? getOfferById(offerId)
               : duplicateId
-                ? getOfferById(
-                    duplicateId,
-                  )
-                : Promise.resolve(
-                    null,
-                  ),
+                ? getOfferById(duplicateId)
+                : Promise.resolve(null),
           ])
 
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
+        setCompanySettings(loadedCompanySettings)
 
-        setCompanySettings(
-          loadedCompanySettings,
-        )
-
-        if (
-          !offerId &&
-          !duplicateId
-        ) {
+        if (!offerId && !duplicateId) {
           setValidUntil(
             addDays(
               today,
-              loadedCompanySettings
-                .defaultOfferValidityDays ||
-                30,
+              loadedCompanySettings.defaultOfferValidityDays || 30,
             ),
           )
-
           setResponsiblePerson(
-            loadedCompanySettings
-              .name ||
-              'Odgovorna osoba',
+            loadedCompanySettings.name || 'Odgovorna osoba',
           )
         }
 
         setCustomers(
           savedCustomers
-            .filter(
-              (customer) =>
-                customer.status ===
-                'Aktivan',
-            )
+            .filter((customer) => customer.status === 'Aktivan')
             .map(mapCustomer),
         )
 
         if (offerId) {
+          if (!loadedOffer) throw new Error('Ponuda nije pronađena.')
+          setEditingOffer(loadedOffer)
+          populateFromOffer(loadedOffer, false)
+        } else if (duplicateId) {
           if (!loadedOffer) {
-            throw new Error(
-              'Ponuda nije pronađena.',
-            )
+            throw new Error('Ponuda za dupliciranje nije pronađena.')
           }
-
-          setEditingOffer(
-            loadedOffer,
-          )
-          populateFromOffer(
-            loadedOffer,
-            false,
-          )
-        } else if (
-          duplicateId
-        ) {
-          if (!loadedOffer) {
-            throw new Error(
-              'Ponuda za dupliciranje nije pronađena.',
-            )
-          }
-
-          setDuplicateSource(
-            loadedOffer,
-          )
-          populateFromOffer(
-            loadedOffer,
-            true,
-          )
+          setDuplicateSource(loadedOffer)
+          populateFromOffer(loadedOffer, true)
         }
       } catch (error) {
         if (!cancelled) {
           setLoadError(
-            error instanceof
-              Error
+            error instanceof Error
               ? error.message
               : 'Ponudu nije moguće učitati.',
           )
         }
       } finally {
-        if (!cancelled) {
-          setIsLoading(
-            false,
-          )
-        }
+        if (!cancelled) setIsLoading(false)
       }
     }
 
     void loadPage()
-
     return () => {
       cancelled = true
     }
-  }, [
-    offerId,
-    duplicateId,
-  ])
+  }, [offerId, duplicateId])
 
   useEffect(() => {
-    if (
-      offerId ||
-      duplicateId
-    ) {
+    if (offerId || duplicateId) {
       setDraftReady(true)
       return
     }
 
     let cancelled = false
-
     void (async () => {
       try {
-        const draft =
-          await loadUserDraft<any>(
-            'offer',
-            'new',
-          )
+        const draft = await loadUserDraft<any>('offer', 'new')
+        if (cancelled || !draft) return
+        const value = draft.payload ?? {}
 
-        if (
-          cancelled ||
-          !draft
-        ) {
-          return
-        }
-
-        const value =
-          draft.payload ?? {}
-
-        setDate(
-          value.date ?? date,
-        )
-        setValidUntil(
-          value.validUntil ??
-            validUntil,
-        )
-        setCustomerId(
-          value.customerId ??
-            '',
-        )
-        setCustomerType(
-          value.customerType ??
-            'Fizička osoba',
-        )
-        setCustomerName(
-          value.customerName ??
-            '',
-        )
-        setOib(
-          value.oib ?? '',
-        )
-        setEmail(
-          value.email ?? '',
-        )
-        setPhone(
-          value.phone ?? '',
-        )
-        setAddress(
-          value.address ?? '',
-        )
-        setPostalCode(
-          value.postalCode ??
-            '',
-        )
-        setCity(
-          value.city ??
-            'Slavonski Brod',
-        )
-        setDescription(
-          value.description ??
-            '',
-        )
-        setInternalNote(
-          value.internalNote ??
-            '',
-        )
+        setDate(value.date ?? date)
+        setValidUntil(value.validUntil ?? validUntil)
+        setCustomerId(value.customerId ?? '')
+        setCustomerType(value.customerType ?? 'Fizička osoba')
+        setCustomerName(value.customerName ?? '')
+        setOib(value.oib ?? '')
+        setEmail(value.email ?? '')
+        setPhone(value.phone ?? '')
+        setAddress(value.address ?? '')
+        setPostalCode(value.postalCode ?? '')
+        setCity(value.city ?? 'Slavonski Brod')
+        setDescription(value.description ?? '')
+        setInternalNote(value.internalNote ?? '')
         setPaymentTerms(
-          value.paymentTerms ??
-            'Plaćanje po završetku radova.',
+          value.paymentTerms ?? 'Plaćanje po završetku radova.',
         )
         setGlobalDiscount(
-          Math.min(
-            100,
-            Math.max(
-              0,
-              Number(
-                value.globalDiscount,
-              ) || 0,
-            ),
-          ),
+          Math.min(100, Math.max(0, Number(value.globalDiscount) || 0)),
         )
         setDefaultVat(
-          Math.min(
-            100,
-            Math.max(
-              0,
-              Number(
-                value.defaultVat,
-              ) || 25,
-            ),
-          ),
+          Math.min(100, Math.max(0, Number(value.defaultVat) || 25)),
         )
-        setResponsiblePerson(
-          value.responsiblePerson ??
-            responsiblePerson,
-        )
+        setResponsiblePerson(value.responsiblePerson ?? responsiblePerson)
         setItems(
-          Array.isArray(
-            value.items,
-          ) &&
-            value.items.length
+          Array.isArray(value.items) && value.items.length
             ? value.items
-            : [
-                createEmptyItem(),
-              ],
+            : [createEmptyItem()],
         )
-        setCustomerSearch(
-          value.customerSearch ??
-            value.customerName ??
-            '',
-        )
-
-        setAutosaveState(
-          'restored',
-        )
-
+        setCustomerSearch(value.customerSearch ?? value.customerName ?? '')
+        setAutosaveState('restored')
         setAutosaveText(
           `Nastavljena nedovršena ponuda · ${formatDraftSavedAt(
             draft.updatedAt,
           )}`,
         )
       } finally {
-        if (!cancelled) {
-          setDraftReady(true)
-        }
+        if (!cancelled) setDraftReady(true)
       }
     })()
 
     return () => {
       cancelled = true
     }
-  }, [
-    offerId,
-    duplicateId,
-  ])
+  }, [offerId, duplicateId])
 
   useEffect(() => {
     if (
       !draftReady ||
+      isLoading ||
       offerId ||
       duplicateId
     ) {
       return
     }
 
-    const hasContent =
-      Boolean(
-        customerName.trim() ||
-          description.trim() ||
-          items.some(
-            (item) =>
-              item.name.trim(),
-          ),
+    const raw =
+      sessionStorage.getItem(
+        'fersys_ai_offer_prefill',
       )
 
-    if (!hasContent) {
+    if (!raw) {
       return
     }
 
-    const timer =
-      window.setTimeout(
-        () => {
-          void (async () => {
-            try {
-              setAutosaveState(
-                'saving',
-              )
+    try {
+      const value =
+        JSON.parse(raw) as
+          Record<string, unknown>
 
-              const savedAt =
-                await saveUserDraft(
-                  'offer',
-                  'new',
-                  {
-                    date,
-                    validUntil,
-                    customerId,
-                    customerType,
-                    customerName,
-                    oib,
-                    email,
-                    phone,
-                    address,
-                    postalCode,
-                    city,
-                    description,
-                    internalNote,
-                    paymentTerms,
-                    globalDiscount,
-                    defaultVat,
-                    responsiblePerson,
-                    items,
-                    customerSearch,
-                  },
-                )
+      const text = (
+        key: string,
+      ) =>
+        typeof value[key] ===
+        'string'
+          ? String(
+              value[key],
+            ).trim()
+          : ''
 
-              setAutosaveState(
-                navigator.onLine
-                  ? 'saved'
-                  : 'offline',
-              )
+      const customerCandidateId =
+        text('customerId')
 
-              setAutosaveText(
-                formatDraftSavedAt(
-                  savedAt,
+      const customerCandidateName =
+        text('customerName') ||
+        text('customer') ||
+        text('investorName')
+
+      const matchedCustomer =
+        customers.find(
+          (customer) =>
+            customerCandidateId &&
+            customer.id ===
+              customerCandidateId,
+        ) ??
+        customers.find(
+          (customer) =>
+            customerCandidateName &&
+            customer.name
+              .trim()
+              .toLocaleLowerCase(
+                'hr-HR',
+              ) ===
+              customerCandidateName
+                .trim()
+                .toLocaleLowerCase(
+                  'hr-HR',
                 ),
-              )
-            } catch {
-              setAutosaveState(
-                'offline',
-              )
-              setAutosaveText(
-                'Nacrt je spremljen lokalno.',
-              )
-            }
-          })()
-        },
-        1200,
-      )
+        )
 
-    return () => {
-      window.clearTimeout(
-        timer,
+      if (matchedCustomer) {
+        selectCustomer(
+          matchedCustomer,
+        )
+      } else if (
+        customerCandidateName
+      ) {
+        setCustomerName(
+          customerCandidateName,
+        )
+        setCustomerSearch(
+          customerCandidateName,
+        )
+      }
+
+      const nextDate =
+        text('date')
+
+      const nextValidUntil =
+        text('validUntil')
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(
+          nextDate,
+        )
+      ) {
+        setDate(nextDate)
+      }
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(
+          nextValidUntil,
+        )
+      ) {
+        setValidUntil(
+          nextValidUntil,
+        )
+      }
+
+      const nextDescription =
+        text('description') ||
+        text('title') ||
+        text('notes')
+
+      if (
+        nextDescription
+      ) {
+        setDescription(
+          nextDescription,
+        )
+      }
+
+      const nextInternalNote =
+        text('internalNote')
+
+      if (
+        nextInternalNote
+      ) {
+        setInternalNote(
+          nextInternalNote,
+        )
+      }
+
+      const nextPaymentTerms =
+        text('paymentTerms')
+
+      if (
+        nextPaymentTerms
+      ) {
+        setPaymentTerms(
+          nextPaymentTerms,
+        )
+      }
+
+      const nextResponsiblePerson =
+        text('responsiblePerson')
+
+      if (
+        nextResponsiblePerson
+      ) {
+        setResponsiblePerson(
+          nextResponsiblePerson,
+        )
+      }
+
+      const nextGlobalDiscount =
+        Number(
+          value.globalDiscount,
+        )
+
+      if (
+        Number.isFinite(
+          nextGlobalDiscount,
+        )
+      ) {
+        setGlobalDiscount(
+          Math.min(
+            100,
+            Math.max(
+              0,
+              nextGlobalDiscount,
+            ),
+          ),
+        )
+      }
+
+      const nextDefaultVat =
+        Number(
+          value.defaultVat ??
+            value.vat,
+        )
+
+      if (
+        Number.isFinite(
+          nextDefaultVat,
+        )
+      ) {
+        setDefaultVat(
+          Math.min(
+            100,
+            Math.max(
+              0,
+              nextDefaultVat,
+            ),
+          ),
+        )
+      }
+
+      if (
+        Array.isArray(
+          value.items,
+        )
+      ) {
+        const nextItems =
+          value.items
+            .map(
+              (
+                item,
+              ): OfferItem | null => {
+                if (
+                  !item ||
+                  typeof item !==
+                    'object'
+                ) {
+                  return null
+                }
+
+                const source =
+                  item as Record<
+                    string,
+                    unknown
+                  >
+
+                const name =
+                  typeof source.name ===
+                  'string'
+                    ? source.name.trim()
+                    : ''
+
+                if (!name) {
+                  return null
+                }
+
+                const itemVat =
+                  Number(
+                    source.vat ??
+                      value.defaultVat ??
+                      25,
+                  )
+
+                return {
+                  id:
+                    createId(
+                      'item',
+                    ),
+                  name,
+                  description:
+                    typeof source.description ===
+                    'string'
+                      ? source.description.trim()
+                      : '',
+                  quantity:
+                    Math.max(
+                      0.01,
+                      Number(
+                        source.quantity,
+                      ) || 1,
+                    ),
+                  unit:
+                    typeof source.unit ===
+                      'string' &&
+                    source.unit.trim()
+                      ? source.unit.trim()
+                      : 'kom',
+                  price:
+                    Math.max(
+                      0,
+                      Number(
+                        source.price ??
+                          source.unitPrice,
+                      ) || 0,
+                    ),
+                  discount:
+                    Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        Number(
+                          source.discount,
+                        ) || 0,
+                      ),
+                    ),
+                  vat:
+                    Math.min(
+                      100,
+                      Math.max(
+                        0,
+                        Number.isFinite(
+                          itemVat,
+                        )
+                          ? itemVat
+                          : 25,
+                      ),
+                    ),
+                  imageDataUrl:
+                    undefined,
+                  imageName:
+                    undefined,
+                }
+              },
+            )
+            .filter(
+              (
+                item,
+              ): item is OfferItem =>
+                item !== null,
+            )
+
+        if (
+          nextItems.length
+        ) {
+          setItems(
+            nextItems,
+          )
+        }
+      }
+
+      setAutosaveState(
+        'restored',
+      )
+      setAutosaveText(
+        'FERSYS AI je pripremio ponudu. Provjeri investitora, stavke, cijene i PDV prije spremanja.',
+      )
+      setSaveMessage(
+        'AI podaci su uneseni u obrazac. Ponuda još nije spremljena.',
+      )
+    } catch (error) {
+      console.error(
+        'AI priprema ponude nije učitana:',
+        error,
+      )
+    } finally {
+      sessionStorage.removeItem(
+        'fersys_ai_offer_prefill',
       )
     }
+  }, [
+    draftReady,
+    isLoading,
+    offerId,
+    duplicateId,
+    customers,
+  ])
+
+  useEffect(() => {
+    if (!draftReady || offerId || duplicateId) return
+
+    const hasContent = Boolean(
+      customerName.trim() ||
+        description.trim() ||
+        items.some((item) => item.name.trim()),
+    )
+    if (!hasContent) return
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setAutosaveState('saving')
+          const savedAt = await saveUserDraft('offer', 'new', {
+            date,
+            validUntil,
+            customerId,
+            customerType,
+            customerName,
+            oib,
+            email,
+            phone,
+            address,
+            postalCode,
+            city,
+            description,
+            internalNote,
+            paymentTerms,
+            globalDiscount,
+            defaultVat,
+            responsiblePerson,
+            items,
+            customerSearch,
+          })
+          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveText(formatDraftSavedAt(savedAt))
+        } catch {
+          setAutosaveState('offline')
+          setAutosaveText('Nacrt je spremljen lokalno.')
+        }
+      })()
+    }, 1200)
+
+    return () => window.clearTimeout(timer)
   }, [
     draftReady,
     offerId,
@@ -1244,267 +929,102 @@ export function NewOfferPage() {
   ])
 
   async function discardOfferDraft() {
-    if (
-      !window.confirm(
-        'Odbaciti nedovršenu ponudu?',
-      )
-    ) {
-      return
-    }
-
-    await deleteUserDraft(
-      'offer',
-      'new',
-    )
-
+    if (!window.confirm('Odbaciti nedovršenu ponudu?')) return
+    await deleteUserDraft('offer', 'new')
     window.location.reload()
   }
 
-  const filteredCustomers =
-    useMemo(() => {
-      const query =
-        customerSearch
-          .trim()
-          .toLocaleLowerCase(
-            'hr-HR',
-          )
-
-      if (!query) {
-        return customers.slice(
-          0,
-          8,
-        )
-      }
-
-      return customers
-        .filter((customer) =>
-          [
-            customer.name,
-            customer.oib,
-            customer.email,
-            customer.phone,
-            customer.address,
-            customer.postalCode,
-            customer.city,
-          ]
-            .join(' ')
-            .toLocaleLowerCase(
-              'hr-HR',
-            )
-            .includes(query),
-        )
-        .slice(0, 8)
-    }, [
-      customerSearch,
-      customers,
-    ])
-
-  const totals =
-    useMemo(() => {
-      const base =
-        items.reduce(
-          (sum, item) =>
-            sum +
-            calculateItemBase(
-              item,
-            ),
-          0,
-        )
-
-      const itemDiscount =
-        items.reduce(
-          (sum, item) =>
-            sum +
-            calculateItemDiscount(
-              item,
-            ),
-          0,
-        )
-
-      const netBeforeGlobal =
-        items.reduce(
-          (sum, item) =>
-            sum +
-            calculateItemNet(
-              item,
-            ),
-          0,
-        )
-
-      const safeGlobalDiscount =
-        Math.min(
-          100,
-          Math.max(
-            0,
-            Number(
-              globalDiscount,
-            ) || 0,
-          ),
-        )
-
-      const globalDiscountAmount =
-        netBeforeGlobal *
-        (
-          safeGlobalDiscount /
-          100
-        )
-
-      const factor =
-        1 -
-        safeGlobalDiscount /
-          100
-
-      const vatMap =
-        new Map<
-          number,
-          number
-        >()
-
-      items.forEach(
-        (item) => {
-          const rate =
-            Math.min(
-              100,
-              Math.max(
-                0,
-                Number(
-                  item.vat,
-                ) || 0,
-              ),
-            )
-
-          const taxable =
-            calculateItemNet(
-              item,
-            ) *
-            factor
-
-          vatMap.set(
-            rate,
-            (
-              vatMap.get(
-                rate,
-              ) || 0
-            ) +
-              taxable *
-                (
-                  rate /
-                  100
-                ),
-          )
-        },
+  const filteredCustomers = useMemo(() => {
+    const query = customerSearch.trim().toLocaleLowerCase('hr-HR')
+    if (!query) return customers.slice(0, 8)
+    return customers
+      .filter((customer) =>
+        [
+          customer.name,
+          customer.oib,
+          customer.email,
+          customer.phone,
+          customer.address,
+          customer.postalCode,
+          customer.city,
+        ]
+          .join(' ')
+          .toLocaleLowerCase('hr-HR')
+          .includes(query),
       )
+      .slice(0, 8)
+  }, [customerSearch, customers])
 
-      const vatGroups =
-        [...vatMap.entries()]
-          .map(
-            ([
-              rate,
-              amount,
-            ]) => ({
-              rate,
-              amount,
-            }),
-          )
-          .sort(
-            (a, b) =>
-              a.rate -
-              b.rate,
-          )
+  const totals = useMemo(() => {
+    const base = items.reduce(
+      (sum, item) => sum + calculateItemBase(item),
+      0,
+    )
+    const itemDiscount = items.reduce(
+      (sum, item) => sum + calculateItemDiscount(item),
+      0,
+    )
+    const netBeforeGlobal = items.reduce(
+      (sum, item) => sum + calculateItemNet(item),
+      0,
+    )
+    const safeGlobalDiscount = Math.min(
+      100,
+      Math.max(0, Number(globalDiscount) || 0),
+    )
+    const globalDiscountAmount =
+      netBeforeGlobal * (safeGlobalDiscount / 100)
+    const factor = 1 - safeGlobalDiscount / 100
+    const vatMap = new Map<number, number>()
 
-      const net =
-        netBeforeGlobal -
-        globalDiscountAmount
+    items.forEach((item) => {
+      const rate = Math.min(100, Math.max(0, Number(item.vat) || 0))
+      const taxable = calculateItemNet(item) * factor
+      vatMap.set(rate, (vatMap.get(rate) || 0) + taxable * (rate / 100))
+    })
 
-      const vat =
-        vatGroups.reduce(
-          (sum, group) =>
-            sum +
-            group.amount,
-          0,
-        )
+    const vatGroups = [...vatMap.entries()]
+      .map(([rate, amount]) => ({ rate, amount }))
+      .sort((a, b) => a.rate - b.rate)
 
-      return {
-        base,
-        itemDiscount,
-        netBeforeGlobal,
-        globalDiscountAmount,
-        net,
-        vat,
-        vatGroups,
-        total:
-          net + vat,
-      }
-    }, [
-      items,
-      globalDiscount,
-    ])
+    const net = netBeforeGlobal - globalDiscountAmount
+    const vat = vatGroups.reduce((sum, group) => sum + group.amount, 0)
+
+    return {
+      base,
+      itemDiscount,
+      netBeforeGlobal,
+      globalDiscountAmount,
+      net,
+      vat,
+      vatGroups,
+      total: net + vat,
+    }
+  }, [items, globalDiscount])
 
   function applyVatToAllItems() {
-    const rate =
-      Math.min(
-        100,
-        Math.max(
-          0,
-          Number(
-            defaultVat,
-          ) || 0,
-        ),
-      )
-
+    const rate = Math.min(100, Math.max(0, Number(defaultVat) || 0))
     setDefaultVat(rate)
-
-    setItems(
-      (current) =>
-        current.map(
-          (item) => ({
-            ...item,
-            vat: rate,
-          }),
-        ),
-    )
-
+    setItems((current) => current.map((item) => ({ ...item, vat: rate })))
     setSaveMessage(
       `PDV ${rate}% primijenjen je na sve stavke. Svaku stavku i dalje možeš zasebno promijeniti.`,
     )
   }
 
-  function applyOfferTemplate(
-    template: OfferTemplate,
-  ) {
-    setDescription(
-      template.description,
-    )
-
-    setPaymentTerms(
-      template.paymentTerms,
-    )
-
+  function applyOfferTemplate(template: OfferTemplate) {
+    setDescription(template.description)
+    setPaymentTerms(template.paymentTerms)
     setItems(
       template.items.length > 0
-        ? template.items.map(
-            (item) => ({
-              ...item,
-              id: createId(
-                'item',
-              ),
-              imageDataUrl:
-                undefined,
-              imageName:
-                undefined,
-            }),
-          )
-        : [
-            createEmptyItem(),
-          ],
+        ? template.items.map((item) => ({
+            ...item,
+            id: createId('item'),
+            imageDataUrl: undefined,
+            imageName: undefined,
+          }))
+        : [createEmptyItem()],
     )
-
-    setErrors(
-      (current) => ({
-        ...current,
-        items: '',
-      }),
-    )
+    setErrors((current) => ({ ...current, items: '' }))
   }
 
   function updateItem(
@@ -1512,233 +1032,124 @@ export function NewOfferPage() {
     field: keyof OfferItem,
     value: string | number,
   ) {
-    setItems(
-      (currentItems) =>
-        currentItems.map(
-          (item) =>
-            item.id === itemId
-              ? {
-                  ...item,
-                  [field]: value,
-                }
-              : item,
-        ),
+    setItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === itemId ? { ...item, [field]: value } : item,
+      ),
     )
   }
 
-  async function handleItemImage(
-    itemId: string,
-    file: File | undefined,
-  ) {
-    if (!file) {
+  async function handleItemImage(itemId: string, file: File | undefined) {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setErrors((current) => ({
+        ...current,
+        items: 'Odabrana datoteka nije slika.',
+      }))
       return
     }
-
-    if (
-      !file.type.startsWith(
-        'image/',
-      )
-    ) {
-      setErrors(
-        (current) => ({
-          ...current,
-          items:
-            'Odabrana datoteka nije slika.',
-        }),
-      )
-      return
-    }
-
-    if (
-      file.size >
-      12 * 1024 * 1024
-    ) {
-      setErrors(
-        (current) => ({
-          ...current,
-          items:
-            'Slika može imati najviše 12 MB.',
-        }),
-      )
+    if (file.size > 12 * 1024 * 1024) {
+      setErrors((current) => ({
+        ...current,
+        items: 'Slika može imati najviše 12 MB.',
+      }))
       return
     }
 
     try {
-      const original =
-        await readImageFile(
-          file,
-        )
-
-      const compressed =
-        await compressImage(
-          original,
-        )
-
-      setItems(
-        (currentItems) =>
-          currentItems.map(
-            (item) =>
-              item.id ===
-              itemId
-                ? {
-                    ...item,
-                    imageDataUrl:
-                      compressed,
-                    imageName:
-                      file.name,
-                  }
-                : item,
-          ),
+      const original = await readImageFile(file)
+      const compressed = await compressImage(original)
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                imageDataUrl: compressed,
+                imageName: file.name,
+              }
+            : item,
+        ),
       )
-
-      setItemImageUrls(
-        (current) => ({
-          ...current,
-          [itemId]: '',
-        }),
-      )
-
-      setErrors(
-        (current) => ({
-          ...current,
-          items: '',
-        }),
-      )
+      setItemImageUrls((current) => ({ ...current, [itemId]: '' }))
+      setErrors((current) => ({ ...current, items: '' }))
     } catch {
-      setErrors(
-        (current) => ({
-          ...current,
-          items:
-            'Slika se nije mogla učitati. Pokušaj ponovno.',
-        }),
-      )
+      setErrors((current) => ({
+        ...current,
+        items: 'Slika se nije mogla učitati. Pokušaj ponovno.',
+      }))
     }
   }
 
-  async function handleItemImageUrl(
-    itemId: string,
-  ) {
-    const rawUrl =
-      (itemImageUrls[itemId] ?? '').trim()
-
+  async function handleItemImageUrl(itemId: string) {
+    const rawUrl = (itemImageUrls[itemId] ?? '').trim()
     if (!rawUrl) {
       setErrors((current) => ({
         ...current,
-        items:
-          'Zalijepi izravni link do slike.',
+        items: 'Zalijepi izravni link do slike.',
       }))
       return
     }
 
     let parsedUrl: URL
-
     try {
       parsedUrl = new URL(rawUrl)
     } catch {
       setErrors((current) => ({
         ...current,
-        items:
-          'Link slike nije ispravan.',
+        items: 'Link slike nije ispravan.',
       }))
       return
     }
 
-    if (
-      parsedUrl.protocol !== 'https:' &&
-      parsedUrl.protocol !== 'http:'
-    ) {
+    if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
       setErrors((current) => ({
         ...current,
-        items:
-          'Link slike mora počinjati s http:// ili https://.',
+        items: 'Link slike mora počinjati s http:// ili https://.',
       }))
       return
     }
 
     try {
       setLoadingImageItemId(itemId)
-
-      const response =
-        await fetch(parsedUrl.toString(), {
-          mode: 'cors',
-          cache: 'no-store',
-        })
-
-      if (!response.ok) {
-        throw new Error(
-          'Slika nije dostupna.',
-        )
-      }
+      const response = await fetch(parsedUrl.toString(), {
+        mode: 'cors',
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error('Slika nije dostupna.')
 
       const blob = await response.blob()
-
       if (!blob.type.startsWith('image/')) {
-        throw new Error(
-          'Link ne vodi na sliku.',
-        )
+        throw new Error('Link ne vodi na sliku.')
       }
-
       if (blob.size > 12 * 1024 * 1024) {
-        throw new Error(
-          'Slika može imati najviše 12 MB.',
-        )
+        throw new Error('Slika može imati najviše 12 MB.')
       }
 
-      const pathName =
-        parsedUrl.pathname
-          .split('/')
-          .filter(Boolean)
-          .pop()
+      const pathName = parsedUrl.pathname.split('/').filter(Boolean).pop()
+      const fileName = pathName || `slika-${Date.now()}.jpg`
+      const remoteFile = new File([blob], fileName, {
+        type: blob.type || 'image/jpeg',
+      })
+      const originalImage = await readImageFile(remoteFile)
+      const compressed = await compressImage(originalImage)
 
-      const fileName =
-        pathName ||
-        `slika-${Date.now()}.jpg`
-
-      const remoteFile =
-        new File(
-          [blob],
-          fileName,
-          {
-            type:
-              blob.type ||
-              'image/jpeg',
-          },
-        )
-
-      const originalImage =
-        await readImageFile(remoteFile)
-
-      const compressed =
-        await compressImage(
-          originalImage,
-        )
-
-      setItems(
-        (currentItems) =>
-          currentItems.map(
-            (item) =>
-              item.id === itemId
-                ? {
-                    ...item,
-                    imageDataUrl:
-                      compressed,
-                    imageName:
-                      fileName,
-                  }
-                : item,
-          ),
+      setItems((currentItems) =>
+        currentItems.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                imageDataUrl: compressed,
+                imageName: fileName,
+              }
+            : item,
+        ),
       )
-
-      setErrors((current) => ({
-        ...current,
-        items: '',
-      }))
+      setErrors((current) => ({ ...current, items: '' }))
     } catch (error) {
       setErrors((current) => ({
         ...current,
         items:
-          error instanceof Error &&
-          error.message !== 'Failed to fetch'
+          error instanceof Error && error.message !== 'Failed to fetch'
             ? error.message
             : 'Web stranica ne dopušta FERSYS-u preuzimanje te slike. Preuzmi sliku na uređaj pa odaberi „Iz galerije”.',
       }))
@@ -1747,147 +1158,57 @@ export function NewOfferPage() {
     }
   }
 
-  function removeItemImage(
-    itemId: string,
-  ) {
-    setItems(
-      (currentItems) =>
-        currentItems.map(
-          (item) =>
-            item.id === itemId
-              ? {
-                  ...item,
-                  imageDataUrl:
-                    undefined,
-                  imageName:
-                    undefined,
-                }
-              : item,
-        ),
+  function removeItemImage(itemId: string) {
+    setItems((currentItems) =>
+      currentItems.map((item) =>
+        item.id === itemId
+          ? { ...item, imageDataUrl: undefined, imageName: undefined }
+          : item,
+      ),
     )
-
-    setItemImageUrls(
-      (current) => ({
-        ...current,
-        [itemId]: '',
-      }),
-    )
+    setItemImageUrls((current) => ({ ...current, [itemId]: '' }))
   }
 
   function addItem() {
     const newItem = {
       ...createEmptyItem(),
-      vat:
-        Math.min(
-          100,
-          Math.max(
-            0,
-            Number(
-              defaultVat,
-            ) || 0,
-          ),
-        ),
+      vat: Math.min(100, Math.max(0, Number(defaultVat) || 0)),
     }
-
-    setItems(
-      (current) => [
-        ...current,
-        newItem,
-      ],
-    )
-
+    setItems((current) => [...current, newItem])
     window.setTimeout(() => {
-      document
-        .getElementById(
-          `offer-item-${newItem.id}`,
-        )
-        ?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
-        })
+      document.getElementById(`offer-item-${newItem.id}`)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      })
     }, 80)
   }
 
-  function duplicateItem(
-    itemId: string,
-  ) {
-    const source =
-      items.find(
-        (item) =>
-          item.id === itemId,
-      )
-
-    if (!source) {
-      return
-    }
-
-    setItems(
-      (current) => [
-        ...current,
-        {
-          ...source,
-          id: createId('item'),
-        },
-      ],
-    )
+  function duplicateItem(itemId: string) {
+    const source = items.find((item) => item.id === itemId)
+    if (!source) return
+    setItems((current) => [...current, { ...source, id: createId('item') }])
   }
 
-  function removeItem(
-    itemId: string,
-  ) {
-    setItems(
-      (current) => {
-        if (
-          current.length === 1
-        ) {
-          return [
-            createEmptyItem(),
-          ]
-        }
-
-        return current.filter(
-          (item) =>
-            item.id !== itemId,
-        )
-      },
-    )
+  function removeItem(itemId: string) {
+    setItems((current) => {
+      if (current.length === 1) return [createEmptyItem()]
+      return current.filter((item) => item.id !== itemId)
+    })
   }
 
-  function selectCustomer(
-    customer: CustomerSuggestion,
-  ) {
-    setCustomerId(
-      customer.id,
-    )
-    setPostalCode(
-      customer.postalCode,
-    )
-    setCustomerName(
-      customer.name,
-    )
-    setCustomerType(
-      customer.type,
-    )
+  function selectCustomer(customer: CustomerSuggestion) {
+    setCustomerId(customer.id)
+    setPostalCode(customer.postalCode)
+    setCustomerName(customer.name)
+    setCustomerType(customer.type)
     setOib(customer.oib)
     setEmail(customer.email)
     setPhone(customer.phone)
-    setAddress(
-      customer.address,
-    )
+    setAddress(customer.address)
     setCity(customer.city)
-    setCustomerSearch(
-      customer.name,
-    )
-    setShowCustomerResults(
-      false,
-    )
-
-    setErrors(
-      (current) => ({
-        ...current,
-        customerName: '',
-      }),
-    )
+    setCustomerSearch(customer.name)
+    setShowCustomerResults(false)
+    setErrors((current) => ({ ...current, customerName: '' }))
   }
 
   function clearSelectedCustomer() {
@@ -1895,102 +1216,50 @@ export function NewOfferPage() {
     setPostalCode('')
     setCustomerSearch('')
     setCustomerName('')
-    setCustomerType(
-      'Fizička osoba',
-    )
+    setCustomerType('Fizička osoba')
     setOib('')
     setEmail('')
     setPhone('')
     setAddress('')
-    setCity(
-      'Slavonski Brod',
-    )
+    setCity('Slavonski Brod')
   }
 
-  function handleImportedOffer(
-    payload: OfferImportPayload,
-  ) {
-    const importedItems: OfferItem[] =
-      payload.items.map(
-        (item) => ({
-          id: createId('item'),
-          name: item.name,
-          description:
-            item.description,
-          quantity:
-            item.quantity,
-          unit:
-            item.unit,
-          price:
-            item.price,
-          discount:
-            item.discount,
-          vat:
-            item.vat,
-          imageDataUrl:
-            undefined,
-          imageName:
-            undefined,
-        }),
-      )
+  function handleImportedOffer(payload: OfferImportPayload) {
+    const importedItems: OfferItem[] = payload.items.map((item) => ({
+      id: createId('item'),
+      name: item.name,
+      description: item.description,
+      quantity: item.quantity,
+      unit: item.unit,
+      price: item.price,
+      discount: item.discount,
+      vat: item.vat,
+      imageDataUrl: undefined,
+      imageName: undefined,
+    }))
 
-    if (
-      importedItems.length ===
-      0
-    ) {
-      setErrors(
-        (current) => ({
-          ...current,
-          items:
-            'AI nije pronašao stavke za uvoz.',
-        }),
-      )
+    if (importedItems.length === 0) {
+      setErrors((current) => ({
+        ...current,
+        items: 'AI nije pronašao stavke za uvoz.',
+      }))
       return
     }
 
-    setItems(
-      importedItems,
+    setItems(importedItems)
+    const importedVatRates = Array.from(
+      new Set(importedItems.map((item) => Number(item.vat) || 0)),
     )
+    if (importedVatRates.length === 1) setDefaultVat(importedVatRates[0])
 
-    const importedVatRates =
-      Array.from(
-        new Set(
-          importedItems.map(
-            (item) =>
-              Number(
-                item.vat,
-              ) || 0,
-          ),
-        ),
-      )
-
-    if (
-      importedVatRates.length ===
-      1
-    ) {
-      setDefaultVat(
-        importedVatRates[0],
-      )
+    if (!description.trim() && payload.description.trim()) {
+      setDescription(payload.description.trim())
     }
-
-    if (
-      !description.trim() &&
-      payload.description.trim()
-    ) {
-      setDescription(
-        payload.description.trim(),
-      )
-    }
-
     if (
       payload.paymentTerms.trim() &&
-      paymentTermOptions.includes(
-        payload.paymentTerms.trim(),
-      )
+      paymentTermOptions.includes(payload.paymentTerms.trim())
     ) {
-      setPaymentTerms(
-        payload.paymentTerms.trim(),
-      )
+      setPaymentTerms(payload.paymentTerms.trim())
     }
 
     const sourceParts = [
@@ -2000,442 +1269,227 @@ export function NewOfferPage() {
       payload.source.offerNumber
         ? `ponuda: ${payload.source.offerNumber}`
         : '',
-      payload.source.offerDate
-        ? `datum: ${payload.source.offerDate}`
-        : '',
+      payload.source.offerDate ? `datum: ${payload.source.offerDate}` : '',
     ].filter(Boolean)
 
     const importNote =
       sourceParts.length > 0
-        ? `AI uvoz iz skenirane ponude (${sourceParts.join(' · ')}). Provjeriti sve stavke, količine, PDV i cijene prije slanja.`
+        ? `AI uvoz iz skenirane ponude (${sourceParts.join(
+            ' · ',
+          )}). Provjeriti sve stavke, količine, PDV i cijene prije slanja.`
         : 'AI uvoz iz skenirane ponude. Provjeriti sve stavke, količine, PDV i cijene prije slanja.'
 
-    setInternalNote(
-      (current) =>
-        current.trim()
-          ? `${current.trim()}\n\n${importNote}`
-          : importNote,
+    setInternalNote((current) =>
+      current.trim() ? `${current.trim()}\n\n${importNote}` : importNote,
     )
-
-    setErrors(
-      (current) => ({
-        ...current,
-        items: '',
-        save: '',
-      }),
-    )
-
+    setErrors((current) => ({ ...current, items: '', save: '' }))
     setSaveMessage(
       `AI je uvezao ${importedItems.length} stavki. Ponuda još nije spremljena — provjeri i uredi sve podatke prije spremanja.`,
-    )
-
-    window.setTimeout(
-      () => {
-        document
-          .getElementById(
-            `offer-item-${importedItems[0].id}`,
-          )
-          ?.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-          })
-      },
-      120,
     )
   }
 
   function validateOffer() {
-    const nextErrors:
-      Record<string, string> =
-        {}
-
-    if (!date) {
-      nextErrors.date =
-        'Odaberi datum ponude.'
+    const nextErrors: Record<string, string> = {}
+    if (!date) nextErrors.date = 'Odaberi datum ponude.'
+    if (!validUntil) nextErrors.validUntil = 'Odaberi rok valjanosti.'
+    if (!customerName.trim()) {
+      nextErrors.customerName = 'Unesi ili odaberi investitora.'
+    }
+    if (items.length === 0 || items.every((item) => !item.name.trim())) {
+      nextErrors.items = 'Dodaj barem jednu stavku ponude.'
     }
 
-    if (!validUntil) {
-      nextErrors.validUntil =
-        'Odaberi rok valjanosti.'
-    }
-
-    if (
-      !customerName.trim()
-    ) {
-      nextErrors.customerName =
-        'Unesi ili odaberi investitora.'
-    }
-
-    if (
-      items.length === 0 ||
-      items.every(
-        (item) =>
-          !item.name.trim(),
-      )
-    ) {
-      nextErrors.items =
-        'Dodaj barem jednu stavku ponude.'
-    }
-
-    const invalidItem =
-      items.find(
-        (item) =>
-          item.name.trim() &&
-          (item.quantity <= 0 ||
-            item.price < 0 ||
-            item.discount < 0 ||
-            item.discount > 100 ||
-            item.vat < 0 ||
-            item.vat > 100),
-      )
-
+    const invalidItem = items.find(
+      (item) =>
+        item.name.trim() &&
+        (item.quantity <= 0 ||
+          item.price < 0 ||
+          item.discount < 0 ||
+          item.discount > 100 ||
+          item.vat < 0 ||
+          item.vat > 100),
+    )
     if (invalidItem) {
-      nextErrors.items =
-        'Provjeri količinu, cijenu, popust i PDV stavki.'
+      nextErrors.items = 'Provjeri količinu, cijenu, popust i PDV stavki.'
+    }
+    if (globalDiscount < 0 || globalDiscount > 100) {
+      nextErrors.pricing = 'Ukupni popust mora biti između 0% i 100%.'
+    }
+    if (defaultVat < 0 || defaultVat > 100) {
+      nextErrors.pricing = 'Zadani PDV mora biti između 0% i 100%.'
     }
 
-    if (
-      globalDiscount < 0 ||
-      globalDiscount > 100
-    ) {
-      nextErrors.pricing =
-        'Ukupni popust mora biti između 0% i 100%.'
-    }
-
-    if (
-      defaultVat < 0 ||
-      defaultVat > 100
-    ) {
-      nextErrors.pricing =
-        'Zadani PDV mora biti između 0% i 100%.'
-    }
-
-    setErrors(
-      nextErrors,
-    )
-
-    return (
-      Object.keys(
-        nextErrors,
-      ).length === 0
-    )
+    setErrors(nextErrors)
+    return Object.keys(nextErrors).length === 0
   }
 
-  function getCleanItems():
-    OfferItem[] {
+  function getCleanItems(): OfferItem[] {
     return items
-      .filter(
-        (item) =>
-          item.name.trim(),
-      )
-      .map(
-        (item) => ({
-          ...item,
-          name:
-            item.name.trim(),
-          description:
-            item.description.trim(),
-          quantity:
-            Number(
-              item.quantity,
-            ) || 0,
-          price:
-            Number(
-              item.price,
-            ) || 0,
-          discount:
-            Number(
-              item.discount,
-            ) || 0,
-          vat:
-            Number(
-              item.vat,
-            ) || 0,
-        }),
-      )
+      .filter((item) => item.name.trim())
+      .map((item) => ({
+        ...item,
+        name: item.name.trim(),
+        description: item.description.trim(),
+        quantity: Number(item.quantity) || 0,
+        price: Number(item.price) || 0,
+        discount: Number(item.discount) || 0,
+        vat: Number(item.vat) || 0,
+      }))
   }
 
   function openPdfPreview() {
     setSaveMessage('')
-
-    if (
-      !validateOffer()
-    ) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
+    if (!validateOffer()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+      return
+    }
+    if (!companySettings) {
+      setErrors((current) => ({
+        ...current,
+        save:
+          'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
+      }))
       return
     }
 
-    if (
-      !companySettings
-    ) {
-      setErrors(
-        (current) => ({
-          ...current,
-          save:
-            'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
-        }),
-      )
-      return
-    }
-
-    const now =
-      new Date().toISOString()
-
+    const now = new Date().toISOString()
     downloadOfferPdf({
-      id:
-        editingOffer?.id ??
-        'preview',
-      offerNumber:
-        editingOffer
-          ?.offerNumber ??
-        'P-AUTOMATSKI',
-      customerName:
-        customerName.trim(),
+      id: editingOffer?.id ?? 'preview',
+      offerNumber: editingOffer?.offerNumber ?? 'P-AUTOMATSKI',
+      customerName: customerName.trim(),
       customerType,
       oib: oib.trim(),
       email: email.trim(),
       phone: phone.trim(),
-      address:
-        address.trim(),
+      address: address.trim(),
       city: city.trim(),
       date,
       validUntil,
-      status:
-        editingOffer?.status ??
-        'Nacrt',
-      responsiblePerson:
-        responsiblePerson.trim(),
-      description:
-        description.trim(),
-      internalNote:
-        internalNote.trim(),
-      paymentTerms:
-        paymentTerms.trim(),
+      status: editingOffer?.status ?? 'Nacrt',
+      responsiblePerson: responsiblePerson.trim(),
+      description: description.trim(),
+      internalNote: internalNote.trim(),
+      paymentTerms: paymentTerms.trim(),
       globalDiscount,
       defaultVat,
-      items:
-        getCleanItems(),
-      createdAt:
-        editingOffer
-          ?.createdAt ??
-        now,
+      items: getCleanItems(),
+      createdAt: editingOffer?.createdAt ?? now,
       updatedAt: now,
-      version:
-        editingOffer?.version ??
-        1,
+      version: editingOffer?.version ?? 1,
     })
   }
 
-  async function saveOffer(
-    status:
-      | 'Nacrt'
-      | 'Poslano',
-  ) {
+  async function saveOffer(status: 'Nacrt' | 'Poslano') {
     setSaveMessage('')
-
-    if (isSaving) {
+    if (isSaving) return
+    if (!validateOffer()) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
       return
     }
-
-    if (
-      !validateOffer()
-    ) {
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth',
-      })
-      return
-    }
-
-    if (
-      !companySettings
-    ) {
-      setErrors(
-        (current) => ({
-          ...current,
-          save:
-            'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
-        }),
-      )
+    if (!companySettings) {
+      setErrors((current) => ({
+        ...current,
+        save:
+          'Podaci tvrtke nisu učitani. Osvježi stranicu i pokušaj ponovno.',
+      }))
       return
     }
 
     try {
       setIsSaving(true)
-
-      const historyItem:
-        OfferHistoryItem = {
-          id: createId(
-            'history',
-          ),
-          date:
-            new Date().toISOString(),
-          title:
-            isEditing
-              ? 'Ponuda uređena'
-              : status ===
-                  'Poslano'
-                ? 'Ponuda izrađena i označena kao poslana'
-                : isDuplicating
-                  ? 'Ponuda duplicirana'
-                  : 'Ponuda izrađena',
-          description:
-            isEditing
-              ? `Ponuda je uređena i spremljena sa statusom „${status}”.`
-              : status ===
-                  'Poslano'
-                ? 'Nova ponuda spremljena je sa statusom „Poslano”.'
-                : isDuplicating
-                  ? `Nova ponuda izrađena je prema ponudi ${duplicateSource?.offerNumber ?? ''}.`
-                  : 'Nova ponuda spremljena je kao nacrt.',
-        }
+      const historyItem: OfferHistoryItem = {
+        id: createId('history'),
+        date: new Date().toISOString(),
+        title: isEditing
+          ? 'Ponuda uređena'
+          : status === 'Poslano'
+            ? 'Ponuda izrađena i označena kao poslana'
+            : isDuplicating
+              ? 'Ponuda duplicirana'
+              : 'Ponuda izrađena',
+        description: isEditing
+          ? `Ponuda je uređena i spremljena sa statusom „${status}”.`
+          : status === 'Poslano'
+            ? 'Nova ponuda spremljena je sa statusom „Poslano”.'
+            : isDuplicating
+              ? `Nova ponuda izrađena je prema ponudi ${
+                  duplicateSource?.offerNumber ?? ''
+                }.`
+              : 'Nova ponuda spremljena je kao nacrt.',
+      }
 
       const payload = {
         customer: {
-          id:
-            customerId ||
-            undefined,
-          name:
-            customerName.trim(),
-          type:
-            customerType,
+          id: customerId || undefined,
+          name: customerName.trim(),
+          type: customerType,
           oib: oib.trim(),
-          email:
-            email.trim(),
-          phone:
-            phone.trim(),
-          address:
-            address.trim(),
-          postalCode:
-            postalCode.trim() ||
-            undefined,
-          city:
-            city.trim(),
+          email: email.trim(),
+          phone: phone.trim(),
+          address: address.trim(),
+          postalCode: postalCode.trim() || undefined,
+          city: city.trim(),
         },
         date,
         validUntil,
         status,
-        responsiblePerson:
-          responsiblePerson.trim(),
-        description:
-          description.trim(),
-        internalNote:
-          internalNote.trim(),
-        paymentTerms:
-          paymentTerms.trim(),
-        items:
-          getCleanItems(),
-        attachments:
-          editingOffer
-            ?.attachments ??
-          [],
-        version:
-          isEditing
-            ? (editingOffer
-                ?.version ?? 1) +
-              1
-            : 1,
-        workOrderId:
-          editingOffer
-            ?.workOrderId,
-        invoiceId:
-          editingOffer
-            ?.invoiceId,
-        history: [
-          ...(editingOffer
-            ?.history ?? []),
-          historyItem,
-        ],
+        responsiblePerson: responsiblePerson.trim(),
+        description: description.trim(),
+        internalNote: internalNote.trim(),
+        paymentTerms: paymentTerms.trim(),
+        items: getCleanItems(),
+        attachments: editingOffer?.attachments ?? [],
+        version: isEditing ? (editingOffer?.version ?? 1) + 1 : 1,
+        workOrderId: editingOffer?.workOrderId,
+        invoiceId: editingOffer?.invoiceId,
+        history: [...(editingOffer?.history ?? []), historyItem],
       }
 
       const savedOffer =
-        isEditing &&
-        editingOffer
-          ? await updateOffer(
-              editingOffer.id,
-              payload,
-            )
-          : await createOffer(
-              payload,
-            )
+        isEditing && editingOffer
+          ? await updateOffer(editingOffer.id, payload)
+          : await createOffer(payload)
 
-      await saveOfferPricingSettings(
-        savedOffer.id,
-        {
-          globalDiscount,
-          defaultVat,
-        },
-      )
+      await saveOfferPricingSettings(savedOffer.id, {
+        globalDiscount,
+        defaultVat,
+      })
 
-      if (
-        !isEditing &&
-        !isDuplicating
-      ) {
-        await deleteUserDraft(
-          'offer',
-          'new',
-        )
+      if (!isEditing && !isDuplicating) {
+        await deleteUserDraft('offer', 'new')
       }
 
-      setOfferNumber(
-        savedOffer.offerNumber,
-      )
-
+      setOfferNumber(savedOffer.offerNumber)
       setSaveMessage(
         isEditing
           ? 'Promjene ponude su spremljene.'
-          : status ===
-              'Poslano'
+          : status === 'Poslano'
             ? 'Ponuda je spremljena i pripremljena za slanje.'
             : 'Ponuda je spremljena kao nacrt.',
       )
 
-      if (
-        status === 'Poslano'
-      ) {
-        void openOfferEmailDraft(
-          savedOffer,
-          companySettings,
-          globalDiscount,
-        )
+      if (status === 'Poslano') {
+        void openOfferEmailDraft(savedOffer, companySettings, globalDiscount)
       }
 
       window.setTimeout(
-        () => {
-          navigate(
-            `/offers/${savedOffer.id}`,
-          )
-        },
-        status === 'Poslano'
-          ? 1200
-          : 650,
+        () => navigate(`/offers/${savedOffer.id}`),
+        status === 'Poslano' ? 1200 : 650,
       )
     } catch (error) {
-      setErrors(
-        (current) => ({
-          ...current,
-          save:
-            error instanceof
-              Error
-              ? error.message
-              : 'Ponudu nije moguće spremiti.',
-        }),
-      )
+      setErrors((current) => ({
+        ...current,
+        save:
+          error instanceof Error
+            ? error.message
+            : 'Ponudu nije moguće spremiti.',
+      }))
     } finally {
       setIsSaving(false)
     }
   }
 
-  if (isLoading) {
-    return (
-      <FersysLoader
-        text="Učitavanje ponude..."
-      />
-    )
-  }
+  if (isLoading) return <FersysLoader text="Učitavanje ponude..." />
 
   if (loadError) {
     return (
@@ -2444,16 +1498,10 @@ export function NewOfferPage() {
           <h1 className="text-xl font-black text-white sm:text-2xl">
             Ponudu nije moguće otvoriti
           </h1>
-
-          <p className="mt-3 break-words text-sm text-red-300">
-            {loadError}
-          </p>
-
+          <p className="mt-3 break-words text-sm text-red-300">{loadError}</p>
           <button
             type="button"
-            onClick={() =>
-              navigate('/offers')
-            }
+            onClick={() => navigate('/offers')}
             className="mt-6 rounded-2xl bg-violet-600 px-5 py-3 font-black text-white"
           >
             Povratak na ponude
@@ -2465,28 +1513,20 @@ export function NewOfferPage() {
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-28 sm:space-y-6 sm:pb-12">
+      <section className="mx-auto w-full max-w-[1500px] space-y-4 pb-32 sm:space-y-6 sm:pb-12">
         <DraftAutosaveBadge
-          state={
-            autosaveState
-          }
+          state={autosaveState}
           text={autosaveText}
           onDiscard={
-            !isEditing &&
-            !isDuplicating &&
-            autosaveState !==
-              'idle'
-              ? () =>
-                  void discardOfferDraft()
+            !isEditing && !isDuplicating && autosaveState !== 'idle'
+              ? () => void discardOfferDraft()
               : undefined
           }
         />
 
         <button
           type="button"
-          onClick={() =>
-            navigate(-1)
-          }
+          onClick={() => navigate(-1)}
           className="inline-flex min-h-10 items-center gap-2 text-sm font-black text-slate-400 active:text-white"
         >
           <ArrowLeft size={18} />
@@ -2495,7 +1535,6 @@ export function NewOfferPage() {
 
         <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/45 p-5 sm:p-6">
           <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
-
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
@@ -2505,117 +1544,68 @@ export function NewOfferPage() {
                     ? 'DUPLICIRANA PONUDA'
                     : 'NOVA PONUDA'}
               </p>
-
               <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-                {isEditing
-                  ? 'Uredi ponudu'
-                  : 'Izradi ponudu'}
+                {isEditing ? 'Uredi ponudu' : 'Izradi ponudu'}
               </h1>
-
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Investitor, troškovnik i uvjeti u nekoliko jasnih koraka.
               </p>
             </div>
-
             <button
               type="button"
-              onClick={
-                openPdfPreview
-              }
+              onClick={openPdfPreview}
               className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-slate-800 text-white active:scale-95 sm:hidden"
               aria-label="PDF pregled"
             >
-              <FileText
-                size={19}
-              />
+              <FileText size={19} />
             </button>
           </div>
 
           <div className="relative mt-5 grid grid-cols-3 gap-2">
-            <HeroMetric
-              label="Broj"
-              value={
-                offerNumber
-              }
-            />
+            <HeroMetric label="Broj" value={offerNumber} />
             <HeroMetric
               label="Stavke"
-              value={String(
-                items.filter(
-                  (item) =>
-                    item.name.trim(),
-                ).length,
-              )}
+              value={String(items.filter((item) => item.name.trim()).length)}
             />
-            <HeroMetric
-              label="Ukupno"
-              value={formatCurrency(
-                totals.total,
-              )}
-            />
+            <HeroMetric label="Ukupno" value={formatCurrency(totals.total)} />
           </div>
 
           <div className="relative mt-4 hidden gap-2 sm:flex">
             {!isEditing && (
               <button
                 type="button"
-                onClick={() =>
-                  setOfferImportOpen(
-                    true,
-                  )
-                }
+                onClick={() => setOfferImportOpen(true)}
                 className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-5 text-sm font-black text-cyan-200"
               >
-                <ScanLine
-                  size={18}
-                />
+                <ScanLine size={18} />
                 Skeniraj ponudu
               </button>
             )}
-
             <button
               type="button"
-              onClick={
-                openPdfPreview
-              }
+              onClick={openPdfPreview}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-5 text-sm font-black text-white"
             >
-              <FileText
-                size={18}
-              />
+              <FileText size={18} />
               PDF pregled
             </button>
-
             <button
               type="button"
               disabled={isSaving}
-              onClick={() =>
-                void saveOffer(
-                  'Nacrt',
-                )
-              }
+              onClick={() => void saveOffer('Nacrt')}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 text-sm font-black text-violet-200 disabled:opacity-50"
             >
               <Save size={18} />
-              {isEditing
-                ? 'Spremi promjene'
-                : 'Spremi nacrt'}
+              {isEditing ? 'Spremi promjene' : 'Spremi nacrt'}
             </button>
-
             <button
               type="button"
               disabled={isSaving}
-              onClick={() =>
-                void saveOffer(
-                  'Poslano',
-                )
-              }
+              onClick={() => void saveOffer('Poslano')}
               className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white disabled:opacity-50"
             >
               <Send size={18} />
-              {isEditing
-                ? 'Spremi kao poslano'
-                : 'Spremi i pošalji'}
+              {isEditing ? 'Spremi kao poslano' : 'Spremi i pošalji'}
             </button>
           </div>
         </section>
@@ -2623,16 +1613,10 @@ export function NewOfferPage() {
         {!isEditing && (
           <button
             type="button"
-            onClick={() =>
-              setOfferImportOpen(
-                true,
-              )
-            }
+            onClick={() => setOfferImportOpen(true)}
             className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/25 bg-cyan-500/10 px-4 text-sm font-black text-cyan-200 sm:hidden"
           >
-            <ScanLine
-              size={18}
-            />
+            <ScanLine size={18} />
             Skeniraj postojeću ponudu
           </button>
         )}
@@ -2643,7 +1627,6 @@ export function NewOfferPage() {
             {saveMessage}
           </div>
         )}
-
         {errors.save && (
           <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-black text-red-300">
             {errors.save}
@@ -2654,76 +1637,41 @@ export function NewOfferPage() {
           number="1"
           title="Podaci ponude"
           description="Datum, valjanost i odgovorna osoba."
-          icon={
-            <CalendarDays
-              size={19}
-            />
-          }
+          icon={<CalendarDays size={19} />}
         >
           <Field label="Broj ponude">
-            <input
-              value={
-                offerNumber
-              }
-              readOnly
-              className={`${inputClass} text-slate-400`}
-            />
+            <input value={offerNumber} readOnly className={`${inputClass} text-slate-400`} />
           </Field>
-
           <Field label="Odgovorna osoba">
             <input
-              value={
-                responsiblePerson
-              }
-              onChange={(event) =>
-                setResponsiblePerson(
-                  event.target.value,
-                )
-              }
+              value={responsiblePerson}
+              onChange={(event) => setResponsiblePerson(event.target.value)}
               placeholder="Ime odgovorne osobe"
               className={inputClass}
             />
           </Field>
-
           <Field label="Datum ponude">
             <input
               type="date"
               value={date}
               onChange={(event) => {
-                const nextDate =
-                  event.target.value
+                const nextDate = event.target.value
                 setDate(nextDate)
-                setValidUntil(
-                  addDays(
-                    nextDate,
-                    30,
-                  ),
-                )
+                setValidUntil(addDays(nextDate, 30))
               }}
               className={`${inputClass} [color-scheme:dark] ${
-                errors.date
-                  ? 'border-red-500'
-                  : ''
+                errors.date ? 'border-red-500' : ''
               }`}
             />
           </Field>
-
           <Field label="Vrijedi do">
             <input
               type="date"
-              value={
-                validUntil
-              }
+              value={validUntil}
               min={date}
-              onChange={(event) =>
-                setValidUntil(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setValidUntil(event.target.value)}
               className={`${inputClass} [color-scheme:dark] ${
-                errors.validUntil
-                  ? 'border-red-500'
-                  : ''
+                errors.validUntil ? 'border-red-500' : ''
               }`}
             />
           </Field>
@@ -2733,275 +1681,158 @@ export function NewOfferPage() {
           number="2"
           title="Investitor"
           description="Pretraži postojećeg ili unesi podatke ručno."
-          icon={
-            <UserRound
-              size={19}
-            />
-          }
+          icon={<UserRound size={19} />}
         >
           <div className="relative sm:col-span-2">
             <Search
               size={18}
               className="pointer-events-none absolute left-4 top-6 -translate-y-1/2 text-slate-500"
             />
-
             <input
               type="search"
-              value={
-                customerSearch
-              }
-              onFocus={() =>
-                setShowCustomerResults(
-                  true,
-                )
-              }
+              value={customerSearch}
+              onFocus={() => setShowCustomerResults(true)}
               onChange={(event) => {
-                setCustomerSearch(
-                  event.target.value,
-                )
-                setShowCustomerResults(
-                  true,
-                )
+                setCustomerSearch(event.target.value)
+                setShowCustomerResults(true)
               }}
               placeholder="Pretraži investitora..."
               className={`${inputClass} pl-11 pr-11`}
             />
-
             {customerSearch && (
               <button
                 type="button"
-                onClick={
-                  clearSelectedCustomer
-                }
+                onClick={clearSelectedCustomer}
                 className="absolute right-2 top-1.5 grid h-9 w-9 place-items-center rounded-xl text-slate-500"
               >
                 <X size={17} />
               </button>
             )}
 
-            {showCustomerResults &&
-              filteredCustomers.length >
-                0 && (
-                <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-2 shadow-2xl">
-                  {filteredCustomers.map(
-                    (customer) => {
-                      const CustomerIcon =
-                        getCustomerIcon(
-                          customer.type,
-                        )
-
-                      return (
-                        <button
-                          key={
-                            customer.id
-                          }
-                          type="button"
-                          onClick={() =>
-                            selectCustomer(
-                              customer,
-                            )
-                          }
-                          className="flex w-full items-start gap-3 rounded-xl p-3 text-left active:bg-slate-800"
-                        >
-                          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/15 text-violet-300">
-                            <CustomerIcon
-                              size={18}
-                            />
-                          </span>
-
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-black text-white">
-                              {
-                                customer.name
-                              }
-                            </span>
-                            <span className="mt-1 block truncate text-xs text-slate-500">
-                              {
-                                customer.type
-                              }
-                              {customer.oib
-                                ? ` · OIB ${customer.oib}`
-                                : ''}
-                              {customer.city
-                                ? ` · ${customer.city}`
-                                : ''}
-                            </span>
-                          </span>
-                        </button>
-                      )
-                    },
-                  )}
-                </div>
-              )}
-
+            {showCustomerResults && filteredCustomers.length > 0 && (
+              <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 p-2 shadow-2xl">
+                {filteredCustomers.map((customer) => {
+                  const CustomerIcon = getCustomerIcon(customer.type)
+                  return (
+                    <button
+                      key={customer.id}
+                      type="button"
+                      onClick={() => selectCustomer(customer)}
+                      className="flex w-full items-start gap-3 rounded-xl p-3 text-left active:bg-slate-800"
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/15 text-violet-300">
+                        <CustomerIcon size={18} />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-black text-white">
+                          {customer.name}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-slate-500">
+                          {customer.type}
+                          {customer.oib ? ` · OIB ${customer.oib}` : ''}
+                          {customer.city ? ` · ${customer.city}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             {errors.customerName && (
               <p className="mt-2 text-xs font-black text-red-400">
-                {
-                  errors.customerName
-                }
+                {errors.customerName}
               </p>
             )}
           </div>
 
           <Field label="Vrsta investitora">
             <select
-              value={
-                customerType
-              }
+              value={customerType}
               onChange={(event) =>
-                setCustomerType(
-                  event.target
-                    .value as CustomerType,
-                )
+                setCustomerType(event.target.value as CustomerType)
               }
               className={inputClass}
             >
-              <option value="Fizička osoba">
-                Fizička osoba
-              </option>
-              <option value="Tvrtka">
-                Tvrtka
-              </option>
-              <option value="Zgrada">
-                Zgrada
-              </option>
+              <option value="Fizička osoba">Fizička osoba</option>
+              <option value="Tvrtka">Tvrtka</option>
+              <option value="Zgrada">Zgrada</option>
             </select>
           </Field>
-
           <Field label="Naziv / ime i prezime">
             <input
-              value={
-                customerName
-              }
-              onChange={(event) =>
-                setCustomerName(
-                  event.target.value,
-                )
-              }
+              value={customerName}
+              onChange={(event) => setCustomerName(event.target.value)}
               placeholder="Naziv investitora"
               className={`${inputClass} ${
-                errors.customerName
-                  ? 'border-red-500'
-                  : ''
+                errors.customerName ? 'border-red-500' : ''
               }`}
             />
           </Field>
-
           <Field label="OIB (nije obavezno)">
             <input
               inputMode="numeric"
               maxLength={11}
               value={oib}
               onChange={(event) =>
-                setOib(
-                  event.target.value
-                    .replace(
-                      /\D/g,
-                      '',
-                    )
-                    .slice(0, 11),
-                )
+                setOib(event.target.value.replace(/\D/g, '').slice(0, 11))
               }
               placeholder="Opcionalno · 11 znamenki"
               className={inputClass}
             />
           </Field>
-
           <Field label="Telefon">
             <input
               inputMode="tel"
               value={phone}
-              onChange={(event) =>
-                setPhone(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setPhone(event.target.value)}
               className={inputClass}
             />
           </Field>
-
           <Field label="E-mail">
             <input
               type="email"
               value={email}
-              onChange={(event) =>
-                setEmail(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setEmail(event.target.value)}
               className={inputClass}
             />
           </Field>
-
           <Field label="Poštanski broj">
             <input
               inputMode="numeric"
-              value={
-                postalCode
-              }
-              onChange={(event) =>
-                setPostalCode(
-                  event.target.value,
-                )
-              }
+              value={postalCode}
+              onChange={(event) => setPostalCode(event.target.value)}
               className={inputClass}
             />
           </Field>
-
-          <Field
-            label="Adresa"
-            className="sm:col-span-2"
-          >
+          <Field label="Adresa" className="sm:col-span-2">
             <input
               value={address}
-              onChange={(event) =>
-                setAddress(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setAddress(event.target.value)}
               placeholder="Ulica i kućni broj"
               className={inputClass}
             />
           </Field>
-
-          <Field
-            label="Grad"
-            className="sm:col-span-2"
-          >
+          <Field label="Grad" className="sm:col-span-2">
             <input
               value={city}
-              onChange={(event) =>
-                setCity(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setCity(event.target.value)}
               className={inputClass}
             />
           </Field>
         </MobileSection>
 
         <OfferTemplatesPanel
-          description={
-            description
-          }
-          paymentTerms={
-            paymentTerms
-          }
+          description={description}
+          paymentTerms={paymentTerms}
           items={items}
-          onApply={
-            applyOfferTemplate
-          }
+          onApply={applyOfferTemplate}
         />
 
         <MobileSection
           number="3"
           title="Stavke ponude"
           description="Materijal, usluge, količina, cijena, popust i PDV."
-          icon={
-            <CircleDollarSign
-              size={19}
-            />
-          }
+          icon={<CircleDollarSign size={19} />}
           action={
             <button
               type="button"
@@ -3020,356 +1851,249 @@ export function NewOfferPage() {
               </div>
             )}
 
-            {items.map(
-              (item, index) => (
-                <article
-                  id={`offer-item-${item.id}`}
-                  key={item.id}
-                  className="scroll-mt-24 rounded-3xl border border-slate-800 bg-slate-950/45 p-4"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-800 text-xs font-black text-white">
-                        {index + 1}
-                      </span>
+            {items.map((item, index) => (
+              <article
+                id={`offer-item-${item.id}`}
+                key={item.id}
+                className="scroll-mt-24 rounded-3xl border border-slate-800 bg-slate-950/45 p-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-slate-800 text-xs font-black text-white">
+                      {index + 1}
+                    </span>
+                    <p className="text-sm font-black text-white">Stavka</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => duplicateItem(item.id)}
+                      className="min-h-9 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-300"
+                    >
+                      Dupliciraj
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeItem(item.id)}
+                      className="grid h-9 w-9 place-items-center rounded-xl bg-red-500/10 text-red-400"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
 
-                      <p className="text-sm font-black text-white">
-                        Stavka
-                      </p>
-                    </div>
+                <div className="mt-4 space-y-3">
+                  <input
+                    value={item.name}
+                    onChange={(event) =>
+                      updateItem(item.id, 'name', event.target.value)
+                    }
+                    placeholder="Naziv stavke"
+                    className={inputClass}
+                  />
+                  <textarea
+                    rows={3}
+                    value={item.description}
+                    onChange={(event) =>
+                      updateItem(item.id, 'description', event.target.value)
+                    }
+                    placeholder="Opis stavke"
+                    className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
+                  />
 
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          duplicateItem(
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    <MiniField label="Količina">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={item.quantity}
+                        onChange={(event) =>
+                          updateItem(
                             item.id,
+                            'quantity',
+                            Number(event.target.value),
                           )
                         }
-                        className="min-h-9 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-300"
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+                    <MiniField label="Jedinica">
+                      <select
+                        value={item.unit}
+                        onChange={(event) =>
+                          updateItem(item.id, 'unit', event.target.value)
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
                       >
-                        Dupliciraj
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          removeItem(
+                        {unitOptions.map((unit) => (
+                          <option key={unit} value={unit}>
+                            {unit}
+                          </option>
+                        ))}
+                      </select>
+                    </MiniField>
+                    <MiniField label="Cijena €">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        value={item.price === 0 ? '' : item.price}
+                        onChange={(event) =>
+                          updateItem(
                             item.id,
+                            'price',
+                            event.target.value === ''
+                              ? 0
+                              : Number(event.target.value),
                           )
                         }
-                        className="grid h-9 w-9 place-items-center rounded-xl bg-red-500/10 text-red-400"
-                      >
-                        <Trash2
-                          size={15}
-                        />
-                      </button>
-                    </div>
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+                    <MiniField label="Popust %">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="100"
+                        value={item.discount === 0 ? '' : item.discount}
+                        onChange={(event) =>
+                          updateItem(
+                            item.id,
+                            'discount',
+                            event.target.value === ''
+                              ? 0
+                              : Number(event.target.value),
+                          )
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
+                    <MiniField label="PDV %">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="100"
+                        value={item.vat}
+                        onChange={(event) =>
+                          updateItem(item.id, 'vat', Number(event.target.value))
+                        }
+                        className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
+                      />
+                    </MiniField>
                   </div>
 
-                  <div className="mt-4 space-y-3">
-                    <input
-                      value={
-                        item.name
-                      }
-                      onChange={(event) =>
-                        updateItem(
-                          item.id,
-                          'name',
-                          event.target.value,
-                        )
-                      }
-                      placeholder="Naziv stavke"
-                      className={inputClass}
-                    />
-
-                    <textarea
-                      rows={3}
-                      value={
-                        item.description
-                      }
-                      onChange={(event) =>
-                        updateItem(
-                          item.id,
-                          'description',
-                          event.target.value,
-                        )
-                      }
-                      placeholder="Opis stavke"
-                      className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
-                    />
-
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                      <MiniField label="Količina">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={
-                            item.quantity
-                          }
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'quantity',
-                              Number(
-                                event.target.value,
-                              ),
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
-                        />
-                      </MiniField>
-
-                      <MiniField label="Jedinica">
-                        <select
-                          value={
-                            item.unit
-                          }
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'unit',
-                              event.target.value,
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
-                        >
-                          {unitOptions.map(
-                            (unit) => (
-                              <option
-                                key={
-                                  unit
-                                }
-                                value={
-                                  unit
-                                }
-                              >
-                                {unit}
-                              </option>
-                            ),
-                          )}
-                        </select>
-                      </MiniField>
-
-                      <MiniField label="Cijena €">
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={
-                            item.price
-                          }
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'price',
-                              Number(
-                                event.target.value,
-                              ),
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
-                        />
-                      </MiniField>
-
-                      <MiniField label="Popust %">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={
-                            item.discount
-                          }
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'discount',
-                              Number(
-                                event.target.value,
-                              ),
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
-                        />
-                      </MiniField>
-
-                      <MiniField label="PDV %">
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={
-                            item.vat
-                          }
-                          onChange={(event) =>
-                            updateItem(
-                              item.id,
-                              'vat',
-                              Number(
-                                event.target.value,
-                              ),
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-slate-800 px-3 text-sm text-white outline-none"
-                        />
-                      </MiniField>
-                    </div>
-
-                    <div className="rounded-2xl bg-slate-800/55 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-wider text-slate-600">
-                            Slika stavke
-                          </p>
-                          <p className="mt-1 text-xs text-slate-400">
-                            Opcionalno · galerija ili web link
-                          </p>
-                        </div>
-
-                        <p className="shrink-0 text-right">
-                          <span className="block text-[9px] font-black uppercase tracking-wider text-slate-600">
-                            Ukupno
-                          </span>
-                          <span className="mt-1 block text-sm font-black text-white">
-                            {formatCurrency(
-                              calculateItemTotal(
-                                item,
-                              ),
-                            )}
-                          </span>
+                  <div className="rounded-2xl bg-slate-800/55 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-600">
+                          Slika stavke
+                        </p>
+                        <p className="mt-1 text-xs text-slate-400">
+                          Opcionalno · galerija ili web link
                         </p>
                       </div>
-
-                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto]">
-                        <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white active:scale-[0.99]">
-                          <ImagePlus size={17} />
-                          {item.imageDataUrl
-                            ? 'Promijeni iz galerije'
-                            : 'Iz galerije'}
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(event) => {
-                              void handleItemImage(
-                                item.id,
-                                event.target.files?.[0],
-                              )
-                              event.currentTarget.value =
-                                ''
-                            }}
-                          />
-                        </label>
-
-                        <div className="relative min-w-0">
-                          <Link2
-                            size={16}
-                            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
-                          />
-                          <input
-                            type="url"
-                            inputMode="url"
-                            value={
-                              itemImageUrls[
-                                item.id
-                              ] ?? ''
-                            }
-                            onChange={(event) =>
-                              setItemImageUrls(
-                                (current) => ({
-                                  ...current,
-                                  [item.id]:
-                                    event.target.value,
-                                }),
-                              )
-                            }
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') {
-                                event.preventDefault()
-                                void handleItemImageUrl(
-                                  item.id,
-                                )
-                              }
-                            }}
-                            placeholder="https://.../slika.jpg"
-                            className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-xs text-white outline-none placeholder:text-slate-600 focus:border-violet-500"
-                          />
-                        </div>
-
-                        <button
-                          type="button"
-                          disabled={
-                            loadingImageItemId ===
-                            item.id
-                          }
-                          onClick={() =>
-                            void handleItemImageUrl(
-                              item.id,
-                            )
-                          }
-                          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-700 px-4 text-xs font-black text-white disabled:opacity-50"
-                        >
-                          {loadingImageItemId === item.id ? (
-                            <Loader2
-                              size={16}
-                              className="animate-spin"
-                            />
-                          ) : (
-                            <Link2 size={16} />
-                          )}
-                          Učitaj link
-                        </button>
-                      </div>
-
-                      <p className="mt-2 text-[11px] leading-5 text-slate-500">
-                        Kod web linka FERSYS pokušava preuzeti i spremiti vlastitu komprimiranu kopiju slike. Ako web stranica blokira preuzimanje, spremi sliku na uređaj i odaberi je iz galerije.
+                      <p className="shrink-0 text-right">
+                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-600">
+                          Ukupno
+                        </span>
+                        <span className="mt-1 block text-sm font-black text-white">
+                          {formatCurrency(calculateItemTotal(item))}
+                        </span>
                       </p>
                     </div>
 
-                    {item.imageDataUrl && (
-                      <div className="relative overflow-hidden rounded-2xl border border-slate-700">
-                        <img
-                          src={
-                            item.imageDataUrl
-                          }
-                          alt={
-                            item.name ||
-                            `Stavka ${index + 1}`
-                          }
-                          className="max-h-56 w-full object-cover"
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-[auto_1fr_auto]">
+                      <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white active:scale-[0.99]">
+                        <ImagePlus size={17} />
+                        {item.imageDataUrl
+                          ? 'Promijeni iz galerije'
+                          : 'Iz galerije'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(event) => {
+                            void handleItemImage(item.id, event.target.files?.[0])
+                            event.currentTarget.value = ''
+                          }}
                         />
+                      </label>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            removeItemImage(
-                              item.id,
-                            )
+                      <div className="relative min-w-0">
+                        <Link2
+                          size={16}
+                          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"
+                        />
+                        <input
+                          type="url"
+                          inputMode="url"
+                          value={itemImageUrls[item.id] ?? ''}
+                          onChange={(event) =>
+                            setItemImageUrls((current) => ({
+                              ...current,
+                              [item.id]: event.target.value,
+                            }))
                           }
-                          className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-xl bg-black/75 text-white"
-                        >
-                          <Trash2
-                            size={16}
-                          />
-                        </button>
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              event.preventDefault()
+                              void handleItemImageUrl(item.id)
+                            }
+                          }}
+                          placeholder="https://.../slika.jpg"
+                          className="h-11 w-full rounded-xl border border-slate-700 bg-slate-900 pl-9 pr-3 text-xs text-white outline-none placeholder:text-slate-600 focus:border-violet-500"
+                        />
                       </div>
-                    )}
-                  </div>
-                </article>
-              ),
-            )}
 
-            <div className="pt-1 sm:flex sm:justify-end">
-              <button
-                type="button"
-                onClick={addItem}
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-emerald-400/25 bg-emerald-500 px-5 text-sm font-black text-slate-950 shadow-lg shadow-emerald-950/20 transition active:scale-[0.99] sm:w-auto sm:min-w-52"
-              >
-                <Plus size={18} />
-                Dodaj novu stavku
-              </button>
-            </div>
+                      <button
+                        type="button"
+                        disabled={loadingImageItemId === item.id}
+                        onClick={() => void handleItemImageUrl(item.id)}
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-700 px-4 text-xs font-black text-white disabled:opacity-50"
+                      >
+                        {loadingImageItemId === item.id ? (
+                          <Loader2 size={16} className="animate-spin" />
+                        ) : (
+                          <Link2 size={16} />
+                        )}
+                        Učitaj link
+                      </button>
+                    </div>
+                  </div>
+
+                  {item.imageDataUrl && (
+                    <div className="relative overflow-hidden rounded-2xl border border-slate-700">
+                      <img
+                        src={item.imageDataUrl}
+                        alt={item.name || `Stavka ${index + 1}`}
+                        className="max-h-56 w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeItemImage(item.id)}
+                        className="absolute right-2 top-2 grid h-9 w-9 place-items-center rounded-xl bg-black/75 text-white"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+
+            <button
+              type="button"
+              onClick={addItem}
+              className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 text-sm font-black text-slate-950 sm:w-auto"
+            >
+              <Plus size={18} />
+              Dodaj novu stavku
+            </button>
           </div>
         </MobileSection>
 
@@ -3382,9 +2106,6 @@ export function NewOfferPage() {
               <h2 className="mt-1 text-lg font-black text-white">
                 Ukupni popust i PDV
               </h2>
-              <p className="mt-2 max-w-2xl text-xs leading-5 text-slate-400">
-                Popust po pojedinoj stavci ostaje neovisan. Ukupni popust se zatim primjenjuje na cijelu neto vrijednost ponude. Zadani PDV služi za brzo postavljanje svih stavki, a svaku stavku možeš poslije ručno promijeniti.
-              </p>
             </div>
 
             <div className="grid w-full gap-3 sm:grid-cols-2 lg:max-w-xl">
@@ -3392,36 +2113,26 @@ export function NewOfferPage() {
                 <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
                   Ukupni popust
                 </span>
-
                 <div className="relative mt-2">
                   <input
                     type="number"
+                    inputMode="decimal"
                     min="0"
                     max="100"
                     step="0.1"
-                    value={
-                      globalDiscount
-                    }
-                    onChange={(
-                      event,
-                    ) =>
+                    value={globalDiscount === 0 ? '' : globalDiscount}
+                    onChange={(event) =>
                       setGlobalDiscount(
-                        Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            Number(
-                              event
-                                .target
-                                .value,
-                            ) || 0,
-                          ),
-                        ),
+                        event.target.value === ''
+                          ? 0
+                          : Math.min(
+                              100,
+                              Math.max(0, Number(event.target.value) || 0),
+                            ),
                       )
                     }
                     className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 pr-10 text-sm font-black text-white outline-none focus:border-amber-500"
                   />
-
                   <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
                     %
                   </span>
@@ -3432,47 +2143,32 @@ export function NewOfferPage() {
                 <span className="text-[10px] font-black uppercase tracking-wide text-slate-500">
                   Zadani PDV za sve stavke
                 </span>
-
                 <div className="mt-2 flex gap-2">
                   <div className="relative min-w-0 flex-1">
                     <input
                       type="number"
+                      inputMode="decimal"
                       min="0"
                       max="100"
                       step="1"
-                      value={
-                        defaultVat
-                      }
-                      onChange={(
-                        event,
-                      ) =>
+                      value={defaultVat}
+                      onChange={(event) =>
                         setDefaultVat(
                           Math.min(
                             100,
-                            Math.max(
-                              0,
-                              Number(
-                                event
-                                  .target
-                                  .value,
-                              ) || 0,
-                            ),
+                            Math.max(0, Number(event.target.value) || 0),
                           ),
                         )
                       }
                       className="h-11 w-full rounded-xl border border-slate-700 bg-slate-800 px-3 pr-10 text-sm font-black text-white outline-none focus:border-amber-500"
                     />
-
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm font-black text-slate-500">
                       %
                     </span>
                   </div>
-
                   <button
                     type="button"
-                    onClick={
-                      applyVatToAllItems
-                    }
+                    onClick={applyVatToAllItems}
                     className="min-h-11 shrink-0 rounded-xl bg-amber-500 px-4 text-xs font-black text-slate-950"
                   >
                     Primijeni na sve
@@ -3491,56 +2187,22 @@ export function NewOfferPage() {
           <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <TotalBox
               label="Prije ukupnog popusta"
-              value={formatCurrency(
-                totals.netBeforeGlobal,
-              )}
+              value={formatCurrency(totals.netBeforeGlobal)}
             />
             <TotalBox
               label={`Ukupni popust ${globalDiscount || 0}%`}
               value={
-                globalDiscount >
-                0
-                  ? `− ${formatCurrency(
-                      totals.globalDiscountAmount,
-                    )}`
-                  : formatCurrency(
-                      0,
-                    )
+                globalDiscount > 0
+                  ? `− ${formatCurrency(totals.globalDiscountAmount)}`
+                  : formatCurrency(0)
               }
             />
-            <TotalBox
-              label="Ukupno ex. PDV"
-              value={formatCurrency(
-                totals.net,
-              )}
-            />
+            <TotalBox label="Ukupno ex. PDV" value={formatCurrency(totals.net)} />
             <TotalBox
               label="Ukupno s PDV-om"
-              value={formatCurrency(
-                totals.total,
-              )}
+              value={formatCurrency(totals.total)}
               strong
             />
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {totals.vatGroups.map(
-              (group) => (
-                <span
-                  key={
-                    group.rate
-                  }
-                  className="rounded-xl border border-white/10 bg-slate-950/45 px-3 py-2 text-xs font-bold text-slate-300"
-                >
-                  {group.rate}% PDV:{' '}
-                  <strong className="text-white">
-                    {formatCurrency(
-                      group.amount,
-                    )}
-                  </strong>
-                </span>
-              ),
-            )}
           </div>
         </section>
 
@@ -3548,67 +2210,35 @@ export function NewOfferPage() {
           number="4"
           title="Opis i uvjeti"
           description="Završni tekst ponude i uvjeti plaćanja."
-          icon={
-            <FileText size={19} />
-          }
+          icon={<FileText size={19} />}
         >
-          <Field
-            label="Opis ponude"
-            className="sm:col-span-2"
-          >
+          <Field label="Opis ponude" className="sm:col-span-2">
             <textarea
               rows={5}
               value={description}
-              onChange={(event) =>
-                setDescription(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setDescription(event.target.value)}
               placeholder="Dodatni opis ponude..."
               className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
             />
           </Field>
-
-          <Field
-            label="Uvjeti plaćanja"
-            className="sm:col-span-2"
-          >
+          <Field label="Uvjeti plaćanja" className="sm:col-span-2">
             <select
               value={paymentTerms}
-              onChange={(event) =>
-                setPaymentTerms(
-                  event.target.value,
-                )
-              }
+              onChange={(event) => setPaymentTerms(event.target.value)}
               className={inputClass}
             >
-              {paymentTermOptions.map(
-                (option) => (
-                  <option
-                    key={option}
-                    value={option}
-                  >
-                    {option}
-                  </option>
-                ),
-              )}
+              {paymentTermOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
             </select>
           </Field>
-
-          <Field
-            label="Interna napomena"
-            className="sm:col-span-2"
-          >
+          <Field label="Interna napomena" className="sm:col-span-2">
             <textarea
               rows={4}
-              value={
-                internalNote
-              }
-              onChange={(event) =>
-                setInternalNote(
-                  event.target.value,
-                )
-              }
+              value={internalNote}
+              onChange={(event) => setInternalNote(event.target.value)}
               placeholder="Napomena samo za interne korisnike..."
               className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm text-white outline-none placeholder:text-slate-500 focus:border-violet-500"
             />
@@ -3618,11 +2248,8 @@ export function NewOfferPage() {
         <section className="rounded-3xl border border-violet-500/20 bg-gradient-to-br from-slate-900 to-violet-950/30 p-4 sm:p-6">
           <div className="flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
-              <CircleDollarSign
-                size={20}
-              />
+              <CircleDollarSign size={20} />
             </span>
-
             <div>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-violet-400">
                 SAŽETAK
@@ -3632,102 +2259,20 @@ export function NewOfferPage() {
               </h2>
             </div>
           </div>
-
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <TotalBox
-              label="Ukupno ex. PDV"
-              value={formatCurrency(
-                totals.net,
-              )}
-            />
+            <TotalBox label="Ukupno ex. PDV" value={formatCurrency(totals.net)} />
             <TotalBox
               label="Ukupni popust"
               value={
-                globalDiscount >
-                0
-                  ? `− ${formatCurrency(
-                      totals.globalDiscountAmount,
-                    )}`
-                  : formatCurrency(
-                      0,
-                    )
+                globalDiscount > 0
+                  ? `− ${formatCurrency(totals.globalDiscountAmount)}`
+                  : formatCurrency(0)
               }
             />
-            <TotalBox
-              label="PDV"
-              value={formatCurrency(
-                totals.vat,
-              )}
-            />
-            <TotalBox
-              label="Ukupno"
-              value={formatCurrency(
-                totals.total,
-              )}
-              strong
-            />
-          </div>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {totals.vatGroups.map(
-              (group) => (
-                <span
-                  key={
-                    group.rate
-                  }
-                  className="rounded-xl bg-slate-950/45 px-3 py-2 text-xs font-bold text-slate-400"
-                >
-                  {group.rate}% PDV:{' '}
-                  <strong className="text-slate-200">
-                    {formatCurrency(
-                      group.amount,
-                    )}
-                  </strong>
-                </span>
-              ),
-            )}
+            <TotalBox label="PDV" value={formatCurrency(totals.vat)} />
+            <TotalBox label="Ukupno" value={formatCurrency(totals.total)} strong />
           </div>
         </section>
-
-        <div className="hidden gap-3 sm:flex sm:justify-end">
-          <button
-            type="button"
-            onClick={
-              openPdfPreview
-            }
-            className="h-12 rounded-2xl bg-slate-800 px-5 font-black text-white"
-          >
-            PDF pregled
-          </button>
-
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={() =>
-              void saveOffer(
-                'Nacrt',
-              )
-            }
-            className="inline-flex h-12 items-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 font-black text-violet-200 disabled:opacity-50"
-          >
-            <Save size={18} />
-            Spremi nacrt
-          </button>
-
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={() =>
-              void saveOffer(
-                'Poslano',
-              )
-            }
-            className="inline-flex h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white disabled:opacity-50"
-          >
-            <Send size={18} />
-            Spremi i pošalji
-          </button>
-        </div>
       </section>
 
       <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
@@ -3735,55 +2280,31 @@ export function NewOfferPage() {
           <button
             type="button"
             disabled={isSaving}
-            onClick={() =>
-              void saveOffer(
-                'Nacrt',
-              )
-            }
+            onClick={() => void saveOffer('Nacrt')}
             className="grid h-12 w-12 place-items-center rounded-2xl bg-slate-800 text-violet-200 disabled:opacity-50"
             aria-label="Spremi nacrt"
           >
             <Save size={18} />
           </button>
-
           <button
             type="button"
             disabled={isSaving}
-            onClick={() =>
-              void saveOffer(
-                'Poslano',
-              )
-            }
+            onClick={() => void saveOffer('Poslano')}
             className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-violet-600 px-4 font-black text-white disabled:opacity-50"
           >
             <Send size={18} />
-            {isEditing
-              ? 'Spremi kao poslano'
-              : 'Spremi i pošalji'}
+            {isEditing ? 'Spremi kao poslano' : 'Spremi i pošalji'}
           </button>
         </div>
       </div>
 
       <OfferImportModal
-        open={
-          offerImportOpen
-        }
-        onClose={() =>
-          setOfferImportOpen(
-            false,
-          )
-        }
-        onImport={
-          handleImportedOffer
-        }
+        open={offerImportOpen}
+        onClose={() => setOfferImportOpen(false)}
+        onImport={handleImportedOffer}
       />
 
-      {isSaving && (
-        <FersysLoader
-          fullScreen
-          text="Spremanje ponude..."
-        />
-      )}
+      {isSaving && <FersysLoader fullScreen text="Spremanje ponude..." />}
     </>
   )
 }
@@ -3810,7 +2331,6 @@ function MobileSection({
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-violet-500/12 text-xs font-black text-violet-300">
             {icon ?? number}
           </span>
-
           <div className="min-w-0">
             <h2 className="text-lg font-black text-white sm:text-xl">
               {number}. {title}
@@ -3820,17 +2340,9 @@ function MobileSection({
             </p>
           </div>
         </div>
-
-        {action && (
-          <div className="shrink-0">
-            {action}
-          </div>
-        )}
+        {action && <div className="shrink-0">{action}</div>}
       </div>
-
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {children}
-      </div>
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">{children}</div>
     </section>
   )
 }
@@ -3846,50 +2358,30 @@ function Field({
 }) {
   return (
     <label className={className}>
-      <span className="text-sm font-black text-slate-300">
-        {label}
-      </span>
-      <div className="mt-2">
-        {children}
-      </div>
+      <span className="text-sm font-black text-slate-300">{label}</span>
+      <div className="mt-2">{children}</div>
     </label>
   )
 }
 
-function MiniField({
-  label,
-  children,
-}: {
-  label: string
-  children: ReactNode
-}) {
+function MiniField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="min-w-0">
       <span className="block truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
         {label}
       </span>
-      <div className="mt-1">
-        {children}
-      </div>
+      <div className="mt-1">{children}</div>
     </label>
   )
 }
 
-function HeroMetric({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
+function HeroMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-3 py-3">
       <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
         {label}
       </p>
-      <p className="mt-1 truncate text-xs font-black text-white">
-        {value}
-      </p>
+      <p className="mt-1 truncate text-xs font-black text-white">{value}</p>
     </div>
   )
 }
@@ -3906,16 +2398,12 @@ function TotalBox({
   return (
     <div
       className={`rounded-2xl p-4 ${
-        strong
-          ? 'bg-violet-600'
-          : 'bg-slate-800/65'
+        strong ? 'bg-violet-600' : 'bg-slate-800/65'
       }`}
     >
       <p
         className={`text-[9px] font-black uppercase tracking-wider ${
-          strong
-            ? 'text-violet-100'
-            : 'text-slate-600'
+          strong ? 'text-violet-100' : 'text-slate-600'
         }`}
       >
         {label}
@@ -3926,3 +2414,5 @@ function TotalBox({
     </div>
   )
 }
+
+export default NewOfferPage

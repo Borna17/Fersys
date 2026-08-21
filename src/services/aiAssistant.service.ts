@@ -1,6 +1,8 @@
 import { supabase } from '../lib/supabase'
 
-export type AiAssistantRole = 'user' | 'assistant'
+export type AiAssistantRole =
+  | 'user'
+  | 'assistant'
 
 export type AiAssistantMessage = {
   id: string
@@ -51,11 +53,14 @@ export type AiProposedAction = {
 
 export type AiAssistantResponse = {
   message: string
-  proposedAction: AiProposedAction | null
-  clientAction: AiClientAction | null
+  proposedAction:
+    AiProposedAction | null
+  clientAction:
+    AiClientAction | null
 }
 
-const AI_FUNCTION_SLUG = 'dynamic-handler-v3'
+const AI_FUNCTION_SLUG =
+  'dynamic-handler-v3'
 const AI_TIMEOUT_MS = 45_000
 const AUDIO_TIMEOUT_MS = 60_000
 
@@ -64,63 +69,115 @@ async function withTimeout<T>(
   timeoutMs: number,
   timeoutMessage: string,
 ): Promise<T> {
-  let timeoutId: number | undefined
+  let timeoutId:
+    number | undefined
 
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = window.setTimeout(() => {
-      reject(new Error(timeoutMessage))
-    }, timeoutMs)
-  })
+  const timeoutPromise =
+    new Promise<never>(
+      (_, reject) => {
+        timeoutId =
+          window.setTimeout(
+            () => {
+              reject(
+                new Error(
+                  timeoutMessage,
+                ),
+              )
+            },
+            timeoutMs,
+          )
+      },
+    )
 
   try {
-    return await Promise.race([promise, timeoutPromise])
+    return await Promise.race([
+      promise,
+      timeoutPromise,
+    ])
   } finally {
-    if (timeoutId !== undefined) {
-      window.clearTimeout(timeoutId)
+    if (
+      timeoutId !== undefined
+    ) {
+      window.clearTimeout(
+        timeoutId,
+      )
     }
   }
 }
 
-function parseResponse(data: unknown): AiAssistantResponse {
-  if (!data || typeof data !== 'object') {
-    throw new Error('FERSYS AI nije vratio ispravan odgovor.')
+function isRecord(
+  value: unknown,
+): value is
+  Record<string, unknown> {
+  return (
+    Boolean(value) &&
+    typeof value === 'object' &&
+    !Array.isArray(value)
+  )
+}
+
+function parseResponse(
+  data: unknown,
+): AiAssistantResponse {
+  if (!isRecord(data)) {
+    throw new Error(
+      'FERSYS AI nije vratio ispravan odgovor.',
+    )
   }
 
-  const value = data as Record<string, unknown>
-
-  if (typeof value.message !== 'string') {
-    throw new Error('FERSYS AI nije vratio tekstualni odgovor.')
+  if (
+    typeof data.message !==
+    'string'
+  ) {
+    throw new Error(
+      'FERSYS AI nije vratio tekstualni odgovor.',
+    )
   }
+
+  const proposedAction =
+    isRecord(
+      data.proposedAction,
+    )
+      ? (data.proposedAction as
+          AiProposedAction)
+      : null
+
+  const clientAction =
+    isRecord(data.clientAction)
+      ? (data.clientAction as
+          AiClientAction)
+      : null
 
   return {
-    message: value.message,
-    proposedAction:
-      value.proposedAction &&
-      typeof value.proposedAction === 'object'
-        ? (value.proposedAction as AiProposedAction)
-        : null,
-    clientAction:
-      value.clientAction &&
-      typeof value.clientAction === 'object'
-        ? (value.clientAction as AiClientAction)
-        : null,
+    message:
+      data.message.trim(),
+    proposedAction,
+    clientAction,
   }
 }
 
 async function invokeAi(
-  body: Record<string, unknown>,
+  body: Record<
+    string,
+    unknown
+  >,
   timeoutMs: number,
   timeoutMessage: string,
 ) {
-  const result = await withTimeout(
-    supabase.functions.invoke(AI_FUNCTION_SLUG, { body }),
-    timeoutMs,
-    timeoutMessage,
-  )
+  const result =
+    await withTimeout(
+      supabase.functions.invoke(
+        AI_FUNCTION_SLUG,
+        { body },
+      ),
+      timeoutMs,
+      timeoutMessage,
+    )
 
   if (result.error) {
     throw new Error(
-      result.error.message || 'FERSYS AI funkcija nije dostupna.',
+      result.error.message ||
+        'FERSYS AI funkcija nije dostupna.',
     )
   }
 
@@ -129,25 +186,34 @@ async function invokeAi(
 
 export async function askAiAssistant(
   message: string,
-  conversation: AiAssistantMessage[],
+  conversation:
+    AiAssistantMessage[],
 ): Promise<AiAssistantResponse> {
-  const cleanMessage = message.trim()
+  const cleanMessage =
+    message.trim()
 
   if (!cleanMessage) {
-    throw new Error('Upiši ili izgovori poruku.')
+    throw new Error(
+      'Upiši ili izgovori poruku.',
+    )
   }
 
-  const data = await invokeAi(
-    {
-      message: cleanMessage,
-      conversation: conversation.slice(-10).map((item) => ({
-        role: item.role,
-        content: item.content,
-      })),
-    },
-    AI_TIMEOUT_MS,
-    'FERSYS AI trenutačno obrađuje zahtjev dulje nego inače. Provjeri internet i pokušaj ponovno.',
-  )
+  const data =
+    await invokeAi(
+      {
+        message: cleanMessage,
+        conversation:
+          conversation
+            .slice(-10)
+            .map((item) => ({
+              role: item.role,
+              content:
+                item.content,
+            })),
+      },
+      AI_TIMEOUT_MS,
+      'FERSYS AI trenutačno obrađuje zahtjev dulje nego inače. Provjeri internet i pokušaj ponovno.',
+    )
 
   return parseResponse(data)
 }
@@ -155,49 +221,76 @@ export async function askAiAssistant(
 export async function confirmAiAction(
   action: AiProposedAction,
 ): Promise<AiAssistantResponse> {
-  const data = await invokeAi(
-    {
-      confirmAction: action,
-    },
-    AI_TIMEOUT_MS,
-    'Radnja se nije dovršila na vrijeme. Provjeri je li zapis već napravljen prije ponovnog pokušaja.',
-  )
+  const data =
+    await invokeAi(
+      {
+        confirmAction: action,
+      },
+      AI_TIMEOUT_MS,
+      'Radnja se nije dovršila na vrijeme. Provjeri je li zapis već napravljen prije ponovnog pokušaja.',
+    )
 
   return parseResponse(data)
 }
 
-function arrayBufferToBase64(buffer: ArrayBuffer) {
-  const bytes = new Uint8Array(buffer)
+function arrayBufferToBase64(
+  buffer: ArrayBuffer,
+) {
+  const bytes =
+    new Uint8Array(buffer)
   const chunkSize = 0x8000
   let binary = ''
 
-  for (let index = 0; index < bytes.length; index += chunkSize) {
-    binary += String.fromCharCode(
-      ...bytes.subarray(index, Math.min(index + chunkSize, bytes.length)),
-    )
+  for (
+    let index = 0;
+    index < bytes.length;
+    index += chunkSize
+  ) {
+    binary +=
+      String.fromCharCode(
+        ...bytes.subarray(
+          index,
+          Math.min(
+            index + chunkSize,
+            bytes.length,
+          ),
+        ),
+      )
   }
 
   return btoa(binary)
 }
 
-export async function transcribeAiAudio(blob: Blob): Promise<string> {
+export async function transcribeAiAudio(
+  blob: Blob,
+): Promise<string> {
   if (blob.size === 0) {
-    throw new Error('Snimka je prazna. Pokušaj ponovno.')
+    throw new Error(
+      'Snimka je prazna. Pokušaj ponovno.',
+    )
   }
 
-  const buffer = await blob.arrayBuffer()
+  const buffer =
+    await blob.arrayBuffer()
 
-  const data = await invokeAi(
-    {
-      audioBase64: arrayBufferToBase64(buffer),
-      audioMimeType: blob.type || 'audio/webm',
-    },
-    AUDIO_TIMEOUT_MS,
-    'Pretvaranje govora u tekst traje predugo. Provjeri internet i pokušaj ponovno.',
-  )
+  const data =
+    await invokeAi(
+      {
+        audioBase64:
+          arrayBufferToBase64(
+            buffer,
+          ),
+        audioMimeType:
+          blob.type ||
+          'audio/webm',
+      },
+      AUDIO_TIMEOUT_MS,
+      'Pretvaranje govora u tekst traje predugo. Provjeri internet i pokušaj ponovno.',
+    )
 
   const transcript =
-    typeof data?.transcript === 'string'
+    typeof data?.transcript ===
+      'string'
       ? data.transcript.trim()
       : ''
 

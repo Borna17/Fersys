@@ -1,4 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { useNavigate } from 'react-router'
 import {
   CheckCircle2,
@@ -84,24 +88,22 @@ type Invoice = {
 const STORAGE_KEY =
   'fersys_invoices'
 
-const invoiceStatuses:
-  Array<
-    InvoiceStatus | 'Svi'
-  > = [
-    'Svi',
-    'Nacrt',
-    'Izdano',
-    'Poslano',
-    'Djelomično plaćeno',
-    'Plaćeno',
-    'Dospjelo',
-    'Stornirano',
-  ]
+const statuses:
+Array<
+  InvoiceStatus | 'Svi'
+> = [
+  'Svi',
+  'Nacrt',
+  'Izdano',
+  'Poslano',
+  'Djelomično plaćeno',
+  'Plaćeno',
+  'Dospjelo',
+  'Stornirano',
+]
 
-const statusStyles: Record<
-  InvoiceStatus,
-  string
-> = {
+const statusStyles:
+Record<InvoiceStatus, string> = {
   Nacrt:
     'border-slate-500/20 bg-slate-500/15 text-slate-300',
   Izdano:
@@ -127,9 +129,7 @@ function readInvoices(): Invoice[] {
         ) ?? '[]',
       ) as Invoice[]
 
-    return Array.isArray(
-      parsed,
-    )
+    return Array.isArray(parsed)
       ? parsed
       : []
   } catch {
@@ -137,28 +137,23 @@ function readInvoices(): Invoice[] {
   }
 }
 
-function itemNet(
-  item: InvoiceItem,
-) {
-  const base =
-    item.quantity * item.price
-
-  return (
-    base -
-    base *
-      (item.discount / 100)
-  )
-}
-
 function itemTotal(
   item: InvoiceItem,
 ) {
-  const net =
-    itemNet(item)
+  const base =
+    Number(item.quantity) *
+    Number(item.price)
+  const discount =
+    base *
+    ((Number(item.discount) || 0) /
+      100)
+  const net = base - discount
 
   return (
     net +
-    net * (item.vat / 100)
+    net *
+      ((Number(item.vat) || 0) /
+        100)
   )
 }
 
@@ -167,15 +162,12 @@ function invoiceTotal(
 ) {
   return invoice.items.reduce(
     (sum, item) =>
-      sum +
-      itemTotal(item),
+      sum + itemTotal(item),
     0,
   )
 }
 
-function formatCurrency(
-  value: number,
-) {
+function money(value: number) {
   return new Intl.NumberFormat(
     'hr-HR',
     {
@@ -185,26 +177,28 @@ function formatCurrency(
   ).format(value)
 }
 
-function formatDate(
-  value: string,
-) {
+function dateText(value: string) {
   if (!value) return '—'
 
-  return new Date(
-    `${value}T12:00:00`,
-  ).toLocaleDateString(
-    'hr-HR',
-  )
+  const parsed =
+    new Date(`${value}T12:00:00`)
+
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : parsed.toLocaleDateString(
+        'hr-HR',
+      )
 }
 
-function createHistory(
+function history(
   title: string,
   description: string,
 ): InvoiceHistoryItem {
   return {
-    id: `invoice-history-${Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 7)}`,
+    id:
+      `invoice-history-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 7)}`,
     date:
       new Date().toISOString(),
     title,
@@ -213,26 +207,32 @@ function createHistory(
 }
 
 export function InvoicesPage() {
-  const navigate =
-    useNavigate()
+  const navigate = useNavigate()
 
-  const [
-    invoices,
-    setInvoices,
-  ] =
+  const [invoices, setInvoices] =
     useState<Invoice[]>(
       readInvoices,
     )
-
   const [
     isCloudLoading,
     setIsCloudLoading,
   ] = useState(true)
-
   const [
     cloudError,
     setCloudError,
   ] = useState('')
+  const [search, setSearch] =
+    useState('')
+  const [status, setStatus] =
+    useState<
+      InvoiceStatus | 'Svi'
+    >('Svi')
+  const [
+    selectedInvoiceId,
+    setSelectedInvoiceId,
+  ] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -242,38 +242,24 @@ export function InvoicesPage() {
         setIsCloudLoading(true)
         setCloudError('')
 
-        const localInvoices =
+        const local =
           readInvoices()
 
-        // Prvo prenesi račune koji možda postoje samo
-        // na ovom uređaju, zatim učitaj jedinstveni cloud popis.
         await importLocalInvoices(
-          localInvoices,
+          local,
         )
 
-        const cloudInvoices =
+        const cloud =
           await getCloudInvoices<Invoice>()
 
-        if (cancelled) {
-          return
-        }
+        if (cancelled) return
 
-        setInvoices(
-          cloudInvoices,
-        )
-
+        setInvoices(cloud)
         localStorage.setItem(
           STORAGE_KEY,
-          JSON.stringify(
-            cloudInvoices,
-          ),
+          JSON.stringify(cloud),
         )
       } catch (error) {
-        console.error(
-          'Račune nije moguće sinkronizirati:',
-          error,
-        )
-
         if (!cancelled) {
           setCloudError(
             error instanceof Error
@@ -293,407 +279,353 @@ export function InvoicesPage() {
     }
   }, [])
 
-  const [
-    search,
-    setSearch,
-  ] =
-    useState('')
-
-  const [
-    status,
-    setStatus,
-  ] =
-    useState<
-      InvoiceStatus | 'Svi'
-    >('Svi')
-
-  const [
-    selectedInvoiceId,
-    setSelectedInvoiceId,
-  ] =
-    useState<
-      string | null
-    >(null)
-
-  const normalizedInvoices =
+  const normalized =
     useMemo(() => {
-      const today =
-        new Date()
+      const now = new Date()
+      now.setHours(0, 0, 0, 0)
 
-      today.setHours(
-        0,
-        0,
-        0,
-        0,
-      )
-
-      let changed = false
-
-      const updated =
-        invoices.map(
-          (invoice) => {
-            if (
-              invoice.status !==
-                'Plaćeno' &&
-              invoice.status !==
-                'Stornirano' &&
-              invoice.status !==
-                'Nacrt' &&
-              invoice.dueDate &&
-              new Date(
-                `${invoice.dueDate}T00:00:00`,
-              ) < today
-            ) {
-              changed = true
-
-              return {
-                ...invoice,
-                status:
-                  'Dospjelo' as InvoiceStatus,
-              }
+      return invoices.map(
+        (invoice) => {
+          if (
+            ![
+              'Plaćeno',
+              'Stornirano',
+              'Nacrt',
+            ].includes(
+              invoice.status,
+            ) &&
+            invoice.dueDate &&
+            new Date(
+              `${invoice.dueDate}T00:00:00`,
+            ) < now
+          ) {
+            return {
+              ...invoice,
+              status:
+                'Dospjelo' as InvoiceStatus,
             }
+          }
 
-            return invoice
-          },
-        )
-
-      if (changed) {
-        window.setTimeout(
-          () => {
-            localStorage.setItem(
-              STORAGE_KEY,
-              JSON.stringify(
-                updated,
-              ),
-            )
-            setInvoices(
-              updated,
-            )
-
-            updated
-              .filter(
-                (invoice) =>
-                  invoice.status ===
-                  'Dospjelo',
-              )
-              .forEach(
-                (invoice) => {
-                  void updateCloudInvoice(
-                    invoice,
-                  ).catch(
-                    console.error,
-                  )
-                },
-              )
-          },
-          0,
-        )
-      }
-
-      return updated
+          return invoice
+        },
+      )
     }, [invoices])
 
-  const filtered =
-    useMemo(() => {
-      const query =
-        search
-          .trim()
+  useEffect(() => {
+    const changed =
+      normalized.some(
+        (invoice, index) =>
+          invoice.status !==
+          invoices[index]?.status,
+      )
+
+    if (!changed) return
+
+    setInvoices(normalized)
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(normalized),
+    )
+
+    normalized.forEach(
+      (invoice) => {
+        if (
+          invoice.status ===
+          'Dospjelo'
+        ) {
+          void updateCloudInvoice(
+            invoice,
+          ).catch(console.error)
+        }
+      },
+    )
+  }, [normalized])
+
+  const filtered = useMemo(() => {
+    const query =
+      search
+        .trim()
+        .toLocaleLowerCase(
+          'hr-HR',
+        )
+
+    return normalized
+      .filter((invoice) => {
+        const text = [
+          invoice.invoiceNumber,
+          invoice.customerName,
+          invoice.oib,
+          invoice.email,
+          invoice.phone,
+          invoice.address,
+          invoice.city,
+          invoice.description,
+          ...invoice.items.map(
+            (item) => item.name,
+          ),
+        ]
+          .join(' ')
           .toLocaleLowerCase(
             'hr-HR',
           )
 
-      return normalizedInvoices
+        return (
+          (!query ||
+            text.includes(query)) &&
+          (status === 'Svi' ||
+            invoice.status ===
+              status)
+        )
+      })
+      .sort(
+        (a, b) =>
+          new Date(
+            b.issueDate,
+          ).getTime() -
+          new Date(
+            a.issueDate,
+          ).getTime(),
+      )
+  }, [
+    normalized,
+    search,
+    status,
+  ])
+
+  const stats = useMemo(() => {
+    const totalIssued =
+      normalized
         .filter(
-          (invoice) => {
-            const text = [
-              invoice.invoiceNumber,
-              invoice.customerName,
-              invoice.oib,
-              invoice.email,
-              invoice.phone,
-              invoice.address,
-              invoice.city,
-              invoice.description,
-              ...invoice.items.map(
-                (item) =>
-                  item.name,
-              ),
-            ]
-              .join(' ')
-              .toLocaleLowerCase(
-                'hr-HR',
-              )
-
-            return (
-              (!query ||
-                text.includes(
-                  query,
-                )) &&
-              (status ===
-                'Svi' ||
-                invoice.status ===
-                  status)
-            )
-          },
+          (invoice) =>
+            invoice.status !==
+            'Nacrt',
         )
-        .sort(
-          (a, b) =>
-            new Date(
-              b.issueDate,
-            ).getTime() -
-            new Date(
-              a.issueDate,
-            ).getTime(),
+        .reduce(
+          (sum, invoice) =>
+            sum +
+            invoiceTotal(invoice),
+          0,
         )
-    }, [
-      normalizedInvoices,
-      search,
-      status,
-    ])
 
-  const statistics =
-    useMemo(() => {
-      const totalIssued =
-        normalizedInvoices
-          .filter(
-            (invoice) =>
-              invoice.status !==
-              'Nacrt',
-          )
-          .reduce(
-            (
-              sum,
-              invoice,
-            ) =>
-              sum +
+    const paid =
+      normalized
+        .filter(
+          (invoice) =>
+            invoice.status ===
+            'Plaćeno',
+        )
+        .reduce(
+          (sum, invoice) =>
+            sum +
+            invoiceTotal(invoice),
+          0,
+        )
+
+    const outstanding =
+      normalized
+        .filter((invoice) =>
+          [
+            'Izdano',
+            'Poslano',
+            'Djelomično plaćeno',
+            'Dospjelo',
+          ].includes(
+            invoice.status,
+          ),
+        )
+        .reduce(
+          (sum, invoice) =>
+            sum +
+            Math.max(
+              0,
               invoiceTotal(
                 invoice,
-              ),
-            0,
-          )
+              ) -
+                (Number(
+                  invoice.paidAmount,
+                ) || 0),
+            ),
+          0,
+        )
 
-      const paid =
-        normalizedInvoices
-          .filter(
-            (invoice) =>
-              invoice.status ===
-              'Plaćeno',
-          )
-          .reduce(
-            (
-              sum,
-              invoice,
-            ) =>
-              sum +
+    const overdue =
+      normalized
+        .filter(
+          (invoice) =>
+            invoice.status ===
+            'Dospjelo',
+        )
+        .reduce(
+          (sum, invoice) =>
+            sum +
+            Math.max(
+              0,
               invoiceTotal(
                 invoice,
-              ),
-            0,
-          )
+              ) -
+                (Number(
+                  invoice.paidAmount,
+                ) || 0),
+            ),
+          0,
+        )
 
-      const outstanding =
-        normalizedInvoices
-          .filter(
-            (invoice) =>
-              [
-                'Izdano',
-                'Poslano',
-                'Djelomično plaćeno',
-                'Dospjelo',
-              ].includes(
-                invoice.status,
-              ),
-          )
-          .reduce(
-            (
-              sum,
-              invoice,
-            ) =>
-              sum +
-              Math.max(
-                0,
-                invoiceTotal(
-                  invoice,
-                ) -
-                  (invoice.paidAmount ||
-                    0),
-              ),
-            0,
-          )
+    return {
+      count: normalized.length,
+      totalIssued,
+      paid,
+      outstanding,
+      overdue,
+    }
+  }, [normalized])
 
-      const overdue =
-        normalizedInvoices
-          .filter(
-            (invoice) =>
-              invoice.status ===
-              'Dospjelo',
-          )
-          .reduce(
-            (
-              sum,
-              invoice,
-            ) =>
-              sum +
-              Math.max(
-                0,
-                invoiceTotal(
-                  invoice,
-                ) -
-                  (invoice.paidAmount ||
-                    0),
-              ),
-            0,
-          )
-
-      return {
-        count:
-          normalizedInvoices.length,
-        totalIssued,
-        paid,
-        outstanding,
-        overdue,
-      }
-    }, [normalizedInvoices])
-
-  const selectedInvoice =
-    normalizedInvoices.find(
+  const selected =
+    normalized.find(
       (invoice) =>
         invoice.id ===
         selectedInvoiceId,
     ) ?? null
 
-  function save(
-    updated: Invoice[],
+  function persist(
+    next: Invoice[],
   ) {
-    setInvoices(updated)
-
+    setInvoices(next)
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify(
-        updated,
-      ),
+      JSON.stringify(next),
     )
   }
 
-  function markPaid(
+  async function markPaid(
     invoice: Invoice,
   ) {
     const now =
       new Date().toISOString()
 
-    const updated =
-      invoices.map(
-        (current) =>
-          current.id ===
-          invoice.id
-            ? {
-                ...current,
-                status:
-                  'Plaćeno' as InvoiceStatus,
-                paidAmount:
-                  invoiceTotal(
-                    current,
-                  ),
-                paidAt: now,
-                updatedAt: now,
-                history: [
-                  ...current.history,
-                  createHistory(
-                    'Račun plaćen',
-                    'Račun je označen kao u potpunosti plaćen.',
-                  ),
-                ],
-              }
-            : current,
+    const next =
+      invoices.map((item) =>
+        item.id === invoice.id
+          ? {
+              ...item,
+              status:
+                'Plaćeno' as InvoiceStatus,
+              paidAmount:
+                invoiceTotal(item),
+              paidAt: now,
+              updatedAt: now,
+              history: [
+                ...item.history,
+                history(
+                  'Račun plaćen',
+                  'Račun je označen kao u potpunosti plaćen.',
+                ),
+              ],
+            }
+          : item,
       )
 
-    save(updated)
+    persist(next)
 
-    const paidInvoice =
-      updated.find(
-        (current) =>
-          current.id ===
-          invoice.id,
+    const paid =
+      next.find(
+        (item) =>
+          item.id === invoice.id,
       )
 
-    if (paidInvoice) {
-      void updateCloudInvoice(
-        paidInvoice,
-      ).catch((error) => {
-        console.error(
-          'Plaćanje nije spremljeno u cloud:',
-          error,
+    if (paid) {
+      try {
+        await updateCloudInvoice(
+          paid,
         )
-      })
+      } catch (error) {
+        console.error(error)
+      }
     }
 
-    setSelectedInvoiceId(
-      null,
-    )
+    setSelectedInvoiceId(null)
   }
 
-  function removeInvoice(
+  async function removeInvoice(
     invoice: Invoice,
   ) {
     if (
       !window.confirm(
-        `Želiš li trajno obrisati račun ${invoice.invoiceNumber}?`,
+        `Trajno obrisati račun ${invoice.invoiceNumber}?`,
       )
     ) {
       return
     }
 
-    save(
+    persist(
       invoices.filter(
-        (current) =>
-          current.id !==
-          invoice.id,
+        (item) =>
+          item.id !== invoice.id,
       ),
     )
 
-    void deleteCloudInvoice(
-      invoice.id,
-    ).catch((error) => {
-      console.error(
-        'Račun nije obrisan iz clouda:',
-        error,
+    try {
+      await deleteCloudInvoice(
+        invoice.id,
       )
-    })
+    } catch (error) {
+      console.error(error)
+    }
 
-    setSelectedInvoiceId(
-      null,
+    setSelectedInvoiceId(null)
+  }
+
+  async function duplicateInvoice(
+    invoice: Invoice,
+  ) {
+    navigate(
+      `/invoices/new?duplicate=${invoice.id}`,
     )
   }
 
   return (
-    <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-10 sm:space-y-6">
-      {cloudError && (
-        <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
-          Cloud sinkronizacija računa: {cloudError}
-        </div>
-      )}
+    <>
+      <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-6 sm:space-y-6">
+        {cloudError && (
+          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm font-bold text-red-300">
+            Cloud sinkronizacija:
+            {' '}
+            {cloudError}
+          </div>
+        )}
 
-      {isCloudLoading && (
-        <div className="rounded-2xl border border-violet-500/15 bg-violet-500/10 px-4 py-3 text-sm font-bold text-violet-200">
-          Sinkronizacija računa...
-        </div>
-      )}
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/40 p-5 sm:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
+        {isCloudLoading && (
+          <div className="rounded-2xl border border-violet-500/15 bg-violet-500/10 px-4 py-3 text-sm font-bold text-violet-200">
+            Sinkronizacija računa...
+          </div>
+        )}
 
-        <div className="relative flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
-              FINANCIJE
-            </p>
+        <section className="relative overflow-hidden rounded-[1.75rem] border border-violet-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-violet-950/40 p-5 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
+                FINANCIJE
+              </p>
+              <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                Izlazni računi
+              </h1>
+              <p className="mt-2 text-sm text-slate-400">
+                Brzo prati izdano,
+                naplaćeno i dospjelo.
+              </p>
+            </div>
 
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-white sm:text-3xl">
-              Računi
-            </h1>
-
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-              Izdavanje, praćenje naplate i pregled svih računa.
-            </p>
+            <button
+              type="button"
+              onClick={() =>
+                navigate(
+                  '/invoices/new',
+                )
+              }
+              className="hidden h-12 items-center gap-2 rounded-2xl bg-violet-600 px-5 font-black text-white sm:flex"
+            >
+              <Plus size={20} />
+              Novi račun
+            </button>
           </div>
 
           <button
@@ -703,611 +635,338 @@ export function InvoicesPage() {
                 '/invoices/new',
               )
             }
-            className="hidden h-12 shrink-0 items-center justify-center rounded-2xl bg-violet-600 px-5 text-white shadow-lg shadow-violet-950/30 active:scale-95 sm:flex sm:gap-2"
-            aria-label="Novi račun"
+            className="mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 font-black text-white sm:hidden"
           >
-            <Plus size={21} />
-            <span className="hidden text-sm font-black sm:inline">
-              Novi račun
-            </span>
+            <Plus size={20} />
+            Novi račun
           </button>
-        </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/invoices/new')}
-          className="relative mt-4 flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-violet-600 px-5 text-sm font-black text-white shadow-lg shadow-violet-950/30 active:scale-[0.99] sm:hidden"
-        >
-          <Plus size={20} />
-          Novi račun
-        </button>
-
-        <div className="relative mt-5 grid grid-cols-4 gap-2">
-          <MetricButton
-            label="Ukupno"
-            value={
-              statistics.count
-            }
-            active={
-              status === 'Svi'
-            }
-            onClick={() =>
-              setStatus('Svi')
-            }
-          />
-
-          <MetricButton
-            label="Izdano"
-            value={
-              normalizedInvoices.filter(
-                (invoice) =>
-                  invoice.status ===
-                  'Izdano',
-              ).length
-            }
-            active={
-              status ===
-              'Izdano'
-            }
-            onClick={() =>
-              setStatus(
-                'Izdano',
-              )
-            }
-          />
-
-          <MetricButton
-            label="Plaćeno"
-            value={
-              normalizedInvoices.filter(
-                (invoice) =>
-                  invoice.status ===
-                  'Plaćeno',
-              ).length
-            }
-            active={
-              status ===
-              'Plaćeno'
-            }
-            onClick={() =>
-              setStatus(
-                'Plaćeno',
-              )
-            }
-          />
-
-          <MetricButton
-            label="Dospjelo"
-            value={
-              normalizedInvoices.filter(
-                (invoice) =>
-                  invoice.status ===
-                  'Dospjelo',
-              ).length
-            }
-            active={
-              status ===
-              'Dospjelo'
-            }
-            onClick={() =>
-              setStatus(
-                'Dospjelo',
-              )
-            }
-          />
-        </div>
-      </section>
-
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryCard
-          label="Izdano ukupno"
-          value={formatCurrency(
-            statistics.totalIssued,
-          )}
-        />
-
-        <SummaryCard
-          label="Naplaćeno"
-          value={formatCurrency(
-            statistics.paid,
-          )}
-        />
-
-        <SummaryCard
-          label="Za naplatu"
-          value={formatCurrency(
-            statistics.outstanding,
-          )}
-        />
-
-        <SummaryCard
-          label="Dospjelo"
-          value={formatCurrency(
-            statistics.overdue,
-          )}
-          danger
-        />
-      </section>
-
-      <section className="rounded-3xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
-        <div className="relative">
-          <Search
-            size={19}
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-          />
-
-          <input
-            value={search}
-            onChange={(event) =>
-              setSearch(
-                event.target.value,
-              )
-            }
-            placeholder="Broj računa, investitor, OIB, stavka..."
-            className="h-12 w-full rounded-2xl bg-slate-800 pl-11 pr-11 text-sm text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-violet-600"
-          />
-
-          {search && (
-            <button
-              type="button"
-              onClick={() =>
-                setSearch('')
-              }
-              className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-xl text-slate-500"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 sm:hidden">
-          {invoiceStatuses.map(
-            (value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() =>
-                  setStatus(value)
-                }
-                className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-black ${
-                  status === value
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-slate-800 text-slate-400'
-                }`}
-              >
-                {value}
-              </button>
-            ),
-          )}
-        </div>
-
-        <select
-          value={status}
-          onChange={(event) =>
-            setStatus(
-              event.target
-                .value as
-                | InvoiceStatus
-                | 'Svi',
-            )
-          }
-          className="mt-3 hidden h-12 min-w-52 rounded-xl bg-slate-800 px-4 font-bold text-white outline-none sm:block"
-        >
-          {invoiceStatuses.map(
-            (value) => (
-              <option
-                key={value}
-                value={value}
-              >
-                {value}
-              </option>
-            ),
-          )}
-        </select>
-      </section>
-
-      <section>
-        <div className="mb-3">
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-500">
-            POPIS
-          </p>
-
-          <h2 className="mt-1 text-lg font-black text-white">
-            {filtered.length}{' '}
-            prikazano
-          </h2>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/60 px-5 py-12 text-center">
-            <FileText
-              size={34}
-              className="mx-auto text-slate-600"
-            />
-
-            <p className="mt-4 font-black text-white">
-              Nema pronađenih računa
-            </p>
-
-            <p className="mt-2 text-sm text-slate-500">
-              Izradi prvi račun ili promijeni kriterije pretrage.
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className="space-y-3 lg:hidden">
-              {filtered.map(
-                (invoice) => {
-                  const total =
-                    invoiceTotal(
-                      invoice,
-                    )
-
-                  const remaining =
-                    Math.max(
-                      0,
-                      total -
-                        (invoice.paidAmount ||
-                          0),
-                    )
-
-                  return (
-                    <article
-                      key={
-                        invoice.id
-                      }
-                      className="rounded-3xl border border-slate-800 bg-slate-900 p-4"
-                    >
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setSelectedInvoiceId(
-                            invoice.id,
-                          )
-                        }
-                        className="w-full text-left"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-wider text-violet-400">
-                              {
-                                invoice.invoiceNumber
-                              }
-                            </p>
-
-                            <h3 className="mt-1 truncate font-black text-white">
-                              {
-                                invoice.customerName
-                              }
-                            </h3>
-
-                            <p className="mt-1 truncate text-xs text-slate-500">
-                              {[
-                                invoice.oib,
-                                invoice.city,
-                              ]
-                                .filter(
-                                  Boolean,
-                                )
-                                .join(
-                                  ' · ',
-                                ) ||
-                                'Bez dodatnih podataka'}
-                            </p>
-                          </div>
-
-                          <span
-                            className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black ${statusStyles[invoice.status]}`}
-                          >
-                            {
-                              invoice.status
-                            }
-                          </span>
-                        </div>
-
-                        <div className="mt-4 grid grid-cols-3 gap-2">
-                          <SmallInfo
-                            label="Izdano"
-                            value={formatDate(
-                              invoice.issueDate,
-                            )}
-                          />
-
-                          <SmallInfo
-                            label="Dospijeće"
-                            value={formatDate(
-                              invoice.dueDate,
-                            )}
-                          />
-
-                          <SmallInfo
-                            label="Ukupno"
-                            value={formatCurrency(
-                              total,
-                            )}
-                          />
-                        </div>
-
-                        {remaining > 0 &&
-                          invoice.status !==
-                            'Nacrt' &&
-                          invoice.status !==
-                            'Stornirano' && (
-                            <div className="mt-3 flex items-center justify-between rounded-2xl bg-slate-950/50 p-3">
-                              <span className="text-[10px] font-black uppercase tracking-wider text-slate-600">
-                                Preostalo za naplatu
-                              </span>
-
-                              <span className="text-sm font-black text-white">
-                                {formatCurrency(
-                                  remaining,
-                                )}
-                              </span>
-                            </div>
-                          )}
-                      </button>
-
-                      <div className="mt-4 flex gap-2 border-t border-slate-800 pt-4">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            downloadInvoicePdf(
-                              invoice,
-                            )
-                          }
-                          className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-300"
-                          aria-label="PDF pregled"
-                        >
-                          <Eye
-                            size={17}
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/invoices/${invoice.id}/edit`,
-                            )
-                          }
-                          className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-500/15 px-3 text-xs font-black text-violet-200"
-                          aria-label="Uredi račun"
-                        >
-                          <Pencil size={16} />
-                          Uredi
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            navigate(
-                              `/invoices/new?duplicate=${invoice.id}`,
-                            )
-                          }
-                          className="grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-slate-300"
-                          aria-label="Dupliciraj račun"
-                        >
-                          <Copy
-                            size={17}
-                          />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setSelectedInvoiceId(
-                              invoice.id,
-                            )
-                          }
-                          className="min-h-11 flex-1 rounded-xl bg-violet-600 px-4 text-xs font-black text-white"
-                        >
-                          Otvori
-                        </button>
-                      </div>
-                    </article>
-                  )
-                },
+          <div className="mt-5 grid grid-cols-4 gap-2">
+            <Metric
+              label="Računi"
+              value={String(
+                stats.count,
               )}
-            </div>
+            />
+            <Metric
+              label="Izdano"
+              value={money(
+                stats.totalIssued,
+              )}
+              compact
+            />
+            <Metric
+              label="Otvoreno"
+              value={money(
+                stats.outstanding,
+              )}
+              compact
+            />
+            <Metric
+              label="Dospjelo"
+              value={money(
+                stats.overdue,
+              )}
+              compact
+            />
+          </div>
+        </section>
 
-            <div className="hidden overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 lg:block">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[980px] text-left">
-                  <thead className="border-b border-slate-800 bg-slate-800/40 text-xs uppercase tracking-wider text-slate-500">
-                    <tr>
-                      <th className="px-5 py-4">
-                        Broj računa
-                      </th>
-                      <th className="px-5 py-4">
-                        Investitor
-                      </th>
-                      <th className="px-5 py-4">
-                        Datum
-                      </th>
-                      <th className="px-5 py-4">
-                        Dospijeće
-                      </th>
-                      <th className="px-5 py-4">
-                        Status
-                      </th>
-                      <th className="px-5 py-4 text-right">
-                        Ukupno
-                      </th>
-                      <th className="px-5 py-4 text-right">
-                        Akcije
-                      </th>
-                    </tr>
-                  </thead>
+        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-3 sm:p-4">
+          <div className="relative">
+            <Search
+              size={19}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) =>
+                setSearch(
+                  event.target.value,
+                )
+              }
+              placeholder="Broj računa, investitor, OIB, stavka..."
+              className="h-12 w-full rounded-2xl bg-slate-800 pl-11 pr-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-violet-600"
+            />
+          </div>
 
-                  <tbody className="divide-y divide-slate-800">
-                    {filtered.map(
-                      (invoice) => (
-                        <tr
-                          key={
-                            invoice.id
-                          }
-                          className="transition hover:bg-slate-800/40"
-                        >
-                          <td className="px-5 py-4">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setSelectedInvoiceId(
-                                  invoice.id,
-                                )
-                              }
-                              className="font-black text-violet-300"
-                            >
-                              {
-                                invoice.invoiceNumber
-                              }
-                            </button>
-                          </td>
+          <div className="fersys-scrollbar-hidden mt-3 flex gap-2 overflow-x-auto pb-1">
+            {statuses.map(
+              (value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() =>
+                    setStatus(value)
+                  }
+                  className={`min-h-10 shrink-0 rounded-xl px-3 text-xs font-black ${
+                    status === value
+                      ? 'bg-violet-600 text-white'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  {value}
+                </button>
+              ),
+            )}
+          </div>
+        </section>
 
-                          <td className="px-5 py-4">
-                            <div className="font-black text-slate-200">
-                              {
-                                invoice.customerName
-                              }
-                            </div>
+        <div className="space-y-3 lg:hidden">
+          {filtered.map(
+            (invoice) => (
+              <article
+                key={invoice.id}
+                className="rounded-3xl border border-slate-800 bg-slate-900 p-4"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedInvoiceId(
+                        invoice.id,
+                      )
+                    }
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <p className="text-[10px] font-black uppercase tracking-wider text-violet-400">
+                      {
+                        invoice.invoiceNumber
+                      }
+                    </p>
+                    <h3 className="mt-1 truncate font-black text-white">
+                      {
+                        invoice.customerName
+                      }
+                    </h3>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {invoice.description ||
+                        'Izdani račun'}
+                    </p>
+                  </button>
 
-                            <div className="mt-1 text-xs text-slate-500">
-                              {[
-                                invoice.oib,
-                                invoice.city,
-                              ]
-                                .filter(
-                                  Boolean,
-                                )
-                                .join(
-                                  ' · ',
-                                )}
-                            </div>
-                          </td>
+                  <span
+                    className={`shrink-0 rounded-full border px-2.5 py-1 text-[10px] font-black ${statusStyles[invoice.status]}`}
+                  >
+                    {invoice.status}
+                  </span>
+                </div>
 
-                          <td className="px-5 py-4 text-sm text-slate-300">
-                            {formatDate(
-                              invoice.issueDate,
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4 text-sm text-slate-300">
-                            {formatDate(
-                              invoice.dueDate,
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <span
-                              className={`inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusStyles[invoice.status]}`}
-                            >
-                              {
-                                invoice.status
-                              }
-                            </span>
-                          </td>
-
-                          <td className="px-5 py-4 text-right font-black text-white">
-                            {formatCurrency(
-                              invoiceTotal(
-                                invoice,
-                              ),
-                            )}
-                          </td>
-
-                          <td className="px-5 py-4">
-                            <div className="flex justify-end gap-2">
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  downloadInvoicePdf(
-                                    invoice,
-                                  )
-                                }
-                                className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white"
-                                title="Pregled PDF-a"
-                              >
-                                <Eye
-                                  size={16}
-                                />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  navigate(
-                                    `/invoices/${invoice.id}/edit`,
-                                  )
-                                }
-                                className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white"
-                                title="Uredi račun"
-                              >
-                                <Pencil
-                                  size={16}
-                                />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  navigate(
-                                    `/invoices/new?duplicate=${invoice.id}`,
-                                  )
-                                }
-                                className="grid h-9 w-9 place-items-center rounded-xl border border-slate-700 text-slate-400 hover:bg-slate-800 hover:text-white"
-                                title="Dupliciraj račun"
-                              >
-                                <Copy
-                                  size={16}
-                                />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Info
+                    label="Datum"
+                    value={dateText(
+                      invoice.issueDate,
+                    )}
+                  />
+                  <Info
+                    label="Dospijeće"
+                    value={dateText(
+                      invoice.dueDate,
+                    )}
+                  />
+                  <Info
+                    label="Ukupno"
+                    value={money(
+                      invoiceTotal(
+                        invoice,
                       ),
                     )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
+                  />
+                  <Info
+                    label="Otvoreno"
+                    value={money(
+                      Math.max(
+                        0,
+                        invoiceTotal(
+                          invoice,
+                        ) -
+                          (Number(
+                            invoice.paidAmount,
+                          ) || 0),
+                      ),
+                    )}
+                  />
+                </div>
+
+                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSelectedInvoiceId(
+                        invoice.id,
+                      )
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-slate-800 text-xs font-black text-white"
+                  >
+                    <Eye size={15} />
+                    Pregled
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        `/invoices/${invoice.id}/edit`,
+                      )
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-slate-800 text-xs font-black text-white"
+                  >
+                    <Pencil size={15} />
+                    Uredi
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void downloadInvoicePdf(
+                        invoice,
+                      )
+                    }
+                    className="inline-flex min-h-11 items-center justify-center gap-1 rounded-xl bg-violet-600 text-xs font-black text-white"
+                  >
+                    <FileText
+                      size={15}
+                    />
+                    PDF
+                  </button>
+                </div>
+              </article>
+            ),
+          )}
+        </div>
+
+        <div className="hidden overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 lg:block">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[1050px]">
+              <thead className="bg-slate-800/50 text-left text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-5 py-4">Račun</th>
+                  <th className="px-5 py-4">Investitor</th>
+                  <th className="px-5 py-4">Datum</th>
+                  <th className="px-5 py-4">Dospijeće</th>
+                  <th className="px-5 py-4">Ukupno</th>
+                  <th className="px-5 py-4">Status</th>
+                  <th className="px-5 py-4">Akcije</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {filtered.map(
+                  (invoice) => (
+                    <tr
+                      key={invoice.id}
+                      className="hover:bg-slate-800/40"
+                    >
+                      <td className="px-5 py-4 font-black text-violet-300">
+                        {invoice.invoiceNumber}
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="font-semibold text-white">
+                          {invoice.customerName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {invoice.oib || '—'}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-300">
+                        {dateText(
+                          invoice.issueDate,
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-sm text-slate-300">
+                        {dateText(
+                          invoice.dueDate,
+                        )}
+                      </td>
+                      <td className="px-5 py-4 font-black text-white">
+                        {money(
+                          invoiceTotal(
+                            invoice,
+                          ),
+                        )}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={`rounded-full border px-3 py-1 text-xs font-black ${statusStyles[invoice.status]}`}
+                        >
+                          {invoice.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setSelectedInvoiceId(
+                                invoice.id,
+                              )
+                            }
+                            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-white"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              navigate(
+                                `/invoices/${invoice.id}/edit`,
+                              )
+                            }
+                            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-white"
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void downloadInvoicePdf(
+                                invoice,
+                              )
+                            }
+                            className="grid h-10 w-10 place-items-center rounded-xl bg-violet-600 text-white"
+                          >
+                            <FileText size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {filtered.length === 0 && (
+          <div className="rounded-3xl border border-dashed border-slate-700 bg-slate-900/60 px-5 py-12 text-center">
+            <FileText
+              size={30}
+              className="mx-auto text-slate-600"
+            />
+            <p className="mt-3 font-black text-white">
+              Nema pronađenih računa
+            </p>
+          </div>
         )}
       </section>
 
-      {selectedInvoice && (
-        <div className="fixed inset-0 z-[120] flex items-end bg-black/75 backdrop-blur-sm sm:items-center sm:justify-center sm:p-4">
-          <button
-            type="button"
-            className="absolute inset-0 cursor-default"
-            onClick={() =>
-              setSelectedInvoiceId(
-                null,
-              )
-            }
-            aria-label="Zatvori"
-          />
-
-          <aside className="relative z-10 max-h-[92dvh] w-full overflow-y-auto rounded-t-[2rem] border-t border-slate-700 bg-slate-950 p-4 pb-8 shadow-2xl sm:max-w-xl sm:rounded-3xl sm:border sm:p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
-                  {
-                    selectedInvoice.invoiceNumber
-                  }
+      {selected && (
+        <div
+          className="fixed inset-0 z-[140] flex items-end bg-black/75 pt-[var(--fersys-safe-top)] backdrop-blur-sm sm:items-center sm:justify-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Pregled računa"
+        >
+          <div className="flex max-h-[calc(100dvh-var(--fersys-safe-top))] w-full flex-col overflow-hidden rounded-t-[2rem] border-t border-slate-700 bg-slate-900 sm:max-w-xl sm:rounded-3xl sm:border">
+            <div className="flex items-center justify-between border-b border-slate-800 p-4">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wide text-violet-400">
+                  {selected.invoiceNumber}
                 </p>
-
-                <h2 className="mt-1 truncate text-2xl font-black text-white">
-                  {
-                    selectedInvoice.customerName
-                  }
+                <h2 className="mt-1 text-xl font-black text-white">
+                  {selected.customerName}
                 </h2>
-
-                <p className="mt-2 text-sm text-slate-400">
-                  Izdano{' '}
-                  {formatDate(
-                    selectedInvoice.issueDate,
-                  )}
-                </p>
               </div>
 
               <button
@@ -1317,120 +976,64 @@ export function InvoicesPage() {
                     null,
                   )
                 }
-                className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-400"
+                className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-white"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
-                  Status
-                </p>
-
-                <span
-                  className={`mt-2 inline-flex rounded-full border px-3 py-1 text-xs font-black ${statusStyles[selectedInvoice.status]}`}
-                >
-                  {
-                    selectedInvoice.status
-                  }
-                </span>
-              </div>
-
-              <div className="rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
-                <p className="text-[10px] font-black uppercase tracking-wider text-violet-300">
-                  Ukupno
-                </p>
-
-                <p className="mt-2 text-lg font-black text-white">
-                  {formatCurrency(
+            <div className="min-h-0 flex-1 overflow-y-auto p-4">
+              <div className="grid grid-cols-2 gap-3">
+                <Info
+                  label="Datum"
+                  value={dateText(
+                    selected.issueDate,
+                  )}
+                />
+                <Info
+                  label="Dospijeće"
+                  value={dateText(
+                    selected.dueDate,
+                  )}
+                />
+                <Info
+                  label="Status"
+                  value={selected.status}
+                />
+                <Info
+                  label="Ukupno"
+                  value={money(
                     invoiceTotal(
-                      selectedInvoice,
+                      selected,
                     ),
                   )}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 space-y-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <DetailRow
-                label="Dospijeće"
-                value={formatDate(
-                  selectedInvoice.dueDate,
-                )}
-              />
-
-              <DetailRow
-                label="OIB investitora"
-                value={
-                  selectedInvoice.oib ||
-                  '—'
-                }
-              />
-
-              <DetailRow
-                label="E-mail"
-                value={
-                  selectedInvoice.email ||
-                  '—'
-                }
-              />
-
-              <DetailRow
-                label="Način plaćanja"
-                value={
-                  selectedInvoice.paymentMethod
-                }
-              />
-            </div>
-
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  downloadInvoicePdf(
-                    selectedInvoice,
-                  )
-                }
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white"
-              >
-                <Eye size={17} />
-                PDF
-              </button>
-
-              <button
-                type="button"
-                onClick={() =>
-                  navigate(
-                    `/invoices/${selectedInvoice.id}/edit`,
-                  )
-                }
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white"
-              >
-                <Pencil
-                  size={17}
                 />
-                Uredi
-              </button>
+              </div>
 
-              {selectedInvoice.status !==
+              <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-800/55 p-4 text-sm leading-6 text-slate-300">
+                {selected.description ||
+                  'Bez dodatnog opisa.'}
+              </p>
+            </div>
+
+            <div className="grid shrink-0 grid-cols-2 gap-2 border-t border-slate-800 bg-slate-900 p-3 pb-[max(0.75rem,var(--fersys-safe-bottom))]">
+              {selected.status !==
                 'Plaćeno' &&
-                selectedInvoice.status !==
+                selected.status !==
                   'Stornirano' && (
                   <button
                     type="button"
                     onClick={() =>
-                      markPaid(
-                        selectedInvoice,
+                      void markPaid(
+                        selected,
                       )
                     }
-                    className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 text-sm font-black text-white"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white"
                   >
                     <CheckCircle2
-                      size={17}
+                      size={16}
                     />
-                    Označi kao plaćeno
+                    Plaćeno
                   </button>
                 )}
 
@@ -1438,104 +1041,76 @@ export function InvoicesPage() {
                 type="button"
                 onClick={() =>
                   navigate(
-                    `/invoices/new?duplicate=${selectedInvoice.id}`,
+                    `/invoices/${selected.id}/edit`,
                   )
                 }
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-700 px-4 text-sm font-black text-slate-300"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
               >
-                <Copy size={17} />
-                Dupliciraj
+                <Pencil size={16} />
+                Uredi
               </button>
 
               <button
                 type="button"
                 onClick={() =>
-                  removeInvoice(
-                    selectedInvoice,
+                  void duplicateInvoice(
+                    selected,
                   )
                 }
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-red-400/20 bg-red-500/10 px-4 text-sm font-black text-red-300"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
               >
-                <Trash2
-                  size={17}
-                />
+                <Copy size={16} />
+                Dupliraj
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  void removeInvoice(
+                    selected,
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-red-500/10 px-3 text-xs font-black text-red-300"
+              >
+                <Trash2 size={16} />
                 Obriši
               </button>
             </div>
-          </aside>
+          </div>
         </div>
       )}
-    </section>
+    </>
   )
 }
 
-function MetricButton({
+function Metric({
   label,
   value,
-  active,
-  onClick,
-}: {
-  label: string
-  value: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`min-w-0 rounded-2xl border px-2 py-3 text-center transition active:scale-[0.98] ${
-        active
-          ? 'border-violet-500/40 bg-violet-500/10'
-          : 'border-white/5 bg-white/[0.035]'
-      }`}
-    >
-      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500 sm:text-xs">
-        {label}
-      </p>
-
-      <p className="mt-1 text-xl font-black text-white sm:text-2xl">
-        {value}
-      </p>
-    </button>
-  )
-}
-
-function SummaryCard({
-  label,
-  value,
-  danger = false,
+  compact = false,
 }: {
   label: string
   value: string
-  danger?: boolean
+  compact?: boolean
 }) {
   return (
-    <div
-      className={`rounded-2xl border p-4 ${
-        danger
-          ? 'border-red-500/20 bg-red-500/10'
-          : 'border-slate-800 bg-slate-900'
-      }`}
-    >
+    <div className="min-w-0 rounded-2xl border border-white/5 bg-white/[0.035] px-2 py-3 text-center">
+      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
       <p
-        className={`text-[10px] font-black uppercase tracking-wide ${
-          danger
-            ? 'text-red-300'
-            : 'text-slate-500'
+        className={`mt-1 truncate font-black text-white ${
+          compact
+            ? 'text-[10px] sm:text-sm'
+            : 'text-xl'
         }`}
       >
-        {label}
-      </p>
-
-      <p className="mt-2 truncate text-lg font-black text-white sm:text-xl">
         {value}
       </p>
     </div>
   )
 }
 
-function SmallInfo({
+function Info({
   label,
   value,
 }: {
@@ -1543,34 +1118,15 @@ function SmallInfo({
   value: string
 }) {
   return (
-    <div className="min-w-0 rounded-2xl bg-slate-950/50 p-3">
-      <p className="truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
+    <div className="rounded-2xl bg-slate-800/55 p-3">
+      <p className="text-[10px] font-black uppercase tracking-wide text-slate-600">
         {label}
       </p>
-
-      <p className="mt-1 truncate text-[11px] font-black text-white">
+      <p className="mt-1 truncate text-xs font-black text-white">
         {value}
       </p>
     </div>
   )
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
-  return (
-    <div className="flex items-start justify-between gap-4 text-sm">
-      <span className="text-slate-500">
-        {label}
-      </span>
-
-      <strong className="max-w-[62%] break-words text-right text-white">
-        {value}
-      </strong>
-    </div>
-  )
-}
+export default InvoicesPage

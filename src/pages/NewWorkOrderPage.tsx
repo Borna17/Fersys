@@ -617,6 +617,384 @@ export function NewWorkOrderPage() {
   }, [])
 
   useEffect(() => {
+    if (
+      !draftReady ||
+      isLoadingCustomers
+    ) {
+      return
+    }
+
+    const raw =
+      sessionStorage.getItem(
+        'fersys_ai_work_order_prefill',
+      )
+
+    if (!raw) {
+      return
+    }
+
+    try {
+      const value =
+        JSON.parse(raw) as
+          Record<string, unknown>
+
+      const text = (
+        key: string,
+      ) =>
+        typeof value[key] ===
+        'string'
+          ? String(
+              value[key],
+            ).trim()
+          : ''
+
+      const customerCandidateId =
+        text('customerId')
+
+      const customerCandidateName =
+        text('customerName') ||
+        text('customer') ||
+        text('investorName')
+
+      const matchedCustomer =
+        customers.find(
+          (customer) =>
+            customerCandidateId &&
+            customer.id ===
+              customerCandidateId,
+        ) ??
+        customers.find(
+          (customer) =>
+            customerCandidateName &&
+            customer.name
+              .trim()
+              .toLocaleLowerCase(
+                'hr-HR',
+              ) ===
+              customerCandidateName
+                .trim()
+                .toLocaleLowerCase(
+                  'hr-HR',
+                ),
+        )
+
+      if (matchedCustomer) {
+        handleCustomerChange(
+          matchedCustomer.id,
+        )
+      } else if (
+        customerCandidateName
+      ) {
+        setCustomerSearch(
+          customerCandidateName,
+        )
+      }
+
+      const nextTitle =
+        text('title') ||
+        text('workOrderTitle')
+
+      const nextDescription =
+        text('description') ||
+        text('workDescription') ||
+        text('notes')
+
+      const nextAddress =
+        text('address') ||
+        text('location')
+
+      const nextDate =
+        text('date')
+
+      const nextArrival =
+        text('arrivalTime') ||
+        text('startTime')
+
+      const nextDeparture =
+        text('departureTime') ||
+        text('endTime')
+
+      const nextPriority =
+        text('priority')
+
+      const nextStatus =
+        text('status')
+
+      const nextInvestorName =
+        text('investorName') ||
+        text('contactPerson')
+
+      if (nextTitle) {
+        setTitle(nextTitle)
+      }
+
+      if (nextDescription) {
+        setDescription(
+          nextDescription,
+        )
+      }
+
+      if (nextAddress) {
+        setAddress(
+          nextAddress,
+        )
+      }
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(
+          nextDate,
+        )
+      ) {
+        setDate(nextDate)
+      }
+
+      if (
+        /^\d{2}:\d{2}$/.test(
+          nextArrival,
+        )
+      ) {
+        setArrivalTime(
+          nextArrival,
+        )
+      }
+
+      if (
+        /^\d{2}:\d{2}$/.test(
+          nextDeparture,
+        )
+      ) {
+        setDepartureTime(
+          nextDeparture,
+        )
+      }
+
+      if (
+        [
+          'Nizak',
+          'Normalan',
+          'Visok',
+          'Hitno',
+        ].includes(
+          nextPriority,
+        )
+      ) {
+        setPriority(
+          nextPriority as
+            WorkOrderPriority,
+        )
+      }
+
+      if (
+        [
+          'Novi',
+          'Zakazan',
+          'U tijeku',
+          'Završen',
+          'Otkazan',
+        ].includes(
+          nextStatus,
+        )
+      ) {
+        setStatus(
+          nextStatus as
+            WorkOrderStatus,
+        )
+      }
+
+      const rawWorkers =
+        value.assignedWorkers ??
+        value.workers
+
+      if (
+        Array.isArray(rawWorkers)
+      ) {
+        const nextWorkers =
+          rawWorkers
+            .filter(
+              (
+                worker,
+              ): worker is string =>
+                typeof worker ===
+                'string',
+            )
+            .map((worker) =>
+              worker.trim(),
+            )
+            .filter(Boolean)
+
+        if (
+          nextWorkers.length
+        ) {
+          setAssignedWorkers(
+            nextWorkers,
+          )
+        }
+      }
+
+      if (
+        Array.isArray(
+          value.materials,
+        )
+      ) {
+        const nextMaterials =
+          value.materials
+            .map(
+              (
+                material,
+              ): WorkOrderMaterial | null => {
+                if (
+                  !material ||
+                  typeof material !==
+                    'object'
+                ) {
+                  return null
+                }
+
+                const source =
+                  material as Record<
+                    string,
+                    unknown
+                  >
+
+                const name =
+                  typeof source.name ===
+                  'string'
+                    ? source.name.trim()
+                    : ''
+
+                if (!name) {
+                  return null
+                }
+
+                return {
+                  id:
+                    crypto.randomUUID(),
+                  name,
+                  quantity:
+                    Math.max(
+                      0,
+                      Number(
+                        source.quantity,
+                      ) || 1,
+                    ),
+                  unit:
+                    typeof source.unit ===
+                      'string' &&
+                    source.unit.trim()
+                      ? source.unit.trim()
+                      : 'kom',
+                  unitPrice:
+                    canViewPrices
+                      ? Math.max(
+                          0,
+                          Number(
+                            source.unitPrice ??
+                              source.price,
+                          ) || 0,
+                        )
+                      : 0,
+                }
+              },
+            )
+            .filter(
+              (
+                material,
+              ): material is WorkOrderMaterial =>
+                material !== null,
+            )
+
+        if (
+          nextMaterials.length
+        ) {
+          setMaterials(
+            nextMaterials,
+          )
+        }
+      }
+
+      if (
+        canViewPrices
+      ) {
+        const nextLabourPrice =
+          Number(
+            value.labourPrice ??
+              value.price,
+          )
+
+        const nextVat =
+          Number(
+            value.vatRate ??
+              value.vat,
+          )
+
+        if (
+          Number.isFinite(
+            nextLabourPrice,
+          ) &&
+          nextLabourPrice >= 0
+        ) {
+          setLabourPrice(
+            String(
+              nextLabourPrice,
+            ),
+          )
+        }
+
+        if (
+          Number.isFinite(
+            nextVat,
+          ) &&
+          nextVat >= 0 &&
+          nextVat <= 100
+        ) {
+          setVatRate(
+            String(nextVat),
+          )
+        }
+
+        const nextPriceNote =
+          text('priceNote')
+
+        if (nextPriceNote) {
+          setPriceNote(
+            nextPriceNote,
+          )
+        }
+      }
+
+      if (
+        nextInvestorName &&
+        !matchedCustomer
+      ) {
+        setInvestorName(
+          nextInvestorName,
+        )
+      }
+
+      setAutosaveState(
+        'restored',
+      )
+      setAutosaveText(
+        'FERSYS AI je pripremio radni nalog. Provjeri podatke prije spremanja.',
+      )
+    } catch (error) {
+      console.error(
+        'AI priprema radnog naloga nije učitana:',
+        error,
+      )
+    } finally {
+      sessionStorage.removeItem(
+        'fersys_ai_work_order_prefill',
+      )
+    }
+  }, [
+    draftReady,
+    isLoadingCustomers,
+    customers,
+    canViewPrices,
+  ])
+
+  useEffect(() => {
     if (!draftReady) {
       return
     }
@@ -2098,6 +2476,7 @@ export function NewWorkOrderPage() {
                         type="number"
                         min="0"
                         step="0.01"
+                        inputMode="decimal"
                         value={
                           material.quantity
                         }
@@ -2138,9 +2517,13 @@ export function NewWorkOrderPage() {
                           type="number"
                           min="0"
                           step="0.01"
+                          inputMode="decimal"
                           value={
-                            material.unitPrice
+                            material.unitPrice === 0
+                              ? ''
+                              : material.unitPrice
                           }
+                          placeholder="0,00"
                           onChange={(event) =>
                             updateMaterial(
                               material.id,
@@ -2150,7 +2533,7 @@ export function NewWorkOrderPage() {
                               ),
                             )
                           }
-                          className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                          className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none placeholder:text-slate-600"
                         />
                       </MiniInput>
                     )}
@@ -2174,7 +2557,13 @@ export function NewWorkOrderPage() {
                     type="number"
                     min="0"
                     step="0.01"
-                    value={labourPrice}
+                    inputMode="decimal"
+                    value={
+                      labourPrice === '0'
+                        ? ''
+                        : labourPrice
+                    }
+                    placeholder="0,00"
                     onChange={(event) =>
                       setLabourPrice(
                         event.target.value,
@@ -2194,6 +2583,7 @@ export function NewWorkOrderPage() {
                   type="number"
                   min="0"
                   max="100"
+                  inputMode="decimal"
                   value={vatRate}
                   onChange={(event) =>
                     setVatRate(
@@ -2495,7 +2885,7 @@ export function NewWorkOrderPage() {
         )}
       </form>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.65rem+env(safe-area-inset-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-[calc(4.65rem+var(--fersys-safe-bottom))] z-40 border-t border-slate-800 bg-slate-950/95 p-3 backdrop-blur-xl md:hidden">
         <button
           type="submit"
           form="mobile-work-order-form"
