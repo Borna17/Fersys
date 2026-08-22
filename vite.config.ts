@@ -46,6 +46,7 @@ export default defineConfig({
           'productivity',
           'utilities',
         ],
+
         icons: [
           {
             src: '/pwa-192x192.png',
@@ -66,6 +67,7 @@ export default defineConfig({
             purpose: 'maskable',
           },
         ],
+
         shortcuts: [
           {
             name: 'Novi radni nalog',
@@ -121,8 +123,16 @@ export default defineConfig({
         navigateFallback:
           '/index.html',
 
+        /*
+         * V3:
+         * Ne precacheamo sve lazy JS module.
+         * Time prvi PWA install/deploy ne povlači cijelu aplikaciju.
+         *
+         * JS se sprema kroz runtime cache tek kada je modul
+         * stvarno potreban korisniku.
+         */
         globPatterns: [
-          '**/*.{js,css,html,ico,png,svg,webp,woff,woff2}',
+          '**/*.{html,css,ico,png,svg,webp,woff,woff2}',
         ],
 
         runtimeCaching: [
@@ -133,17 +143,12 @@ export default defineConfig({
               request.mode ===
               'navigate',
 
-            /*
-             * Instant PWA shell:
-             * prvo koristi lokalni cache, a novu verziju
-             * provjerava u pozadini.
-             */
             handler:
               'StaleWhileRevalidate',
 
             options: {
               cacheName:
-                'fersys-pages-v2',
+                'fersys-pages-v3',
 
               expiration: {
                 maxEntries: 30,
@@ -168,6 +173,44 @@ export default defineConfig({
               request,
             }) =>
               request.destination ===
+                'script' ||
+              request.destination ===
+                'worker',
+
+            /*
+             * Chunk se preuzme samo prvi put kada ga ruta/funkcija
+             * stvarno zatraži. Sljedeći put dolazi iz cachea.
+             */
+            handler:
+              'StaleWhileRevalidate',
+
+            options: {
+              cacheName:
+                'fersys-js-v3',
+
+              expiration: {
+                maxEntries: 160,
+                maxAgeSeconds:
+                  60 *
+                  60 *
+                  24 *
+                  14,
+              },
+
+              cacheableResponse: {
+                statuses: [
+                  0,
+                  200,
+                ],
+              },
+            },
+          },
+
+          {
+            urlPattern: ({
+              request,
+            }) =>
+              request.destination ===
               'image',
 
             handler:
@@ -175,10 +218,10 @@ export default defineConfig({
 
             options: {
               cacheName:
-                'fersys-images',
+                'fersys-images-v3',
 
               expiration: {
-                maxEntries: 100,
+                maxEntries: 120,
                 maxAgeSeconds:
                   60 *
                   60 *
@@ -207,7 +250,7 @@ export default defineConfig({
 
             options: {
               cacheName:
-                'fersys-fonts',
+                'fersys-fonts-v3',
 
               expiration: {
                 maxEntries: 30,
@@ -236,76 +279,119 @@ export default defineConfig({
   ],
 
   build: {
+    /*
+     * Ostavimo stvarni prag na 500 KB.
+     * Ako ponovno nastane veliki chunk, želimo ga vidjeti.
+     */
+    chunkSizeWarningLimit: 500,
+
     rolldownOptions: {
+      /*
+       * Ova dva slučaja u AI engineu su već provjerena:
+       * modul je namjerno statički korišten i na drugim mjestima,
+       * pa dynamic import ne može stvoriti zaseban chunk.
+       *
+       * Ne isključujemo nikakva upozorenja o veličini bundlea.
+       */
+      checks: {
+        ineffectiveDynamicImport:
+          false,
+      },
+
       output: {
+        /*
+         * V3:
+         * NEMA više catch-all "vendor" grupe.
+         *
+         * Ona je povezivala velik broj lazy routeova u jedan
+         * golemi zajednički chunk. Sada Rolldown sam zadržava
+         * application-level code splitting, a mi ručno izdvajamo
+         * samo stvarno velike i stabilne third-party biblioteke.
+         */
         codeSplitting: {
           groups: [
             {
-              name: 'react-core',
+              name:
+                'react-core',
               test:
                 /node_modules[\\/](react|react-dom|react-router|react-router-dom)[\\/]/,
-              priority: 100,
+              priority: 120,
             },
+
             {
-              name: 'supabase',
+              name:
+                'supabase',
               test:
-                /node_modules[\\/](@supabase)[\\/]/,
-              priority: 90,
+                /node_modules[\\/]@supabase[\\/]/,
+              priority: 110,
             },
+
             {
-              name: 'firebase',
+              name:
+                'firebase',
               test:
                 /node_modules[\\/](firebase|@firebase)[\\/]/,
-              priority: 90,
+              priority: 110,
+              maxSize:
+                240 * 1024,
             },
+
             {
-              name: 'jspdf',
+              name:
+                'jspdf',
               test:
                 /node_modules[\\/]jspdf[\\/]/,
-              priority: 85,
+              priority: 100,
+              maxSize:
+                240 * 1024,
             },
+
             {
-              name: 'html2canvas',
+              name:
+                'html2canvas',
               test:
                 /node_modules[\\/]html2canvas[\\/]/,
-              priority: 85,
+              priority: 100,
+              maxSize:
+                240 * 1024,
             },
+
             {
-              name: 'pdf-support',
+              name:
+                'pdf-support',
               test:
                 /node_modules[\\/](canvg|dompurify|fflate)[\\/]/,
-              priority: 80,
+              priority: 95,
               maxSize:
                 220 * 1024,
             },
+
             {
-              name: 'excel-tools',
+              name:
+                'excel-tools',
               test:
                 /node_modules[\\/]xlsx[\\/]/,
-              priority: 80,
+              priority: 95,
+              maxSize:
+                260 * 1024,
             },
+
             {
-              name: 'icons',
-              test:
-                /node_modules[\\/]lucide-react[\\/]/,
-              priority: 70,
-            },
-            {
-              name: 'qr-tools',
+              name:
+                'qr-tools',
               test:
                 /node_modules[\\/]qrcode[\\/]/,
-              priority: 70,
+              priority: 90,
             },
+
             {
-              name: 'vendor',
+              name:
+                'icons',
               test:
-                /node_modules[\\/]/,
-              entriesAware: true,
-              entriesAwareMergeThreshold:
-                20 * 1024,
+                /node_modules[\\/]lucide-react[\\/]/,
+              priority: 80,
               maxSize:
-                220 * 1024,
-              priority: 10,
+                180 * 1024,
             },
           ],
         },
