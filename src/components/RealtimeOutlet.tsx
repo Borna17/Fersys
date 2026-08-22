@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
+import BusinessFlowActions from './BusinessFlowActions'
 
 const BLOCKED_REFRESH_PATHS =
   /\/new(?:\/|$)|\/edit(?:\/|$)/
@@ -81,8 +82,12 @@ export default function RealtimeOutlet() {
   }, [canRefresh, companyId])
 
   return (
-    <Outlet
-      key={`${location.pathname}:${version}`}
-    />
+    <>
+      <BusinessFlowActions />
+
+      <Outlet
+        key={`${location.pathname}:${version}`}
+      />
+    </>
   )
 }

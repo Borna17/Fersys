@@ -34,6 +34,7 @@ import {
   getInvoices as getCloudInvoices,
   updateInvoice as updateCloudInvoice,
 } from '../services/invoices.service'
+import { updateOffer } from '../services/offers.service'
 
 type InvoiceStatus =
   | 'Nacrt'
@@ -92,6 +93,7 @@ type Invoice = {
   paidAmount: number
   version: number
   sourceOfferId?: string
+  sourceWorkOrderId?: string
   history: InvoiceHistoryItem[]
 }
 
@@ -124,6 +126,7 @@ type StoredOffer = {
 
 const STORAGE_KEY = 'fersys_invoices'
 const OFFERS_STORAGE_KEY = 'fersys_offers'
+const FLOW_PREFILL_KEY = 'fersys_invoice_prefill'
 
 const unitOptions = [
   'kom',
@@ -266,6 +269,11 @@ export function NewInvoicePage() {
   const [autosaveText, setAutosaveText] = useState('')
   const [draftReady, setDraftReady] = useState(false)
 
+  const [prefillSourceOfferId, setPrefillSourceOfferId] =
+    useState('')
+  const [prefillSourceWorkOrderId, setPrefillSourceWorkOrderId] =
+    useState('')
+
   const storedInvoices = useMemo(() => readInvoices(), [])
   const storedOffers = useMemo(() => readOffers(), [])
 
@@ -399,7 +407,15 @@ export function NewInvoicePage() {
   }, [])
 
   useEffect(() => {
-    if (isEditing || isDuplicating || sourceOffer) {
+    const hasFlowPrefill =
+      Boolean(sessionStorage.getItem(FLOW_PREFILL_KEY))
+
+    if (
+      isEditing ||
+      isDuplicating ||
+      sourceOffer ||
+      hasFlowPrefill
+    ) {
       setDraftReady(true)
       return
     }
@@ -464,6 +480,218 @@ export function NewInvoicePage() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!draftReady || isEditing || isDuplicating || sourceOffer) {
+      return
+    }
+
+    const raw =
+      sessionStorage.getItem(FLOW_PREFILL_KEY)
+
+    if (!raw) {
+      return
+    }
+
+    try {
+      const value =
+        JSON.parse(raw) as Record<string, unknown>
+
+      const text = (key: string) =>
+        typeof value[key] === 'string'
+          ? String(value[key]).trim()
+          : ''
+
+      const nextCustomerType =
+        text('customerType')
+
+      if (
+        nextCustomerType === 'Fizička osoba' ||
+        nextCustomerType === 'Tvrtka' ||
+        nextCustomerType === 'Zgrada'
+      ) {
+        setCustomerType(nextCustomerType)
+      }
+
+      const nextCustomerName =
+        text('customerName')
+
+      if (nextCustomerName) {
+        setCustomerName(nextCustomerName)
+        setCustomerSearch(nextCustomerName)
+      }
+
+      setOib(text('oib'))
+      setEmail(text('email'))
+      setPhone(text('phone'))
+      setAddress(text('address'))
+
+      const nextCity =
+        text('city')
+
+      if (nextCity) {
+        setCity(nextCity)
+      }
+
+      const nextResponsiblePerson =
+        text('responsiblePerson')
+
+      if (nextResponsiblePerson) {
+        setResponsiblePerson(nextResponsiblePerson)
+      }
+
+      const nextDescription =
+        text('description')
+
+      if (nextDescription) {
+        setDescription(nextDescription)
+      }
+
+      const nextInternalNote =
+        text('internalNote')
+
+      if (nextInternalNote) {
+        setInternalNote(nextInternalNote)
+      }
+
+      const nextServiceDate =
+        text('serviceDate')
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(nextServiceDate)
+      ) {
+        setServiceDate(nextServiceDate)
+      }
+
+      const nextDueDate =
+        text('dueDate')
+
+      if (
+        /^\d{4}-\d{2}-\d{2}$/.test(nextDueDate)
+      ) {
+        setDueDate(nextDueDate)
+      }
+
+      const nextPaymentMethod =
+        text('paymentMethod')
+
+      if (nextPaymentMethod) {
+        setPaymentMethod(nextPaymentMethod)
+      }
+
+      const nextIban =
+        text('iban')
+
+      if (nextIban) {
+        setIban(nextIban)
+      }
+
+      if (Array.isArray(value.items)) {
+        const nextItems =
+          value.items
+            .map((rawItem) => {
+              if (
+                !rawItem ||
+                typeof rawItem !== 'object'
+              ) {
+                return null
+              }
+
+              const item =
+                rawItem as Record<string, unknown>
+
+              const name =
+                typeof item.name === 'string'
+                  ? item.name.trim()
+                  : ''
+
+              if (!name) {
+                return null
+              }
+
+              return {
+                id: createId('invoice-item'),
+                name,
+                description:
+                  typeof item.description === 'string'
+                    ? item.description.trim()
+                    : '',
+                quantity:
+                  Math.max(
+                    0.01,
+                    Number(item.quantity) || 1,
+                  ),
+                unit:
+                  typeof item.unit === 'string' &&
+                  item.unit.trim()
+                    ? item.unit.trim()
+                    : 'kom',
+                price:
+                  Math.max(
+                    0,
+                    Number(
+                      item.price ??
+                        item.unitPrice,
+                    ) || 0,
+                  ),
+                discount:
+                  Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Number(item.discount) || 0,
+                    ),
+                  ),
+                vat:
+                  Math.min(
+                    100,
+                    Math.max(
+                      0,
+                      Number(
+                        item.vat ??
+                          item.vatRate,
+                      ) || 0,
+                    ),
+                  ),
+              } satisfies InvoiceItem
+            })
+            .filter(
+              (item): item is InvoiceItem =>
+                item !== null,
+            )
+
+        if (nextItems.length) {
+          setItems(nextItems)
+        }
+      }
+
+      setPrefillSourceOfferId(
+        text('sourceOfferId'),
+      )
+      setPrefillSourceWorkOrderId(
+        text('sourceWorkOrderId'),
+      )
+
+      setAutosaveState('restored')
+      setAutosaveText(
+        'Podaci su preneseni iz povezanog FERSYS dokumenta. Provjeri ih prije izdavanja.',
+      )
+    } catch (error) {
+      console.error(
+        'Prijenos podataka u račun nije uspio:',
+        error,
+      )
+    } finally {
+      sessionStorage.removeItem(
+        FLOW_PREFILL_KEY,
+      )
+    }
+  }, [
+    draftReady,
+    isEditing,
+    isDuplicating,
+    sourceOffer,
+  ])
 
   useEffect(() => {
     if (!draftReady || isEditing || isDuplicating || sourceOffer) {
@@ -821,7 +1049,16 @@ export function NewInvoicePage() {
         ? (editingInvoice?.version ?? 1) + 1
         : 1,
       sourceOfferId:
-        editingInvoice?.sourceOfferId ?? sourceOffer?.id,
+        (
+          editingInvoice?.sourceOfferId ??
+          sourceOffer?.id ??
+          prefillSourceOfferId
+        ) || undefined,
+      sourceWorkOrderId:
+        (
+          editingInvoice?.sourceWorkOrderId ??
+          prefillSourceWorkOrderId
+        ) || undefined,
       history: [
         ...(editingInvoice?.history ?? []),
         {
@@ -893,6 +1130,29 @@ export function NewInvoicePage() {
 
       savedInvoice.id =
         cloudInvoice.id
+
+      const linkedOfferId =
+        savedInvoice.sourceOfferId?.trim()
+
+      if (
+        !isEditing &&
+        linkedOfferId
+      ) {
+        try {
+          await updateOffer(
+            linkedOfferId,
+            {
+              invoiceId:
+                cloudInvoice.id,
+            },
+          )
+        } catch (linkError) {
+          console.warn(
+            'Račun je spremljen, ali veza s ponudom nije osvježena:',
+            linkError,
+          )
+        }
+      }
     } catch (error) {
       console.error(
         'Račun nije spremljen u cloud:',
@@ -964,9 +1224,11 @@ export function NewInvoicePage() {
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-violet-400">
                 {isEditing
                   ? 'UREĐIVANJE RAČUNA'
-                  : sourceOffer
+                  : sourceOffer || prefillSourceOfferId
                     ? 'RAČUN IZ PONUDE'
-                    : isDuplicating
+                    : prefillSourceWorkOrderId
+                      ? 'RAČUN IZ RADNOG NALOGA'
+                      : isDuplicating
                       ? 'KOPIJA RAČUNA'
                       : 'NOVI RAČUN'}
               </p>
@@ -1038,6 +1300,14 @@ export function NewInvoicePage() {
             </button>
           </div>
         </section>
+
+        {(prefillSourceOfferId ||
+          prefillSourceWorkOrderId) && (
+          <div className="rounded-2xl border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-sm font-bold text-blue-200">
+            Podaci su preneseni iz povezanog dokumenta. Provjeri investitora,
+            stavke, cijene, PDV i datume prije spremanja računa.
+          </div>
+        )}
 
         {saveMessage && (
           <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-black text-emerald-200">
