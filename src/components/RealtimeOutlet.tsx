@@ -9,8 +9,12 @@ import {
   useLocation,
 } from 'react-router'
 
-import { useAuth } from '../auth/AuthProvider'
-import { supabase } from '../lib/supabase'
+import {
+  useAuth,
+} from '../auth/AuthProvider'
+import {
+  supabase,
+} from '../lib/supabase'
 import BusinessAlerts from './BusinessAlerts'
 import BusinessFlowActions from './BusinessFlowActions'
 import DailyBriefPanel from './DailyBriefPanel'
@@ -25,17 +29,6 @@ import WorkOrderFieldMode from './WorkOrderFieldMode'
 const BLOCKED_REFRESH_PATHS =
   /\/new(?:\/|$)|\/edit(?:\/|$)/
 
-const DASHBOARD_TABLES = [
-  'customers',
-  'work_orders',
-  'offers',
-  'invoices',
-  'company_members',
-  'employees',
-  'calendar_events',
-  'inventory_items',
-] as const
-
 function tablesForPath(
   pathname: string,
 ): string[] {
@@ -45,7 +38,10 @@ function tablesForPath(
     pathname === '/'
   ) {
     return [
-      ...DASHBOARD_TABLES,
+      'customers',
+      'work_orders',
+      'offers',
+      'company_members',
     ]
   }
 
@@ -54,7 +50,9 @@ function tablesForPath(
       '/customers',
     )
   ) {
-    return ['customers']
+    return [
+      'customers',
+    ]
   }
 
   if (
@@ -64,7 +62,6 @@ function tablesForPath(
   ) {
     return [
       'work_orders',
-      'customers',
     ]
   }
 
@@ -75,7 +72,6 @@ function tablesForPath(
   ) {
     return [
       'offers',
-      'customers',
     ]
   }
 
@@ -86,7 +82,6 @@ function tablesForPath(
   ) {
     return [
       'invoices',
-      'customers',
     ]
   }
 
@@ -113,37 +108,15 @@ function tablesForPath(
     ]
   }
 
-  if (
-    pathname.startsWith(
-      '/vehicles',
-    )
-  ) {
-    return [
-      'vehicles',
-      'vehicle_services',
-    ]
-  }
-
-  if (
-    pathname.startsWith(
-      '/settings/employees',
-    ) ||
-    pathname.startsWith(
-      '/employees',
-    )
-  ) {
-    return [
-      'company_members',
-      'employees',
-    ]
-  }
-
   return []
 }
 
 export default function RealtimeOutlet() {
-  const { membership } =
+  const {
+    membership,
+  } =
     useAuth()
+
   const location =
     useLocation()
 
@@ -157,9 +130,6 @@ export default function RealtimeOutlet() {
     useRef<number | null>(
       null,
     )
-
-  const pendingWhileHiddenRef =
-    useRef(false)
 
   const companyId =
     membership?.companyId ??
@@ -203,12 +173,12 @@ export default function RealtimeOutlet() {
         document.visibilityState !==
         'visible'
       ) {
-        pendingWhileHiddenRef.current =
-          true
         return
       }
 
-      if (timerRef.current) {
+      if (
+        timerRef.current
+      ) {
         window.clearTimeout(
           timerRef.current,
         )
@@ -222,7 +192,7 @@ export default function RealtimeOutlet() {
                 current + 1,
             )
           },
-          450,
+          800,
         )
     }
 
@@ -275,67 +245,16 @@ export default function RealtimeOutlet() {
       },
     )
 
-    channel.subscribe(
-      (status) => {
-        if (
-          status ===
-            'CHANNEL_ERROR' ||
-          status ===
-            'TIMED_OUT'
-        ) {
-          console.warn(
-            `[FERSYS] Realtime ${status} na ${location.pathname}`,
-          )
-        }
-      },
-    )
-
-    function onVisibility() {
-      if (
-        document.visibilityState ===
-          'visible' &&
-        pendingWhileHiddenRef.current
-      ) {
-        pendingWhileHiddenRef.current =
-          false
-        scheduleRefresh()
-      }
-    }
-
-    function onReconnect() {
-      scheduleRefresh()
-    }
-
-    document.addEventListener(
-      'visibilitychange',
-      onVisibility,
-    )
-
-    window.addEventListener(
-      'fersys:runtime-reconnected',
-      onReconnect,
-    )
+    channel.subscribe()
 
     return () => {
-      if (timerRef.current) {
+      if (
+        timerRef.current
+      ) {
         window.clearTimeout(
           timerRef.current,
         )
-        timerRef.current = null
       }
-
-      pendingWhileHiddenRef.current =
-        false
-
-      document.removeEventListener(
-        'visibilitychange',
-        onVisibility,
-      )
-
-      window.removeEventListener(
-        'fersys:runtime-reconnected',
-        onReconnect,
-      )
 
       void supabase.removeChannel(
         channel,

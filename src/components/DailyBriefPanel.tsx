@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react'
 import {
-  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -40,12 +39,15 @@ type PanelTab =
 const SNOOZE_KEY =
   'fersys-smart-follow-up-snoozed-v1'
 
-function tomorrowDate() {
+function dateKey(
+  offsetDays = 0,
+) {
   const date =
     new Date()
 
   date.setDate(
-    date.getDate() + 1,
+    date.getDate() +
+      offsetDays,
   )
 
   return new Intl.DateTimeFormat(
@@ -57,29 +59,16 @@ function tomorrowDate() {
   ).format(date)
 }
 
-function todayDate() {
-  return new Intl.DateTimeFormat(
-    'en-CA',
-    {
-      timeZone:
-        'Europe/Zagreb',
-    },
-  ).format(new Date())
-}
-
 function loadSnoozed() {
   try {
-    const parsed =
-      JSON.parse(
-        localStorage.getItem(
-          SNOOZE_KEY,
-        ) ?? '{}',
-      ) as Record<
-        string,
-        string
-      >
-
-    return parsed
+    return JSON.parse(
+      localStorage.getItem(
+        SNOOZE_KEY,
+      ) ?? '{}',
+    ) as Record<
+      string,
+      string
+    >
   } catch {
     return {} as Record<
       string,
@@ -96,7 +85,7 @@ function isSnoozed(
 
   return Boolean(
     until &&
-    until > todayDate(),
+    until > dateKey(),
   )
 }
 
@@ -107,7 +96,7 @@ function snoozeUntilTomorrow(
     loadSnoozed()
 
   current[id] =
-    tomorrowDate()
+    dateKey(1)
 
   localStorage.setItem(
     SNOOZE_KEY,
@@ -123,20 +112,46 @@ export default function DailyBriefPanel() {
   const navigate =
     useNavigate()
 
-  const [open, setOpen] =
+  const [
+    open,
+    setOpen,
+  ] =
     useState(false)
-  const [tab, setTab] =
+
+  const [
+    tab,
+    setTab,
+  ] =
     useState<PanelTab>(
       'today',
     )
-  const [loading, setLoading] =
+
+  const [
+    loading,
+    setLoading,
+  ] =
     useState(false)
-  const [error, setError] =
+
+  const [
+    error,
+    setError,
+  ] =
     useState('')
-  const [brief, setBrief] =
+
+  const [
+    loaded,
+    setLoaded,
+  ] =
+    useState(false)
+
+  const [
+    brief,
+    setBrief,
+  ] =
     useState<DailyBrief | null>(
       null,
     )
+
   const [
     followUps,
     setFollowUps,
@@ -181,6 +196,7 @@ export default function DailyBriefPanel() {
       setFollowUps(
         nextFollowUps,
       )
+      setLoaded(true)
     } catch (value) {
       setError(
         value instanceof Error
@@ -192,24 +208,13 @@ export default function DailyBriefPanel() {
     }
   }
 
-  useEffect(() => {
-    if (!isDashboard) {
-      setOpen(false)
-      return
+  async function openPanel() {
+    setOpen(true)
+
+    if (!loaded) {
+      await load()
     }
-
-    void load()
-  }, [isDashboard])
-
-  useEffect(() => {
-    document.body.style.overflow =
-      open ? 'hidden' : ''
-
-    return () => {
-      document.body.style.overflow =
-        ''
-    }
-  }, [open])
+  }
 
   if (!isDashboard) {
     return null
@@ -243,21 +248,14 @@ export default function DailyBriefPanel() {
       <button
         type="button"
         onClick={() =>
-          setOpen(true)
+          void openPanel()
         }
         className="fixed bottom-[calc(5.15rem+env(safe-area-inset-bottom))] right-3 z-[53] inline-flex h-11 items-center gap-2 rounded-2xl border border-violet-500/20 bg-slate-900/95 px-3.5 text-xs font-black text-white shadow-2xl shadow-black/40 backdrop-blur-xl active:scale-95 md:bottom-6 md:right-6"
       >
-        {loading ? (
-          <Loader2
-            size={17}
-            className="animate-spin text-violet-300"
-          />
-        ) : (
-          <Sparkles
-            size={17}
-            className="text-violet-300"
-          />
-        )}
+        <Sparkles
+          size={17}
+          className="text-violet-300"
+        />
 
         Dnevni pregled
 
@@ -295,14 +293,9 @@ export default function DailyBriefPanel() {
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-400">
                     FERSYS PREGLED
                   </p>
-
                   <h2 className="mt-1 text-xl font-black text-white">
                     Danas i sljedeći koraci
                   </h2>
-
-                  <p className="mt-1 text-xs leading-5 text-slate-500">
-                    FERSYS izdvaja ono što treba odraditi bez automatskog mijenjanja podataka.
-                  </p>
                 </div>
 
                 <button
@@ -313,67 +306,87 @@ export default function DailyBriefPanel() {
                     )
                   }
                   className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-400"
-                  aria-label="Zatvori"
                 >
                   <X size={19} />
                 </button>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-950/60 p-1">
-                <TabButton
-                  active={
-                    tab === 'today'
-                  }
-                  icon={
-                    <CalendarDays
-                      size={15}
-                    />
-                  }
-                  label="Danas"
-                  badge={
-                    attentionCount
-                  }
-                  onClick={() =>
-                    setTab(
-                      'today',
-                    )
-                  }
-                />
+              {!loading &&
+                loaded && (
+                <div className="mt-4 grid grid-cols-2 gap-2 rounded-2xl bg-slate-950/60 p-1">
+                  <TabButton
+                    active={
+                      tab ===
+                      'today'
+                    }
+                    icon={
+                      <CalendarDays
+                        size={15}
+                      />
+                    }
+                    label="Danas"
+                    badge={
+                      attentionCount
+                    }
+                    onClick={() =>
+                      setTab(
+                        'today',
+                      )
+                    }
+                  />
 
-                <TabButton
-                  active={
-                    tab ===
-                    'follow-up'
-                  }
-                  icon={
-                    <Sparkles
-                      size={15}
-                    />
-                  }
-                  label="Sljedeći koraci"
-                  badge={
-                    visibleFollowUps.length
-                  }
-                  onClick={() =>
-                    setTab(
-                      'follow-up',
-                    )
-                  }
-                />
-              </div>
+                  <TabButton
+                    active={
+                      tab ===
+                      'follow-up'
+                    }
+                    icon={
+                      <Sparkles
+                        size={15}
+                      />
+                    }
+                    label="Sljedeći koraci"
+                    badge={
+                      visibleFollowUps.length
+                    }
+                    onClick={() =>
+                      setTab(
+                        'follow-up',
+                      )
+                    }
+                  />
+                </div>
+              )}
             </header>
 
             <div className="min-h-0 flex-1 overflow-y-auto p-4">
               {loading ? (
                 <div className="grid min-h-56 place-items-center text-slate-500">
-                  <Loader2
-                    size={26}
-                    className="animate-spin"
-                  />
+                  <div className="text-center">
+                    <Loader2
+                      size={26}
+                      className="mx-auto animate-spin"
+                    />
+                    <p className="mt-3 text-xs">
+                      Učitavam detaljni pregled...
+                    </p>
+                  </div>
                 </div>
               ) : error ? (
                 <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300">
                   {error}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void load()
+                    }
+                    className="mt-3 flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
+                  >
+                    <RefreshCw
+                      size={14}
+                    />
+                    Pokušaj ponovno
+                  </button>
                 </div>
               ) : tab ===
                 'today' ? (
@@ -419,10 +432,11 @@ export default function DailyBriefPanel() {
                     snoozeUntilTomorrow(
                       id,
                     )
-
                     setFollowUps(
                       (current) =>
-                        [...current],
+                        [
+                          ...current,
+                        ],
                     )
                   }}
                 />
@@ -462,7 +476,6 @@ function TabButton({
       <span className="truncate">
         {label}
       </span>
-
       {badge > 0 && (
         <span className="grid h-5 min-w-5 place-items-center rounded-full bg-blue-600 px-1 text-[9px] text-white">
           {badge > 99
@@ -498,7 +511,6 @@ function TodayTab({
             brief.todayOrders
           }
         />
-
         <BriefMetric
           icon={
             <AlertTriangle
@@ -514,7 +526,6 @@ function TodayTab({
             0
           }
         />
-
         <BriefMetric
           icon={
             <Wrench
@@ -526,7 +537,6 @@ function TodayTab({
             brief.unfinishedOrders
           }
         />
-
         <BriefMetric
           icon={
             <FileText
@@ -538,7 +548,6 @@ function TodayTab({
             brief.waitingOffers
           }
         />
-
         <BriefMetric
           icon={
             <ReceiptText
@@ -563,7 +572,7 @@ function TodayTab({
       0 ? (
         <EmptyState
           title="Nema posebnih prioriteta"
-          text="Trenutno nema hitnih ili nezavršenih stavki koje bi izdvojio."
+          text="Trenutno nema hitnih ili nezavršenih stavki."
         />
       ) : (
         <div className="mt-3 space-y-2">
@@ -602,25 +611,6 @@ function FollowUpTab({
 }) {
   return (
     <>
-      <div className="rounded-2xl border border-violet-500/15 bg-violet-500/[0.06] p-4">
-        <div className="flex items-start gap-3">
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
-            <Sparkles
-              size={18}
-            />
-          </span>
-
-          <div>
-            <p className="text-sm font-black text-white">
-              FERSYS predlaže, ti odlučuješ
-            </p>
-            <p className="mt-1 text-[11px] leading-5 text-slate-500">
-              Ovdje nema automatskog slanja, izdavanja računa ni promjene statusa. Svaki prijedlog samo vodi na pravi dokument.
-            </p>
-          </div>
-        </div>
-      </div>
-
       <SectionHeader
         label={`${items.length} sljedećih koraka`}
         onRefresh={
@@ -632,17 +622,24 @@ function FollowUpTab({
       0 ? (
         <EmptyState
           title="Nema otvorenih follow-upa"
-          text="Ponude, završeni nalozi i računi trenutno nemaju očit sljedeći korak."
+          text="Trenutno nema očitog sljedećeg koraka."
         />
       ) : (
         <div className="mt-3 space-y-2">
           {items
-            .slice(0, 15)
+            .slice(
+              0,
+              15,
+            )
             .map(
               (item) => (
                 <FollowUpCard
-                  key={item.id}
-                  item={item}
+                  key={
+                    item.id
+                  }
+                  item={
+                    item
+                  }
                   onOpen={() =>
                     onOpen(
                       item.route,
@@ -674,60 +671,36 @@ function FollowUpCard({
 }) {
   const Icon =
     item.kind ===
-      'offer-to-work-order'
-      ? Wrench
+      'work-order-to-invoice' ||
+    item.kind ===
+      'invoice-due'
+      ? ReceiptText
       : item.kind ===
-          'work-order-to-invoice'
-        ? ReceiptText
-        : item.kind ===
-            'invoice-due'
-          ? ReceiptText
-          : FileText
-
-  const priorityClass =
-    item.priority ===
-      'high'
-      ? 'border-red-500/20 bg-red-500/[0.06]'
-      : item.priority ===
-          'medium'
-        ? 'border-amber-500/15 bg-amber-500/[0.04]'
-        : 'border-slate-800 bg-slate-950/55'
+          'offer-to-work-order'
+        ? Wrench
+        : FileText
 
   return (
-    <div
-      className={`rounded-2xl border p-3 ${priorityClass}`}
-    >
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/55 p-3">
       <div className="flex items-start gap-3">
-        <span
-          className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-            item.priority ===
-              'high'
-              ? 'bg-red-500/10 text-red-300'
-              : item.priority ===
-                  'medium'
-                ? 'bg-amber-500/10 text-amber-300'
-                : 'bg-blue-500/10 text-blue-300'
-          }`}
-        >
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
           <Icon size={18} />
         </span>
-
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black leading-5 text-white">
+          <p className="text-sm font-black text-white">
             {item.title}
           </p>
-
           <p className="mt-1 text-[11px] leading-5 text-slate-500">
             {item.description}
           </p>
         </div>
       </div>
 
-      <div className="mt-3 flex items-center gap-2">
+      <div className="mt-3 flex gap-2">
         <button
           type="button"
           onClick={onOpen}
-          className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-[11px] font-black text-white active:scale-[0.99]"
+          className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-3 text-[11px] font-black text-white"
         >
           {item.actionLabel}
           <ChevronRight
@@ -738,8 +711,7 @@ function FollowUpCard({
         <button
           type="button"
           onClick={onSnooze}
-          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-400 active:scale-[0.99]"
-          title="Sakrij ovaj prijedlog do sutra"
+          className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-400"
         >
           <Clock3
             size={13}
@@ -763,11 +735,10 @@ function SectionHeader({
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
       </p>
-
       <button
         type="button"
         onClick={onRefresh}
-        className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-400 active:scale-95"
+        className="inline-flex h-9 items-center gap-2 rounded-xl bg-slate-800 px-3 text-[10px] font-black text-slate-400"
       >
         <RefreshCw
           size={13}
@@ -795,7 +766,7 @@ function EmptyState({
         <p className="mt-3 font-black text-white">
           {title}
         </p>
-        <p className="mt-2 text-xs leading-5 text-slate-500">
+        <p className="mt-2 text-xs text-slate-500">
           {text}
         </p>
       </div>
@@ -831,12 +802,10 @@ function BriefMetric({
       >
         {icon}
       </span>
-
       <p className="mt-3 text-xl font-black text-white">
         {value}
       </p>
-
-      <p className="mt-1 truncate text-[9px] font-black uppercase tracking-wide text-slate-600">
+      <p className="mt-1 text-[9px] font-black uppercase text-slate-600">
         {label}
       </p>
     </div>
@@ -850,10 +819,6 @@ function BriefItemButton({
   item: DailyBriefItem
   onClick: () => void
 }) {
-  const urgent =
-    item.level ===
-    'urgent'
-
   const Icon =
     item.kind ===
       'work-order'
@@ -867,25 +832,11 @@ function BriefItemButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-[70px] w-full items-center gap-3 rounded-2xl border p-3 text-left transition active:scale-[0.99] ${
-        urgent
-          ? 'border-red-500/20 bg-red-500/[0.07]'
-          : 'border-slate-800 bg-slate-950/55'
-      }`}
+      className="flex min-h-[70px] w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/55 p-3 text-left"
     >
-      <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${
-          urgent
-            ? 'bg-red-500/10 text-red-300'
-            : item.level ===
-                'attention'
-              ? 'bg-amber-500/10 text-amber-300'
-              : 'bg-blue-500/10 text-blue-300'
-        }`}
-      >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
         <Icon size={18} />
       </span>
-
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-black text-white">
           {item.title}
@@ -893,10 +844,6 @@ function BriefItemButton({
         <span className="mt-1 block truncate text-[11px] text-slate-500">
           {item.description}
         </span>
-      </span>
-
-      <span className="text-slate-700">
-        →
       </span>
     </button>
   )
