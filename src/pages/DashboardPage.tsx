@@ -8,6 +8,7 @@ import {
   FileText,
   Package,
   Plus,
+  RefreshCw,
   Sparkles,
   Users,
   Wrench,
@@ -48,19 +49,23 @@ type DashboardData = {
 function localDate(
   date = new Date(),
 ) {
-  const year = date.getFullYear()
-  const month = String(
-    date.getMonth() + 1,
-  ).padStart(2, '0')
-  const day = String(
-    date.getDate(),
-  ).padStart(2, '0')
+  const year =
+    date.getFullYear()
+  const month =
+    String(
+      date.getMonth() + 1,
+    ).padStart(2, '0')
+  const day =
+    String(
+      date.getDate(),
+    ).padStart(2, '0')
 
   return `${year}-${month}-${day}`
 }
 
 function monthRange() {
-  const now = new Date()
+  const now =
+    new Date()
 
   return {
     from: localDate(
@@ -80,7 +85,9 @@ function monthRange() {
   }
 }
 
-function money(value: number) {
+function money(
+  value: number,
+) {
   return new Intl.NumberFormat(
     'hr-HR',
     {
@@ -91,49 +98,91 @@ function money(value: number) {
   ).format(value)
 }
 
-function time(value: string) {
+function time(
+  value: string,
+) {
   return value
     ? value.slice(0, 5)
     : '—'
 }
 
 function statusClass(
-  status: CloudWorkOrder['status'],
+  status:
+    CloudWorkOrder['status'],
 ) {
-  if (status === 'Završen') {
+  if (
+    status === 'Završen'
+  ) {
     return 'bg-emerald-500/15 text-emerald-300'
   }
-  if (status === 'U tijeku') {
+
+  if (
+    status === 'U tijeku'
+  ) {
     return 'bg-blue-500/15 text-blue-300'
   }
-  if (status === 'Otkazan') {
+
+  if (
+    status === 'Otkazan'
+  ) {
     return 'bg-red-500/15 text-red-300'
   }
+
   return 'bg-amber-500/15 text-amber-300'
 }
 
+function errorMessage(
+  value: unknown,
+) {
+  return value instanceof Error
+    ? value.message
+    : String(
+        value ??
+          'Nepoznata greška',
+      )
+}
+
 export function DashboardPage() {
-  const navigate = useNavigate()
-  const { can } = useAuth()
+  const navigate =
+    useNavigate()
+
+  const { can } =
+    useAuth()
 
   const canViewOffers =
     can('offers.view')
+
   const canViewFinance =
     can('finance.view') ||
-    can('offers.viewPrices')
+    can(
+      'offers.viewPrices',
+    )
+
   const canViewEmployees =
     can('employees.view')
 
   const canManageCustomers =
-    can('customers.manage')
+    can(
+      'customers.manage',
+    )
+
   const canManageWorkOrders =
-    can('workOrders.manage')
+    can(
+      'workOrders.manage',
+    )
+
   const canManageOffers =
     can('offers.manage')
-  const canManageInventory =
-    can('inventory.manage')
 
-  const [data, setData] =
+  const canManageInventory =
+    can(
+      'inventory.manage',
+    )
+
+  const [
+    data,
+    setData,
+  ] =
     useState<DashboardData>({
       customers: [],
       workOrders: [],
@@ -141,82 +190,190 @@ export function DashboardPage() {
       employees: [],
       userName: '',
     })
-  const [isLoading, setIsLoading] =
+
+  const [
+    isLoading,
+    setIsLoading,
+  ] =
     useState(true)
-  const [loadError, setLoadError] =
-    useState('')
+
+  const [
+    warnings,
+    setWarnings,
+  ] =
+    useState<string[]>([])
+
+  const [
+    reloadKey,
+    setReloadKey,
+  ] =
+    useState(0)
 
   useEffect(() => {
     let cancelled = false
 
     void (async () => {
-      try {
-        setIsLoading(true)
-        setLoadError('')
+      setIsLoading(true)
+      setWarnings([])
 
-        const [
-          customers,
-          workOrders,
-          offers,
-          employees,
-          userResult,
-        ] = await Promise.all([
+      const results =
+        await Promise.allSettled([
           getCustomers(),
           getWorkOrders(),
           canViewOffers
             ? getOffers()
-            : Promise.resolve([]),
+            : Promise.resolve(
+                [] as Offer[],
+              ),
           canViewEmployees
             ? getEmployees()
-            : Promise.resolve([]),
+            : Promise.resolve(
+                [] as CompanyEmployee[],
+              ),
           supabase.auth.getUser(),
         ])
 
-        if (userResult.error) {
-          throw userResult.error
-        }
-
-        const user =
-          userResult.data.user
-        const metadataName =
-          typeof user?.user_metadata
-            ?.full_name === 'string'
-            ? user.user_metadata.full_name
-            : ''
-        const emailName =
-          user?.email
-            ?.split('@')[0]
-            ?.replace(
-              /[._-]+/g,
-              ' ',
-            )
-            ?.trim() ?? ''
-
-        if (!cancelled) {
-          setData({
-            customers,
-            workOrders,
-            offers,
-            employees,
-            userName:
-              metadataName.trim() ||
-              emailName ||
-              'korisniče',
-          })
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(
-            error instanceof Error
-              ? error.message
-              : 'Dashboard nije moguće učitati.',
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false)
-        }
+      if (cancelled) {
+        return
       }
+
+      const nextWarnings:
+        string[] = []
+
+      const customers =
+        results[0].status ===
+        'fulfilled'
+          ? results[0].value
+          : []
+
+      if (
+        results[0].status ===
+        'rejected'
+      ) {
+        nextWarnings.push(
+          `Investitori: ${errorMessage(
+            results[0].reason,
+          )}`,
+        )
+      }
+
+      const workOrders =
+        results[1].status ===
+        'fulfilled'
+          ? results[1].value
+          : []
+
+      if (
+        results[1].status ===
+        'rejected'
+      ) {
+        nextWarnings.push(
+          `Radni nalozi: ${errorMessage(
+            results[1].reason,
+          )}`,
+        )
+      }
+
+      const offers =
+        results[2].status ===
+        'fulfilled'
+          ? results[2].value
+          : []
+
+      if (
+        results[2].status ===
+        'rejected'
+      ) {
+        nextWarnings.push(
+          `Ponude: ${errorMessage(
+            results[2].reason,
+          )}`,
+        )
+      }
+
+      const employees =
+        results[3].status ===
+        'fulfilled'
+          ? results[3].value
+          : []
+
+      if (
+        results[3].status ===
+        'rejected'
+      ) {
+        nextWarnings.push(
+          `Zaposlenici: ${errorMessage(
+            results[3].reason,
+          )}`,
+        )
+      }
+
+      let userName =
+        'korisniče'
+
+      if (
+        results[4].status ===
+        'fulfilled'
+      ) {
+        const userResult =
+          results[4].value
+
+        if (
+          userResult.error
+        ) {
+          nextWarnings.push(
+            `Korisnički profil: ${userResult.error.message}`,
+          )
+        } else {
+          const user =
+            userResult.data.user
+
+          const metadataName =
+            typeof user
+              ?.user_metadata
+              ?.full_name ===
+            'string'
+              ? user
+                  .user_metadata
+                  .full_name
+              : ''
+
+          const emailName =
+            user?.email
+              ?.split('@')[0]
+              ?.replace(
+                /[._-]+/g,
+                ' ',
+              )
+              ?.trim() ??
+            ''
+
+          userName =
+            metadataName.trim() ||
+            emailName ||
+            'korisniče'
+        }
+      } else {
+        nextWarnings.push(
+          `Korisnički profil: ${errorMessage(
+            results[4].reason,
+          )}`,
+        )
+      }
+
+      setData({
+        customers,
+        workOrders,
+        offers,
+        employees,
+        userName,
+      })
+
+      setWarnings(
+        nextWarnings,
+      )
+
+      setIsLoading(false)
     })()
 
     return () => {
@@ -225,110 +382,125 @@ export function DashboardPage() {
   }, [
     canViewEmployees,
     canViewOffers,
+    reloadKey,
   ])
 
-  const dashboard = useMemo(() => {
-    const today = localDate()
-    const range = monthRange()
+  const dashboard =
+    useMemo(() => {
+      const today =
+        localDate()
 
-    const activeOrders =
-      data.workOrders.filter(
-        (order) =>
-          [
-            'Novi',
-            'Zakazan',
-            'U tijeku',
-          ].includes(
-            order.status,
-          ),
-      )
+      const range =
+        monthRange()
 
-    const completedThisMonth =
-      data.workOrders.filter(
-        (order) =>
-          order.status ===
-            'Završen' &&
-          order.date >= range.from &&
-          order.date <= range.to,
-      )
-
-    const acceptedOffers =
-      data.offers.filter(
-        (offer) =>
-          offer.status ===
-            'Prihvaćeno' &&
-          offer.date >= range.from &&
-          offer.date <= range.to,
-      )
-
-    const todayOrders =
-      data.workOrders
-        .filter(
+      const activeOrders =
+        data.workOrders.filter(
           (order) =>
-            order.date === today &&
-            order.status !==
-              'Otkazan',
-        )
-        .sort((a, b) =>
-          (
-            a.arrivalTime ||
-            '99:99'
-          ).localeCompare(
-            b.arrivalTime ||
-              '99:99',
-          ),
-        )
-
-    const urgentOrders =
-      activeOrders.filter(
-        (order) =>
-          order.priority ===
-          'Hitno',
-      )
-
-    const overdueOrders =
-      activeOrders.filter(
-        (order) =>
-          order.date < today,
-      )
-
-    const pendingOffers =
-      data.offers.filter(
-        (offer) =>
-          [
-            'Nacrt',
-            'Poslano',
-            'Pregledano',
-            'U tijeku',
-          ].includes(
-            offer.status,
-          ),
-      )
-
-    return {
-      activeOrders,
-      completedThisMonth,
-      acceptedOfferValue:
-        acceptedOffers.reduce(
-          (sum, offer) =>
-            sum +
-            calculateOfferTotal(
-              offer,
+            [
+              'Novi',
+              'Zakazan',
+              'U tijeku',
+            ].includes(
+              order.status,
             ),
-          0,
-        ),
-      todayOrders,
-      urgentOrders,
-      overdueOrders,
-      pendingOffers,
-      activeEmployees:
-        data.employees.filter(
-          (employee) =>
-            employee.status ===
-            'active',
-        ).length,
-    }
-  }, [data])
+        )
+
+      const completedThisMonth =
+        data.workOrders.filter(
+          (order) =>
+            order.status ===
+              'Završen' &&
+            order.date >=
+              range.from &&
+            order.date <=
+              range.to,
+        )
+
+      const acceptedOffers =
+        data.offers.filter(
+          (offer) =>
+            offer.status ===
+              'Prihvaćeno' &&
+            offer.date >=
+              range.from &&
+            offer.date <=
+              range.to,
+        )
+
+      const todayOrders =
+        data.workOrders
+          .filter(
+            (order) =>
+              order.date ===
+                today &&
+              order.status !==
+                'Otkazan',
+          )
+          .sort(
+            (a, b) =>
+              (
+                a.arrivalTime ||
+                '99:99'
+              ).localeCompare(
+                b.arrivalTime ||
+                  '99:99',
+              ),
+          )
+
+      const urgentOrders =
+        activeOrders.filter(
+          (order) =>
+            order.priority ===
+            'Hitno',
+        )
+
+      const unfinishedOrders =
+        activeOrders.filter(
+          (order) =>
+            order.date <
+            today,
+        )
+
+      const pendingOffers =
+        data.offers.filter(
+          (offer) =>
+            [
+              'Nacrt',
+              'Poslano',
+              'Pregledano',
+              'U tijeku',
+            ].includes(
+              offer.status,
+            ),
+        )
+
+      return {
+        activeOrders,
+        completedThisMonth,
+        acceptedOfferValue:
+          acceptedOffers.reduce(
+            (
+              sum,
+              offer,
+            ) =>
+              sum +
+              calculateOfferTotal(
+                offer,
+              ),
+            0,
+          ),
+        todayOrders,
+        urgentOrders,
+        unfinishedOrders,
+        pendingOffers,
+        activeEmployees:
+          data.employees.filter(
+            (employee) =>
+              employee.status ===
+              'active',
+          ).length,
+      }
+    }, [data])
 
   if (isLoading) {
     return (
@@ -336,76 +508,56 @@ export function DashboardPage() {
     )
   }
 
-  if (loadError) {
-    return (
-      <section className="mx-auto flex min-h-[60vh] w-full max-w-xl items-center justify-center">
-        <div className="w-full rounded-3xl border border-red-500/20 bg-slate-900 p-6 text-center">
-          <CircleAlert
-            size={38}
-            className="mx-auto text-red-400"
-          />
-          <h1 className="mt-5 text-xl font-black text-white">
-            Dashboard nije moguće
-            učitati
-          </h1>
-          <p className="mt-3 text-sm text-red-300">
-            {loadError}
-          </p>
-          <button
-            type="button"
-            onClick={() =>
-              window.location.reload()
-            }
-            className="mt-6 min-h-12 rounded-2xl bg-blue-600 px-5 font-black text-white"
-          >
-            Pokušaj ponovno
-          </button>
-        </div>
-      </section>
-    )
-  }
-
   const firstName =
     data.userName
       .trim()
       .split(/\s+/)[0] ||
-    data.userName
+    'korisniče'
 
   const stats = [
     {
-      title: 'Aktivni nalozi',
+      title:
+        'Aktivni nalozi',
       value: String(
-        dashboard.activeOrders
+        dashboard
+          .activeOrders
           .length,
       ),
       description:
-        dashboard.urgentOrders
+        dashboard
+          .urgentOrders
           .length > 0
           ? `${dashboard.urgentOrders.length} hitnih`
           : 'Bez hitnih',
       icon: Wrench,
-      route: '/work-orders',
+      route:
+        '/work-orders',
     },
     {
-      title: 'Investitori',
+      title:
+        'Investitori',
       value: String(
-        data.customers.length,
+        data.customers
+          .length,
       ),
       description:
         canViewEmployees
           ? `${dashboard.activeEmployees} aktivnih zaposlenika`
           : 'CRM baza',
       icon: Users,
-      route: '/customers',
+      route:
+        '/customers',
     },
     ...(canViewFinance
       ? [
           {
             title:
               'Prihvaćene ponude',
-            value: money(
-              dashboard.acceptedOfferValue,
-            ),
+            value:
+              money(
+                dashboard
+                  .acceptedOfferValue,
+              ),
             description:
               dashboard
                 .pendingOffers
@@ -414,24 +566,29 @@ export function DashboardPage() {
                 : 'Sve obrađeno',
             icon:
               CircleDollarSign,
-            route: '/offers',
+            route:
+              '/offers',
           },
         ]
       : []),
     {
-      title: 'Završeni poslovi',
+      title:
+        'Završeni poslovi',
       value: String(
         dashboard
           .completedThisMonth
           .length,
       ),
       description:
-        dashboard.overdueOrders
+        dashboard
+          .unfinishedOrders
           .length > 0
-          ? `${dashboard.overdueOrders.length} kasni`
-          : 'Bez kašnjenja',
-      icon: CheckCircle2,
-      route: '/work-orders',
+          ? `${dashboard.unfinishedOrders.length} za provjeru`
+          : 'Sve ažurno',
+      icon:
+        CheckCircle2,
+      route:
+        '/work-orders',
     },
   ]
 
@@ -439,22 +596,27 @@ export function DashboardPage() {
     {
       title: 'Novi nalog',
       icon: Wrench,
-      route: '/work-orders/new',
+      route:
+        '/work-orders/new',
       visible:
         canManageWorkOrders,
     },
     {
-      title: 'Investitor',
+      title:
+        'Investitor',
       icon: Users,
       route: '/customers',
       visible:
         canManageCustomers,
     },
     {
-      title: 'Nova ponuda',
+      title:
+        'Nova ponuda',
       icon: FileText,
-      route: '/offers/new',
-      visible: canManageOffers,
+      route:
+        '/offers/new',
+      visible:
+        canManageOffers,
     },
     {
       title: 'Materijal',
@@ -465,11 +627,72 @@ export function DashboardPage() {
         canManageInventory,
     },
   ].filter(
-    (item) => item.visible,
+    (item) =>
+      item.visible,
   )
 
   return (
     <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-6 sm:space-y-6">
+      {warnings.length >
+        0 && (
+        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] p-3 sm:p-4">
+          <div className="flex items-start gap-3">
+            <CircleAlert
+              size={19}
+              className="mt-0.5 shrink-0 text-amber-300"
+            />
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-white">
+                Dashboard je otvoren, ali dio podataka trenutno nije dostupan
+              </p>
+
+              <p className="mt-1 text-xs leading-5 text-slate-400">
+                Možeš normalno koristiti FERSYS. Pokušaj ponovno učitati nedostupne podatke.
+              </p>
+
+              <details className="mt-2">
+                <summary className="cursor-pointer text-[10px] font-black uppercase tracking-wide text-amber-300">
+                  Prikaži detalje
+                </summary>
+
+                <div className="mt-2 space-y-1">
+                  {warnings.map(
+                    (
+                      warning,
+                      index,
+                    ) => (
+                      <p
+                        key={`${warning}:${index}`}
+                        className="break-words text-[10px] leading-4 text-slate-500"
+                      >
+                        {warning}
+                      </p>
+                    ),
+                  )}
+                </div>
+              </details>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setReloadKey(
+                  (current) =>
+                    current + 1,
+                )
+              }
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-300 active:scale-95"
+              aria-label="Ponovno učitaj podatke"
+            >
+              <RefreshCw
+                size={16}
+              />
+            </button>
+          </div>
+        </div>
+      )}
+
       <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
@@ -477,60 +700,75 @@ export function DashboardPage() {
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
             FERSYS
           </p>
+
           <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
             Bok, {firstName}
           </h1>
+
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Danas prvo vidi što
-            treba odraditi. Detaljne
-            analize ostaju za desktop.
+            Danas prvo vidi što treba odraditi. Detaljne analize ostaju za desktop.
           </p>
 
           <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {stats.map((item) => {
-              const Icon = item.icon
+            {stats.map(
+              (item) => {
+                const Icon =
+                  item.icon
 
-              return (
-                <button
-                  key={item.title}
-                  type="button"
-                  onClick={() =>
-                    navigate(
-                      item.route,
-                    )
-                  }
-                  className="rounded-2xl border border-white/5 bg-white/[0.035] p-3 text-left active:scale-[0.98]"
-                >
-                  <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
-                    <Icon size={18} />
-                  </span>
-                  <p className="mt-3 truncate text-[10px] font-black uppercase tracking-wide text-slate-500">
-                    {item.title}
-                  </p>
-                  <p className="mt-1 truncate text-lg font-black text-white">
-                    {item.value}
-                  </p>
-                  <p className="mt-1 truncate text-[10px] text-slate-500">
-                    {item.description}
-                  </p>
-                </button>
-              )
-            })}
+                return (
+                  <button
+                    key={
+                      item.title
+                    }
+                    type="button"
+                    onClick={() =>
+                      navigate(
+                        item.route,
+                      )
+                    }
+                    className="rounded-2xl border border-white/5 bg-white/[0.035] p-3 text-left active:scale-[0.98]"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
+                      <Icon
+                        size={18}
+                      />
+                    </span>
+
+                    <p className="mt-3 truncate text-[10px] font-black uppercase tracking-wide text-slate-500">
+                      {item.title}
+                    </p>
+
+                    <p className="mt-1 truncate text-lg font-black text-white">
+                      {item.value}
+                    </p>
+
+                    <p className="mt-1 truncate text-[10px] text-slate-500">
+                      {
+                        item.description
+                      }
+                    </p>
+                  </button>
+                )
+              },
+            )}
           </div>
         </div>
       </section>
 
-      {quickActions.length > 0 && (
+      {quickActions.length >
+        0 && (
         <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4">
           <div className="mb-3 flex items-center justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 BRZE AKCIJE
               </p>
+
               <h2 className="mt-1 font-black text-white">
                 Napravi odmah
               </h2>
             </div>
+
             <Plus
               size={18}
               className="text-slate-600"
@@ -557,10 +795,15 @@ export function DashboardPage() {
                     className="flex min-h-[82px] items-center gap-3 rounded-2xl bg-slate-800/70 p-3 text-left active:scale-[0.98]"
                   >
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
-                      <Icon size={19} />
+                      <Icon
+                        size={19}
+                      />
                     </span>
+
                     <span className="text-sm font-black text-white">
-                      {action.title}
+                      {
+                        action.title
+                      }
                     </span>
                   </button>
                 )
@@ -577,6 +820,7 @@ export function DashboardPage() {
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 DANAS
               </p>
+
               <h2 className="mt-1 text-lg font-black text-white">
                 Današnji poslovi
               </h2>
@@ -585,7 +829,9 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() =>
-                navigate('/calendar')
+                navigate(
+                  '/calendar',
+                )
               }
               className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
             >
@@ -596,13 +842,15 @@ export function DashboardPage() {
             </button>
           </div>
 
-          {dashboard.todayOrders
+          {dashboard
+            .todayOrders
             .length === 0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-slate-700 px-4 py-8 text-center">
               <Clock3
                 size={26}
                 className="mx-auto text-slate-600"
               />
+
               <p className="mt-3 font-black text-white">
                 Nema poslova za danas
               </p>
@@ -612,7 +860,9 @@ export function DashboardPage() {
               {dashboard.todayOrders.map(
                 (order) => (
                   <button
-                    key={order.id}
+                    key={
+                      order.id
+                    }
                     type="button"
                     onClick={() =>
                       navigate(
@@ -632,6 +882,7 @@ export function DashboardPage() {
                         {order.title ||
                           order.customerName}
                       </span>
+
                       <span className="mt-1 block truncate text-xs text-slate-500">
                         {time(
                           order.arrivalTime,
@@ -648,7 +899,9 @@ export function DashboardPage() {
                         order.status,
                       )}`}
                     >
-                      {order.status}
+                      {
+                        order.status
+                      }
                     </span>
 
                     <ArrowRight
@@ -673,20 +926,24 @@ export function DashboardPage() {
             size={24}
             className="text-violet-300"
           />
+
           <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
             FERSYS AI
           </p>
+
           <h2 className="mt-1 text-xl font-black text-white">
             Reci što treba napraviti
           </h2>
+
           <p className="mt-2 text-sm leading-6 text-slate-400">
-            Otvori AI pomoćnika za
-            kalendar, investitore,
-            naloge i ponude.
+            Otvori AI pomoćnika za kalendar, investitore, naloge i ponude.
           </p>
+
           <span className="mt-5 inline-flex items-center gap-2 text-sm font-black text-violet-300">
             Otvori AI
-            <ArrowRight size={16} />
+            <ArrowRight
+              size={16}
+            />
           </span>
         </button>
       </section>
