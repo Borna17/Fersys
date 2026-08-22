@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
+import BusinessAlerts from './BusinessAlerts'
 import BusinessFlowActions from './BusinessFlowActions'
 import GlobalSearch from './GlobalSearch'
 
@@ -22,22 +23,15 @@ export default function RealtimeOutlet() {
   )
 
   useEffect(() => {
-    if (!companyId) {
-      return
-    }
+    if (!companyId) return
 
     const channel = supabase
       .channel(`company-realtime:${companyId}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-        },
+        { event: '*', schema: 'public' },
         (payload) => {
-          if (!canRefresh) {
-            return
-          }
+          if (!canRefresh) return
 
           const next = payload.new as
             | Record<string, unknown>
@@ -85,6 +79,7 @@ export default function RealtimeOutlet() {
   return (
     <>
       <GlobalSearch />
+      <BusinessAlerts />
       <BusinessFlowActions />
 
       <Outlet
