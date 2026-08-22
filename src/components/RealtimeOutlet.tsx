@@ -3,6 +3,7 @@ import { Outlet, useLocation } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
 import BusinessFlowActions from './BusinessFlowActions'
+import GlobalSearch from './GlobalSearch'
 
 const BLOCKED_REFRESH_PATHS =
   /\/new(?:\/|$)|\/edit(?:\/|$)/
@@ -83,6 +84,7 @@ export default function RealtimeOutlet() {
 
   return (
     <>
+      <GlobalSearch />
       <BusinessFlowActions />
 
       <Outlet
