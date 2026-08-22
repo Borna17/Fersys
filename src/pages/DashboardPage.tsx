@@ -2,7 +2,6 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
-  CircleAlert,
   CircleDollarSign,
   Clock3,
   FileText,
@@ -15,6 +14,7 @@ import {
 } from 'lucide-react'
 import {
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 import {
@@ -24,25 +24,75 @@ import {
 import {
   useAuth,
 } from '../auth/AuthProvider'
-import FersysLoader from '../components/FersysLoader'
 import MissionCenter from '../components/MissionCenter'
 import {
+  EMPTY_DASHBOARD_DATA,
   getFastDashboardData,
   type FastDashboardData,
 } from '../services/dashboardFast.service'
 
-const EMPTY_DATA:
-FastDashboardData = {
-  customersCount: 0,
-  activeOrdersCount: 0,
-  urgentOrdersCount: 0,
-  unfinishedOrdersCount: 0,
-  completedThisMonthCount: 0,
-  pendingOffersCount: 0,
-  acceptedOfferValue: 0,
-  activeEmployeesCount: 0,
-  todayOrders: [],
-  warnings: [],
+const CACHE_PREFIX =
+  'fersys-fast-dashboard-v2'
+
+type DashboardCache = {
+  savedAt: string
+  data: FastDashboardData
+}
+
+function cacheKey(
+  companyId: string,
+) {
+  return `${CACHE_PREFIX}:${companyId || 'default'}`
+}
+
+function readCache(
+  companyId: string,
+): DashboardCache | null {
+  try {
+    const raw =
+      localStorage.getItem(
+        cacheKey(companyId),
+      )
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed =
+      JSON.parse(
+        raw,
+      ) as DashboardCache
+
+    if (
+      !parsed ||
+      !parsed.data
+    ) {
+      return null
+    }
+
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeCache(
+  companyId: string,
+  data: FastDashboardData,
+) {
+  try {
+    localStorage.setItem(
+      cacheKey(companyId),
+      JSON.stringify({
+        savedAt:
+          new Date()
+            .toISOString(),
+        data,
+      } satisfies DashboardCache),
+    )
+  } catch {
+    // Cache nije kritičan.
+  }
 }
 
 function money(
@@ -101,11 +151,117 @@ export function DashboardPage() {
   const {
     can,
     user,
+    membership,
   } =
     useAuth()
 
-  const canViewOffers =
-    can('offers.view')
+  const companyId =
+    membership?.companyId ??
+    ''
+
+  const initialCache =
+    useMemo(
+      () =>
+        readCache(
+          companyId,
+        ),
+      [companyId],
+    )
+
+  const [
+    data,
+    setData,
+  ] =
+    useState<FastDashboardData>(
+      () =>
+        initialCache?.data ??
+        EMPTY_DASHBOARD_DATA,
+    )
+
+  const [
+    refreshing,
+    setRefreshing,
+  ] =
+    useState(false)
+
+  const [
+    refreshKey,
+    setRefreshKey,
+  ] =
+    useState(0)
+
+  const [
+    hasSnapshot,
+    setHasSnapshot,
+  ] =
+    useState(
+      Boolean(
+        initialCache,
+      ),
+    )
+
+  useEffect(() => {
+    const cached =
+      readCache(
+        companyId,
+      )
+
+    if (cached) {
+      setData(
+        cached.data,
+      )
+      setHasSnapshot(
+        true,
+      )
+    }
+  }, [companyId])
+
+  useEffect(() => {
+    let cancelled =
+      false
+
+    void (async () => {
+      try {
+        setRefreshing(
+          true,
+        )
+
+        const next =
+          await getFastDashboardData()
+
+        if (cancelled) {
+          return
+        }
+
+        setData(next)
+        setHasSnapshot(
+          true,
+        )
+        writeCache(
+          companyId,
+          next,
+        )
+      } catch (error) {
+        console.warn(
+          '[FERSYS] Dashboard background refresh nije uspio:',
+          error,
+        )
+      } finally {
+        if (!cancelled) {
+          setRefreshing(
+            false,
+          )
+        }
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [
+    companyId,
+    refreshKey,
+  ])
 
   const canViewFinance =
     can('finance.view') ||
@@ -137,75 +293,6 @@ export function DashboardPage() {
     can(
       'inventory.manage',
     )
-
-  const [
-    data,
-    setData,
-  ] =
-    useState<FastDashboardData>(
-      EMPTY_DATA,
-    )
-
-  const [
-    loading,
-    setLoading,
-  ] =
-    useState(true)
-
-  const [
-    refreshKey,
-    setRefreshKey,
-  ] =
-    useState(0)
-
-  useEffect(() => {
-    let cancelled =
-      false
-
-    void (async () => {
-      try {
-        setLoading(
-          true,
-        )
-
-        const next =
-          await getFastDashboardData({
-            includeOffers:
-              canViewOffers ||
-              canViewFinance,
-            includeEmployees:
-              canViewEmployees,
-          })
-
-        if (!cancelled) {
-          setData(
-            next,
-          )
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(
-            false,
-          )
-        }
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [
-    canViewEmployees,
-    canViewFinance,
-    canViewOffers,
-    refreshKey,
-  ])
-
-  if (loading) {
-    return (
-      <FersysLoader text="Učitavanje dashboarda..." />
-    )
-  }
 
   const metadataName =
     typeof user
@@ -240,14 +327,20 @@ export function DashboardPage() {
     {
       title:
         'Aktivni nalozi',
-      value: String(
-        data.activeOrdersCount,
-      ),
+      value:
+        hasSnapshot
+          ? String(
+              data.activeOrdersCount,
+            )
+          : '—',
       description:
-        data.urgentOrdersCount >
-        0
-          ? `${data.urgentOrdersCount} hitnih`
-          : 'Bez hitnih',
+        hasSnapshot
+          ? data
+              .urgentOrdersCount >
+            0
+            ? `${data.urgentOrdersCount} hitnih`
+            : 'Bez hitnih'
+          : 'Učitavam...',
       icon: Wrench,
       route:
         '/work-orders',
@@ -255,13 +348,19 @@ export function DashboardPage() {
     {
       title:
         'Investitori',
-      value: String(
-        data.customersCount,
-      ),
+      value:
+        hasSnapshot
+          ? String(
+              data.customersCount,
+            )
+          : '—',
       description:
+        hasSnapshot &&
         canViewEmployees
           ? `${data.activeEmployeesCount} aktivnih zaposlenika`
-          : 'CRM baza',
+          : hasSnapshot
+            ? 'CRM baza'
+            : 'Učitavam...',
       icon: Users,
       route:
         '/customers',
@@ -271,14 +370,19 @@ export function DashboardPage() {
           {
             title:
               'Prihvaćene ponude',
-            value: money(
-              data.acceptedOfferValue,
-            ),
+            value:
+              hasSnapshot
+                ? money(
+                    data.acceptedOfferValue,
+                  )
+                : '—',
             description:
-              data.pendingOffersCount >
-              0
-                ? `${data.pendingOffersCount} u obradi`
-                : 'Sve obrađeno',
+              hasSnapshot
+                ? data.pendingOffersCount >
+                  0
+                  ? `${data.pendingOffersCount} u obradi`
+                  : 'Sve obrađeno'
+                : 'Učitavam...',
             icon:
               CircleDollarSign,
             route:
@@ -289,14 +393,20 @@ export function DashboardPage() {
     {
       title:
         'Završeni poslovi',
-      value: String(
-        data.completedThisMonthCount,
-      ),
+      value:
+        hasSnapshot
+          ? String(
+              data.completedThisMonthCount,
+            )
+          : '—',
       description:
-        data.unfinishedOrdersCount >
-        0
-          ? `${data.unfinishedOrdersCount} za provjeru`
-          : 'Sve ažurno',
+        hasSnapshot
+          ? data
+              .unfinishedOrdersCount >
+            0
+            ? `${data.unfinishedOrdersCount} za provjeru`
+            : 'Sve ažurno'
+          : 'Učitavam...',
       icon:
         CheckCircle2,
       route:
@@ -350,56 +460,31 @@ export function DashboardPage() {
 
   return (
     <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-6 sm:space-y-6">
-      {data.warnings.length >
-        0 && (
-        <div className="rounded-2xl border border-amber-500/20 bg-amber-500/[0.07] p-3 sm:p-4">
-          <div className="flex items-start gap-3">
-            <CircleAlert
-              size={19}
-              className="mt-0.5 shrink-0 text-amber-300"
-            />
-
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-white">
-                Dio podataka trenutno nije dostupan
-              </p>
-
-              <p className="mt-1 text-xs leading-5 text-slate-400">
-                Dashboard je učitan i FERSYS možeš normalno koristiti.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                setRefreshKey(
-                  (current) =>
-                    current +
-                    1,
-                )
-              }
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-slate-800 text-slate-300"
-              aria-label="Ponovno učitaj"
-            >
-              <RefreshCw
-                size={16}
-              />
-            </button>
-          </div>
-        </div>
-      )}
-
       <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative">
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
-            FERSYS
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
+                FERSYS
+              </p>
 
-          <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
-            Bok, {firstName}
-          </h1>
+              <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+                Bok, {firstName}
+              </h1>
+            </div>
+
+            {refreshing && (
+              <span className="inline-flex items-center gap-2 rounded-xl bg-blue-500/10 px-3 py-2 text-[10px] font-black text-blue-300">
+                <RefreshCw
+                  size={13}
+                  className="animate-spin"
+                />
+                Osvježavam
+              </span>
+            )}
+          </div>
 
           <p className="mt-2 text-sm leading-6 text-slate-400">
             Danas prvo vidi što treba odraditi. Detaljne analize ostaju za desktop.
@@ -448,6 +533,25 @@ export function DashboardPage() {
               },
             )}
           </div>
+
+          {!hasSnapshot &&
+            !refreshing && (
+            <button
+              type="button"
+              onClick={() =>
+                setRefreshKey(
+                  (current) =>
+                    current + 1,
+                )
+              }
+              className="mt-4 inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
+            >
+              <RefreshCw
+                size={14}
+              />
+              Ponovno učitaj podatke
+            </button>
+          )}
         </div>
       </section>
 
@@ -538,8 +642,19 @@ export function DashboardPage() {
             </button>
           </div>
 
-          {data.todayOrders
-            .length === 0 ? (
+          {!hasSnapshot ? (
+            <div className="mt-4 rounded-2xl border border-dashed border-slate-700 px-4 py-8 text-center">
+              <Clock3
+                size={26}
+                className="mx-auto text-slate-600"
+              />
+              <p className="mt-3 text-sm font-black text-slate-400">
+                Učitavam današnje poslove u pozadini...
+              </p>
+            </div>
+          ) : data.todayOrders
+              .length ===
+            0 ? (
             <div className="mt-4 rounded-2xl border border-dashed border-slate-700 px-4 py-8 text-center">
               <Clock3
                 size={26}

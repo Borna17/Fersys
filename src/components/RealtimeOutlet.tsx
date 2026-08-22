@@ -25,6 +25,7 @@ import OfflineSyncStatus from './OfflineSyncStatus'
 import RuntimeHealthGuard from './RuntimeHealthGuard'
 import SafeRenderBoundary from './SafeRenderBoundary'
 import WorkOrderFieldMode from './WorkOrderFieldMode'
+import WorkOrderPhotoGallerySync from './WorkOrderPhotoGallerySync'
 
 const BLOCKED_REFRESH_PATHS =
   /\/new(?:\/|$)|\/edit(?:\/|$)/
@@ -299,6 +300,10 @@ export default function RealtimeOutlet() {
 
       <SafeRenderBoundary name="Field mode">
         <WorkOrderFieldMode />
+      </SafeRenderBoundary>
+
+      <SafeRenderBoundary name="Work order photo sync">
+        <WorkOrderPhotoGallerySync />
       </SafeRenderBoundary>
 
       <SafeRenderBoundary name="Daily brief">

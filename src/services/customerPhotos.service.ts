@@ -14,6 +14,8 @@ export type CustomerPhoto = {
   caption: string
   createdBy: string | null
   createdAt: string
+  sourceWorkOrderId: string
+  sourceImageId: string
   url: string
 }
 
@@ -28,6 +30,23 @@ type CustomerPhotoRow = {
   caption: string | null
   created_by: string | null
   created_at: string
+  source_work_order_id?: string | null
+  source_image_id?: string | null
+}
+
+export type WorkOrderGalleryImage = {
+  id: string
+  name: string
+  dataUrl: string
+}
+
+export type WorkOrderGallerySyncInput = {
+  workOrderId: string
+  orderNumber: string
+  customerId: string
+  workDate: string
+  title: string
+  images: WorkOrderGalleryImage[]
 }
 
 function sanitizeFileName(
@@ -49,6 +68,18 @@ function sanitizeFileName(
     'fotografija'
 
   return `${base}${extension}`
+}
+
+function captionForWorkOrder(
+  input: WorkOrderGallerySyncInput,
+) {
+  return [
+    input.orderNumber,
+    input.title.trim(),
+    input.workDate,
+  ]
+    .filter(Boolean)
+    .join(' · ')
 }
 
 async function getCurrentCompanyId() {
@@ -102,8 +133,156 @@ async function mapPhoto(
     caption: row.caption ?? '',
     createdBy: row.created_by,
     createdAt: row.created_at,
+    sourceWorkOrderId:
+      row.source_work_order_id ?? '',
+    sourceImageId:
+      row.source_image_id ?? '',
     url: await signedUrl(row.storage_path),
   }
+}
+
+async function dataUrlToBlob(
+  dataUrl: string,
+) {
+  const response =
+    await fetch(dataUrl)
+
+  if (!response.ok) {
+    throw new Error(
+      'Fotografiju nije moguće pripremiti za galeriju investitora.',
+    )
+  }
+
+  return response.blob()
+}
+
+async function uploadWorkOrderImage(
+  companyId: string,
+  input: WorkOrderGallerySyncInput,
+  image: WorkOrderGalleryImage,
+) {
+  const safeName =
+    sanitizeFileName(
+      image.name ||
+      `radni-nalog-${image.id}.jpg`,
+    )
+
+  const storagePath =
+    `${companyId}/${input.customerId}/work-orders/${input.workOrderId}/${image.id}-${safeName}`
+
+  const blob =
+    await dataUrlToBlob(
+      image.dataUrl,
+    )
+
+  const mimeType =
+    blob.type ||
+    'image/jpeg'
+
+  const {
+    error: uploadError,
+  } =
+    await supabase.storage
+      .from(BUCKET)
+      .upload(
+        storagePath,
+        blob,
+        {
+          contentType:
+            mimeType,
+          upsert: true,
+          cacheControl:
+            '31536000',
+        },
+      )
+
+  if (uploadError) {
+    throw uploadError
+  }
+
+  const {
+    error: insertError,
+  } =
+    await supabase
+      .from('customer_photos')
+      .upsert(
+        {
+          company_id:
+            companyId,
+          customer_id:
+            input.customerId,
+          storage_path:
+            storagePath,
+          file_name:
+            image.name ||
+            safeName,
+          mime_type:
+            mimeType,
+          file_size:
+            blob.size,
+          caption:
+            captionForWorkOrder(
+              input,
+            ),
+          source_work_order_id:
+            input.workOrderId,
+          source_image_id:
+            image.id,
+        },
+        {
+          onConflict:
+            'source_work_order_id,source_image_id',
+          ignoreDuplicates:
+            true,
+        },
+      )
+
+  if (insertError) {
+    throw insertError
+  }
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (
+    item: T,
+  ) => Promise<void>,
+) {
+  let index = 0
+
+  async function runner() {
+    while (
+      index < items.length
+    ) {
+      const current =
+        index
+
+      index += 1
+
+      await worker(
+        items[current],
+      )
+    }
+  }
+
+  const count =
+    Math.min(
+      Math.max(
+        1,
+        concurrency,
+      ),
+      items.length,
+    )
+
+  await Promise.all(
+    Array.from(
+      {
+        length: count,
+      },
+      () => runner(),
+    ),
+  )
 }
 
 export async function getCustomerPhotos(
@@ -113,18 +292,28 @@ export async function getCustomerPhotos(
     await supabase
       .from('customer_photos')
       .select('*')
-      .eq('customer_id', customerId)
-      .order('created_at', {
-        ascending: false,
-      })
+      .eq(
+        'customer_id',
+        customerId,
+      )
+      .order(
+        'created_at',
+        {
+          ascending: false,
+        },
+      )
 
   if (error) {
     throw error
   }
 
   return Promise.all(
-    ((data ?? []) as CustomerPhotoRow[])
-      .map(mapPhoto),
+    (
+      (data ?? []) as
+        CustomerPhotoRow[]
+    ).map(
+      mapPhoto,
+    ),
   )
 }
 
@@ -139,16 +328,21 @@ export async function uploadCustomerPhotos(
   const companyId =
     await getCurrentCompanyId()
 
-  const uploaded: CustomerPhoto[] = []
+  const uploaded:
+    CustomerPhoto[] = []
 
   for (const file of files) {
     const safeName =
-      sanitizeFileName(file.name)
+      sanitizeFileName(
+        file.name,
+      )
 
     const storagePath =
       `${companyId}/${customerId}/${crypto.randomUUID()}-${safeName}`
 
-    const { error: uploadError } =
+    const {
+      error: uploadError,
+    } =
       await supabase.storage
         .from(BUCKET)
         .upload(
@@ -159,7 +353,8 @@ export async function uploadCustomerPhotos(
               file.type ||
               'application/octet-stream',
             upsert: false,
-            cacheControl: '3600',
+            cacheControl:
+              '3600',
           },
         )
 
@@ -170,32 +365,41 @@ export async function uploadCustomerPhotos(
     const {
       data: inserted,
       error: insertError,
-    } = await supabase
-      .from('customer_photos')
-      .insert({
-        company_id: companyId,
-        customer_id: customerId,
-        storage_path: storagePath,
-        file_name: file.name,
-        mime_type:
-          file.type ||
-          'application/octet-stream',
-        file_size: file.size,
-      })
-      .select('*')
-      .single()
+    } =
+      await supabase
+        .from('customer_photos')
+        .insert({
+          company_id:
+            companyId,
+          customer_id:
+            customerId,
+          storage_path:
+            storagePath,
+          file_name:
+            file.name,
+          mime_type:
+            file.type ||
+            'application/octet-stream',
+          file_size:
+            file.size,
+        })
+        .select('*')
+        .single()
 
     if (insertError) {
       await supabase.storage
         .from(BUCKET)
-        .remove([storagePath])
+        .remove([
+          storagePath,
+        ])
 
       throw insertError
     }
 
     uploaded.push(
       await mapPhoto(
-        inserted as CustomerPhotoRow,
+        inserted as
+          CustomerPhotoRow,
       ),
     )
   }
@@ -203,10 +407,114 @@ export async function uploadCustomerPhotos(
   return uploaded
 }
 
+export async function syncWorkOrderImagesToCustomerGallery(
+  input: WorkOrderGallerySyncInput,
+): Promise<number> {
+  if (
+    !input.customerId ||
+    !input.workOrderId ||
+    input.images.length === 0
+  ) {
+    return 0
+  }
+
+  const validImages =
+    input.images.filter(
+      (image) =>
+        Boolean(
+          image.id &&
+          image.dataUrl,
+        ),
+    )
+
+  if (
+    validImages.length ===
+    0
+  ) {
+    return 0
+  }
+
+  const {
+    data: existingRows,
+    error: existingError,
+  } =
+    await supabase
+      .from('customer_photos')
+      .select(
+        'source_image_id',
+      )
+      .eq(
+        'customer_id',
+        input.customerId,
+      )
+      .eq(
+        'source_work_order_id',
+        input.workOrderId,
+      )
+
+  if (existingError) {
+    throw existingError
+  }
+
+  const existingIds =
+    new Set(
+      (
+        existingRows ??
+        []
+      )
+        .map(
+          (row) =>
+            String(
+              row
+                .source_image_id ??
+                '',
+            ),
+        )
+        .filter(Boolean),
+    )
+
+  const missing =
+    validImages.filter(
+      (image) =>
+        !existingIds.has(
+          image.id,
+        ),
+    )
+
+  if (
+    missing.length === 0
+  ) {
+    return 0
+  }
+
+  const companyId =
+    await getCurrentCompanyId()
+
+  let completed = 0
+
+  await runWithConcurrency(
+    missing,
+    3,
+    async (image) => {
+      await uploadWorkOrderImage(
+        companyId,
+        input,
+        image,
+      )
+
+      completed += 1
+    },
+  )
+
+  return completed
+}
+
 export async function deleteCustomerPhoto(
   photo: CustomerPhoto,
 ) {
-  const { error: storageError } =
+  const {
+    error: storageError,
+  } =
     await supabase.storage
       .from(BUCKET)
       .remove([
@@ -217,11 +525,16 @@ export async function deleteCustomerPhoto(
     throw storageError
   }
 
-  const { error: deleteError } =
+  const {
+    error: deleteError,
+  } =
     await supabase
       .from('customer_photos')
       .delete()
-      .eq('id', photo.id)
+      .eq(
+        'id',
+        photo.id,
+      )
 
   if (deleteError) {
     throw deleteError
