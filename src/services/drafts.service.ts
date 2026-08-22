@@ -19,9 +19,30 @@ type Identity = {
   userId: string
 }
 
+type LocalDraftEnvelope<T = unknown> = {
+  key: string
+  companyId: string
+  userId: string
+  draftType: DraftType
+  draftKey: string
+  payload: T
+  updatedAt: string
+  syncState: 'pending' | 'synced'
+}
+
+export type DraftSyncStatus = {
+  online: boolean
+  pending: number
+  lastSyncedAt: string
+}
+
 const DB_NAME = 'fersys-user-drafts'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'drafts'
+const IDENTITY_CACHE_KEY =
+  'fersys-draft-identity-v2'
+const LAST_SYNC_KEY =
+  'fersys-draft-last-sync-v1'
 
 function localKey(
   identity: Identity,
@@ -36,44 +57,144 @@ function localKey(
   ].join(':')
 }
 
+function readCachedIdentity():
+Identity | null {
+  try {
+    const raw =
+      localStorage.getItem(
+        IDENTITY_CACHE_KEY,
+      )
+
+    if (!raw) {
+      return null
+    }
+
+    const parsed =
+      JSON.parse(raw) as
+        Partial<Identity>
+
+    const companyId =
+      String(
+        parsed.companyId ?? '',
+      ).trim()
+    const userId =
+      String(
+        parsed.userId ?? '',
+      ).trim()
+
+    if (
+      !companyId ||
+      !userId
+    ) {
+      return null
+    }
+
+    return {
+      companyId,
+      userId,
+    }
+  } catch {
+    return null
+  }
+}
+
+function cacheIdentity(
+  identity: Identity,
+) {
+  try {
+    localStorage.setItem(
+      IDENTITY_CACHE_KEY,
+      JSON.stringify(
+        identity,
+      ),
+    )
+  } catch {
+    // Privatni način rada ili puni storage ne smiju blokirati aplikaciju.
+  }
+}
+
+async function getSessionUserId() {
+  try {
+    const {
+      data,
+      error,
+    } =
+      await supabase.auth
+        .getSession()
+
+    if (error) {
+      return ''
+    }
+
+    return (
+      data.session?.user.id ??
+      ''
+    )
+  } catch {
+    return ''
+  }
+}
+
 async function getIdentity():
 Promise<Identity> {
-  const [
-    companyResponse,
-    userResponse,
-  ] = await Promise.all([
-    supabase.rpc(
-      'current_company_id',
-    ),
-    supabase.auth.getUser(),
-  ])
+  const sessionUserId =
+    await getSessionUserId()
 
-  if (companyResponse.error) {
-    throw companyResponse.error
+  try {
+    const [
+      companyResponse,
+      userResponse,
+    ] = await Promise.all([
+      supabase.rpc(
+        'current_company_id',
+      ),
+      supabase.auth.getUser(),
+    ])
+
+    if (
+      !companyResponse.error &&
+      !userResponse.error &&
+      companyResponse.data &&
+      userResponse.data.user
+    ) {
+      const identity = {
+        companyId:
+          String(
+            companyResponse.data,
+          ),
+        userId:
+          userResponse.data.user.id,
+      }
+
+      cacheIdentity(
+        identity,
+      )
+
+      return identity
+    }
+  } catch {
+    // Mreža može biti potpuno nedostupna.
   }
 
-  if (userResponse.error) {
-    throw userResponse.error
-  }
+  const cached =
+    readCachedIdentity()
 
   if (
-    !companyResponse.data ||
-    !userResponse.data.user
-  ) {
-    throw new Error(
-      'Korisnik nije povezan s aktivnom tvrtkom.',
+    cached &&
+    (
+      !sessionUserId ||
+      cached.userId ===
+        sessionUserId
     )
+  ) {
+    return cached
   }
 
-  return {
-    companyId:
-      String(
-        companyResponse.data,
-      ),
-
-    userId:
-      userResponse.data.user.id,
-  }
+  throw new Error(
+    navigator.onLine
+      ? 'Korisnik nije povezan s aktivnom tvrtkom.'
+      : 'Nema mreže i lokalni identitet još nije spremljen. Otvori FERSYS jednom dok si online.',
+  )
 }
 
 function openDatabase():
@@ -120,17 +241,14 @@ Promise<IDBDatabase> {
   )
 }
 
-async function saveLocal<T>(
-  key: string,
-  value: {
-    payload: T
-    updatedAt: string
-  },
+async function putLocal<T>(
+  envelope:
+    LocalDraftEnvelope<T>,
 ) {
-  try {
-    const db =
-      await openDatabase()
+  const db =
+    await openDatabase()
 
+  try {
     await new Promise<void>(
       (resolve, reject) => {
         const tx =
@@ -141,47 +259,89 @@ async function saveLocal<T>(
 
         tx.objectStore(
           STORE_NAME,
-        ).put({
-          key,
-          ...value,
-        })
+        ).put(
+          envelope,
+        )
 
         tx.oncomplete =
           () => resolve()
 
         tx.onerror =
           () =>
-            reject(tx.error)
+            reject(
+              tx.error,
+            )
       },
     )
-
+  } finally {
     db.close()
-  } catch (error) {
-    console.error(
-      'Lokalni autosave nije uspio:',
-      error,
-    )
   }
 }
 
 async function loadLocal<T>(
   key: string,
-): Promise<{
-  payload: T
-  updatedAt: string
-} | null> {
+): Promise<
+  LocalDraftEnvelope<T> | null
+> {
   try {
     const db =
       await openDatabase()
 
-    const result =
-      await new Promise<
-        | {
-            key: string
-            payload: T
-            updatedAt: string
-          }
-        | undefined
+    try {
+      const result =
+        await new Promise<
+          LocalDraftEnvelope<T> |
+            undefined
+        >(
+          (
+            resolve,
+            reject,
+          ) => {
+            const tx =
+              db.transaction(
+                STORE_NAME,
+                'readonly',
+              )
+
+            const request =
+              tx
+                .objectStore(
+                  STORE_NAME,
+                )
+                .get(key)
+
+            request.onsuccess =
+              () =>
+                resolve(
+                  request.result,
+                )
+
+            request.onerror =
+              () =>
+                reject(
+                  request.error,
+                )
+          },
+        )
+
+      return result ?? null
+    } finally {
+      db.close()
+    }
+  } catch {
+    return null
+  }
+}
+
+async function listLocal():
+Promise<LocalDraftEnvelope[]> {
+  try {
+    const db =
+      await openDatabase()
+
+    try {
+      return await new Promise<
+        LocalDraftEnvelope[]
       >(
         (
           resolve,
@@ -198,12 +358,15 @@ async function loadLocal<T>(
               .objectStore(
                 STORE_NAME,
               )
-              .get(key)
+              .getAll()
 
           request.onsuccess =
             () =>
               resolve(
-                request.result,
+                (
+                  request.result ??
+                  []
+                ) as LocalDraftEnvelope[],
               )
 
           request.onerror =
@@ -213,21 +376,11 @@ async function loadLocal<T>(
               )
         },
       )
-
-    db.close()
-
-    if (!result) {
-      return null
-    }
-
-    return {
-      payload:
-        result.payload,
-      updatedAt:
-        result.updatedAt,
+    } finally {
+      db.close()
     }
   } catch {
-    return null
+    return []
   }
 }
 
@@ -238,87 +391,102 @@ async function deleteLocal(
     const db =
       await openDatabase()
 
-    await new Promise<void>(
-      (resolve, reject) => {
-        const tx =
-          db.transaction(
+    try {
+      await new Promise<void>(
+        (
+          resolve,
+          reject,
+        ) => {
+          const tx =
+            db.transaction(
+              STORE_NAME,
+              'readwrite',
+            )
+
+          tx.objectStore(
             STORE_NAME,
-            'readwrite',
-          )
+          ).delete(key)
 
-        tx.objectStore(
-          STORE_NAME,
-        ).delete(key)
+          tx.oncomplete =
+            () => resolve()
 
-        tx.oncomplete =
-          () => resolve()
-
-        tx.onerror =
-          () =>
-            reject(tx.error)
-      },
-    )
-
-    db.close()
+          tx.onerror =
+            () =>
+              reject(
+                tx.error,
+              )
+        },
+      )
+    } finally {
+      db.close()
+    }
   } catch {
-    // Cloud cleanup will still run.
+    // Cloud cleanup se i dalje pokušava.
   }
 }
 
-export async function saveUserDraft<T>(
+function normalizeLegacyEnvelope<T>(
+  value:
+    LocalDraftEnvelope<T>,
+  identity: Identity,
   draftType: DraftType,
   draftKey: string,
-  payload: T,
-): Promise<string> {
-  const identity =
-    await getIdentity()
-
-  const updatedAt =
-    new Date().toISOString()
-
-  const key =
-    localKey(
-      identity,
+): LocalDraftEnvelope<T> {
+  return {
+    key:
+      value.key ||
+      localKey(
+        identity,
+        draftType,
+        draftKey,
+      ),
+    companyId:
+      value.companyId ||
+      identity.companyId,
+    userId:
+      value.userId ||
+      identity.userId,
+    draftType:
+      value.draftType ||
       draftType,
+    draftKey:
+      value.draftKey ||
       draftKey,
-    )
+    payload:
+      value.payload,
+    updatedAt:
+      value.updatedAt,
+    syncState:
+      value.syncState ||
+      'pending',
+  }
+}
 
-  // Lokalno se sprema prvo:
-  // radi i kad internet nestane.
-  await saveLocal(
-    key,
-    {
-      payload,
-      updatedAt,
-    },
-  )
-
-  // Cloud je dodatna zaštita
-  // i omogućuje nastavak na drugom uređaju.
-  try {
-    const {
-      error,
-    } = await supabase
-      .from('user_drafts')
+async function uploadEnvelope(
+  envelope:
+    LocalDraftEnvelope,
+) {
+  const {
+    error,
+  } =
+    await supabase
+      .from(
+        'user_drafts',
+      )
       .upsert(
         {
           company_id:
-            identity.companyId,
-
+            envelope.companyId,
           user_id:
-            identity.userId,
-
+            envelope.userId,
           draft_type:
-            draftType,
-
+            envelope.draftType,
           draft_key:
-            draftKey,
-
-          payload,
-
+            envelope.draftKey,
+          payload:
+            envelope.payload,
           updated_at:
-            updatedAt,
-
+            envelope.updatedAt,
           expires_at:
             new Date(
               Date.now() +
@@ -335,15 +503,80 @@ export async function saveUserDraft<T>(
         },
       )
 
-    if (error) {
+  if (error) {
+    throw error
+  }
+
+  await putLocal({
+    ...envelope,
+    syncState:
+      'synced',
+  })
+}
+
+export async function saveUserDraft<T>(
+  draftType: DraftType,
+  draftKey: string,
+  payload: T,
+): Promise<string> {
+  const identity =
+    await getIdentity()
+
+  const updatedAt =
+    new Date()
+      .toISOString()
+
+  const envelope:
+    LocalDraftEnvelope<T> = {
+      key:
+        localKey(
+          identity,
+          draftType,
+          draftKey,
+        ),
+      companyId:
+        identity.companyId,
+      userId:
+        identity.userId,
+      draftType,
+      draftKey,
+      payload,
+      updatedAt,
+      syncState:
+        'pending',
+    }
+
+  // Prvo IndexedDB. Ovo je izvor sigurnosti kad mreža nestane.
+  await putLocal(
+    envelope,
+  )
+
+  window.dispatchEvent(
+    new Event(
+      'fersys:draft-sync-change',
+    ),
+  )
+
+  if (
+    navigator.onLine
+  ) {
+    try {
+      await uploadEnvelope(
+        envelope,
+      )
+    } catch (error) {
       console.warn(
         'Cloud autosave trenutno nije dostupan:',
-        error.message,
+        error,
       )
     }
-  } catch {
-    // Offline: lokalna kopija ostaje.
   }
+
+  window.dispatchEvent(
+    new Event(
+      'fersys:draft-sync-change',
+    ),
+  )
 
   return updatedAt
 }
@@ -362,10 +595,20 @@ export async function loadUserDraft<T>(
       draftKey,
     )
 
-  const local =
+  const rawLocal =
     await loadLocal<T>(
       key,
     )
+
+  const local =
+    rawLocal
+      ? normalizeLegacyEnvelope(
+          rawLocal,
+          identity,
+          draftType,
+          draftKey,
+        )
+      : null
 
   let cloud:
     | {
@@ -374,49 +617,61 @@ export async function loadUserDraft<T>(
       }
     | null = null
 
-  try {
-    const {
-      data,
-      error,
-    } = await supabase
-      .from('user_drafts')
-      .select(
-        'payload,updated_at',
-      )
-      .eq(
-        'company_id',
-        identity.companyId,
-      )
-      .eq(
-        'user_id',
-        identity.userId,
-      )
-      .eq(
-        'draft_type',
-        draftType,
-      )
-      .eq(
-        'draft_key',
-        draftKey,
-      )
-      .maybeSingle()
+  if (
+    navigator.onLine
+  ) {
+    try {
+      const {
+        data,
+        error,
+      } =
+        await supabase
+          .from(
+            'user_drafts',
+          )
+          .select(
+            'payload,updated_at',
+          )
+          .eq(
+            'company_id',
+            identity.companyId,
+          )
+          .eq(
+            'user_id',
+            identity.userId,
+          )
+          .eq(
+            'draft_type',
+            draftType,
+          )
+          .eq(
+            'draft_key',
+            draftKey,
+          )
+          .maybeSingle()
 
-    if (!error && data) {
-      cloud = {
-        payload:
-          data.payload as T,
-
-        updatedAt:
-          String(
-            data.updated_at,
-          ),
+      if (
+        !error &&
+        data
+      ) {
+        cloud = {
+          payload:
+            data.payload as T,
+          updatedAt:
+            String(
+              data.updated_at,
+            ),
+        }
       }
+    } catch {
+      // Lokalni nacrt ostaje dostupan.
     }
-  } catch {
-    // Offline.
   }
 
-  if (!local && !cloud) {
+  if (
+    !local &&
+    !cloud
+  ) {
     return null
   }
 
@@ -432,9 +687,25 @@ export async function loadUserDraft<T>(
         ).getTime()
     )
   ) {
-    await saveLocal(
+    const envelope:
+      LocalDraftEnvelope<T> = {
       key,
-      cloud,
+      companyId:
+        identity.companyId,
+      userId:
+        identity.userId,
+      draftType,
+      draftKey,
+      payload:
+        cloud.payload,
+      updatedAt:
+        cloud.updatedAt,
+      syncState:
+        'synced',
+    }
+
+    await putLocal(
+      envelope,
     )
 
     return {
@@ -466,17 +737,34 @@ export async function deleteUserDraft(
   const identity =
     await getIdentity()
 
-  await deleteLocal(
+  const key =
     localKey(
       identity,
       draftType,
       draftKey,
+    )
+
+  await deleteLocal(
+    key,
+  )
+
+  window.dispatchEvent(
+    new Event(
+      'fersys:draft-sync-change',
     ),
   )
 
+  if (
+    !navigator.onLine
+  ) {
+    return
+  }
+
   try {
     await supabase
-      .from('user_drafts')
+      .from(
+        'user_drafts',
+      )
       .delete()
       .eq(
         'company_id',
@@ -497,6 +785,130 @@ export async function deleteUserDraft(
   } catch {
     // Lokalni nacrt je već obrisan.
   }
+}
+
+export async function getDraftSyncStatus():
+Promise<DraftSyncStatus> {
+  let pending = 0
+
+  try {
+    const identity =
+      await getIdentity()
+
+    const drafts =
+      await listLocal()
+
+    pending =
+      drafts.filter(
+        (draft) =>
+          draft.companyId ===
+            identity.companyId &&
+          draft.userId ===
+            identity.userId &&
+          (
+            !draft.syncState ||
+            draft.syncState ===
+              'pending'
+          ),
+      ).length
+  } catch {
+    // Offline prije prvog uspješnog identiteta.
+  }
+
+  return {
+    online:
+      navigator.onLine,
+    pending,
+    lastSyncedAt:
+      localStorage.getItem(
+        LAST_SYNC_KEY,
+      ) ?? '',
+  }
+}
+
+export async function syncPendingUserDrafts():
+Promise<number> {
+  if (
+    !navigator.onLine
+  ) {
+    return 0
+  }
+
+  const identity =
+    await getIdentity()
+
+  const drafts =
+    await listLocal()
+
+  const pending =
+    drafts.filter(
+      (draft) =>
+        (
+          draft.companyId ===
+            identity.companyId ||
+          !draft.companyId
+        ) &&
+        (
+          draft.userId ===
+            identity.userId ||
+          !draft.userId
+        ) &&
+        (
+          !draft.syncState ||
+          draft.syncState ===
+            'pending'
+        ),
+    )
+
+  let synced = 0
+
+  for (
+    const raw of
+      pending
+  ) {
+    const envelope =
+      normalizeLegacyEnvelope(
+        raw,
+        identity,
+        raw.draftType,
+        raw.draftKey,
+      )
+
+    try {
+      await uploadEnvelope(
+        envelope,
+      )
+      synced += 1
+    } catch (error) {
+      console.warn(
+        'Nacrt još nije sinkroniziran:',
+        error,
+      )
+    }
+  }
+
+  if (
+    synced > 0 ||
+    pending.length === 0
+  ) {
+    try {
+      localStorage.setItem(
+        LAST_SYNC_KEY,
+        new Date()
+          .toISOString(),
+      )
+    } catch {
+      // Status sinkronizacije nije kritičan.
+    }
+  }
+
+  window.dispatchEvent(
+    new Event(
+      'fersys:draft-sync-change',
+    ),
+  )
+
+  return synced
 }
 
 export function formatDraftSavedAt(
