@@ -18,6 +18,7 @@ import {
 import App from './App'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
+import { isNativeApp } from './lib/platform'
 import './index.css'
 
 const DownloadFeedbackCenter =
@@ -68,48 +69,58 @@ const VideoTutorialCenter =
       ),
   )
 
-const updateServiceWorker =
-  registerSW({
-    immediate: true,
+function registerWebServiceWorker() {
+  if (
+    isNativeApp()
+  ) {
+    return
+  }
 
-    onRegisteredSW(
-      _serviceWorkerUrl,
-      registration,
-    ) {
-      if (!registration) {
-        return
-      }
+  const updateServiceWorker =
+    registerSW({
+      immediate: true,
 
-      window.setTimeout(
-        () => {
-          void registration.update()
-        },
-        2_500,
-      )
+      onRegisteredSW(
+        _serviceWorkerUrl,
+        registration,
+      ) {
+        if (!registration) {
+          return
+        }
 
-      window.setInterval(
-        () => {
-          void registration.update()
-        },
-        60 * 60 * 1000,
-      )
-    },
+        window.setTimeout(
+          () => {
+            void registration.update()
+          },
+          2_500,
+        )
 
-    onNeedRefresh() {
-      void updateServiceWorker(
-        true,
-      )
-    },
+        window.setInterval(
+          () => {
+            void registration.update()
+          },
+          60 * 60 * 1000,
+        )
+      },
 
-    onRegisterError(
-      error,
-    ) {
-      console.error(
-        'FERSYS PWA service worker nije registriran:',
+      onNeedRefresh() {
+        void updateServiceWorker(
+          true,
+        )
+      },
+
+      onRegisterError(
         error,
-      )
-    },
-  })
+      ) {
+        console.error(
+          'FERSYS PWA service worker nije registriran:',
+          error,
+        )
+      },
+    })
+}
+
+registerWebServiceWorker()
 
 function DeferredEnhancements() {
   const [

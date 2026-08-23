@@ -24,10 +24,14 @@ import {
 } from '../components/security/FersysTurnstile'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
+import { isNativeApp } from '../lib/platform'
 
 export function LoginPage() {
   const navigate =
     useNavigate()
+
+  const nativeApp =
+    isNativeApp()
 
   const {
     session,
@@ -120,7 +124,10 @@ export function LoginPage() {
       return
     }
 
-    if (!captchaToken) {
+    if (
+      !nativeApp &&
+      !captchaToken
+    ) {
       setError(
         'Potvrdi sigurnosnu provjeru prije prijave.',
       )
@@ -139,9 +146,13 @@ export function LoginPage() {
             email:
               normalizedEmail,
             password,
-            options: {
-              captchaToken,
-            },
+            ...(nativeApp
+              ? {}
+              : {
+                  options: {
+                    captchaToken,
+                  },
+                }),
           },
         )
 
@@ -192,7 +203,10 @@ export function LoginPage() {
       return
     }
 
-    if (!captchaToken) {
+    if (
+      !nativeApp &&
+      !captchaToken
+    ) {
       setError(
         'Potvrdi sigurnosnu provjeru prije slanja poveznice.',
       )
@@ -211,7 +225,11 @@ export function LoginPage() {
           {
             redirectTo:
               `${window.location.origin}/reset-password`,
-            captchaToken,
+            ...(nativeApp
+              ? {}
+              : {
+                  captchaToken,
+                }),
           },
         )
 
@@ -442,14 +460,16 @@ export function LoginPage() {
                   </div>
                 </div>
 
-                <FersysTurnstile
-                  ref={
-                    turnstileRef
-                  }
-                  onTokenChange={
-                    setCaptchaToken
-                  }
-                />
+                {!nativeApp && (
+                  <FersysTurnstile
+                    ref={
+                      turnstileRef
+                    }
+                    onTokenChange={
+                      setCaptchaToken
+                    }
+                  />
+                )}
 
                 {error && (
                   <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
@@ -467,7 +487,10 @@ export function LoginPage() {
                   type="submit"
                   disabled={
                     isSubmitting ||
-                    !captchaToken
+                    (
+                      !nativeApp &&
+                      !captchaToken
+                    )
                   }
                   className="flex h-13 w-full items-center justify-center rounded-2xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 font-bold text-white shadow-lg shadow-violet-600/20 transition hover:shadow-violet-600/30 disabled:cursor-not-allowed disabled:opacity-60"
                 >

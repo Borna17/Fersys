@@ -18,6 +18,9 @@ import {
   type FormEvent,
 } from 'react'
 import { useNavigate } from 'react-router'
+import { SpeechRecognition } from '@capacitor-community/speech-recognition'
+
+import { isNativeApp } from '../lib/platform'
 
 import {
   askAiAssistant,
@@ -174,6 +177,23 @@ export function AiAssistantPage() {
   }, [messages])
 
   useEffect(() => {
+    if (isNativeApp()) {
+      void SpeechRecognition
+        .available()
+        .then(({ available }) => {
+          setSpeechSupported(
+            available,
+          )
+        })
+        .catch(() => {
+          setSpeechSupported(
+            false,
+          )
+        })
+
+      return
+    }
+
     const Constructor =
       window.SpeechRecognition ??
       window.webkitSpeechRecognition
@@ -443,18 +463,97 @@ export function AiAssistantPage() {
      */
   }
 
-  function toggleListening() {
+  async function toggleListening() {
     if (!speechSupported) {
       setError(
-        'Ovaj preglednik ne podržava izravno glasovno prepoznavanje. Poruku možeš upisati.',
+        isNativeApp()
+          ? 'Glasovno prepoznavanje nije dostupno na ovom uređaju.'
+          : 'Ovaj preglednik ne podržava izravno glasovno prepoznavanje. Poruku možeš upisati.',
       )
+      return
+    }
+
+    if (isNativeApp()) {
+      if (isListening) {
+        void SpeechRecognition.stop()
+        setIsListening(false)
+        return
+      }
+
+      try {
+        setError('')
+
+        const permission =
+          await SpeechRecognition
+            .checkPermissions()
+
+        if (
+          permission
+            .speechRecognition !==
+          'granted'
+        ) {
+          const requested =
+            await SpeechRecognition
+              .requestPermissions()
+
+          if (
+            requested
+              .speechRecognition !==
+            'granted'
+          ) {
+            setError(
+              'Mikrofon nije dopušten. U postavkama telefona omogući mikrofon za FERSYS.',
+            )
+            return
+          }
+        }
+
+        setInput('')
+        setIsListening(true)
+
+        const result =
+          await SpeechRecognition.start({
+            language: 'hr-HR',
+            maxResults: 3,
+            prompt:
+              'Govori FERSYS AI pomoćniku',
+            popup: false,
+            partialResults: false,
+          })
+
+        const transcript =
+          result.matches?.[0]
+            ?.trim() ??
+          ''
+
+        if (transcript) {
+          setInput(
+            transcript,
+          )
+        } else {
+          setError(
+            'Govor nije prepoznat. Pokušaj ponovno.',
+          )
+        }
+      } catch (speechError) {
+        setError(
+          speechError instanceof Error
+            ? speechError.message
+            : 'Glasovni unos nije uspio.',
+        )
+      } finally {
+        setIsListening(false)
+      }
+
       return
     }
 
     const recognition =
       recognitionRef.current
 
-    if (!recognition) return
+    if (!recognition) {
+      return
+    }
 
     if (isListening) {
       recognition.stop()
@@ -770,8 +869,8 @@ export function AiAssistantPage() {
           <div className="flex items-end gap-2 rounded-2xl border border-slate-700 bg-slate-950 p-2 focus-within:border-blue-500">
             <button
               type="button"
-              onClick={
-                toggleListening
+              onClick={() =>
+                void toggleListening()
               }
               className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
                 isListening

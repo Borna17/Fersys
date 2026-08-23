@@ -8,6 +8,8 @@ import {
   useRef,
 } from 'react'
 
+import { isNativeApp } from '../../lib/platform'
+
 export type FersysTurnstileRef = {
   reset: () => void
 }
@@ -17,7 +19,9 @@ type Props = {
 }
 
 const siteKey = String(
-  import.meta.env.VITE_TURNSTILE_SITE_KEY ?? '',
+  import.meta.env
+    .VITE_TURNSTILE_SITE_KEY ??
+    '',
 ).trim()
 
 export const FersysTurnstile = forwardRef<
@@ -28,7 +32,9 @@ export const FersysTurnstile = forwardRef<
   ref,
 ) {
   const widgetRef =
-    useRef<TurnstileInstance | null>(null)
+    useRef<TurnstileInstance | null>(
+      null,
+    )
 
   useImperativeHandle(
     ref,
@@ -40,6 +46,10 @@ export const FersysTurnstile = forwardRef<
     }),
     [onTokenChange],
   )
+
+  if (isNativeApp()) {
+    return null
+  }
 
   if (!siteKey) {
     return (
@@ -57,12 +67,20 @@ export const FersysTurnstile = forwardRef<
         options={{
           theme: 'dark',
           size: 'flexible',
-          appearance: 'interaction-only',
-          refreshExpired: 'auto',
+          appearance:
+            'interaction-only',
+          refreshExpired:
+            'auto',
         }}
-        onSuccess={onTokenChange}
-        onExpire={() => onTokenChange('')}
-        onError={() => onTokenChange('')}
+        onSuccess={
+          onTokenChange
+        }
+        onExpire={() =>
+          onTokenChange('')
+        }
+        onError={() =>
+          onTokenChange('')
+        }
       />
     </div>
   )
