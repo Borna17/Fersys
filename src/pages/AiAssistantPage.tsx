@@ -107,17 +107,24 @@ function createMessage(
 const welcomeText =
   'Bok! Piši ili govori prirodno, kao u razgovoru. Razumijem investitore/kupce, radne naloge, ponude i kalendar. Možeš reći npr. „napravi investitora Marko Horvat”, „napravi mu nalog sutra u 8”, „stavi zadnju ponudu na prihvaćeno” ili „koji nalozi kasne”. Sve što mijenja podatke prvo traži tvoju potvrdu.'
 
+const AI_CONVERSATION_STORAGE_KEY =
+  'fersys_ai_assistant_conversation_v1'
+
+function initialMessages(): AiAssistantMessage[] {
+  try {
+    const saved = localStorage.getItem(AI_CONVERSATION_STORAGE_KEY)
+    const parsed = saved ? JSON.parse(saved) : null
+    if (Array.isArray(parsed) && parsed.length > 0) return parsed as AiAssistantMessage[]
+  } catch {
+    // Pokreni novi razgovor ako lokalna pohrana nije dostupna.
+  }
+  return [createMessage('assistant', welcomeText)]
+}
+
 export function AiAssistantPage() {
   const navigate = useNavigate()
   const [messages, setMessages] =
-    useState<
-      AiAssistantMessage[]
-    >([
-      createMessage(
-        'assistant',
-        welcomeText,
-      ),
-    ])
+    useState<AiAssistantMessage[]>(initialMessages)
   const [input, setInput] =
     useState('')
   const [
@@ -154,6 +161,17 @@ export function AiAssistantPage() {
     useRef<HTMLTextAreaElement | null>(
       null,
     )
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        AI_CONVERSATION_STORAGE_KEY,
+        JSON.stringify(messages),
+      )
+    } catch {
+      // Razgovor nastavlja raditi i bez localStoragea.
+    }
+  }, [messages])
 
   useEffect(() => {
     const Constructor =
@@ -560,12 +578,10 @@ export function AiAssistantPage() {
   }
 
   function clearConversation() {
-    setMessages([
-      createMessage(
-        'assistant',
-        welcomeText,
-      ),
-    ])
+    if (!window.confirm('Želiš li obrisati cijeli razgovor s AI pomoćnikom?')) return
+
+    localStorage.removeItem(AI_CONVERSATION_STORAGE_KEY)
+    setMessages([createMessage('assistant', welcomeText)])
     setInput('')
     setProposedAction(null)
     setError('')
@@ -573,7 +589,7 @@ export function AiAssistantPage() {
 
   return (
     <section className="mx-auto flex min-h-[calc(100dvh-var(--fersys-mobile-header-height)-var(--fersys-mobile-nav-height)-var(--fersys-safe-top)-var(--fersys-safe-bottom)-1rem)] w-full max-w-[1500px] flex-col pb-1">
-      <header className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4">
+      <header className="flex items-start justify-between gap-3 border-b border-slate-800 pb-4 pr-14 sm:pr-0">
         <div className="min-w-0">
           <div className="flex items-center gap-3">
             <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-violet-400">
@@ -600,8 +616,9 @@ export function AiAssistantPage() {
         <button
           type="button"
           onClick={clearConversation}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
-          aria-label="Novi razgovor"
+          className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-slate-800 text-slate-300 active:scale-95"
+          aria-label="Obriši razgovor"
+          title="Obriši razgovor"
         >
           <Trash2 size={17} />
         </button>
