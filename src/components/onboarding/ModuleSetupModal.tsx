@@ -79,6 +79,25 @@ export default function ModuleSetupModal({
     initialModules,
   ])
 
+  /*
+   * Dok je modal otvoren zaključavamo samo pozadinu.
+   * Sam modal ima vlastiti 100dvh scroll, što radi i na iOS Safari.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const previousOverflow =
+      document.body.style.overflow
+
+    document.body.style.overflow =
+      'hidden'
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow
+    }
+  }, [open])
+
   const selectedSet =
     useMemo(
       () =>
@@ -152,21 +171,30 @@ export default function ModuleSetupModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[205] overflow-y-auto bg-slate-950/96 p-3 backdrop-blur-xl sm:p-5">
-      <div className="mx-auto flex min-h-full w-full max-w-5xl items-center">
-        <section className="w-full overflow-hidden rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60">
-          <header className="border-b border-slate-800 bg-gradient-to-br from-blue-600/20 via-slate-900 to-violet-600/15 px-5 py-6 sm:px-8">
+    <div
+      className="fixed inset-0 z-[205] h-[100dvh] overflow-y-auto overscroll-contain bg-slate-950/96 p-3 backdrop-blur-xl sm:p-5"
+      style={{
+        WebkitOverflowScrolling:
+          'touch',
+      }}
+    >
+      <div className="mx-auto flex min-h-full w-full max-w-5xl items-start py-1 sm:items-center sm:py-0">
+        <section className="my-1 w-full overflow-visible rounded-[1.75rem] border border-slate-700 bg-slate-900 shadow-2xl shadow-black/60 sm:my-auto">
+          <header className="overflow-hidden rounded-t-[1.75rem] border-b border-slate-800 bg-gradient-to-br from-blue-600/20 via-slate-900 to-violet-600/15 px-5 py-6 sm:px-8">
             <div className="flex items-start gap-4">
               <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-blue-500/15 text-blue-300">
                 <Sparkles size={24} />
               </div>
+
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.22em] text-blue-400">
                   POSTAVI SVOJ FERSYS
                 </p>
+
                 <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
                   Koje module želiš koristiti?
                 </h1>
+
                 <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
                   Odaberi samo ono što je tvojoj tvrtki trenutno potrebno.
                   FERSYS će navigaciju i brze akcije prilagoditi tom odabiru.
@@ -179,6 +207,7 @@ export default function ModuleSetupModal({
                 size={19}
                 className="mt-0.5 shrink-0 text-blue-300"
               />
+
               <p className="text-xs font-semibold leading-5 text-blue-100/85 sm:text-sm">
                 Ovaj odabir možeš
                 <strong className="text-white">
@@ -196,6 +225,7 @@ export default function ModuleSetupModal({
               >
                 Preporučeni odabir
               </button>
+
               <button
                 type="button"
                 onClick={all}
@@ -206,11 +236,12 @@ export default function ModuleSetupModal({
             </div>
           </header>
 
-          <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 sm:p-6 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 p-4 pb-28 sm:grid-cols-2 sm:p-6 sm:pb-28 lg:grid-cols-3">
             {companyModules.map(
               (module) => {
                 const Icon =
                   icons[module.key]
+
                 const active =
                   selectedSet.has(
                     module.key,
@@ -253,6 +284,7 @@ export default function ModuleSetupModal({
                     <p className="mt-4 font-black text-white">
                       {module.label}
                     </p>
+
                     <p className="mt-1 text-xs leading-5 text-slate-400">
                       {module.description}
                     </p>
@@ -262,7 +294,7 @@ export default function ModuleSetupModal({
             )}
           </div>
 
-          <footer className="border-t border-slate-800 bg-slate-950/25 p-4 sm:px-6 sm:py-5">
+          <footer className="sticky bottom-0 z-20 rounded-b-[1.75rem] border-t border-slate-700/90 bg-slate-950/95 p-4 shadow-[0_-14px_35px_rgba(2,6,23,0.75)] backdrop-blur-xl sm:px-6 sm:py-5">
             {error && (
               <div className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
                 {error}
@@ -275,8 +307,12 @@ export default function ModuleSetupModal({
                   size={16}
                   className="mt-0.5 shrink-0"
                 />
+
                 <p>
-                  Odabrano: <strong className="text-white">{selected.length}</strong>.
+                  Odabrano:{' '}
+                  <strong className="text-white">
+                    {selected.length}
+                  </strong>.
                   Početna, Postavke, Podrška i obavijesti ostaju dostupne.
                 </p>
               </div>
@@ -287,7 +323,7 @@ export default function ModuleSetupModal({
                 onClick={() =>
                   void submit()
                 }
-                className="min-h-12 rounded-2xl bg-blue-600 px-7 font-black text-white shadow-lg shadow-blue-950/30 disabled:opacity-50"
+                className="min-h-12 w-full rounded-2xl bg-blue-600 px-7 font-black text-white shadow-lg shadow-blue-950/30 disabled:opacity-50 sm:w-auto"
               >
                 {isSaving
                   ? 'Spremanje...'
