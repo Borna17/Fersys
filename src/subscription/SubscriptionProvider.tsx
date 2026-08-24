@@ -10,6 +10,10 @@ import {
   useRef,
   useState,
 } from 'react'
+import {
+  useLocation,
+  useNavigate,
+} from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
 import LimitReachedModal from '../components/subscription/LimitReachedModal'
@@ -60,6 +64,12 @@ type SubscriptionContextValue = {
 const Context =
   createContext<SubscriptionContextValue | null>(null)
 
+const allowedWithoutUsableSubscription = [
+  '/pricing',
+  '/account',
+  '/support',
+]
+
 function getDaysRemaining(
   dateValue: string | null,
 ) {
@@ -92,6 +102,9 @@ export function SubscriptionProvider({
 }: {
   children: ReactNode
 }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+
   const {
     session,
     membership,
@@ -347,9 +360,76 @@ export function SubscriptionProvider({
     ],
   )
 
+  const isAdminRoute =
+    location.pathname.startsWith('/admin')
+
+  const isAllowedRecoveryRoute =
+    allowedWithoutUsableSubscription.some(
+      (path) =>
+        location.pathname.startsWith(path),
+    )
+
+  const shouldShowAccessBlock =
+    Boolean(
+      session &&
+      membership &&
+      subscription &&
+      !subscription.isUsable &&
+      !isAdminRoute &&
+      !isAllowedRecoveryRoute,
+    )
+
   return (
     <Context.Provider value={value}>
-      {children}
+      {shouldShowAccessBlock ? (
+        <div className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
+          <section className="w-full max-w-xl rounded-[2rem] border border-amber-500/20 bg-slate-900 p-6 shadow-2xl shadow-black/40 sm:p-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-400">
+              FERSYS PRISTUP
+            </p>
+
+            <h1 className="mt-3 text-2xl font-black sm:text-3xl">
+              Pristup poslovnim podacima trenutačno nije aktivan
+            </h1>
+
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              Status računa je{' '}
+              <strong className="text-white">
+                {subscription?.status ?? 'neaktivan'}
+              </strong>.
+              Podaci nisu obrisani. Vlasnik računa može provjeriti paket ili kontaktirati FERSYS podršku.
+            </p>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => navigate('/account')}
+                className="min-h-12 rounded-2xl border border-slate-700 bg-slate-950 px-4 text-sm font-black text-white"
+              >
+                Moj FERSYS
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/pricing')}
+                className="min-h-12 rounded-2xl bg-blue-600 px-4 text-sm font-black text-white"
+              >
+                Paketi
+              </button>
+
+              <button
+                type="button"
+                onClick={() => navigate('/support')}
+                className="min-h-12 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-4 text-sm font-black text-violet-200"
+              >
+                Podrška
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : (
+        children
+      )}
 
       <LimitReachedModal
         isOpen={Boolean(limitModal)}
