@@ -4,17 +4,11 @@ export default function FloatingUiLayoutFix() {
       /*
        * FERSYS FLOATING UI RAIL
        *
-       * Desktop:
-       * - Smart Flow ........ 44% viewport height
-       * - Video pomoć ....... 54%
-       * - Svi tutorijali .... 62%
-       *
-       * All collapsed controls occupy only ~44–48px at the extreme
-       * right edge, so they no longer cover list actions, PDF buttons,
-       * invoice/delivery-note actions or other bottom-right controls.
-       *
-       * Mobile keeps the original placement above the bottom navigation.
+       * Desktop ostaje kompaktan uz desni rub.
+       * Mobile / Postavke dobiva zaseban sigurni red iznad
+       * fiksnog "Spremi / Spremljeno" bara.
        */
+
       @media (min-width: 768px) {
         button[aria-label^="Otvori video pomoć za"] {
           top: 54% !important;
@@ -71,6 +65,94 @@ export default function FloatingUiLayoutFix() {
           transform:
             translateY(-50%)
             scale(0.96) !important;
+        }
+      }
+
+      /*
+       * MOBILE SETTINGS FIX
+       *
+       * SettingsPage na mobitelu ima fiksni save bar neposredno
+       * iznad donje navigacije. Video pomoć i Početni vodič više
+       * ne smiju sjediti na tom istom mjestu.
+       *
+       * :has() ograničava ovaj raspored samo na stranicu koja
+       * sadrži mobilni gumb "Spremi postavke".
+       */
+      @media (max-width: 767px) {
+        body:has(button[aria-label="Spremi postavke"])
+          button[aria-label^="Otvori video pomoć za"] {
+          position: fixed !important;
+          left: 0.75rem !important;
+          right: auto !important;
+          bottom:
+            calc(
+              10.25rem +
+              env(safe-area-inset-bottom)
+            ) !important;
+
+          width: 3.25rem !important;
+          min-width: 3.25rem !important;
+          height: 3.25rem !important;
+          min-height: 3.25rem !important;
+
+          padding: 0 !important;
+          display: flex !important;
+          align-items: center !important;
+          justify-content: center !important;
+          gap: 0 !important;
+
+          border-radius: 1rem !important;
+          z-index: 83 !important;
+        }
+
+        body:has(button[aria-label="Spremi postavke"])
+          button[aria-label^="Otvori video pomoć za"]
+          > span:last-child {
+          display: none !important;
+        }
+
+        body:has(button[aria-label="Spremi postavke"])
+          button[aria-label="Otvori sve video tutorijale"] {
+          position: fixed !important;
+          left: 4.4rem !important;
+          right: auto !important;
+          bottom:
+            calc(
+              10.25rem +
+              env(safe-area-inset-bottom)
+            ) !important;
+
+          width: 3.25rem !important;
+          min-width: 3.25rem !important;
+          height: 3.25rem !important;
+          min-height: 3.25rem !important;
+
+          padding: 0 !important;
+          border-radius: 1rem !important;
+          z-index: 83 !important;
+        }
+
+        /*
+         * FirstStepsControlCenter koristi fixed + z-[84].
+         * Na /settings je to upravo gumb "Početni vodič".
+         */
+        body:has(button[aria-label="Spremi postavke"])
+          button.fixed.z-\[84\] {
+          left: auto !important;
+          right: 0.75rem !important;
+          bottom:
+            calc(
+              10.25rem +
+              env(safe-area-inset-bottom)
+            ) !important;
+
+          min-height: 3.25rem !important;
+          max-width: 9.75rem !important;
+          padding-left: 0.85rem !important;
+          padding-right: 0.85rem !important;
+
+          border-radius: 1rem !important;
+          z-index: 84 !important;
         }
       }
     `}</style>
