@@ -1,7 +1,7 @@
 {
   "name": "fersys",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -12,7 +12,9 @@
     "mobile:sync": "npx cap sync",
     "android:add": "npx cap add android",
     "android:open": "npx cap open android",
-    "android:run": "npm run build && npx cap sync android && npx cap run android"
+    "android:run": "npm run build && npx cap sync android && npx cap run android",
+    "android:bundle": "npm run build && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "android:clean": "cd android && gradlew.bat clean"
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.2",

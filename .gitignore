@@ -18,6 +18,20 @@ dist-ssr
 .env.*
 !.env.example
 
+# Android / Google Play signing - NEVER COMMIT
+android/keystore.properties
+android/*.jks
+android/*.keystore
+*.jks
+*.keystore
+
+# Android generated/local
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/captures/
+
 # FERSYS local backups / one-off generated files
 .fersys-*
 *.bak
