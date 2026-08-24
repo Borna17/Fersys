@@ -15,6 +15,7 @@ import {
   useNavigate,
 } from 'react-router'
 
+import AdminCompanyControlCenter from './AdminCompanyControlCenter'
 import { supabase } from '../lib/supabase'
 
 const items = [
@@ -138,6 +139,8 @@ export default function AdminLayout() {
 
         <Outlet />
       </main>
+
+      <AdminCompanyControlCenter />
     </div>
   )
 }
