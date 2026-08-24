@@ -26,6 +26,8 @@ import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
 import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNoteContextShortcut'
 import AppLayout from '../layouts/AppLayout'
+import { OffersPage } from '../pages/OffersPage'
+import { WorkOrdersPage } from '../pages/WorkOrdersPage'
 
 import {
   SubscriptionProvider,
@@ -357,15 +359,6 @@ const OfferDetailsPage = lazy(
     ),
 )
 
-const OffersPage = lazy(
-  () =>
-    import('../pages/OffersPage').then(
-      (module) => ({
-        default:
-          module.OffersPage,
-      }),
-    ),
-)
 
 const PricingPage = lazy(
   () =>
@@ -488,15 +481,6 @@ const WorkOrderSettingsPage = lazy(
     ),
 )
 
-const WorkOrdersPage = lazy(
-  () =>
-    import('../pages/WorkOrdersPage').then(
-      (module) => ({
-        default:
-          module.WorkOrdersPage,
-      }),
-    ),
-)
 
 type RouteWrapperProps = {
   children: ReactNode
