@@ -18,6 +18,7 @@ import {
 } from 'react-router'
 
 import AdminActivitySummary from './AdminActivitySummary'
+import { AdminActivityPage } from './AdminActivityPage'
 import AdminCompanyControlCenter from './AdminCompanyControlCenter'
 import { supabase } from '../lib/supabase'
 
@@ -29,7 +30,7 @@ const items = [
   },
   {
     name: 'Aktivnost',
-    path: '/admin/activity',
+    path: '/admin#activity',
     icon: Activity,
   },
   {
@@ -57,9 +58,15 @@ const items = [
 export default function AdminLayout() {
   const navigate = useNavigate()
   const location = useLocation()
+
+  const isActivityView =
+    location.pathname === '/admin' &&
+    location.hash === '#activity'
+
   const isAdminOverview =
-    location.pathname === '/admin' ||
-    location.pathname === '/admin/'
+    (location.pathname === '/admin' ||
+      location.pathname === '/admin/') &&
+    !isActivityView
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -95,6 +102,8 @@ export default function AdminLayout() {
         <nav className="flex-1 space-y-2 p-4">
           {items.map((item) => {
             const Icon = item.icon
+            const isActivityItem =
+              item.path === '/admin#activity'
 
             return (
               <NavLink
@@ -103,13 +112,20 @@ export default function AdminLayout() {
                 end={
                   item.path === '/admin'
                 }
-                className={({ isActive }) =>
-                  `flex h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition ${
-                    isActive
+                className={({ isActive }) => {
+                  const active =
+                    isActivityItem
+                      ? isActivityView
+                      : item.path === '/admin'
+                        ? isActive && !isActivityView
+                        : isActive
+
+                  return `flex h-12 items-center gap-3 rounded-xl px-4 text-sm font-bold transition ${
+                    active
                       ? 'bg-violet-600 text-white'
                       : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                   }`
-                }
+                }}
               >
                 <Icon size={20} />
                 {item.name}
@@ -149,9 +165,14 @@ export default function AdminLayout() {
           Povratak na Dashboard
         </button>
 
-        {isAdminOverview && <AdminActivitySummary />}
-
-        <Outlet />
+        {isActivityView ? (
+          <AdminActivityPage />
+        ) : (
+          <>
+            {isAdminOverview && <AdminActivitySummary />}
+            <Outlet />
+          </>
+        )}
       </main>
 
       <AdminCompanyControlCenter />
