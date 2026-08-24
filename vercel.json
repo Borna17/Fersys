@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/((?!assets/|favicon|manifest|robots\.txt|sitemap\.xml|legal/|fersys-email-logo\.png|pwa-|notification-|firebase-messaging-sw\.js|sw\.js|apple-touch-icon\.png|logo\.svg|icons\.svg).*)",
+      "source": "/((?!assets/|favicon|manifest|robots|icons/).*)",
       "destination": "/index.html"
     }
   ],
