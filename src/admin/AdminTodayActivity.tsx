@@ -6,6 +6,7 @@ import {
   Users,
   Wifi,
 } from 'lucide-react'
+import type { ReactNode } from 'react'
 import {
   useCallback,
   useEffect,
@@ -249,9 +250,9 @@ function Metric({
   label,
   value,
 }: {
-  icon: React.ReactNode
+  icon: ReactNode
   label: string
-  value: React.ReactNode
+  value: ReactNode
 }) {
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
