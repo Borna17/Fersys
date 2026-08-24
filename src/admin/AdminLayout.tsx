@@ -1,4 +1,5 @@
 import {
+  Activity,
   ArrowLeft,
   Award,
   Building2,
@@ -16,8 +17,8 @@ import {
   useNavigate,
 } from 'react-router'
 
+import AdminActivitySummary from './AdminActivitySummary'
 import AdminCompanyControlCenter from './AdminCompanyControlCenter'
-import AdminTodayActivity from './AdminTodayActivity'
 import { supabase } from '../lib/supabase'
 
 const items = [
@@ -25,6 +26,11 @@ const items = [
     name: 'Pregled',
     path: '/admin',
     icon: Gauge,
+  },
+  {
+    name: 'Aktivnost',
+    path: '/admin/activity',
+    icon: Activity,
   },
   {
     name: 'Tvrtke',
@@ -143,7 +149,7 @@ export default function AdminLayout() {
           Povratak na Dashboard
         </button>
 
-        {isAdminOverview && <AdminTodayActivity />}
+        {isAdminOverview && <AdminActivitySummary />}
 
         <Outlet />
       </main>
