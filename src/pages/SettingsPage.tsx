@@ -1500,7 +1500,8 @@ function OverviewSettingsTab({
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <section className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-violet-500/10 p-6 sm:p-8">
+      {completion.percentage < 100 && (
+      <section className="relative overflow-hidden rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/10 via-slate-900 to-violet-500/10 p-4 sm:p-6">
         <div className="pointer-events-none absolute -right-20 -top-20 h-72 w-72 rounded-full bg-blue-500/10 blur-3xl" />
 
         <div className="relative grid gap-7 lg:grid-cols-[1fr_320px] lg:items-center">
@@ -1574,8 +1575,9 @@ function OverviewSettingsTab({
           </div>
         </div>
       </section>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <ControlCenterCard
           icon={<Building2 size={23} />}
           title="Tvrtka i branding"
@@ -1670,21 +1672,21 @@ function ControlCenterCard({
     <button
       type="button"
       onClick={onClick}
-      className="group rounded-3xl border border-slate-800 bg-slate-900 p-5 text-left transition hover:-translate-y-1 hover:border-blue-500/30"
+      className="group rounded-2xl border border-slate-800 bg-slate-900 p-3 text-left transition hover:-translate-y-0.5 hover:border-blue-500/30 sm:p-4"
     >
-      <div className="grid h-12 w-12 place-items-center rounded-2xl bg-blue-500/10 text-blue-400">
+      <div className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10 text-blue-400 sm:h-10 sm:w-10">
         {icon}
       </div>
 
-      <h3 className="mt-5 font-black text-white">
+      <h3 className="mt-3 text-sm font-black leading-5 text-white sm:text-base">
         {title}
       </h3>
 
-      <p className="mt-2 min-h-12 text-sm leading-6 text-slate-500">
+      <p className="mt-1 hidden text-xs leading-5 text-slate-500 sm:block">
         {description}
       </p>
 
-      <p className="mt-4 text-xs font-black text-blue-400">
+      <p className="mt-2 text-[10px] font-black text-blue-400 sm:text-xs">
         {action} →
       </p>
     </button>
