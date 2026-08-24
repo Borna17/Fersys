@@ -27,6 +27,7 @@ import {
 } from '../services/notifications.service'
 
 import { supabase } from '../lib/supabase'
+import { isNativeApp } from '../lib/platform'
 import {
   enablePushNotifications,
   getPushRegistrationState,
@@ -388,8 +389,9 @@ MobileNotificationBell() {
       }
 
       if (
-        state ===
-        'subscribed'
+        state === 'subscribed' &&
+        !isNativeApp() &&
+        'serviceWorker' in navigator
       ) {
         const registration =
           await navigator
@@ -419,14 +421,22 @@ MobileNotificationBell() {
         'missing-key'
       ) {
         setError(
-          'Nedostaje VITE_VAPID_PUBLIC_KEY. Dodaj javni VAPID ključ u Vercel Environment Variables.',
+          'Nedostaje VITE_FIREBASE_VAPID_KEY u web konfiguraciji.',
         )
       } else if (
         state ===
         'unsupported'
       ) {
         setError(
-          'Ovaj preglednik ili uređaj ne podržava Web Push.',
+          'Ovaj uređaj trenutno ne podržava FERSYS push obavijesti.',
+        )
+      } else if (
+        state === 'denied'
+      ) {
+        setError(
+          isNativeApp()
+            ? 'Dopuštenje je blokirano. Otvori Postavke telefona → Aplikacije → FERSYS → Obavijesti, uključi ih i zatim pokušaj ponovno.'
+            : 'Obavijesti su blokirane u postavkama preglednika.',
         )
       }
     } catch (nextError) {
@@ -639,7 +649,7 @@ MobileNotificationBell() {
                     </p>
 
                     <p className="mt-1 text-[11px] leading-4 text-blue-200/60">
-                      Registriraj ovaj telefon za pravi Web Push i obavijesti kada FERSYS nije otvoren.
+                      Registriraj ovaj telefon za push obavijesti i kada FERSYS nije otvoren.
                     </p>
                   </div>
                 </button>
@@ -649,15 +659,16 @@ MobileNotificationBell() {
           {pushState ===
             'subscribed' && (
               <div className="border-b border-slate-800 bg-emerald-500/5 px-4 py-3 text-[11px] font-semibold leading-4 text-emerald-200/80">
-                ✓ Pravi push je uključen na ovom uređaju.
+                ✓ Push obavijesti su uključene na ovom uređaju.
               </div>
             )}
 
-          {permission ===
-            'denied' && (
+          {(permission === 'denied' ||
+            pushState === 'denied') && (
               <div className="border-b border-slate-800 bg-amber-500/5 px-4 py-3 text-[11px] leading-4 text-amber-200/70">
-                Obavijesti su blokirane u postavkama preglednika.
-                Dozvolu možeš ponovno uključiti u postavkama stranice.
+                {isNativeApp()
+                  ? 'Obavijesti su blokirane u postavkama telefona. Otvori Postavke → Aplikacije → FERSYS → Obavijesti.'
+                  : 'Obavijesti su blokirane u postavkama preglednika.'}
               </div>
             )}
 
