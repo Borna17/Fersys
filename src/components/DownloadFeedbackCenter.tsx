@@ -29,14 +29,23 @@ type DownloadEventDetail = {
   message?: string
 }
 
-const DOWNLOAD_BUTTON_PATTERN =
-  /\b(preuzmi|preuzimanje|download|pdf|excel|izvezi|export)\b/i
+/*
+ * VAŽNO:
+ * Ne smijemo reagirati na samu riječ "PDF" ili "Excel".
+ * Takve riječi se pojavljuju u običnim opisima modula,
+ * npr. "potpis i PDF", i prije su lažno palile loader.
+ */
+const DOWNLOAD_ACTION_PATTERN =
+  /\b(preuzmi|preuzimanje|download|izvezi|export|spremi\s+(?:pdf|excel)|izradi\s+(?:pdf|excel)|generiraj\s+(?:pdf|excel)|otvori\s+pdf)\b/i
 
 const EXCLUDED_BUTTON_PATTERN =
   /\b(preuzmi aplikaciju|instaliraj aplikaciju)\b/i
 
 const SLOW_WARNING_MS =
   10_000
+
+const WARNING_TIMEOUT_MS =
+  8_000
 
 const SUCCESS_TIMEOUT_MS =
   12_000
@@ -61,6 +70,23 @@ function findDownloadButton(
     return null
   }
 
+  if (
+    element.dataset
+      .downloadFeedback ===
+    'false'
+  ) {
+    return null
+  }
+
+  const explicit =
+    element.dataset
+      .downloadFeedback ===
+    'true'
+
+  if (explicit) {
+    return element
+  }
+
   const text =
     (
       element.innerText ||
@@ -73,20 +99,17 @@ function findDownloadButton(
       )
       .trim()
 
-  const explicit =
-    element.dataset
-      .downloadFeedback ===
-    'true'
+  if (
+    EXCLUDED_BUTTON_PATTERN.test(
+      text,
+    )
+  ) {
+    return null
+  }
 
   if (
-    !explicit &&
-    (
-      !DOWNLOAD_BUTTON_PATTERN.test(
-        text,
-      ) ||
-      EXCLUDED_BUTTON_PATTERN.test(
-        text,
-      )
+    !DOWNLOAD_ACTION_PATTERN.test(
+      text,
     )
   ) {
     return null
@@ -102,14 +125,26 @@ function displayName(
     return 'datoteku'
   }
 
+  const lower =
+    fileName.toLowerCase()
+
   if (
-    fileName
-      .toLowerCase()
-      .endsWith(
-        '.pdf',
-      )
+    lower.endsWith(
+      '.pdf',
+    )
   ) {
     return 'PDF'
+  }
+
+  if (
+    lower.endsWith(
+      '.xlsx',
+    ) ||
+    lower.endsWith(
+      '.xls',
+    )
+  ) {
+    return 'Excel'
   }
 
   return 'datoteku'
@@ -174,6 +209,17 @@ export default function DownloadFeedbackCenter() {
       null
   }
 
+  function dismiss() {
+    clearTimer(
+      slowTimer,
+    )
+    clearTimer(
+      dismissTimer,
+    )
+    clearButton()
+    setState(null)
+  }
+
   function scheduleSlowWarning() {
     clearTimer(
       slowTimer,
@@ -190,8 +236,16 @@ export default function DownloadFeedbackCenter() {
             title:
               'Izrada traje dulje nego inače',
             message:
-              'Dokument se još priprema. Pričekaj još trenutak ili pokušaj ponovno.',
+              'Dokument nije završen. Možeš pokušati ponovno.',
           })
+
+          dismissTimer.current =
+            window.setTimeout(
+              () => {
+                setState(null)
+              },
+              WARNING_TIMEOUT_MS,
+            )
         },
         SLOW_WARNING_MS,
       )
@@ -235,10 +289,14 @@ export default function DownloadFeedbackCenter() {
       status:
         'success',
       title:
-        'PDF je spreman',
+        detail.fileName
+          ?.toLowerCase()
+          .endsWith('.pdf')
+          ? 'PDF je spreman'
+          : 'Datoteka je spremna',
       message:
         detail.fileName
-          ? `${detail.fileName} je poslan u Preuzimanja.`
+          ? `${detail.fileName} je pripremljen za preuzimanje.`
           : 'Preuzimanje je pokrenuto.',
       fileName:
         detail.fileName,
@@ -428,6 +486,14 @@ export default function DownloadFeedbackCenter() {
       )
     }
 
+    function pageChanged() {
+      /*
+       * Ako korisnik ode na drugu stranicu,
+       * stari download toast ne smije ostati preko UI-ja.
+       */
+      dismiss()
+    }
+
     document.addEventListener(
       'click',
       userClick,
@@ -447,6 +513,16 @@ export default function DownloadFeedbackCenter() {
     window.addEventListener(
       'fersys:download-error',
       error,
+    )
+
+    window.addEventListener(
+      'popstate',
+      pageChanged,
+    )
+
+    window.addEventListener(
+      'hashchange',
+      pageChanged,
     )
 
     return () => {
@@ -469,6 +545,16 @@ export default function DownloadFeedbackCenter() {
       window.removeEventListener(
         'fersys:download-error',
         error,
+      )
+
+      window.removeEventListener(
+        'popstate',
+        pageChanged,
+      )
+
+      window.removeEventListener(
+        'hashchange',
+        pageChanged,
       )
 
       HTMLAnchorElement
@@ -573,16 +659,7 @@ export default function DownloadFeedbackCenter() {
           type="button"
           className="fersys-download-close"
           aria-label="Zatvori"
-          onClick={() => {
-            clearTimer(
-              slowTimer,
-            )
-            clearTimer(
-              dismissTimer,
-            )
-            clearButton()
-            setState(null)
-          }}
+          onClick={dismiss}
         >
           <X
             size={17}
