@@ -16,6 +16,7 @@ import {
 } from 'virtual:pwa-register'
 
 import App from './App'
+import ActivityTracker from './components/ActivityTracker'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import { isNativeApp } from './lib/platform'
@@ -169,6 +170,7 @@ createRoot(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <ActivityTracker />
 
       <FloatingUiLayoutFix />
       <GoogleCalendarOAuthBridge />
