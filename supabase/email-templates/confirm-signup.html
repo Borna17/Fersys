@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="hr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="supported-color-schemes" content="dark" />
+    <title>Potvrdi svoju FERSYS e-mail adresu</title>
+  </head>
+  <body style="margin:0;padding:0;background:#020617;font-family:Arial,Helvetica,sans-serif;color:#f8fafc;">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
+      Potvrdi svoju e-mail adresu i aktiviraj FERSYS račun.
+    </div>
+
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;background:#020617;margin:0;padding:0;">
+      <tr>
+        <td align="center" style="padding:36px 16px;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
+            <tr>
+              <td align="center" style="padding:0 0 22px;">
+                <img
+                  src="https://app.fersys.app/pwa-192x192.png"
+                  width="64"
+                  height="64"
+                  alt="FERSYS"
+                  style="display:block;width:64px;height:64px;border:0;border-radius:16px;"
+                />
+                <div style="margin-top:12px;font-size:22px;line-height:28px;font-weight:900;letter-spacing:1px;color:#ffffff;">
+                  FERSYS
+                </div>
+                <div style="margin-top:4px;font-size:11px;line-height:16px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#64748b;">
+                  Poslovni sustav
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td style="background:#0f172a;border:1px solid #1e293b;border-radius:24px;padding:38px 34px;box-shadow:0 24px 70px rgba(0,0,0,.35);">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td>
+                      <div style="display:inline-block;background:#2563eb1f;border:1px solid #3b82f633;border-radius:999px;padding:7px 11px;font-size:10px;line-height:14px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#93c5fd;">
+                        Potvrda računa
+                      </div>
+
+                      <h1 style="margin:20px 0 0;font-size:30px;line-height:38px;font-weight:900;letter-spacing:-.6px;color:#ffffff;">
+                        Potvrdi svoju e-mail adresu
+                      </h1>
+
+                      <p style="margin:16px 0 0;font-size:15px;line-height:25px;color:#94a3b8;">
+                        Hvala što si izradio FERSYS račun. Za završetak registracije i siguran pristup aplikaciji potvrdi svoju e-mail adresu klikom na gumb ispod.
+                      </p>
+
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 0;">
+                        <tr>
+                          <td bgcolor="#2563eb" style="border-radius:14px;">
+                            <a
+                              href="{{ .ConfirmationURL }}"
+                              style="display:inline-block;padding:15px 24px;font-size:14px;line-height:18px;font-weight:900;text-decoration:none;color:#ffffff;background:#2563eb;border-radius:14px;"
+                            >
+                              Potvrdi e-mail adresu →
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:28px;">
+                        <tr>
+                          <td style="background:#020617;border:1px solid #1e293b;border-radius:16px;padding:16px 17px;">
+                            <div style="font-size:12px;line-height:18px;font-weight:800;color:#cbd5e1;">
+                              🔒 Sigurnosna potvrda
+                            </div>
+                            <div style="margin-top:6px;font-size:11px;line-height:18px;color:#64748b;">
+                              Ako nisi izradio FERSYS račun, ovu poruku možeš zanemariti. Nemoj prosljeđivati ovaj e-mail niti poveznicu za potvrdu drugoj osobi.
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+
+                      <p style="margin:28px 0 0;font-size:11px;line-height:18px;color:#64748b;">
+                        Ako gumb ne radi, kopiraj ovu poveznicu u preglednik:
+                      </p>
+
+                      <p style="margin:8px 0 0;font-size:10px;line-height:17px;word-break:break-all;color:#60a5fa;">
+                        {{ .ConfirmationURL }}
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center" style="padding:24px 18px 0;">
+                <p style="margin:0;font-size:11px;line-height:18px;color:#475569;">
+                  FERSYS · Pametnije upravljanje poslovanjem
+                </p>
+                <p style="margin:6px 0 0;font-size:10px;line-height:16px;color:#334155;">
+                  Ova poruka je automatski poslana zbog registracije FERSYS računa.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
