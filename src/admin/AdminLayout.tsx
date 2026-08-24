@@ -12,10 +12,12 @@ import {
 import {
   NavLink,
   Outlet,
+  useLocation,
   useNavigate,
 } from 'react-router'
 
 import AdminCompanyControlCenter from './AdminCompanyControlCenter'
+import AdminTodayActivity from './AdminTodayActivity'
 import { supabase } from '../lib/supabase'
 
 const items = [
@@ -48,6 +50,10 @@ const items = [
 
 export default function AdminLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const isAdminOverview =
+    location.pathname === '/admin' ||
+    location.pathname === '/admin/'
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -136,6 +142,8 @@ export default function AdminLayout() {
           <ArrowLeft size={18} />
           Povratak na Dashboard
         </button>
+
+        {isAdminOverview && <AdminTodayActivity />}
 
         <Outlet />
       </main>
