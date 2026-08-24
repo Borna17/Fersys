@@ -190,9 +190,7 @@ const IncomingInvoicesPage = lazy(
 
 const InventoryItemDetailsPage = lazy(
   () =>
-    import(
-      '../pages/InventoryItemDetailsPage'
-    ),
+    import('../pages/InventoryItemDetailsPage'),
 )
 
 const InventoryMovementsPage = lazy(
@@ -217,9 +215,7 @@ const InventoryPage = lazy(
 
 const InventoryQrScannerPage = lazy(
   () =>
-    import(
-      '../pages/InventoryQrScannerPage'
-    ),
+    import('../pages/InventoryQrScannerPage'),
 )
 
 const DeliveryNotesPage = lazy(
@@ -304,9 +300,7 @@ const NewIncomingInvoicePage = lazy(
 
 const NewInventoryItemPage = lazy(
   () =>
-    import(
-      '../pages/NewInventoryItemPage'
-    ),
+    import('../pages/NewInventoryItemPage'),
 )
 
 const NewInvoicePage = lazy(
@@ -339,6 +333,16 @@ const NewWorkOrderPage = lazy(
     ),
 )
 
+const NotificationSettingsPage = lazy(
+  () =>
+    import('../pages/NotificationSettingsPage').then(
+      (module) => ({
+        default:
+          module.NotificationSettingsPage,
+      }),
+    ),
+)
+
 const NotFoundPage = lazy(
   () =>
     import('../pages/NotFoundPage').then(
@@ -358,7 +362,6 @@ const OfferDetailsPage = lazy(
       }),
     ),
 )
-
 
 const PricingPage = lazy(
   () =>
@@ -389,7 +392,6 @@ const RegisterPage = lazy(
       }),
     ),
 )
-
 
 const LegalPage = lazy(
   () =>
@@ -480,7 +482,6 @@ const WorkOrderSettingsPage = lazy(
       }),
     ),
 )
-
 
 type RouteWrapperProps = {
   children: ReactNode
@@ -796,30 +797,22 @@ function RouterContent() {
 
         <Route
           path="/terms"
-          element={
-            <LegalPage />
-          }
+          element={<LegalPage />}
         />
 
         <Route
           path="/privacy"
-          element={
-            <LegalPage />
-          }
+          element={<LegalPage />}
         />
 
         <Route
           path="/refund-policy"
-          element={
-            <LegalPage />
-          }
+          element={<LegalPage />}
         />
 
         <Route
           path="/cookies"
-          element={
-            <LegalPage />
-          }
+          element={<LegalPage />}
         />
 
         <Route
@@ -842,9 +835,7 @@ function RouterContent() {
 
         <Route
           path="/reset-password"
-          element={
-            <ResetPasswordPage />
-          }
+          element={<ResetPasswordPage />}
         />
 
         <Route
@@ -858,44 +849,32 @@ function RouterContent() {
         >
           <Route
             path="/admin"
-            element={
-              <AdminDashboardPage />
-            }
+            element={<AdminDashboardPage />}
           />
 
           <Route
             path="/admin/companies"
-            element={
-              <AdminCompaniesPage />
-            }
+            element={<AdminCompaniesPage />}
           />
 
           <Route
             path="/admin/companies/:companyId"
-            element={
-              <AdminCompanyDetailsPage />
-            }
+            element={<AdminCompanyDetailsPage />}
           />
 
           <Route
             path="/admin/rewards"
-            element={
-              <AdminRewardsPage />
-            }
+            element={<AdminRewardsPage />}
           />
 
           <Route
             path="/admin/email"
-            element={
-              <AdminEmailCenterPage />
-            }
+            element={<AdminEmailCenterPage />}
           />
 
           <Route
             path="/admin/support"
-            element={
-              <AdminSupportPage />
-            }
+            element={<AdminSupportPage />}
           />
         </Route>
 
@@ -908,9 +887,7 @@ function RouterContent() {
         >
           <Route
             path="/account"
-            element={
-              <AccountPage />
-            }
+            element={<AccountPage />}
           />
 
           <Route
@@ -937,9 +914,7 @@ function RouterContent() {
 
           <Route
             path="/pricing"
-            element={
-              <PricingPage />
-            }
+            element={<PricingPage />}
           />
 
           <Route
@@ -998,6 +973,15 @@ function RouterContent() {
                 feature="employees"
               >
                 <EmployeesPage />
+              </Guard>
+            }
+          />
+
+          <Route
+            path="/settings/notifications"
+            element={
+              <Guard permission="dashboard.view">
+                <NotificationSettingsPage />
               </Guard>
             }
           />
@@ -1329,9 +1313,7 @@ function RouterContent() {
 
           <Route
             path="/profile"
-            element={
-              <ProfilePage />
-            }
+            element={<ProfilePage />}
           />
 
           <Route
@@ -1348,9 +1330,7 @@ function RouterContent() {
 
         <Route
           path="*"
-          element={
-            <NotFoundPage />
-          }
+          element={<NotFoundPage />}
         />
       </Routes>
     </Suspense>
