@@ -90,20 +90,16 @@ async function getCurrentMembership(): Promise<
     return null
   }
 
-  const accessRow =
-    row as CurrentAccessRow
+  const accessRow = row as CurrentAccessRow
 
   return {
-    membershipId:
-      accessRow.membership_id,
-    companyId:
-      accessRow.company_id,
+    membershipId: accessRow.membership_id,
+    companyId: accessRow.company_id,
     role: accessRow.role,
     status: accessRow.status,
-    permissions:
-      parseEmployeePermissions(
-        accessRow.permissions,
-      ),
+    permissions: parseEmployeePermissions(
+      accessRow.permissions,
+    ),
   }
 }
 
@@ -119,35 +115,43 @@ export function AuthProvider({
   const [isLoading, setIsLoading] =
     useState(true)
 
-  const [
-    isAccessLoading,
-    setIsAccessLoading,
-  ] = useState(false)
+  const [isAccessLoading, setIsAccessLoading] =
+    useState(false)
 
-  const [
-    companySetupError,
-    setCompanySetupError,
-  ] = useState('')
+  const [companySetupError, setCompanySetupError] =
+    useState('')
 
   const preparedUserIdRef =
     useRef<string | null>(null)
+
+  const accessInitializedRef =
+    useRef(false)
 
   const refreshAccess =
     useCallback(async (): Promise<void> => {
       if (!session?.user.id) {
         setMembership(null)
+        accessInitializedRef.current = false
         return
       }
 
+      const shouldBlock =
+        !accessInitializedRef.current
+
       try {
-        setIsAccessLoading(true)
+        if (shouldBlock) {
+          setIsAccessLoading(true)
+        }
 
         const nextMembership =
           await getCurrentMembership()
 
         setMembership(nextMembership)
+        accessInitializedRef.current = true
       } finally {
-        setIsAccessLoading(false)
+        if (shouldBlock) {
+          setIsAccessLoading(false)
+        }
       }
     }, [session?.user.id])
 
@@ -156,27 +160,17 @@ export function AuthProvider({
 
     async function loadInitialSession(): Promise<void> {
       try {
-        const {
-          data,
-          error,
-        } = await supabase.auth.getSession()
+        const { data, error } =
+          await supabase.auth.getSession()
 
-        if (!isMounted) {
-          return
-        }
-
-        if (error) {
-          throw error
-        }
+        if (!isMounted) return
+        if (error) throw error
 
         setSession(data.session)
       } catch (error) {
-        if (!isMounted) {
-          return
-        }
+        if (!isMounted) return
 
         setSession(null)
-
         setCompanySetupError(
           error instanceof Error
             ? error.message
@@ -192,13 +186,24 @@ export function AuthProvider({
     void loadInitialSession()
 
     const {
-      data: {
-        subscription,
-      },
+      data: { subscription },
     } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
-        if (!isMounted) {
-          return
+        if (!isMounted) return
+
+        const previousUserId =
+          session?.user.id ?? null
+        const nextUserId =
+          nextSession?.user.id ?? null
+
+        if (
+          previousUserId &&
+          nextUserId &&
+          previousUserId !== nextUserId
+        ) {
+          accessInitializedRef.current = false
+          preparedUserIdRef.current = null
+          setMembership(null)
         }
 
         setSession(nextSession)
@@ -206,6 +211,7 @@ export function AuthProvider({
 
         if (!nextSession) {
           preparedUserIdRef.current = null
+          accessInitializedRef.current = false
           setMembership(null)
           setCompanySetupError('')
         }
@@ -239,9 +245,15 @@ export function AuthProvider({
     async function prepareCompany(
       userId: string,
     ): Promise<void> {
+      const shouldBlock =
+        !accessInitializedRef.current
+
       try {
         setCompanySetupError('')
-        setIsAccessLoading(true)
+
+        if (shouldBlock) {
+          setIsAccessLoading(true)
+        }
 
         await ensureCompanyForCurrentUser()
 
@@ -250,12 +262,12 @@ export function AuthProvider({
 
         if (!isCancelled) {
           preparedUserIdRef.current = userId
+          accessInitializedRef.current = true
           setMembership(nextMembership)
         }
       } catch (error) {
         if (!isCancelled) {
           setMembership(null)
-
           setCompanySetupError(
             error instanceof Error
               ? error.message
@@ -263,7 +275,7 @@ export function AuthProvider({
           )
         }
       } finally {
-        if (!isCancelled) {
+        if (!isCancelled && shouldBlock) {
           setIsAccessLoading(false)
         }
       }
@@ -274,56 +286,37 @@ export function AuthProvider({
     return () => {
       isCancelled = true
     }
-  }, [
-    session?.user.id,
-    refreshAccess,
-  ])
+  }, [session?.user.id, refreshAccess])
 
   useEffect(() => {
-    const userId =
-      session?.user.id
+    const userId = session?.user.id
 
-    if (!userId) {
-      return
-    }
+    if (!userId) return
 
     let timer = 0
 
-    const channel =
-      supabase
-        .channel(
-          `current-access:${userId}`,
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table:
-              'company_members',
-            filter:
-              `user_id=eq.${userId}`,
-          },
-          () => {
-            window.clearTimeout(
-              timer,
-            )
-
-            timer =
-              window.setTimeout(
-                () => {
-                  void refreshAccess()
-                },
-                150,
-              )
-          },
-        )
-        .subscribe()
+    const channel = supabase
+      .channel(`current-access:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'company_members',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          window.clearTimeout(timer)
+          timer = window.setTimeout(() => {
+            void refreshAccess()
+          }, 150)
+        },
+      )
+      .subscribe()
 
     function refreshOnFocus() {
       if (
-        document.visibilityState ===
-        'visible'
+        document.visibilityState === 'visible'
       ) {
         void refreshAccess()
       }
@@ -335,47 +328,32 @@ export function AuthProvider({
     )
 
     return () => {
-      window.clearTimeout(
-        timer,
-      )
-
+      window.clearTimeout(timer)
       document.removeEventListener(
         'visibilitychange',
         refreshOnFocus,
       )
-
-      void supabase
-        .removeChannel(
-          channel,
-        )
+      void supabase.removeChannel(channel)
     }
-  }, [
-    refreshAccess,
-    session?.user.id,
-  ])
+  }, [refreshAccess, session?.user.id])
 
   async function signOut(): Promise<void> {
-    const { error } =
-      await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
 
     preparedUserIdRef.current = null
+    accessInitializedRef.current = false
     setSession(null)
     setMembership(null)
     setCompanySetupError('')
   }
 
   async function retryCompanySetup(): Promise<void> {
-    const currentUserId =
-      session?.user.id
+    const currentUserId = session?.user.id
 
     if (!currentUserId) {
-      throw new Error(
-        'Korisnik nije prijavljen.',
-      )
+      throw new Error('Korisnik nije prijavljen.')
     }
 
     try {
@@ -383,41 +361,36 @@ export function AuthProvider({
       setIsAccessLoading(true)
 
       await ensureCompanyForCurrentUser()
-
       const nextMembership =
         await getCurrentMembership()
 
-      preparedUserIdRef.current =
-        currentUserId
-
+      preparedUserIdRef.current = currentUserId
+      accessInitializedRef.current = true
       setMembership(nextMembership)
     } finally {
       setIsAccessLoading(false)
     }
   }
 
-  const resolvedPermissions =
-    useMemo(() => {
-      if (
-        !membership ||
-        membership.status !== 'active'
-      ) {
-        return null
-      }
+  const resolvedPermissions = useMemo(() => {
+    if (
+      !membership ||
+      membership.status !== 'active'
+    ) {
+      return null
+    }
 
-      return resolvePermissions(
-        membership.role,
-        membership.permissions,
-      )
-    }, [membership])
-
-  const can =
-    useCallback(
-      (permission: PermissionKey) =>
-        resolvedPermissions?.[permission] ??
-        false,
-      [resolvedPermissions],
+    return resolvePermissions(
+      membership.role,
+      membership.permissions,
     )
+  }, [membership])
+
+  const can = useCallback(
+    (permission: PermissionKey) =>
+      resolvedPermissions?.[permission] ?? false,
+    [resolvedPermissions],
+  )
 
   const isSuperAdmin = useMemo(() => {
     const email =
