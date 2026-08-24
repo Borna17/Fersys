@@ -25,10 +25,7 @@ import {
   type CompanyModuleKey,
 } from '../../services/companyModules.service'
 
-const icons: Record<
-  CompanyModuleKey,
-  typeof Wrench
-> = {
+const icons: Record<CompanyModuleKey, typeof Wrench> = {
   work_orders: Wrench,
   customers: Users,
   offers: FileText,
@@ -42,80 +39,40 @@ const icons: Record<
 }
 
 export default function ModulesSettingsTab() {
-  const {
-    enabledModules,
-    isLoading,
-    error,
-    role,
-    save,
-  } = useCompanyModules()
-
-  const [selected, setSelected] =
-    useState<CompanyModuleKey[]>(
-      enabledModules,
-    )
-
-  const [isSaving, setIsSaving] =
-    useState(false)
-
-  const [message, setMessage] =
-    useState('')
+  const { enabledModules, isLoading, error, role, save } = useCompanyModules()
+  const [selected, setSelected] = useState<CompanyModuleKey[]>(enabledModules)
+  const [isSaving, setIsSaving] = useState(false)
+  const [message, setMessage] = useState('')
 
   useEffect(() => {
     setSelected(enabledModules)
   }, [enabledModules])
 
-  const selectedSet = useMemo(
-    () => new Set(selected),
-    [selected],
-  )
-
+  const selectedSet = useMemo(() => new Set(selected), [selected])
   const canEdit = role === 'owner'
 
-  function toggle(
-    key: CompanyModuleKey,
-  ) {
+  function toggle(key: CompanyModuleKey) {
     if (!canEdit) return
-
     setMessage('')
-
     setSelected((current) =>
       current.includes(key)
-        ? current.filter(
-            (item) =>
-              item !== key,
-          )
+        ? current.filter((item) => item !== key)
         : [...current, key],
     )
   }
 
   async function saveChanges() {
-    if (
-      !canEdit ||
-      isSaving
-    ) {
-      return
-    }
-
+    if (!canEdit || isSaving) return
     if (!selected.length) {
-      setMessage(
-        'Odaberi barem jedan poslovni modul.',
-      )
+      setMessage('Odaberi barem jedan poslovni modul.')
       return
     }
 
     try {
       setIsSaving(true)
       setMessage('')
-
-      await save(
-        selected,
-        true,
-      )
-
-      setMessage(
-        'Moduli su spremljeni. Navigacija je odmah ažurirana.',
-      )
+      await save(selected, true)
+      setMessage('Moduli su spremljeni. Navigacija je odmah ažurirana.')
     } catch (nextError) {
       setMessage(
         nextError instanceof Error
@@ -129,29 +86,25 @@ export default function ModulesSettingsTab() {
 
   if (isLoading) {
     return (
-      <div className="rounded-3xl border border-slate-700 bg-slate-900 p-6 text-sm text-slate-300">
+      <div className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-sm text-slate-300">
         Učitavanje modula...
       </div>
     )
   }
 
   return (
-    <div className="space-y-5">
-      <section className="rounded-3xl border border-slate-700 bg-slate-900 p-5 sm:p-6">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <div className="space-y-4">
+      <section className="rounded-2xl border border-slate-700 bg-slate-900 p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-400">
+            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-blue-400">
               POSTAVKE → MODULI
             </p>
-
-            <h2 className="mt-2 text-2xl font-black text-white">
-              Prilagodi FERSYS svojoj tvrtki
+            <h2 className="mt-1 text-xl font-black text-white">
+              Aktivni moduli
             </h2>
-
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-300">
-              Uključi ili isključi module kad god želiš.
-              Isključeni moduli nestaju iz navigacije i brzih akcija,
-              ali postojeći podaci se ne brišu.
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-400 sm:text-sm">
+              Uključi samo ono što tvrtka koristi. Isključivanje modula ne briše postojeće podatke.
             </p>
           </div>
 
@@ -159,41 +112,29 @@ export default function ModulesSettingsTab() {
             <button
               type="button"
               disabled={isSaving}
-              onClick={() =>
-                void saveChanges()
-              }
-              className="min-h-12 shrink-0 rounded-2xl bg-blue-600 px-5 font-black text-white disabled:opacity-50"
+              onClick={() => void saveChanges()}
+              className="min-h-11 shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-black text-white disabled:opacity-50"
             >
-              {isSaving
-                ? 'Spremanje...'
-                : 'Spremi promjene'}
+              {isSaving ? 'Spremanje...' : 'Spremi promjene'}
             </button>
           ) : (
-            <span className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs font-bold text-amber-300">
+            <span className="rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300">
               Samo vlasnik mijenja module
             </span>
           )}
         </div>
 
-        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
-          <Info
-            size={18}
-            className="mt-0.5 shrink-0 text-blue-400"
-          />
-
-          <p className="text-xs leading-5 text-slate-400 sm:text-sm">
-            Promjena modula ne briše radne naloge, investitore,
-            ponude, račune ni druge spremljene podatke.
+        <div className="mt-3 flex items-start gap-2 rounded-xl border border-slate-800 bg-slate-950/50 p-3">
+          <Info size={16} className="mt-0.5 shrink-0 text-blue-400" />
+          <p className="text-[11px] leading-5 text-slate-500 sm:text-xs">
+            Promjene se odmah primjenjuju na navigaciju i brze akcije.
           </p>
         </div>
 
         {(error || message) && (
           <div
-            className={`mt-4 rounded-xl border px-4 py-3 text-sm ${
-              error ||
-              message.startsWith(
-                'Odaberi',
-              )
+            className={`mt-3 rounded-xl border px-3 py-2 text-xs ${
+              error || message.startsWith('Odaberi')
                 ? 'border-red-500/20 bg-red-500/10 text-red-300'
                 : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
             }`}
@@ -203,77 +144,58 @@ export default function ModulesSettingsTab() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {companyModules.map(
-          (module) => {
-            const Icon =
-              icons[module.key]
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+        {companyModules.map((module) => {
+          const Icon = icons[module.key]
+          const active = selectedSet.has(module.key)
 
-            const active =
-              selectedSet.has(
-                module.key,
-              )
+          return (
+            <button
+              key={module.key}
+              type="button"
+              disabled={!canEdit}
+              onClick={() => toggle(module.key)}
+              className={`relative min-h-[112px] rounded-2xl border p-3 text-left transition sm:min-h-[120px] sm:p-4 ${
+                active
+                  ? 'border-blue-400/50 bg-blue-500/12'
+                  : 'border-slate-700 bg-slate-900'
+              } ${canEdit ? 'active:scale-[0.99]' : 'cursor-default opacity-80'}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span
+                  className={`grid h-9 w-9 place-items-center rounded-xl sm:h-10 sm:w-10 ${
+                    active
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-800 text-slate-400'
+                  }`}
+                >
+                  <Icon size={19} />
+                </span>
 
-            return (
-              <button
-                key={module.key}
-                type="button"
-                disabled={!canEdit}
-                onClick={() =>
-                  toggle(module.key)
-                }
-                className={`relative min-h-[132px] rounded-2xl border p-4 text-left transition sm:min-h-[145px] sm:p-5 ${
-                  active
-                    ? 'border-blue-400/50 bg-blue-500/12'
-                    : 'border-slate-700 bg-slate-900'
-                } ${
-                  canEdit
-                    ? 'active:scale-[0.99]'
-                    : 'cursor-default opacity-80'
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <span
-                    className={`grid h-11 w-11 place-items-center rounded-2xl ${
-                      active
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-slate-800 text-slate-400'
-                    }`}
-                  >
-                    <Icon size={22} />
-                  </span>
+                <span
+                  className={`rounded-full px-2 py-1 text-[8px] font-black uppercase sm:text-[9px] ${
+                    active
+                      ? 'bg-emerald-500/15 text-emerald-300'
+                      : 'bg-slate-800 text-slate-500'
+                  }`}
+                >
+                  {active ? 'Uključeno' : 'Isključeno'}
+                </span>
+              </div>
 
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${
-                      active
-                        ? 'bg-emerald-500/15 text-emerald-300'
-                        : 'bg-slate-800 text-slate-500'
-                    }`}
-                  >
-                    {active
-                      ? 'Uključeno'
-                      : 'Isključeno'}
-                  </span>
-                </div>
+              <p className="mt-3 text-xs font-black text-white sm:text-sm">
+                {module.label}
+              </p>
+              <p className="mt-1 line-clamp-2 text-[10px] leading-4 text-slate-500 sm:text-[11px]">
+                {module.description}
+              </p>
 
-                <p className="mt-4 font-black text-white">
-                  {module.label}
-                </p>
-
-                <p className="mt-1 pr-5 text-xs leading-5 text-slate-400">
-                  {module.description}
-                </p>
-
-                {active && (
-                  <Check
-                    size={15}
-                    className="absolute bottom-4 right-4 text-emerald-400"
-                  />
-                )}
-              </button>
-            )
-          },
-        )}
+              {active && (
+                <Check size={13} className="absolute bottom-3 right-3 text-emerald-400" />
+              )}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
