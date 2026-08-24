@@ -101,8 +101,13 @@ export function SubscriptionProvider({
   const [subscription, setSubscription] =
     useState<SubscriptionContext | null>(null)
 
+  /*
+   * Početno je true da između auth/access i pretplate nema
+   * kratkog prikaza Dashboarda pa ponovnog full-screen loadera.
+   * Za neprijavljenog korisnika odmah ga gasimo.
+   */
   const [isLoading, setIsLoading] =
-    useState(false)
+    useState(true)
 
   const [error, setError] =
     useState('')
@@ -118,9 +123,19 @@ export function SubscriptionProvider({
       const companyId =
         membership?.companyId ?? null
 
-      if (!session?.user.id || !companyId) {
+      if (!session?.user.id) {
         setSubscription(null)
         initializedCompanyRef.current = null
+        setIsLoading(false)
+        return
+      }
+
+      /*
+       * Korisnik je prijavljen, ali access još nije spreman.
+       * Zadržavamo isti startup loader umjesto prikaza aplikacije.
+       */
+      if (!companyId) {
+        setSubscription(null)
         return
       }
 
