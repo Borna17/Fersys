@@ -7,6 +7,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 
@@ -36,9 +37,7 @@ type LimitCheck = {
 }
 
 type SubscriptionContextValue = {
-  subscription:
-    | SubscriptionContext
-    | null
+  subscription: SubscriptionContext | null
   isLoading: boolean
   error: string
   isTrialing: boolean
@@ -55,25 +54,19 @@ type SubscriptionContextValue = {
   canCreate: (
     resource: SubscriptionResource,
   ) => LimitCheck
-  refreshSubscription:
-    () => Promise<void>
+  refreshSubscription: () => Promise<void>
 }
 
 const Context =
-  createContext<
-    SubscriptionContextValue | null
-  >(null)
+  createContext<SubscriptionContextValue | null>(null)
 
 function getDaysRemaining(
   dateValue: string | null,
 ) {
-  if (!dateValue) {
-    return 0
-  }
+  if (!dateValue) return 0
 
   const remaining =
-    new Date(dateValue).getTime() -
-    Date.now()
+    new Date(dateValue).getTime() - Date.now()
 
   return Math.max(
     0,
@@ -105,13 +98,8 @@ export function SubscriptionProvider({
     isAccessLoading,
   } = useAuth()
 
-  const [
-    subscription,
-    setSubscription,
-  ] =
-    useState<SubscriptionContext | null>(
-      null,
-    )
+  const [subscription, setSubscription] =
+    useState<SubscriptionContext | null>(null)
 
   const [isLoading, setIsLoading] =
     useState(false)
@@ -119,34 +107,42 @@ export function SubscriptionProvider({
   const [error, setError] =
     useState('')
 
-  const [
-    limitModal,
-    setLimitModal,
-  ] =
-    useState<SubscriptionLimitEventDetail | null>(
-      null,
-    )
+  const [limitModal, setLimitModal] =
+    useState<SubscriptionLimitEventDetail | null>(null)
+
+  const initializedCompanyRef =
+    useRef<string | null>(null)
 
   const refreshSubscription =
     useCallback(async () => {
-      if (
-        !session?.user.id ||
-        !membership?.companyId
-      ) {
+      const companyId =
+        membership?.companyId ?? null
+
+      if (!session?.user.id || !companyId) {
         setSubscription(null)
+        initializedCompanyRef.current = null
         return
       }
 
+      const shouldBlock =
+        initializedCompanyRef.current !== companyId
+
       try {
-        setIsLoading(true)
+        if (shouldBlock) {
+          setIsLoading(true)
+        }
+
         setError('')
 
         const context =
           await getSubscriptionContext()
 
         setSubscription(context)
+        initializedCompanyRef.current = companyId
       } catch (loadError) {
-        setSubscription(null)
+        if (shouldBlock) {
+          setSubscription(null)
+        }
 
         setError(
           loadError instanceof Error
@@ -154,7 +150,9 @@ export function SubscriptionProvider({
             : 'Pretplatu nije moguće učitati.',
         )
       } finally {
-        setIsLoading(false)
+        if (shouldBlock) {
+          setIsLoading(false)
+        }
       }
     }, [
       membership?.companyId,
@@ -162,9 +160,7 @@ export function SubscriptionProvider({
     ])
 
   useEffect(() => {
-    if (isAccessLoading) {
-      return
-    }
+    if (isAccessLoading) return
 
     void refreshSubscription()
   }, [
@@ -172,11 +168,6 @@ export function SubscriptionProvider({
     refreshSubscription,
   ])
 
-  /*
-   * Globalni limit modal.
-   * Bilo koja funkcija koja koristi assertCanCreate()
-   * automatski otvara ovaj prozor kada tvrtka dosegne limit.
-   */
   useEffect(() => {
     function handleLimitReached(
       event: Event,
@@ -186,14 +177,9 @@ export function SubscriptionProvider({
           SubscriptionLimitEventDetail
         >
 
-      if (!customEvent.detail) {
-        return
-      }
+      if (!customEvent.detail) return
 
-      setLimitModal(
-        customEvent.detail,
-      )
-
+      setLimitModal(customEvent.detail)
       void refreshSubscription()
     }
 
@@ -211,169 +197,140 @@ export function SubscriptionProvider({
   }, [refreshSubscription])
 
   const isTrialing =
-    subscription?.status ===
-      'trialing' &&
+    subscription?.status === 'trialing' &&
     subscription.isUsable &&
-    Boolean(
-      subscription.trialEndsAt,
-    )
+    Boolean(subscription.trialEndsAt)
 
   const trialDaysRemaining =
     getDaysRemaining(
-      subscription?.trialEndsAt ??
-        null,
+      subscription?.trialEndsAt ?? null,
     )
 
-  const hasFeature =
-    useCallback(
-      (
-        feature:
-          SubscriptionFeature,
-      ) =>
-        Boolean(
-          subscription?.features[
-            feature
-          ],
-        ),
-      [subscription],
-    )
+  const hasFeature = useCallback(
+    (
+      feature: SubscriptionFeature,
+    ) =>
+      Boolean(
+        subscription?.features[feature],
+      ),
+    [subscription],
+  )
 
-  const getLimit =
-    useCallback(
-      (
-        resource:
-          SubscriptionResource,
-      ) =>
-        subscription?.limits[
-          resource
-        ] ?? 0,
-      [subscription],
-    )
+  const getLimit = useCallback(
+    (
+      resource: SubscriptionResource,
+    ) =>
+      subscription?.limits[resource] ?? 0,
+    [subscription],
+  )
 
-  const getUsage =
-    useCallback(
-      (
-        resource:
-          SubscriptionResource,
-      ) =>
-        subscription?.usage[
-          resource
-        ] ?? 0,
-      [subscription],
-    )
+  const getUsage = useCallback(
+    (
+      resource: SubscriptionResource,
+    ) =>
+      subscription?.usage[resource] ?? 0,
+    [subscription],
+  )
 
-  const canCreate =
-    useCallback(
-      (
-        resource:
-          SubscriptionResource,
-      ): LimitCheck => {
-        const current =
-          getUsage(resource)
+  const canCreate = useCallback(
+    (
+      resource: SubscriptionResource,
+    ): LimitCheck => {
+      const current = getUsage(resource)
+      const limit = getLimit(resource)
 
-        const limit =
-          getLimit(resource)
-
-        if (
-          !subscription ||
-          !subscription.isUsable
-        ) {
-          return {
-            allowed: false,
-            current,
-            limit,
-            reason:
-              'Probno razdoblje ili pretplata nisu aktivni.',
-            requiredPlan:
-              subscription?.planId ??
-              'starter',
-          }
-        }
-
-        const requiredPlan =
-          getResourceRequiredPlan(
-            resource,
-          )
-
-        if (
-          resource === 'users' &&
-          !hasFeature('employees')
-        ) {
-          return {
-            allowed: false,
-            current,
-            limit,
-            reason:
-              'Zaposlenici su dostupni od Business paketa.',
-            requiredPlan:
-              'business',
-          }
-        }
-
-        if (
-          limit !== -1 &&
-          current >= limit
-        ) {
-          const nextPlan =
-            getNextPlan(
-              subscription.planId,
-            )
-
-          return {
-            allowed: false,
-            current,
-            limit,
-            reason:
-              `Dosegnut je limit od ${limit} ${resourceLabels[resource]}.`,
-            requiredPlan:
-              nextPlan ??
-              requiredPlan,
-          }
-        }
-
+      if (
+        !subscription ||
+        !subscription.isUsable
+      ) {
         return {
-          allowed: true,
+          allowed: false,
           current,
           limit,
-          reason: '',
-          requiredPlan: null,
+          reason:
+            'Probno razdoblje ili pretplata nisu aktivni.',
+          requiredPlan:
+            subscription?.planId ?? 'starter',
         }
-      },
-      [
-        getLimit,
-        getUsage,
-        hasFeature,
-        subscription,
-      ],
-    )
+      }
 
-  const value =
-    useMemo<SubscriptionContextValue>(
-      () => ({
-        subscription,
-        isLoading,
-        error,
-        isTrialing,
-        trialDaysRemaining,
-        hasFeature,
-        getLimit,
-        getUsage,
-        canCreate,
-        refreshSubscription,
-      }),
-      [
-        subscription,
-        isLoading,
-        error,
-        isTrialing,
-        trialDaysRemaining,
-        hasFeature,
-        getLimit,
-        getUsage,
-        canCreate,
-        refreshSubscription,
-      ],
-    )
+      const requiredPlan =
+        getResourceRequiredPlan(resource)
+
+      if (
+        resource === 'users' &&
+        !hasFeature('employees')
+      ) {
+        return {
+          allowed: false,
+          current,
+          limit,
+          reason:
+            'Zaposlenici su dostupni od Business paketa.',
+          requiredPlan: 'business',
+        }
+      }
+
+      if (
+        limit !== -1 &&
+        current >= limit
+      ) {
+        const nextPlan =
+          getNextPlan(subscription.planId)
+
+        return {
+          allowed: false,
+          current,
+          limit,
+          reason:
+            `Dosegnut je limit od ${limit} ${resourceLabels[resource]}.`,
+          requiredPlan:
+            nextPlan ?? requiredPlan,
+        }
+      }
+
+      return {
+        allowed: true,
+        current,
+        limit,
+        reason: '',
+        requiredPlan: null,
+      }
+    },
+    [
+      getLimit,
+      getUsage,
+      hasFeature,
+      subscription,
+    ],
+  )
+
+  const value = useMemo<SubscriptionContextValue>(
+    () => ({
+      subscription,
+      isLoading,
+      error,
+      isTrialing,
+      trialDaysRemaining,
+      hasFeature,
+      getLimit,
+      getUsage,
+      canCreate,
+      refreshSubscription,
+    }),
+    [
+      subscription,
+      isLoading,
+      error,
+      isTrialing,
+      trialDaysRemaining,
+      hasFeature,
+      getLimit,
+      getUsage,
+      canCreate,
+      refreshSubscription,
+    ],
+  )
 
   return (
     <Context.Provider value={value}>
@@ -381,24 +338,19 @@ export function SubscriptionProvider({
 
       <LimitReachedModal
         isOpen={Boolean(limitModal)}
-        onClose={() =>
-          setLimitModal(null)
-        }
+        onClose={() => setLimitModal(null)}
         title={
           limitModal?.title ??
           'Dosegnut je limit paketa'
         }
         description={
-          limitModal?.description ??
-          ''
+          limitModal?.description ?? ''
         }
         requiredPlan={
-          limitModal?.requiredPlan ??
-          'business'
+          limitModal?.requiredPlan ?? 'business'
         }
         recommendedPlan={
-          limitModal?.recommendedPlan ??
-          'pro'
+          limitModal?.recommendedPlan ?? 'pro'
         }
         currentPlan={
           limitModal?.currentPlan ??
@@ -411,8 +363,7 @@ export function SubscriptionProvider({
 }
 
 export function useSubscription() {
-  const context =
-    useContext(Context)
+  const context = useContext(Context)
 
   if (!context) {
     throw new Error(
@@ -426,7 +377,5 @@ export function useSubscription() {
 export function getRequiredPlanForFeature(
   feature: SubscriptionFeature,
 ) {
-  return featureRequiredPlan[
-    feature
-  ]
+  return featureRequiredPlan[feature]
 }
