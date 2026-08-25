@@ -6,7 +6,7 @@ import {
 import { Share } from '@capacitor/share'
 
 import type { CloudWorkOrder } from '../services/workOrders.service'
-import type { WorkOrderBranding } from '../services/workOrderBranding.service'
+import type { WorkOrderBranding } from '../types/workOrder'
 import {
   downloadWorkOrderPdf,
   getWorkOrderPdfBlob,
