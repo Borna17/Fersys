@@ -695,7 +695,11 @@ function paginate(
   }
 
   while (photoIndex < order.images.length) {
-    const photos = order.images.slice(photoIndex, photoIndex + 2)
+    const photos = order.images.slice(
+      photoIndex,
+      photoIndex + 4,
+    )
+
     photoIndex += photos.length
 
     pages.push({
@@ -710,8 +714,9 @@ function paginate(
   const last = pages[pages.length - 1]
 
   const lastTooBusy =
-    last.photos.length >= 2 ||
-    last.materials.length >= (compact ? 11 : 8)
+    last.photos.length >= 3 ||
+    last.materials.length >=
+      (compact ? 11 : 8)
 
   if (lastTooBusy) {
     pages.push({
