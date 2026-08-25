@@ -24,6 +24,10 @@ await import('./apply-work-order-discounts.mjs')
     '  discountRate: number\n',
     '  discountRate?: number\n',
   )
+  source = source.replace(
+    'clampPercent(input.discountRate)',
+    'clampPercent(input.discountRate ?? 0)',
+  )
   fs.writeFileSync(file, source)
   console.log(`patched compatibility ${file}`)
 }
