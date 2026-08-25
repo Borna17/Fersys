@@ -562,11 +562,15 @@ function signatureHtml(
       )}
 
       <div class="signature-grid">
-        <div class="signature-column">
+        <div class="signature-column executor-signature-column">
           <div class="signature-label">
             Izvršitelj / odgovorna osoba
           </div>
-          <div class="signature-space"></div>
+
+          <div class="signature-space executor-signature-space">
+            ${stamp}
+          </div>
+
           <div class="signature-line">
             ${esc(
               order.assignedWorkers[0] ||
@@ -576,15 +580,15 @@ function signatureHtml(
           </div>
         </div>
 
-        <div class="stamp-column">${stamp}</div>
-
-        <div class="signature-column">
+        <div class="signature-column investor-signature-column">
           <div class="signature-label">
             Investitor / naručitelj
           </div>
+
           <div class="signature-space">
             ${investorSignature}
           </div>
+
           <div class="signature-line">
             ${esc(
               order.investorName ||
@@ -1149,7 +1153,7 @@ function css(
     .photo-grid {
       display: grid;
       width: 100%;
-      gap: 12px;
+      gap: ${compact ? 10 : 12}px;
       align-items: start;
     }
 
@@ -1189,7 +1193,7 @@ function css(
     }
 
     .photos-1 .photo-card img {
-      height: ${compact ? 400 : 430}px;
+      height: ${compact ? 395 : 425}px;
     }
 
     .photos-2 .photo-card img {
@@ -1217,21 +1221,32 @@ function css(
 
     .signature-grid {
       display: grid;
-      grid-template-columns: minmax(0,1fr) ${compact ? 150 : 170}px minmax(0,1fr);
-      gap: ${compact ? 14 : 18}px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: ${compact ? 52 : 64}px;
       align-items: end;
     }
 
+    .signature-column {
+      min-width: 0;
+    }
+
     .signature-label {
+      margin-bottom: 5px;
       color: ${alpha(text, '8A')};
       font-size: 6.8px;
     }
 
     .signature-space {
       display: flex;
-      height: ${compact ? 62 : 72}px;
+      height: ${compact ? 82 : 96}px;
       align-items: flex-end;
       justify-content: center;
+    }
+
+    .executor-signature-space {
+      align-items: flex-end;
+      justify-content: flex-start;
+      padding-left: ${compact ? 5 : 7}px;
     }
 
     .signature-image {
@@ -1239,7 +1254,7 @@ function css(
       width: auto;
       height: auto;
       max-width: 92%;
-      max-height: ${compact ? 60 : 70}px;
+      max-height: ${compact ? 68 : 78}px;
       object-fit: contain;
       object-position: center bottom;
     }
@@ -1252,24 +1267,14 @@ function css(
       font-weight: 750;
     }
 
-    .stamp-column {
-      display: flex;
-      width: 100%;
-      min-width: 0;
-      height: ${compact ? 92 : 105}px;
-      align-items: center;
-      justify-content: center;
-      overflow: visible;
-    }
-
     .stamp-image {
       display: block;
-      width: 100%;
-      height: 100%;
-      max-width: ${compact ? 150 : 170}px;
-      max-height: ${compact ? 92 : 105}px;
+      width: auto;
+      height: auto;
+      max-width: ${compact ? 225 : 250}px;
+      max-height: ${compact ? 82 : 92}px;
       object-fit: contain;
-      object-position: center;
+      object-position: left bottom;
     }
 
     .footer {
