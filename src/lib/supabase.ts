@@ -27,7 +27,6 @@ const client = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storageKey: 'fersys-auth-session',
     },
   },
 )
