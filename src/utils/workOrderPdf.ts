@@ -96,6 +96,50 @@ function durationLabel(order: WorkOrder) {
   return `${rest} min`
 }
 
+function totalLaborDurationLabel(
+  order: WorkOrder,
+) {
+  const interventionMinutes =
+    order.durationMinutes > 0
+      ? order.durationMinutes
+      : durationFromTimes(
+          order.arrivalTime,
+          order.departureTime,
+        )
+
+  const workerCount =
+    order.assignedWorkers
+      .map((worker) => worker.trim())
+      .filter(Boolean)
+      .length
+
+  if (
+    !interventionMinutes ||
+    workerCount === 0
+  ) {
+    return '—'
+  }
+
+  const totalMinutes =
+    interventionMinutes * workerCount
+
+  const hours =
+    Math.floor(totalMinutes / 60)
+
+  const rest =
+    totalMinutes % 60
+
+  if (hours && rest) {
+    return `${hours} h ${rest} min`
+  }
+
+  if (hours) {
+    return `${hours} h`
+  }
+
+  return `${rest} min`
+}
+
 const materialTotal = (item: WorkOrderMaterial) =>
   Number(item.quantity || 0) * Number(item.unitPrice || 0)
 
@@ -301,8 +345,16 @@ function infoHtml(
     order.customerEmail,
   ].filter(Boolean)
 
+  const cleanWorkers =
+    order.assignedWorkers
+      .map((worker) => worker.trim())
+      .filter(Boolean)
+
   const workers =
-    order.assignedWorkers.filter(Boolean).join(', ') || '—'
+    cleanWorkers.join(', ') || '—'
+
+  const workerCount =
+    cleanWorkers.length
 
   return `
     <section class="info-grid ${esc(appearance.infoStyle)}">
@@ -333,8 +385,18 @@ function infoHtml(
         </div>
 
         <div class="meta-row">
-          <span>Trajanje</span>
+          <span>Trajanje intervencije</span>
           <strong>${esc(durationLabel(order))}</strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Broj radnika</span>
+          <strong>${workerCount || '—'}</strong>
+        </div>
+
+        <div class="meta-row">
+          <span>Ukupno radnih sati</span>
+          <strong>${esc(totalLaborDurationLabel(order))}</strong>
         </div>
 
         <div class="meta-row">
