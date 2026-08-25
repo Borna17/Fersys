@@ -9,8 +9,14 @@ import {
 } from 'react-router'
 
 import {
-  useAuth,
-} from '../auth/AuthProvider'
+  parseEmployeePermissions,
+  resolvePermissions,
+  type CompanyRole,
+  type MemberStatus,
+} from '../auth/permissions'
+import {
+  supabase,
+} from '../lib/supabase'
 import {
   getWorkOrderById,
   redactWorkOrderPrices,
@@ -22,6 +28,12 @@ import {
   getWorkOrderPdfBlob,
 } from '../utils/workOrderPdf'
 
+type CurrentAccessRow = {
+  role: CompanyRole
+  status: MemberStatus
+  permissions: unknown
+}
+
 function safeFileName(value: string) {
   return (
     value
@@ -32,9 +44,46 @@ function safeFileName(value: string) {
   )
 }
 
+async function canViewWorkOrderPrices() {
+  const { data, error } =
+    await supabase.rpc(
+      'get_current_user_access',
+    )
+
+  if (error) {
+    throw error
+  }
+
+  const row = Array.isArray(data)
+    ? data[0]
+    : data
+
+  if (!row) {
+    return false
+  }
+
+  const access =
+    row as CurrentAccessRow
+
+  if (access.status !== 'active') {
+    return false
+  }
+
+  const resolved =
+    resolvePermissions(
+      access.role,
+      parseEmployeePermissions(
+        access.permissions,
+      ),
+    )
+
+  return Boolean(
+    resolved['workOrders.viewPrices'],
+  )
+}
+
 export function WorkOrderShareAction() {
   const location = useLocation()
-  const { can } = useAuth()
   const [isSharing, setIsSharing] =
     useState(false)
 
@@ -56,10 +105,15 @@ export function WorkOrderShareAction() {
     try {
       setIsSharing(true)
 
-      const order =
-        await getWorkOrderById(
-          orderId,
-        )
+      const [
+        order,
+        branding,
+        mayViewPrices,
+      ] = await Promise.all([
+        getWorkOrderById(orderId),
+        getWorkOrderBrandingFromCompanySettings(),
+        canViewWorkOrderPrices(),
+      ])
 
       if (!order) {
         throw new Error(
@@ -67,11 +121,8 @@ export function WorkOrderShareAction() {
         )
       }
 
-      const branding =
-        await getWorkOrderBrandingFromCompanySettings()
-
       const pdfOrder =
-        can('workOrders.viewPrices')
+        mayViewPrices
           ? order
           : redactWorkOrderPrices(
               order,
@@ -97,7 +148,7 @@ export function WorkOrderShareAction() {
         },
       )
 
-      const shareData = {
+      const shareData: ShareData = {
         title: `Radni nalog ${order.orderNumber}`,
         text: `Radni nalog ${order.orderNumber} - ${order.customerName || order.title}`,
         files: [file],
