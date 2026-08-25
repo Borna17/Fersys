@@ -70,13 +70,6 @@ export default function FloatingUiLayoutFix() {
 
       /*
        * MOBILE SETTINGS FIX
-       *
-       * SettingsPage na mobitelu ima fiksni save bar neposredno
-       * iznad donje navigacije. Video pomoć i Početni vodič više
-       * ne smiju sjediti na tom istom mjestu.
-       *
-       * :has() ograničava ovaj raspored samo na stranicu koja
-       * sadrži mobilni gumb "Spremi postavke".
        */
       @media (max-width: 767px) {
         body:has(button[aria-label="Spremi postavke"])
@@ -132,10 +125,6 @@ export default function FloatingUiLayoutFix() {
           z-index: 83 !important;
         }
 
-        /*
-         * FirstStepsControlCenter koristi fixed + z-[84].
-         * Na /settings je to upravo gumb "Početni vodič".
-         */
         body:has(button[aria-label="Spremi postavke"])
           button.fixed.z-\[84\] {
           left: auto !important;
@@ -153,6 +142,41 @@ export default function FloatingUiLayoutFix() {
 
           border-radius: 1rem !important;
           z-index: 84 !important;
+        }
+
+        /*
+         * WORK ORDER EDIT MODE
+         *
+         * Na uređivanju radnog naloga korisniku treba samo jedna
+         * jasna primarna akcija: "Spremi izmjene". Globalna donja
+         * navigacija i veliki + gumb tada su suvišni i stvarali su
+         * dva naslagana fiksna reda.
+         */
+        body:has(#mobile-edit-work-order-form)
+          nav.fixed.inset-x-0.bottom-0 {
+          display: none !important;
+        }
+
+        body:has(#mobile-edit-work-order-form)
+          div.fixed:has(
+            > button[form="mobile-edit-work-order-form"]
+          ) {
+          bottom: 0 !important;
+          padding-bottom:
+            max(
+              0.75rem,
+              env(safe-area-inset-bottom)
+            ) !important;
+          z-index: 70 !important;
+        }
+
+        body:has(#mobile-edit-work-order-form)
+          main {
+          padding-bottom:
+            calc(
+              5.75rem +
+              env(safe-area-inset-bottom)
+            ) !important;
         }
       }
     `}</style>
