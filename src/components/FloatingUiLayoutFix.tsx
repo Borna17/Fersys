@@ -72,6 +72,57 @@ export default function FloatingUiLayoutFix() {
        * MOBILE SETTINGS FIX
        */
       @media (max-width: 767px) {
+        /*
+         * MOBILE WORK ORDER DETAILS CLEANUP
+         *
+         * Na detalju radnog naloga ostaje samo Poslovni tok.
+         * Stari teren/Rad floating bar i Smart Flow se potpuno
+         * skrivaju kako se kontrole ne bi slagale iznad navigacije.
+         */
+        body:has(button[aria-label="Otvori poslovni tok"])
+          button[aria-label="Otvori FERSYS Smart Flow"] {
+          display: none !important;
+        }
+
+        body:has(button[aria-label="Otvori poslovni tok"])
+          div.fixed[class*="left-1/2"]:has(> button:nth-of-type(3)) {
+          display: none !important;
+        }
+
+        /*
+         * Poslovni tok je sada mali izvučeni tab uz desni rub.
+         * Ne prekriva sadržaj niti donju navigaciju, ali ostaje
+         * uvijek dostupan jednim dodirom.
+         */
+        button[aria-label="Otvori poslovni tok"] {
+          top: 58% !important;
+          right: -0.45rem !important;
+          bottom: auto !important;
+          left: auto !important;
+          width: 3.25rem !important;
+          min-width: 3.25rem !important;
+          height: 3.25rem !important;
+          min-height: 3.25rem !important;
+          padding: 0 !important;
+          gap: 0 !important;
+          justify-content: center !important;
+          border-top-right-radius: 0 !important;
+          border-bottom-right-radius: 0 !important;
+          border-top-left-radius: 1rem !important;
+          border-bottom-left-radius: 1rem !important;
+          transform: translateY(-50%) !important;
+          z-index: 58 !important;
+        }
+
+        button[aria-label="Otvori poslovni tok"] > span {
+          display: none !important;
+        }
+
+        button[aria-label="Otvori poslovni tok"] svg {
+          width: 1.25rem !important;
+          height: 1.25rem !important;
+        }
+
         body:has(button[aria-label="Spremi postavke"])
           button[aria-label^="Otvori video pomoć za"] {
           position: fixed !important;
