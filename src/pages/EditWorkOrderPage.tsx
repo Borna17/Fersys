@@ -7,6 +7,7 @@ import {
   ImagePlus,
   MapPin,
   PackagePlus,
+  Plus,
   Save,
   Trash2,
   UserRound,
@@ -122,6 +123,7 @@ export function EditWorkOrderPage() {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [assignedWorkers, setAssignedWorkers] = useState<string[]>([])
+  const [manualWorkerName, setManualWorkerName] = useState('')
 
   const [materials, setMaterials] = useState<WorkOrderMaterial[]>([])
   const [labourPrice, setLabourPrice] = useState('')
@@ -226,6 +228,16 @@ export function EditWorkOrderPage() {
     [arrivalTime, departureTime],
   )
 
+  const totalLaborMinutes = useMemo(
+    () =>
+      durationMinutes *
+      assignedWorkers.length,
+    [
+      durationMinutes,
+      assignedWorkers.length,
+    ],
+  )
+
   const materialPrice = useMemo(
     () =>
       materials.reduce(
@@ -260,6 +272,46 @@ export function EditWorkOrderPage() {
       current.includes(workerName)
         ? current.filter((worker) => worker !== workerName)
         : [...current, workerName],
+    )
+  }
+
+  function addManualWorker() {
+    const name = manualWorkerName
+      .trim()
+      .replace(/\s+/g, ' ')
+
+    if (!name) {
+      return
+    }
+
+    const alreadyExists =
+      assignedWorkers.some(
+        (worker) =>
+          worker.toLocaleLowerCase('hr-HR') ===
+          name.toLocaleLowerCase('hr-HR'),
+      )
+
+    if (!alreadyExists) {
+      setAssignedWorkers(
+        (current) => [
+          ...current,
+          name,
+        ],
+      )
+    }
+
+    setManualWorkerName('')
+  }
+
+  function removeAssignedWorker(
+    workerName: string,
+  ) {
+    setAssignedWorkers(
+      (current) =>
+        current.filter(
+          (worker) =>
+            worker !== workerName,
+        ),
     )
   }
 
@@ -677,21 +729,37 @@ export function EditWorkOrderPage() {
           </Field>
 
           <div className="sm:col-span-2">
-            <p className="text-sm font-black text-slate-300">Radnici</p>
+            <p className="text-sm font-black text-slate-300">
+              Radnici
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Odaberi člana FERSYS-a ili ručno upiši radnika koji nema račun.
+            </p>
+
             {workersError && (
               <p className="mt-2 rounded-2xl bg-red-500/10 p-3 text-sm text-red-300">
                 {workersError}
               </p>
             )}
+
             <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">
               {workers.map((worker) => {
-                const workerName = worker.fullName.trim()
-                const selected = assignedWorkers.includes(workerName)
+                const workerName =
+                  worker.fullName.trim()
+                const selected =
+                  assignedWorkers.includes(
+                    workerName,
+                  )
+
                 return (
                   <button
                     key={worker.membershipId}
                     type="button"
-                    onClick={() => toggleWorker(workerName)}
+                    onClick={() =>
+                      toggleWorker(
+                        workerName,
+                      )
+                    }
                     className={`min-h-[86px] rounded-2xl border p-3 text-left transition active:scale-[0.98] ${
                       selected
                         ? 'border-blue-500 bg-blue-500/10'
@@ -706,14 +774,21 @@ export function EditWorkOrderPage() {
                             : 'bg-slate-700 text-slate-400'
                         }`}
                       >
-                        {selected ? <Check size={17} /> : <UserRound size={17} />}
+                        {selected ? (
+                          <Check size={17} />
+                        ) : (
+                          <UserRound size={17} />
+                        )}
                       </span>
+
                       <div className="min-w-0">
                         <p className="line-clamp-2 text-xs font-black leading-4 text-white sm:text-sm">
                           {workerName}
                         </p>
                         <p className="mt-1 text-[10px] font-semibold text-slate-500">
-                          {getRoleLabel(worker.role)}
+                          {getRoleLabel(
+                            worker.role,
+                          )}
                         </p>
                       </div>
                     </div>
@@ -721,6 +796,105 @@ export function EditWorkOrderPage() {
                 )
               })}
             </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/45 p-3">
+              <p className="text-xs font-black uppercase tracking-wider text-slate-400">
+                Dodaj radnika ručno
+              </p>
+
+              <div className="mt-2 flex gap-2">
+                <input
+                  value={manualWorkerName}
+                  onChange={(event) =>
+                    setManualWorkerName(
+                      event.target.value,
+                    )
+                  }
+                  onKeyDown={(event) => {
+                    if (
+                      event.key ===
+                      'Enter'
+                    ) {
+                      event.preventDefault()
+                      addManualWorker()
+                    }
+                  }}
+                  placeholder="Ime i prezime radnika"
+                  className="h-11 min-w-0 flex-1 rounded-xl bg-slate-800 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600"
+                />
+
+                <button
+                  type="button"
+                  onClick={
+                    addManualWorker
+                  }
+                  className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white"
+                >
+                  <Plus size={17} />
+                  Dodaj
+                </button>
+              </div>
+            </div>
+
+            {assignedWorkers.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-black uppercase tracking-wider text-slate-500">
+                  Na nalogu
+                </p>
+
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {assignedWorkers.map(
+                    (workerName) => (
+                      <button
+                        key={workerName}
+                        type="button"
+                        onClick={() =>
+                          removeAssignedWorker(
+                            workerName,
+                          )
+                        }
+                        className="inline-flex min-h-9 items-center gap-2 rounded-xl border border-blue-500/20 bg-blue-500/10 px-3 text-xs font-black text-blue-200"
+                        title="Ukloni radnika s naloga"
+                      >
+                        <UserRound
+                          size={14}
+                        />
+                        {workerName}
+                        <span className="text-slate-500">
+                          ×
+                        </span>
+                      </button>
+                    ),
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-2xl bg-slate-800 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Broj radnika
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {assignedWorkers.length}
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-violet-300">
+                  Ukupno radnih sati
+                </p>
+                <p className="mt-1 text-xl font-black text-white">
+                  {durationText(
+                    totalLaborMinutes,
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Račun: trajanje posla × broj radnika. Npr. 2 sata × 4 radnika = 8 radnih sati.
+            </p>
           </div>
         </MobileSection>
 
