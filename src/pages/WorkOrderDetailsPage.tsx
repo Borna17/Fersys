@@ -22,6 +22,7 @@ import {
   Navigation,
   Pencil,
   Phone,
+  Share2,
   Trash2,
   UserRound,
   UsersRound,
@@ -59,6 +60,9 @@ import {
   calculateWorkOrderPricing,
   materialLineTotal,
 } from '../utils/workOrderPricing'
+import {
+  shareWorkOrderPdf,
+} from '../utils/shareWorkOrderPdf'
 
 const FINALIZED_DRAFT_KEY =
   'fersys_finalized_work_order_draft_id'
@@ -220,6 +224,12 @@ export function WorkOrderDetailsPage() {
     useState(false)
 
   const [
+    isSharing,
+    setIsSharing,
+  ] =
+    useState(false)
+
+  const [
     canEditThisOrder,
     setCanEditThisOrder,
   ] =
@@ -355,6 +365,50 @@ export function WorkOrderDetailsPage() {
       )
     } finally {
       setIsDownloading(false)
+    }
+  }
+
+  async function handleSharePdf() {
+    if (
+      !order ||
+      isSharing ||
+      isDownloading ||
+      isDeleting
+    ) {
+      return
+    }
+
+    try {
+      setIsSharing(true)
+
+      const branding =
+        await getWorkOrderBrandingFromCompanySettings()
+
+      await shareWorkOrderPdf(
+        canViewPrices
+          ? order
+          : redactWorkOrderPrices(order),
+        branding,
+      )
+    } catch (error) {
+      const isAbort =
+        error instanceof DOMException &&
+        error.name === 'AbortError'
+
+      if (!isAbort) {
+        console.error(
+          'Dijeljenje radnog naloga nije uspjelo:',
+          error,
+        )
+
+        window.alert(
+          error instanceof Error
+            ? error.message
+            : 'Radni nalog nije moguće podijeliti.',
+        )
+      }
+    } finally {
+      setIsSharing(false)
     }
   }
 
@@ -681,7 +735,7 @@ export function WorkOrderDetailsPage() {
             </div>
           )}
 
-        <section className="grid grid-cols-3 gap-2">
+        <section className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <ActionButton
             icon={<Phone size={19} />}
             label="Poziv"
@@ -720,6 +774,15 @@ export function WorkOrderDetailsPage() {
                   'noopener,noreferrer',
                 )
               }
+            }}
+          />
+
+          <ActionButton
+            icon={<Share2 size={19} />}
+            label={isSharing ? 'Priprema...' : 'Dijeli'}
+            disabled={isSharing || isDownloading || isDeleting}
+            onClick={() => {
+              void handleSharePdf()
             }}
           />
         </section>
