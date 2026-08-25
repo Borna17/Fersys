@@ -30,7 +30,7 @@ jobs:
         run: npm ci
 
       - name: Apply discount patch
-        run: node scripts/apply-work-order-discounts.mjs
+        run: node scripts/run-work-order-discount-patch.mjs
 
       - name: Build
         run: npm run build
