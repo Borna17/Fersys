@@ -20,7 +20,7 @@ export type CloudWorkOrderMaterial = {
   quantity: number
   unit: string
   unitPrice: number
-  discountRate: number
+  discountRate?: number
 }
 
 export type CloudWorkOrderImage = {
@@ -56,7 +56,7 @@ export type CloudWorkOrder = {
 
   labourPrice: number
   materialPrice: number
-  discountRate: number
+  discountRate?: number
   vatRate: number
   totalPrice: number
   priceNote: string
@@ -96,7 +96,7 @@ export type CreateWorkOrderInput = {
 
   labourPrice: number
   materialPrice: number
-  discountRate: number
+  discountRate?: number
   vatRate: number
   totalPrice: number
   priceNote: string
@@ -413,7 +413,7 @@ function createDatabasePayload(
     material_price:
       Math.max(0, input.materialPrice),
     discount_rate:
-      clampPercent(input.discountRate),
+      clampPercent(input.discountRate ?? 0),
     vat_rate:
       clampPercent(input.vatRate),
     total_price:

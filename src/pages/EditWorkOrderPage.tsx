@@ -46,6 +46,7 @@ import type {
   WorkOrderStatus,
 } from '../types/workOrder'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
+import { calculateWorkOrderPricing } from '../utils/workOrderPricing'
 
 const inputClass =
   'h-12 w-full rounded-2xl bg-slate-800 px-4 text-white outline-none placeholder:text-slate-500 focus:ring-2 focus:ring-blue-600'
@@ -130,6 +131,7 @@ export function EditWorkOrderPage() {
 
   const [materials, setMaterials] = useState<WorkOrderMaterial[]>([])
   const [labourPrice, setLabourPrice] = useState('')
+  const [discountRate, setDiscountRate] = useState('0')
   const [vatRate, setVatRate] = useState('25')
   const [priceNote, setPriceNote] = useState('')
 
@@ -202,6 +204,7 @@ export function EditWorkOrderPage() {
         setLabourPrice(
           savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice),
         )
+        setDiscountRate(String(savedOrder.discountRate ?? 0))
         setVatRate(String(savedOrder.vatRate))
         setPriceNote(savedOrder.priceNote)
         setInvestorName(savedOrder.investorName)
@@ -241,17 +244,18 @@ export function EditWorkOrderPage() {
     ],
   )
 
-  const materialPrice = useMemo(
+  const pricing = useMemo(
     () =>
-      materials.reduce(
-        (sum, material) => sum + material.quantity * material.unitPrice,
-        0,
-      ),
-    [materials],
+      calculateWorkOrderPricing({
+        materials,
+        labourPrice: Number(labourPrice) || 0,
+        discountRate: Number(discountRate) || 0,
+        vatRate: Number(vatRate) || 0,
+      }),
+    [materials, labourPrice, discountRate, vatRate],
   )
 
-  const subtotal = materialPrice + (Number(labourPrice) || 0)
-  const totalPrice = subtotal + subtotal * ((Number(vatRate) || 0) / 100)
+  const totalPrice = pricing.totalPrice
 
   function handleCustomerChange(value: string) {
     setCustomerId(value)
@@ -327,6 +331,7 @@ export function EditWorkOrderPage() {
         quantity: 1,
         unit: 'kom',
         unitPrice: 0,
+        discountRate: 0,
       },
     ])
   }
@@ -406,8 +411,19 @@ export function EditWorkOrderPage() {
         unit: material.unit.trim() || 'kom',
         quantity: Math.max(0, Number(material.quantity) || 0),
         unitPrice: Math.max(0, Number(material.unitPrice) || 0),
+        discountRate: Math.min(
+          100,
+          Math.max(0, Number(material.discountRate) || 0),
+        ),
       }))
       .filter((material) => material.name !== '')
+
+    const submitPricing = calculateWorkOrderPricing({
+      materials: cleanMaterials,
+      labourPrice: canViewPrices ? Number(labourPrice) || 0 : 0,
+      discountRate: canViewPrices ? Number(discountRate) || 0 : 0,
+      vatRate: canViewPrices ? Number(vatRate) || 0 : 0,
+    })
 
     try {
       setIsSaving(true)
@@ -430,13 +446,10 @@ export function EditWorkOrderPage() {
         ...(canViewPrices
           ? {
               labourPrice: Math.max(0, Number(labourPrice) || 0),
-              materialPrice: cleanMaterials.reduce(
-                (sum, material) =>
-                  sum + material.quantity * material.unitPrice,
-                0,
-              ),
-              vatRate: Math.max(0, Number(vatRate) || 0),
-              totalPrice: Math.max(0, totalPrice),
+              materialPrice: submitPricing.materialPrice,
+              discountRate: submitPricing.discountRate,
+              vatRate: submitPricing.vatRate,
+              totalPrice: submitPricing.totalPrice,
               priceNote: priceNote.trim(),
             }
           : {}),
@@ -967,7 +980,7 @@ export function EditWorkOrderPage() {
 
                 <div
                   className={`mt-2 grid gap-2 ${
-                    canViewPrices ? 'grid-cols-3' : 'grid-cols-2'
+                    canViewPrices ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'
                   }`}
                 >
                   <MiniInput label="Količina">
@@ -1019,6 +1032,30 @@ export function EditWorkOrderPage() {
                       />
                     </MiniInput>
                   )}
+
+                  {canViewPrices && (
+                    <MiniInput label="Popust %">
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={material.discountRate || ''}
+                        placeholder="0"
+                        onChange={(event) =>
+                          updateMaterial(
+                            material.id,
+                            'discountRate',
+                            event.target.value === ''
+                              ? 0
+                              : Math.min(100, Math.max(0, Number(event.target.value) || 0)),
+                          )
+                        }
+                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                      />
+                    </MiniInput>
+                  )}
                 </div>
               </div>
             ))}
@@ -1050,6 +1087,20 @@ export function EditWorkOrderPage() {
                 </div>
               </Field>
 
+              <Field label="Popust na cijeli posao %">
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={discountRate === '0' ? '' : discountRate}
+                  placeholder="0"
+                  onChange={(event) => setDiscountRate(event.target.value)}
+                  className={inputClass}
+                />
+              </Field>
+
               <Field label="PDV %">
                 <input
                   type="number"
@@ -1068,6 +1119,13 @@ export function EditWorkOrderPage() {
                 </p>
                 <p className="mt-1 text-2xl font-black text-white">
                   {totalPrice.toFixed(2)} €
+                </p>
+                <p className="mt-2 text-xs text-blue-100/80">
+                  Osnovica {pricing.subtotalBeforeDiscount.toFixed(2)} €
+                  {pricing.discountRate > 0
+                    ? ` · Popust -${pricing.discountAmount.toFixed(2)} €`
+                    : ''}
+                  {` · PDV ${pricing.vatAmount.toFixed(2)} €`}
                 </p>
               </div>
 
