@@ -1245,8 +1245,8 @@ function css(
 
     .executor-signature-space {
       align-items: flex-end;
-      justify-content: flex-start;
-      padding-left: ${compact ? 5 : 7}px;
+      justify-content: center;
+      padding-left: 0;
     }
 
     .signature-image {
@@ -1271,10 +1271,10 @@ function css(
       display: block;
       width: auto;
       height: auto;
-      max-width: ${compact ? 225 : 250}px;
-      max-height: ${compact ? 82 : 92}px;
+      max-width: ${compact ? 190 : 210}px;
+      max-height: ${compact ? 72 : 80}px;
       object-fit: contain;
-      object-position: left bottom;
+      object-position: center bottom;
     }
 
     .footer {
