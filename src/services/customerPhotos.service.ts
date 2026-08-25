@@ -144,16 +144,51 @@ async function mapPhoto(
 async function dataUrlToBlob(
   dataUrl: string,
 ) {
-  const response =
-    await fetch(dataUrl)
+  const match = dataUrl.match(
+    /^data:([^;,]+)?(?:;charset=[^;,]+)?(;base64)?,(.*)$/s,
+  )
 
-  if (!response.ok) {
+  if (!match) {
     throw new Error(
       'Fotografiju nije moguće pripremiti za galeriju investitora.',
     )
   }
 
-  return response.blob()
+  const mimeType =
+    match[1] || 'image/jpeg'
+  const isBase64 =
+    Boolean(match[2])
+  const payload = match[3]
+
+  try {
+    if (isBase64) {
+      const binary = atob(payload)
+      const bytes =
+        new Uint8Array(binary.length)
+
+      for (
+        let index = 0;
+        index < binary.length;
+        index += 1
+      ) {
+        bytes[index] =
+          binary.charCodeAt(index)
+      }
+
+      return new Blob([bytes], {
+        type: mimeType,
+      })
+    }
+
+    return new Blob(
+      [decodeURIComponent(payload)],
+      { type: mimeType },
+    )
+  } catch {
+    throw new Error(
+      'Fotografiju nije moguće pripremiti za galeriju investitora.',
+    )
+  }
 }
 
 async function uploadWorkOrderImage(
@@ -494,7 +529,7 @@ export async function syncWorkOrderImagesToCustomerGallery(
 
   await runWithConcurrency(
     missing,
-    3,
+    1,
     async (image) => {
       await uploadWorkOrderImage(
         companyId,

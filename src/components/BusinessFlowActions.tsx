@@ -623,7 +623,7 @@ export default function BusinessFlowActions() {
         onClick={() =>
           setIsOpen(true)
         }
-        className="fixed bottom-[calc(5.45rem+var(--fersys-safe-bottom))] right-3 z-[55] inline-flex h-12 items-center gap-2 rounded-2xl border border-blue-400/20 bg-slate-900/95 px-4 text-sm font-black text-white shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 md:bottom-6 md:right-6 md:h-12"
+        className="fixed bottom-[calc(9.75rem+var(--fersys-safe-bottom))] right-3 z-[55] inline-flex h-12 max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-hidden rounded-2xl border border-blue-400/20 bg-slate-900/95 px-4 text-sm font-black text-white shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 md:bottom-6 md:right-6 md:h-12 md:max-w-none"
         aria-label="Otvori poslovni tok"
       >
         {loading ? (

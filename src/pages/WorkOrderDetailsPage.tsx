@@ -631,7 +631,7 @@ export function WorkOrderDetailsPage() {
               />
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 sm:hidden">
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:hidden">
               {canManageWorkOrders &&
                 canEditThisOrder ? (
                   <button
@@ -659,6 +659,18 @@ export function WorkOrderDetailsPage() {
               >
                 <Download size={18} />
                 {isDownloading ? 'PDF...' : 'PDF'}
+              </button>
+
+              <button
+                type="button"
+                disabled={isSharing || isDownloading || isDeleting}
+                onClick={() => {
+                  void handleSharePdf()
+                }}
+                className="flex h-14 items-center justify-center gap-2 rounded-2xl border border-violet-400/20 bg-violet-500/15 px-3 text-sm font-black text-violet-100 active:scale-[0.99] disabled:opacity-50"
+              >
+                <Share2 size={18} />
+                {isSharing ? '...' : 'Dijeli'}
               </button>
 
               {canManageWorkOrders && (
