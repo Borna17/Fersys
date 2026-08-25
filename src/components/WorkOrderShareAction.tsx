@@ -215,7 +215,7 @@ export function WorkOrderShareAction() {
         void handleShare()
       }
       disabled={isSharing}
-      className="fixed bottom-[5.75rem] right-4 z-50 flex h-12 items-center justify-center gap-2 rounded-2xl border border-blue-400/20 bg-blue-600 px-4 text-sm font-black text-white shadow-2xl shadow-black/30 disabled:opacity-60 sm:bottom-6 sm:right-6"
+      className="fixed bottom-6 right-6 z-50 hidden h-12 items-center justify-center gap-2 rounded-2xl border border-blue-400/20 bg-blue-600 px-4 text-sm font-black text-white shadow-2xl shadow-black/30 disabled:opacity-60 md:flex"
       aria-label="Podijeli radni nalog"
       title="Podijeli PDF radnog naloga"
     >
