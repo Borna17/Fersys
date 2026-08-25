@@ -122,7 +122,49 @@ function DeferredEnhancements() {
   ] =
     useState(false)
 
+  const [
+    isMobile,
+    setIsMobile,
+  ] =
+    useState(() =>
+      window.matchMedia(
+        '(max-width: 767px)',
+      ).matches,
+    )
+
   useEffect(() => {
+    const mediaQuery =
+      window.matchMedia(
+        '(max-width: 767px)',
+      )
+
+    const handleChange = () => {
+      setIsMobile(
+        mediaQuery.matches,
+      )
+    }
+
+    handleChange()
+
+    mediaQuery.addEventListener(
+      'change',
+      handleChange,
+    )
+
+    return () => {
+      mediaQuery.removeEventListener(
+        'change',
+        handleChange,
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    if (isMobile) {
+      setReady(false)
+      return
+    }
+
     const timer =
       window.setTimeout(
         () => {
@@ -136,9 +178,12 @@ function DeferredEnhancements() {
         timer,
       )
     }
-  }, [])
+  }, [isMobile])
 
-  if (!ready) {
+  if (
+    isMobile ||
+    !ready
+  ) {
     return null
   }
 
