@@ -22,6 +22,7 @@ import { useNavigate } from 'react-router'
 import { useAuth } from '../auth/AuthProvider'
 import FersysLoader from '../components/FersysLoader'
 import {
+  getWorkOrderById,
   getWorkOrders,
   redactWorkOrderPrices,
   type CloudWorkOrder,
@@ -301,14 +302,25 @@ export function WorkOrdersPage() {
     try {
       setDownloadingId(order.id)
 
+      const fullOrder =
+        await getWorkOrderById(
+          order.id,
+        )
+
+      if (!fullOrder) {
+        throw new Error(
+          'Radni nalog nije pronađen.',
+        )
+      }
+
       const branding =
         await getWorkOrderBrandingFromCompanySettings()
 
       await downloadWorkOrderPdf(
         canViewPrices
-          ? order
+          ? fullOrder
           : redactWorkOrderPrices(
-              order,
+              fullOrder,
             ),
         branding,
       )
