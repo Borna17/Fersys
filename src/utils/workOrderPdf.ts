@@ -658,21 +658,103 @@ function paginate(
 
   let materialIndex = firstMaterials.length
 
+  const descriptionLength =
+    order.description.trim().length
+
   /*
-   * Na prvoj stranici ostavljamo fotografije samo kada
-   * stvarno ima dovoljno mjesta uz opis i materijal.
-   * Maksimalno 2 fotografije.
+   * Procjena koliko fotografija STVARNO stane na prvu stranicu.
+   * Kalibrirano prema stvarnom RN-2026-015:
+   * 3 stavke materijala + kratak opis imaju mjesta za 2 fotografije.
    */
-  const showPhotosOnFirst =
+  let maxFirstPhotos = 0
+
+  if (
     order.images.length > 0 &&
-    firstMaterials.length <= 2 &&
-    order.description.length < 500
+    materialIndex === order.materials.length
+  ) {
+    if (
+      firstMaterials.length <= 3 &&
+      descriptionLength <= 650
+    ) {
+      maxFirstPhotos = 2
+    } else if (
+      firstMaterials.length <= 4 &&
+      descriptionLength <= 420
+    ) {
+      maxFirstPhotos = 1
+    }
+  }
 
-  const firstPhotos = showPhotosOnFirst
-    ? order.images.slice(0, 2)
-    : []
+  function remainingPagesAfterFirst(
+    firstPhotoCount: number,
+  ) {
+    const remaining =
+      Math.max(
+        0,
+        order.images.length -
+          firstPhotoCount,
+      )
 
-  let photoIndex = firstPhotos.length
+    if (remaining === 0) {
+      return 1
+    }
+
+    const photoPages =
+      Math.ceil(remaining / 4)
+
+    const lastPhotoCount =
+      remaining % 4 || 4
+
+    const needsSeparateFinalPage =
+      lastPhotoCount >= 3
+
+    return (
+      photoPages +
+      (needsSeparateFinalPage
+        ? 1
+        : 0)
+    )
+  }
+
+  /*
+   * Biramo raspored s najmanje stranica.
+   * Ako dva rasporeda daju isti broj stranica,
+   * prednost ima više fotografija na prvoj stranici.
+   */
+  let firstPhotoCount = 0
+  let bestRemainingPages =
+    remainingPagesAfterFirst(0)
+
+  for (
+    let candidate = 1;
+    candidate <= maxFirstPhotos;
+    candidate += 1
+  ) {
+    const candidatePages =
+      remainingPagesAfterFirst(
+        candidate,
+      )
+
+    if (
+      candidatePages <
+        bestRemainingPages ||
+      candidatePages ===
+        bestRemainingPages
+    ) {
+      firstPhotoCount = candidate
+      bestRemainingPages =
+        candidatePages
+    }
+  }
+
+  const firstPhotos =
+    order.images.slice(
+      0,
+      firstPhotoCount,
+    )
+
+  let photoIndex =
+    firstPhotos.length
 
   pages.push({
     materials: firstMaterials,
@@ -682,10 +764,6 @@ function paginate(
     showTotals: false,
   })
 
-  /*
-   * Ako sav materijal ne stane na prvu stranicu,
-   * nastavljamo ga na zasebnim stranicama.
-   */
   while (
     materialIndex <
     order.materials.length
@@ -710,12 +788,7 @@ function paginate(
   }
 
   /*
-   * Sve preostale fotografije idu po 4 na A4 stranicu.
-   *
-   * Primjer:
-   * - 6 slika ukupno
-   * - 2 stanu na prvu stranicu
-   * - preostale 4 idu zajedno na drugu stranicu
+   * Sve preostale fotografije idu po 4 na A4 (2x2).
    */
   while (
     photoIndex <
@@ -739,17 +812,42 @@ function paginate(
     })
   }
 
+  const last =
+    pages[pages.length - 1]
+
   /*
-   * Završni dio se NIKADA ne spaja s fotografijama.
-   * Cijena, potpis i pečat uvijek imaju svoju zadnju stranicu.
+   * Ako zadnja foto-stranica ima samo 1 ili 2 slike,
+   * završni dio ide NA ISTU stranicu ispod njih.
+   * Kod 3 ili 4 slike ostavljamo fotografije pune veličine
+   * i završni dio ide na novu stranicu.
    */
-  pages.push({
-    materials: [],
-    photos: [],
-    first: false,
-    last: true,
-    showTotals: true,
-  })
+  const canShareWithFinal =
+    !last.first &&
+    last.materials.length === 0 &&
+    last.photos.length >= 1 &&
+    last.photos.length <= 2
+
+  const canFinishWithoutPhotos =
+    order.images.length === 0 &&
+    pages.length === 1 &&
+    firstMaterials.length <= 3 &&
+    descriptionLength <= 420
+
+  if (
+    canShareWithFinal ||
+    canFinishWithoutPhotos
+  ) {
+    last.showTotals = true
+    last.last = true
+  } else {
+    pages.push({
+      materials: [],
+      photos: [],
+      first: false,
+      last: true,
+      showTotals: true,
+    })
+  }
 
   pages.forEach(
     (page, index) => {
@@ -903,7 +1001,7 @@ function css(
 
     .company-name {
       color: ${text};
-      font-size: ${compact ? 18 : 20}px;
+      font-size: ${compact ? 20 : 22}px;
       line-height: 1.08;
       font-weight: 950;
       letter-spacing: -.02em;
@@ -912,7 +1010,7 @@ function css(
     .company-details {
       margin-top: 8px;
       color: ${alpha(text, '98')};
-      font-size: ${compact ? 7.2 : 7.8}px;
+      font-size: ${compact ? 9.2 : 9.8}px;
       line-height: 1.45;
     }
 
@@ -923,7 +1021,7 @@ function css(
     .continuation-label {
       margin-bottom: 3px;
       color: ${alpha(text, '82')};
-      font-size: 6px;
+      font-size: 8px;
       font-weight: 850;
       letter-spacing: .1em;
       text-transform: uppercase;
@@ -942,21 +1040,21 @@ function css(
     .document-number {
       margin-top: ${compact ? 9 : 11}px;
       color: ${text};
-      font-size: ${compact ? 13 : 15}px;
+      font-size: ${compact ? 15 : 17}px;
       font-weight: 950;
     }
 
     .document-number span {
       margin-right: 5px;
       color: ${alpha(text, '85')};
-      font-size: 7px;
+      font-size: 9px;
       font-weight: 800;
     }
 
     .document-date {
       margin-top: 7px;
       color: ${alpha(text, '8A')};
-      font-size: 7.5px;
+      font-size: 9.5px;
       font-weight: 700;
     }
 
@@ -982,7 +1080,7 @@ function css(
     .info-title {
       margin-bottom: 7px;
       color: ${primary};
-      font-size: ${compact ? 7.5 : 8.2}px;
+      font-size: ${compact ? 9.5 : 10.2}px;
       font-weight: 950;
       letter-spacing: .07em;
       text-transform: uppercase;
@@ -990,14 +1088,14 @@ function css(
 
     .investor-name {
       color: ${text};
-      font-size: ${compact ? 10 : 11}px;
+      font-size: ${compact ? 12 : 13}px;
       font-weight: 950;
     }
 
     .info-lines {
       margin-top: 5px;
       color: ${alpha(text, 'B4')};
-      font-size: ${compact ? 7.2 : 7.8}px;
+      font-size: ${compact ? 9.2 : 9.8}px;
       line-height: 1.42;
     }
 
@@ -1007,7 +1105,7 @@ function css(
       gap: 14px;
       padding: 3px 0;
       border-bottom: 1px solid ${alpha(border, '80')};
-      font-size: ${compact ? 7.1 : 7.6}px;
+      font-size: ${compact ? 9.1 : 9.6}px;
     }
 
     .meta-row:last-child { border-bottom: 0; }
@@ -1020,7 +1118,7 @@ function css(
         0
         ${compact ? 5 : 7}px;
       color: ${text};
-      font-size: ${compact ? 8.1 : 8.8}px;
+      font-size: ${compact ? 10.1 : 10.8}px;
       font-weight: 950;
       letter-spacing: .035em;
       text-transform: uppercase;
@@ -1049,7 +1147,7 @@ function css(
 
     .work-title {
       color: ${text};
-      font-size: ${compact ? 8.8 : 9.5}px;
+      font-size: ${compact ? 10.8 : 11.5}px;
       line-height: 1.3;
       font-weight: 950;
     }
@@ -1057,7 +1155,7 @@ function css(
     .work-description {
       margin-top: 3px;
       color: ${alpha(text, 'B0')};
-      font-size: ${compact ? 7.2 : 7.8}px;
+      font-size: ${compact ? 9.2 : 9.8}px;
       line-height: ${compact ? 1.38 : 1.45};
       overflow-wrap: anywhere;
     }
@@ -1078,7 +1176,7 @@ function css(
 
     .material-index {
       color: ${primary};
-      font-size: ${compact ? 7.6 : 8.4}px;
+      font-size: ${compact ? 9.6 : 10.4}px;
       font-weight: 950;
       text-align: center;
     }
@@ -1087,7 +1185,7 @@ function css(
 
     .material-name {
       color: ${text};
-      font-size: ${compact ? 7.8 : 8.5}px;
+      font-size: ${compact ? 9.8 : 10.5}px;
       line-height: 1.25;
       font-weight: 900;
     }
@@ -1096,7 +1194,7 @@ function css(
       padding-left: 7px;
       border-left: 1px solid ${border};
       color: ${text};
-      font-size: ${compact ? 7 : 7.6}px;
+      font-size: ${compact ? 9 : 9.6}px;
       text-align: right;
       white-space: nowrap;
     }
@@ -1105,7 +1203,7 @@ function css(
       display: block;
       margin-bottom: 2px;
       color: ${alpha(text, '78')};
-      font-size: 5.6px;
+      font-size: 7.6px;
       font-weight: 800;
       text-transform: uppercase;
     }
@@ -1144,7 +1242,7 @@ function css(
 
     .price-note {
       color: ${alpha(text, 'A2')};
-      font-size: ${compact ? 7 : 7.5}px;
+      font-size: ${compact ? 9 : 9.5}px;
       line-height: 1.45;
     }
 
@@ -1157,7 +1255,7 @@ function css(
       padding: ${compact ? '4px 6px' : '5px 7px'};
       border-bottom: 1px solid ${border};
       color: ${text};
-      font-size: ${compact ? 7.3 : 7.9}px;
+      font-size: ${compact ? 9.3 : 9.9}px;
     }
 
     .total-row span:first-child {
@@ -1171,7 +1269,7 @@ function css(
       padding: ${compact ? '8px 9px' : '9px 10px'};
       background: ${alpha(primary, '1A')};
       color: ${primary};
-      font-size: ${compact ? 10.5 : 11.8}px;
+      font-size: ${compact ? 12.5 : 13.8}px;
       font-weight: 950;
     }
 
@@ -1234,12 +1332,24 @@ function css(
       height: ${compact ? 250 : 270}px;
     }
 
+    /* Prva stranica: 1-2 slike samo koriste preostali prostor. */
+    .first-pdf-page .photos-1 .photo-card img,
+    .first-pdf-page .photos-2 .photo-card img {
+      height: ${compact ? 195 : 210}px;
+    }
+
+    /* Zadnja stranica s 1-2 slike + cijena/potpis/pečat. */
+    .final-pdf-page .photos-1 .photo-card img,
+    .final-pdf-page .photos-2 .photo-card img {
+      height: ${compact ? 205 : 220}px;
+    }
+
     .photo-card figcaption {
       min-height: 20px;
       border-top: 1px solid ${border};
       padding: 5px 7px;
       color: ${alpha(text, '8C')};
-      font-size: 6px;
+      font-size: 8px;
       line-height: 1.25;
     }
 
@@ -1262,7 +1372,7 @@ function css(
     .signature-label {
       margin-bottom: 5px;
       color: ${alpha(text, '8A')};
-      font-size: 6.8px;
+      font-size: 8.8px;
     }
 
     .signature-space {
@@ -1292,7 +1402,7 @@ function css(
       border-top: 1px solid ${text};
       padding-top: 5px;
       color: ${text};
-      font-size: 7px;
+      font-size: 9px;
       font-weight: 750;
     }
 
@@ -1315,7 +1425,7 @@ function css(
       border-top: 1px solid ${primary};
       padding-top: 6px;
       color: ${alpha(text, '7D')};
-      font-size: 6.3px;
+      font-size: 8.3px;
     }
 
     @media print {
@@ -1341,7 +1451,7 @@ function pageHtml(
 ) {
   return `
     <article
-      class="pdf-page preset-${esc(appearance.preset)}"
+      class="pdf-page preset-${esc(appearance.preset)}${page.first ? ' first-pdf-page' : ''}${page.last ? ' final-pdf-page' : ''}"
       data-pdf-page
     >
       ${watermarkHtml(appearance)}

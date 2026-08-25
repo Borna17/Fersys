@@ -32,6 +32,9 @@ import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
 import { getCustomers } from '../services/customers.service'
 import {
+  syncWorkOrderImagesToCustomerGallery,
+} from '../services/customerPhotos.service'
+import {
   deleteUserDraft,
   formatDraftSavedAt,
   loadUserDraft,
@@ -1756,6 +1759,31 @@ export function NewWorkOrderPage() {
           status,
           priority,
         })
+
+      if (images.length > 0) {
+        try {
+          await syncWorkOrderImagesToCustomerGallery({
+            workOrderId:
+              createdOrder.id,
+            orderNumber:
+              createdOrder.orderNumber,
+            customerId,
+            workDate: date,
+            title:
+              title.trim(),
+            images,
+          })
+        } catch (galleryError) {
+          console.error(
+            'Fotografije radnog naloga nisu spremljene u galeriju investitora:',
+            galleryError,
+          )
+
+          alert(
+            'Radni nalog je spremljen, ali fotografije se nisu uspjele spremiti u galeriju investitora. Otvori nalog, Uredi i ponovno spremi.',
+          )
+        }
+      }
 
       localStorage.setItem(
         FINALIZED_DRAFT_KEY,
