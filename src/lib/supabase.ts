@@ -41,7 +41,14 @@ const client = createClient(
 const originalSignOut =
   client.auth.signOut.bind(client.auth)
 
-client.auth.signOut = ((options) =>
+type SignOutOptions =
+  Parameters<
+    typeof client.auth.signOut
+  >[0]
+
+client.auth.signOut = (async (
+  options?: SignOutOptions,
+) =>
   originalSignOut(
     options ?? {
       scope: 'local',
