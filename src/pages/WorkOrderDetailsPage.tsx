@@ -55,6 +55,10 @@ import {
 import {
   downloadWorkOrderPdf,
 } from '../utils/workOrderPdf'
+import {
+  calculateWorkOrderPricing,
+  materialLineTotal,
+} from '../utils/workOrderPricing'
 
 const FINALIZED_DRAFT_KEY =
   'fersys_finalized_work_order_draft_id'
@@ -461,10 +465,13 @@ export function WorkOrderDetailsPage() {
     )
   }
 
-  const vatValue =
-    order.totalPrice -
-    order.materialPrice -
-    order.labourPrice
+  const pricing =
+    calculateWorkOrderPricing({
+      materials: order.materials,
+      labourPrice: order.labourPrice,
+      discountRate: order.discountRate ?? 0,
+      vatRate: order.vatRate,
+    })
 
   const hasPhone =
     Boolean(
@@ -882,14 +889,17 @@ export function WorkOrderDetailsPage() {
                                     material.unitPrice,
                                   )}`
                                 : ''}
+                              {canViewPrices &&
+                              (material.discountRate ?? 0) > 0
+                                ? ` · Popust ${material.discountRate}%`
+                                : ''}
                             </p>
                           </div>
 
                           {canViewPrices && (
                             <p className="shrink-0 text-sm font-black text-white">
                               {money(
-                                material.quantity *
-                                  material.unitPrice,
+                                materialLineTotal(material),
                               )}
                             </p>
                           )}
@@ -958,7 +968,7 @@ export function WorkOrderDetailsPage() {
                   value={
                     canViewPrices
                       ? money(
-                          order.materialPrice,
+                          pricing.materialPrice,
                         )
                       : 'Skriveno'
                   }
@@ -975,11 +985,32 @@ export function WorkOrderDetailsPage() {
                   }
                 />
 
+                {canViewPrices && (
+                  <>
+                    <Row
+                      label="Međuzbroj"
+                      value={money(pricing.subtotalBeforeDiscount)}
+                    />
+
+                    {pricing.discountRate > 0 && (
+                      <Row
+                        label={`Popust na cijeli posao ${pricing.discountRate}%`}
+                        value={`-${money(pricing.discountAmount)}`}
+                      />
+                    )}
+
+                    <Row
+                      label="Osnovica bez PDV-a"
+                      value={money(pricing.taxableBase)}
+                    />
+                  </>
+                )}
+
                 <Row
                   label={`PDV ${order.vatRate}%`}
                   value={
                     canViewPrices
-                      ? money(vatValue)
+                      ? money(pricing.vatAmount)
                       : 'Skriveno'
                   }
                 />
@@ -990,7 +1021,7 @@ export function WorkOrderDetailsPage() {
                     value={
                       canViewPrices
                         ? money(
-                            order.totalPrice,
+                            pricing.totalPrice,
                           )
                         : 'Skriveno'
                     }

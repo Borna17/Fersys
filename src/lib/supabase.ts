@@ -19,7 +19,7 @@ if (!supabasePublishableKey) {
   )
 }
 
-export const supabase = createClient(
+const client = createClient(
   supabaseUrl,
   supabasePublishableKey,
   {
@@ -30,3 +30,29 @@ export const supabase = createClient(
     },
   },
 )
+
+/*
+ * Supabase JS koristi GLOBALNI sign-out ako scope nije zadan.
+ * U FERSYS-u korisnik mora moći biti prijavljen na mobitelu,
+ * računalu i drugim uređajima istovremeno, zato svaki postojeći
+ * poziv supabase.auth.signOut() bez opcija tretiramo kao lokalnu
+ * odjavu samo s trenutačnog uređaja.
+ */
+const originalSignOut =
+  client.auth.signOut.bind(client.auth)
+
+type SignOutOptions =
+  Parameters<
+    typeof client.auth.signOut
+  >[0]
+
+client.auth.signOut = (async (
+  options?: SignOutOptions,
+) =>
+  originalSignOut(
+    options ?? {
+      scope: 'local',
+    },
+  )) as typeof client.auth.signOut
+
+export const supabase = client

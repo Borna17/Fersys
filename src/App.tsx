@@ -1,6 +1,9 @@
 import {
   IncomingInvoicesCloudBridge,
 } from './components/IncomingInvoicesCloudBridge'
+import {
+  WorkOrderShareAction,
+} from './components/WorkOrderShareAction'
 import { AppRouter } from './router/AppRouter'
 
 function App() {
@@ -8,6 +11,7 @@ function App() {
     <>
       <IncomingInvoicesCloudBridge />
       <AppRouter />
+      <WorkOrderShareAction />
     </>
   )
 }

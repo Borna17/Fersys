@@ -62,14 +62,6 @@ const FirstStepsControlCenter =
       ),
   )
 
-const VideoTutorialCenter =
-  lazy(
-    () =>
-      import(
-        './components/VideoTutorialCenter'
-      ),
-  )
-
 function registerWebServiceWorker() {
   if (
     isNativeApp()
@@ -157,7 +149,6 @@ function DeferredEnhancements() {
       <DocumentFlowOrchestrator />
       <FirstTenMinutes />
       <FirstStepsControlCenter />
-      <VideoTutorialCenter />
     </Suspense>
   )
 }

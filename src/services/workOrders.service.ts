@@ -20,6 +20,7 @@ export type CloudWorkOrderMaterial = {
   quantity: number
   unit: string
   unitPrice: number
+  discountRate?: number
 }
 
 export type CloudWorkOrderImage = {
@@ -55,6 +56,7 @@ export type CloudWorkOrder = {
 
   labourPrice: number
   materialPrice: number
+  discountRate?: number
   vatRate: number
   totalPrice: number
   priceNote: string
@@ -94,6 +96,7 @@ export type CreateWorkOrderInput = {
 
   labourPrice: number
   materialPrice: number
+  discountRate?: number
   vatRate: number
   totalPrice: number
   priceNote: string
@@ -137,6 +140,7 @@ type WorkOrderRow = {
 
   labour_price: number | string | null
   material_price: number | string | null
+  discount_rate: number | string | null
   vat_rate: number | string | null
   total_price: number | string | null
   price_note: string | null
@@ -161,6 +165,11 @@ function isObject(
     value !== null &&
     !Array.isArray(value)
   )
+}
+
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(100, Math.max(0, value))
 }
 
 function parseMaterials(
@@ -193,6 +202,11 @@ function parseMaterials(
 
       unitPrice:
         Number(material.unitPrice) || 0,
+
+      discountRate:
+        clampPercent(
+          Number(material.discountRate) || 0,
+        ),
     }))
 }
 
@@ -273,6 +287,8 @@ function mapWorkOrder(
     labourPrice: Number(row.labour_price) || 0,
     materialPrice:
       Number(row.material_price) || 0,
+    discountRate:
+      clampPercent(Number(row.discount_rate) || 0),
     vatRate: Number(row.vat_rate) || 0,
     totalPrice: Number(row.total_price) || 0,
     priceNote: row.price_note ?? '',
@@ -300,10 +316,12 @@ export function redactWorkOrderPrices(
       (material) => ({
         ...material,
         unitPrice: 0,
+        discountRate: 0,
       }),
     ),
     labourPrice: 0,
     materialPrice: 0,
+    discountRate: 0,
     vatRate: 0,
     totalPrice: 0,
     priceNote: '',
@@ -382,15 +400,22 @@ function createDatabasePayload(
     description:
       input.description.trim() || null,
 
-    materials: input.materials,
+    materials: input.materials.map((material) => ({
+      ...material,
+      quantity: Math.max(0, Number(material.quantity) || 0),
+      unitPrice: Math.max(0, Number(material.unitPrice) || 0),
+      discountRate: clampPercent(Number(material.discountRate) || 0),
+    })),
     assigned_workers: input.assignedWorkers,
 
     labour_price:
       Math.max(0, input.labourPrice),
     material_price:
       Math.max(0, input.materialPrice),
+    discount_rate:
+      clampPercent(input.discountRate ?? 0),
     vat_rate:
-      Math.max(0, input.vatRate),
+      clampPercent(input.vatRate),
     total_price:
       Math.max(0, input.totalPrice),
     price_note:
@@ -571,6 +596,10 @@ export async function updateWorkOrder(
     materialPrice:
       input.materialPrice ??
       existing.materialPrice,
+
+    discountRate:
+      input.discountRate ??
+      existing.discountRate,
 
     vatRate:
       input.vatRate ?? existing.vatRate,

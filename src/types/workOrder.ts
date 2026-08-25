@@ -50,6 +50,7 @@ export type WorkOrderMaterial = {
   quantity: number
   unit: string
   unitPrice: number
+  discountRate?: number
 }
 
 export type WorkOrderImage = {
@@ -85,6 +86,7 @@ export type WorkOrder = {
 
   labourPrice: number
   materialPrice: number
+  discountRate?: number
   vatRate: number
   totalPrice: number
   priceNote: string

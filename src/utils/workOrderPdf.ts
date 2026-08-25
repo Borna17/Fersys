@@ -18,6 +18,10 @@ import type {
 import {
   getDocumentAppearanceSettings,
 } from '../services/documentAppearance.service'
+import {
+  calculateWorkOrderPricing,
+  materialLineTotal,
+} from './workOrderPricing'
 
 type PdfPage = {
   materials: WorkOrderMaterial[]
@@ -140,30 +144,13 @@ function totalLaborDurationLabel(
   return `${rest} min`
 }
 
-const materialTotal = (item: WorkOrderMaterial) =>
-  Number(item.quantity || 0) * Number(item.unitPrice || 0)
-
 function totals(order: WorkOrder) {
-  const materialRows = order.materials.reduce(
-    (sum, item) => sum + materialTotal(item),
-    0,
-  )
-
-  const material =
-    materialRows > 0
-      ? materialRows
-      : Number(order.materialPrice || 0)
-
-  const labour = Number(order.labourPrice || 0)
-  const base = material + labour
-  const vat = base * (Number(order.vatRate || 0) / 100)
-
-  const total =
-    Number(order.totalPrice || 0) > 0
-      ? Number(order.totalPrice)
-      : base + vat
-
-  return { material, labour, vat, total }
+  return calculateWorkOrderPricing({
+    materials: order.materials,
+    labourPrice: order.labourPrice,
+    discountRate: order.discountRate ?? 0,
+    vatRate: order.vatRate,
+  })
 }
 
 function safeFileName(value: string) {
@@ -500,9 +487,14 @@ function materialsHtml(
                   ${money(material.unitPrice)}
                 </div>
 
+                <div class="material-data">
+                  <small>Popust</small>
+                  ${number(material.discountRate ?? 0)}%
+                </div>
+
                 <div class="material-data material-total">
                   <small>Ukupno</small>
-                  ${money(materialTotal(material))}
+                  ${money(materialLineTotal(material))}
                 </div>
               </article>
             `,
@@ -517,10 +509,10 @@ function totalsHtml(order: WorkOrder) {
   const value = totals(order)
 
   const hasPrices =
-    value.material !== 0 ||
-    value.labour !== 0 ||
-    value.vat !== 0 ||
-    value.total !== 0 ||
+    value.materialPrice !== 0 ||
+    value.labourPrice !== 0 ||
+    value.vatAmount !== 0 ||
+    value.totalPrice !== 0 ||
     Boolean(order.priceNote)
 
   if (!hasPrices) return ''
@@ -534,22 +526,43 @@ function totalsHtml(order: WorkOrder) {
       <div class="totals">
         <div class="total-row">
           <span>Materijal</span>
-          <strong>${money(value.material)}</strong>
+          <strong>${money(value.materialPrice)}</strong>
         </div>
 
         <div class="total-row">
           <span>Rad</span>
-          <strong>${money(value.labour)}</strong>
+          <strong>${money(value.labourPrice)}</strong>
+        </div>
+
+        <div class="total-row">
+          <span>Međuzbroj</span>
+          <strong>${money(value.subtotalBeforeDiscount)}</strong>
+        </div>
+
+        ${
+          value.discountRate > 0
+            ? `
+              <div class="total-row">
+                <span>Popust ${number(value.discountRate)}%</span>
+                <strong>-${money(value.discountAmount)}</strong>
+              </div>
+            `
+            : ''
+        }
+
+        <div class="total-row">
+          <span>Osnovica bez PDV-a</span>
+          <strong>${money(value.taxableBase)}</strong>
         </div>
 
         <div class="total-row">
           <span>PDV ${number(order.vatRate)}%</span>
-          <strong>${money(value.vat)}</strong>
+          <strong>${money(value.vatAmount)}</strong>
         </div>
 
         <div class="total-row grand">
-          <span>UKUPNO</span>
-          <span>${money(value.total)}</span>
+          <span>UKUPNO S PDV-OM</span>
+          <span>${money(value.totalPrice)}</span>
         </div>
       </div>
     </section>
@@ -1227,7 +1240,7 @@ function css(
     .material-row {
       display: grid;
       grid-template-columns:
-        28px minmax(0,1fr) 75px 92px 98px;
+        28px minmax(0,1fr) 68px 82px 58px 88px;
       min-height: ${compact ? 38 : 43}px;
       align-items: center;
       column-gap: ${compact ? 8 : 10}px;
