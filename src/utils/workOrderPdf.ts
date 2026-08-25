@@ -658,6 +658,11 @@ function paginate(
 
   let materialIndex = firstMaterials.length
 
+  /*
+   * Na prvoj stranici ostavljamo fotografije samo kada
+   * stvarno ima dovoljno mjesta uz opis i materijal.
+   * Maksimalno 2 fotografije.
+   */
   const showPhotosOnFirst =
     order.images.length > 0 &&
     firstMaterials.length <= 2 &&
@@ -677,13 +682,23 @@ function paginate(
     showTotals: false,
   })
 
-  while (materialIndex < order.materials.length) {
-    const materials = order.materials.slice(
-      materialIndex,
-      materialIndex + nextMaterialLimit,
-    )
+  /*
+   * Ako sav materijal ne stane na prvu stranicu,
+   * nastavljamo ga na zasebnim stranicama.
+   */
+  while (
+    materialIndex <
+    order.materials.length
+  ) {
+    const materials =
+      order.materials.slice(
+        materialIndex,
+        materialIndex +
+          nextMaterialLimit,
+      )
 
-    materialIndex += materials.length
+    materialIndex +=
+      materials.length
 
     pages.push({
       materials,
@@ -694,13 +709,26 @@ function paginate(
     })
   }
 
-  while (photoIndex < order.images.length) {
-    const photos = order.images.slice(
-      photoIndex,
-      photoIndex + 4,
-    )
+  /*
+   * Sve preostale fotografije idu po 4 na A4 stranicu.
+   *
+   * Primjer:
+   * - 6 slika ukupno
+   * - 2 stanu na prvu stranicu
+   * - preostale 4 idu zajedno na drugu stranicu
+   */
+  while (
+    photoIndex <
+    order.images.length
+  ) {
+    const photos =
+      order.images.slice(
+        photoIndex,
+        photoIndex + 4,
+      )
 
-    photoIndex += photos.length
+    photoIndex +=
+      photos.length
 
     pages.push({
       materials: [],
@@ -711,29 +739,25 @@ function paginate(
     })
   }
 
-  const last = pages[pages.length - 1]
-
-  const lastTooBusy =
-    last.photos.length >= 3 ||
-    last.materials.length >=
-      (compact ? 11 : 8)
-
-  if (lastTooBusy) {
-    pages.push({
-      materials: [],
-      photos: [],
-      first: false,
-      last: true,
-      showTotals: true,
-    })
-  } else {
-    last.showTotals = true
-    last.last = true
-  }
-
-  pages.forEach((page, index) => {
-    page.last = index === pages.length - 1
+  /*
+   * Završni dio se NIKADA ne spaja s fotografijama.
+   * Cijena, potpis i pečat uvijek imaju svoju zadnju stranicu.
+   */
+  pages.push({
+    materials: [],
+    photos: [],
+    first: false,
+    last: true,
+    showTotals: true,
   })
+
+  pages.forEach(
+    (page, index) => {
+      page.last =
+        index ===
+        pages.length - 1
+    },
+  )
 
   return pages
 }
