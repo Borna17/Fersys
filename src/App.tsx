@@ -1,7 +1,15 @@
+import {
+  IncomingInvoicesCloudBridge,
+} from './components/IncomingInvoicesCloudBridge'
 import { AppRouter } from './router/AppRouter'
 
 function App() {
-  return <AppRouter />
+  return (
+    <>
+      <IncomingInvoicesCloudBridge />
+      <AppRouter />
+    </>
+  )
 }
 
 export default App
