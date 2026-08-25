@@ -691,7 +691,7 @@ function paginate(
   }
 
   while (photoIndex < order.images.length) {
-    const photos = order.images.slice(photoIndex, photoIndex + 4)
+    const photos = order.images.slice(photoIndex, photoIndex + 2)
     photoIndex += photos.length
 
     pages.push({
@@ -706,7 +706,7 @@ function paginate(
   const last = pages[pages.length - 1]
 
   const lastTooBusy =
-    last.photos.length >= 4 ||
+    last.photos.length >= 2 ||
     last.materials.length >= (compact ? 11 : 8)
 
   if (lastTooBusy) {
@@ -1148,21 +1148,19 @@ function css(
 
     .photo-grid {
       display: grid;
-      gap: ${compact ? 8 : 10}px;
+      width: 100%;
+      gap: 12px;
+      align-items: start;
     }
 
     .photos-1 {
       grid-template-columns: 1fr;
-      justify-items: center;
     }
 
-    .photos-2 {
-      grid-template-columns: repeat(2,1fr);
-    }
-
+    .photos-2,
     .photos-3,
     .photos-4 {
-      grid-template-columns: repeat(2,1fr);
+      grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .photo-card {
@@ -1176,49 +1174,51 @@ function css(
     }
 
     .photos-1 .photo-card {
-      width: 72%;
-      max-width: 510px;
+      width: 100%;
+      max-width: none;
     }
 
     .photo-card img {
       display: block;
       width: 100%;
-      height: ${compact ? 118 : 128}px;
-      padding: 6px;
+      height: ${compact ? 270 : 292}px;
+      padding: 5px;
       object-fit: contain;
       object-position: center;
       background: #fff;
     }
 
     .photos-1 .photo-card img {
-      height: ${compact ? 176 : 194}px;
+      height: ${compact ? 400 : 430}px;
     }
 
     .photos-2 .photo-card img {
-      height: ${compact ? 132 : 145}px;
+      height: ${compact ? 300 : 325}px;
     }
 
     .photos-3 .photo-card img,
     .photos-4 .photo-card img {
-      height: ${compact ? 106 : 118}px;
+      height: ${compact ? 250 : 270}px;
     }
 
     .photo-card figcaption {
+      min-height: 20px;
       border-top: 1px solid ${border};
-      padding: 4px 6px;
+      padding: 5px 7px;
       color: ${alpha(text, '8C')};
       font-size: 6px;
+      line-height: 1.25;
     }
 
     .signature-section {
-      margin-top: ${compact ? 12 : 16}px;
+      margin-top: ${compact ? 14 : 18}px;
       break-inside: avoid;
     }
 
     .signature-grid {
       display: grid;
-      grid-template-columns: 1fr 105px 1fr;
-      gap: 22px;
+      grid-template-columns: minmax(0,1fr) ${compact ? 150 : 170}px minmax(0,1fr);
+      gap: ${compact ? 14 : 18}px;
       align-items: end;
     }
 
@@ -1229,7 +1229,7 @@ function css(
 
     .signature-space {
       display: flex;
-      height: ${compact ? 41 : 48}px;
+      height: ${compact ? 62 : 72}px;
       align-items: flex-end;
       justify-content: center;
     }
@@ -1238,15 +1238,15 @@ function css(
       display: block;
       width: auto;
       height: auto;
-      max-width: ${compact ? 158 : 172}px;
-      max-height: ${compact ? 50 : 58}px;
+      max-width: 92%;
+      max-height: ${compact ? 60 : 70}px;
       object-fit: contain;
-      object-position: center;
+      object-position: center bottom;
     }
 
     .signature-line {
       border-top: 1px solid ${text};
-      padding-top: 4px;
+      padding-top: 5px;
       color: ${text};
       font-size: 7px;
       font-weight: 750;
@@ -1254,17 +1254,20 @@ function css(
 
     .stamp-column {
       display: flex;
-      min-height: ${compact ? 62 : 72}px;
+      width: 100%;
+      min-width: 0;
+      height: ${compact ? 92 : 105}px;
       align-items: center;
       justify-content: center;
+      overflow: visible;
     }
 
     .stamp-image {
       display: block;
-      width: auto;
-      height: auto;
-      max-width: ${compact ? 116 : 128}px;
-      max-height: ${compact ? 62 : 70}px;
+      width: 100%;
+      height: 100%;
+      max-width: ${compact ? 150 : 170}px;
+      max-height: ${compact ? 92 : 105}px;
       object-fit: contain;
       object-position: center;
     }
@@ -1463,7 +1466,7 @@ async function buildPdfDocument(
 
     for (let index = 0; index < pages.length; index += 1) {
       const canvas = await html2canvas(pages[index], {
-        scale: 2.5,
+        scale: 3,
         backgroundColor:
           appearance.backgroundColor || '#ffffff',
         useCORS: true,
