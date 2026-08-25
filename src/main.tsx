@@ -17,6 +17,7 @@ import {
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
+import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import { isNativeApp } from './lib/platform'
@@ -209,6 +210,7 @@ createRoot(
       <ActivityTracker />
 
       <FloatingUiLayoutFix />
+      <DeliveryNoteMobileLayoutFix />
       <GoogleCalendarOAuthBridge />
 
       <DeferredEnhancements />
