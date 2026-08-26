@@ -1,5 +1,4 @@
 import { ArrowLeft, Mail, ShieldCheck, Trash2 } from 'lucide-react'
-import { Link } from 'react-router'
 
 const SUPPORT_EMAIL = 'fersysapp@gmail.com'
 
@@ -12,9 +11,9 @@ export default function DeleteAccountPage() {
   return (
     <main className="min-h-dvh bg-slate-950 px-4 py-10 text-slate-200">
       <div className="mx-auto w-full max-w-3xl">
-        <Link to="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white">
+        <a href="/login" className="inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white">
           <ArrowLeft size={16} /> Povratak na FERSYS
-        </Link>
+        </a>
 
         <div className="mt-6 rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl sm:p-8">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-300">
@@ -55,7 +54,7 @@ export default function DeleteAccountPage() {
           </section>
 
           <p className="mt-6 text-xs leading-5 text-slate-500">
-            Više informacija o obradi osobnih podataka dostupno je u <Link to="/privacy" className="font-bold text-violet-300 hover:text-violet-200">Politici privatnosti FERSYS-a</Link>.
+            Više informacija o obradi osobnih podataka dostupno je u <a href="/privacy" className="font-bold text-violet-300 hover:text-violet-200">Politici privatnosti FERSYS-a</a>.
           </p>
         </div>
       </div>
