@@ -175,6 +175,32 @@ export async function getIncomingInvoicesCloud():
   )
 }
 
+function invoicePayload(
+  invoice: CloudIncomingInvoice,
+  companyId: string,
+) {
+  return {
+    company_id: companyId,
+    supplier_name: invoice.supplierName,
+    supplier_oib: invoice.supplierOib,
+    invoice_number: invoice.invoiceNumber,
+    invoice_date: invoice.invoiceDate || null,
+    due_date: invoice.dueDate || null,
+    booking_date: invoice.bookingDate || null,
+    category: invoice.category,
+    status: invoice.status,
+    payment_method: invoice.paymentMethod,
+    net_amount: invoice.netAmount,
+    vat_amount: invoice.vatAmount,
+    total_amount: invoice.totalAmount,
+    note: invoice.note,
+    documents: invoice.documents,
+    updated_at:
+      invoice.updatedAt ||
+      new Date().toISOString(),
+  }
+}
+
 export async function upsertIncomingInvoiceCloud(
   invoice: CloudIncomingInvoice,
 ): Promise<void> {
@@ -196,46 +222,50 @@ export async function upsertIncomingInvoiceCloud(
     )
   }
 
+  const { data: existing, error: lookupError } =
+    await supabase
+      .from('incoming_invoices')
+      .select('id')
+      .eq('id', invoice.id)
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+  if (lookupError) {
+    throw lookupError
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from('incoming_invoices')
+      .update(
+        invoicePayload(
+          invoice,
+          companyId,
+        ),
+      )
+      .eq('id', invoice.id)
+      .eq('company_id', companyId)
+
+    if (error) {
+      throw error
+    }
+
+    return
+  }
+
   const { error } = await supabase
     .from('incoming_invoices')
-    .upsert(
-      {
-        id: invoice.id,
-        company_id: companyId,
-        supplier_name:
-          invoice.supplierName,
-        supplier_oib:
-          invoice.supplierOib,
-        invoice_number:
-          invoice.invoiceNumber,
-        invoice_date:
-          invoice.invoiceDate || null,
-        due_date:
-          invoice.dueDate || null,
-        booking_date:
-          invoice.bookingDate || null,
-        category: invoice.category,
-        status: invoice.status,
-        payment_method:
-          invoice.paymentMethod,
-        net_amount: invoice.netAmount,
-        vat_amount: invoice.vatAmount,
-        total_amount:
-          invoice.totalAmount,
-        note: invoice.note,
-        documents: invoice.documents,
-        created_by: user.id,
-        created_at:
-          invoice.createdAt ||
-          new Date().toISOString(),
-        updated_at:
-          invoice.updatedAt ||
-          new Date().toISOString(),
-      },
-      {
-        onConflict: 'id',
-      },
-    )
+    .insert({
+      id: invoice.id,
+      ...invoicePayload(
+        invoice,
+        companyId,
+      ),
+      created_by: user.id,
+      created_at:
+        invoice.createdAt ||
+        new Date().toISOString(),
+    })
 
   if (error) {
     throw error
