@@ -16,7 +16,7 @@ import {
 const STORAGE_KEY =
   'fersys_incoming_invoices'
 
-const SYNC_INTERVAL_MS = 2500
+const SYNC_INTERVAL_MS = 30000
 
 function readLocal():
   CloudIncomingInvoice[] {
@@ -114,6 +114,23 @@ function mergeInvoices(
   )
 }
 
+function errorKey(error: unknown) {
+  if (
+    error &&
+    typeof error === 'object'
+  ) {
+    const record =
+      error as Record<string, unknown>
+
+    return [
+      String(record.code ?? ''),
+      String(record.message ?? ''),
+    ].join(':')
+  }
+
+  return String(error)
+}
+
 export function
 IncomingInvoicesCloudBridge() {
   const previousLocalIdsRef =
@@ -123,6 +140,12 @@ IncomingInvoicesCloudBridge() {
 
   const syncingRef =
     useRef(false)
+
+  const migrationAttemptedRef =
+    useRef(false)
+
+  const lastErrorRef =
+    useRef('')
 
   useEffect(() => {
     let cancelled = false
@@ -182,39 +205,33 @@ IncomingInvoicesCloudBridge() {
             const id
             of removedIds
           ) {
-            try {
-              await deleteIncomingInvoiceCloud(
-                id,
-              )
-            } catch (
-              error
-            ) {
-              console.error(
-                'Brisanje ulaznog računa iz clouda nije uspjelo:',
-                error,
-              )
-            }
-          }
-        }
-
-        for (
-          const invoice
-          of local
-        ) {
-          for (
-            const document
-            of invoice.documents ??
-              []
-          ) {
-            await syncLocalDocumentToCloud(
-              document.id,
+            await deleteIncomingInvoiceCloud(
+              id,
             )
           }
         }
 
         if (
+          !migrationAttemptedRef.current &&
           local.length > 0
         ) {
+          migrationAttemptedRef.current = true
+
+          for (
+            const invoice
+            of local
+          ) {
+            for (
+              const document
+              of invoice.documents ??
+                []
+            ) {
+              await syncLocalDocumentToCloud(
+                document.id,
+              )
+            }
+          }
+
           await migrateLegacyIncomingInvoices(
             local,
           )
@@ -267,11 +284,20 @@ IncomingInvoicesCloudBridge() {
                 item.id,
             ),
           )
+
+        lastErrorRef.current = ''
       } catch (error) {
-        console.error(
-          'Cloud sinkronizacija ulaznih računa nije uspjela:',
-          error,
-        )
+        const key = errorKey(error)
+
+        if (
+          lastErrorRef.current !== key
+        ) {
+          lastErrorRef.current = key
+          console.error(
+            'Cloud sinkronizacija ulaznih računa nije uspjela:',
+            error,
+          )
+        }
       } finally {
         syncingRef.current =
           false
