@@ -459,24 +459,24 @@ export function DashboardPage() {
     )
 
   return (
-    <section className="mx-auto w-full max-w-[1600px] space-y-4 pb-6 sm:space-y-6">
-      <section className="relative overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
+    <section className="mx-auto w-full min-w-0 max-w-[1600px] space-y-4 overflow-x-hidden pb-6 sm:space-y-6">
+      <section className="relative min-w-0 overflow-hidden rounded-[1.75rem] border border-blue-500/15 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/45 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-blue-500/10 blur-3xl" />
 
-        <div className="relative">
+        <div className="relative min-w-0">
           <div className="flex items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.22em] text-blue-400">
                 FERSYS
               </p>
 
-              <h1 className="mt-2 text-2xl font-black text-white sm:text-3xl">
+              <h1 className="mt-2 truncate text-2xl font-black text-white sm:text-3xl">
                 Bok, {firstName}
               </h1>
             </div>
 
             {refreshing && (
-              <span className="inline-flex items-center gap-2 rounded-xl bg-blue-500/10 px-3 py-2 text-[10px] font-black text-blue-300">
+              <span className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-blue-500/10 px-3 py-2 text-[10px] font-black text-blue-300">
                 <RefreshCw
                   size={13}
                   className="animate-spin"
@@ -490,7 +490,7 @@ export function DashboardPage() {
             Danas prvo vidi što treba odraditi. Detaljne analize ostaju za desktop.
           </p>
 
-          <div className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="mt-5 grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
             {stats.map(
               (item) => {
                 const Icon =
@@ -507,7 +507,7 @@ export function DashboardPage() {
                         item.route,
                       )
                     }
-                    className="rounded-2xl border border-white/5 bg-white/[0.035] p-3 text-left active:scale-[0.98]"
+                    className="min-w-0 overflow-hidden rounded-2xl border border-white/5 bg-white/[0.035] p-3 text-left active:scale-[0.98]"
                   >
                     <span className="grid h-9 w-9 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
                       <Icon
@@ -557,9 +557,9 @@ export function DashboardPage() {
 
       {quickActions.length >
         0 && (
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4">
+        <section className="min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-4">
           <div className="mb-3 flex items-center justify-between">
-            <div>
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 BRZE AKCIJE
               </p>
@@ -571,11 +571,11 @@ export function DashboardPage() {
 
             <Plus
               size={18}
-              className="text-slate-600"
+              className="shrink-0 text-slate-600"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-4">
             {quickActions.map(
               (action) => {
                 const Icon =
@@ -592,7 +592,7 @@ export function DashboardPage() {
                         action.route,
                       )
                     }
-                    className="flex min-h-[82px] items-center gap-3 rounded-2xl bg-slate-800/70 p-3 text-left active:scale-[0.98]"
+                    className="flex min-h-[82px] min-w-0 items-center gap-3 overflow-hidden rounded-2xl bg-slate-800/70 p-3 text-left active:scale-[0.98]"
                   >
                     <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
                       <Icon
@@ -600,7 +600,7 @@ export function DashboardPage() {
                       />
                     </span>
 
-                    <span className="text-sm font-black text-white">
+                    <span className="min-w-0 truncate text-sm font-black text-white">
                       {
                         action.title
                       }
@@ -613,15 +613,15 @@ export function DashboardPage() {
         </section>
       )}
 
-      <section className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3">
-            <div>
+      <section className="grid min-w-0 gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+        <div className="min-w-0 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
                 DANAS
               </p>
 
-              <h2 className="mt-1 text-lg font-black text-white">
+              <h2 className="mt-1 truncate text-lg font-black text-white">
                 Današnji poslovi
               </h2>
             </div>
@@ -633,12 +633,14 @@ export function DashboardPage() {
                   '/calendar',
                 )
               }
-              className="inline-flex h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
             >
               <CalendarDays
                 size={16}
               />
-              Kalendar
+              <span className="hidden xs:inline sm:inline">
+                Kalendar
+              </span>
             </button>
           </div>
 
@@ -665,7 +667,7 @@ export function DashboardPage() {
               </p>
             </div>
           ) : (
-            <div className="mt-4 space-y-2">
+            <div className="mt-4 min-w-0 space-y-2">
               {data.todayOrders.map(
                 (order) => (
                   <button
@@ -678,7 +680,7 @@ export function DashboardPage() {
                         `/work-orders/${order.id}`,
                       )
                     }
-                    className="flex w-full items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-3 text-left active:scale-[0.995]"
+                    className="flex w-full min-w-0 items-center gap-3 overflow-hidden rounded-2xl border border-slate-800 bg-slate-950/45 p-3 text-left active:scale-[0.995]"
                   >
                     <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-500/10 text-blue-300">
                       <Clock3
@@ -686,7 +688,7 @@ export function DashboardPage() {
                       />
                     </span>
 
-                    <span className="min-w-0 flex-1">
+                    <span className="min-w-0 flex-1 overflow-hidden">
                       <span className="block truncate text-sm font-black text-white">
                         {order.title ||
                           order.customerName}
@@ -704,7 +706,7 @@ export function DashboardPage() {
                     </span>
 
                     <span
-                      className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-black ${statusClass(
+                      className={`hidden shrink-0 rounded-full px-2 py-1 text-[9px] font-black sm:inline-flex ${statusClass(
                         order.status,
                       )}`}
                     >
@@ -715,7 +717,7 @@ export function DashboardPage() {
 
                     <ArrowRight
                       size={16}
-                      className="shrink-0 text-slate-600"
+                      className="hidden shrink-0 text-slate-600 sm:block"
                     />
                   </button>
                 ),
@@ -729,22 +731,29 @@ export function DashboardPage() {
           onClick={() =>
             navigate('/ai')
           }
-          className="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-950/50 to-slate-900 p-5 text-left active:scale-[0.995]"
+          className="relative min-w-0 overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-950/50 to-slate-900 p-4 text-left active:scale-[0.995] sm:p-5"
         >
-          <Sparkles
-            size={24}
-            className="text-violet-300"
-          />
-          <p className="mt-4 text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
-            FERSYS AI
-          </p>
-          <h2 className="mt-1 text-xl font-black text-white">
-            Reci što treba napraviti
-          </h2>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
+          <div className="flex items-center gap-3 sm:block">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300 sm:h-auto sm:w-auto sm:bg-transparent">
+              <Sparkles
+                size={21}
+              />
+            </span>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-400 sm:mt-4">
+                FERSYS AI
+              </p>
+              <h2 className="mt-1 truncate text-lg font-black text-white sm:text-xl">
+                Reci što treba napraviti
+              </h2>
+            </div>
+          </div>
+
+          <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-400 sm:text-sm sm:leading-6">
             Otvori AI pomoćnika za kalendar, investitore, naloge i ponude.
           </p>
-          <span className="mt-5 inline-flex items-center gap-2 text-sm font-black text-violet-300">
+          <span className="mt-3 inline-flex items-center gap-2 text-sm font-black text-violet-300 sm:mt-5">
             Otvori AI
             <ArrowRight
               size={16}
