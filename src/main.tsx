@@ -71,6 +71,11 @@ function registerWebServiceWorker() {
     return
   }
 
+  let reloadingForUpdate = false
+  let activeRegistration:
+    ServiceWorkerRegistration | null =
+    null
+
   const updateServiceWorker =
     registerSW({
       immediate: true,
@@ -83,22 +88,30 @@ function registerWebServiceWorker() {
           return
         }
 
+        activeRegistration =
+          registration
+
+        // Provjeri novu verziju odmah nakon pokretanja aplikacije.
+        void registration.update()
+
         window.setTimeout(
           () => {
             void registration.update()
           },
-          2_500,
+          1_500,
         )
 
+        // Dok je aplikacija otvorena provjeravaj deploy svakih 5 min.
         window.setInterval(
           () => {
             void registration.update()
           },
-          60 * 60 * 1000,
+          5 * 60 * 1000,
         )
       },
 
       onNeedRefresh() {
+        // Vite PWA aktivira novi SW bez pitanja korisnika.
         void updateServiceWorker(
           true,
         )
@@ -113,6 +126,64 @@ function registerWebServiceWorker() {
         )
       },
     })
+
+  // Čim novi service worker preuzme kontrolu, jednom ponovno
+  // učitaj aplikaciju kako bi korisnik odmah dobio novi deploy.
+  navigator.serviceWorker.addEventListener(
+    'controllerchange',
+    () => {
+      if (reloadingForUpdate) {
+        return
+      }
+
+      reloadingForUpdate = true
+      window.location.reload()
+    },
+  )
+
+  const checkForUpdate = () => {
+    if (
+      document.visibilityState !==
+        'visible' ||
+      !navigator.onLine
+    ) {
+      return
+    }
+
+    if (activeRegistration) {
+      void activeRegistration.update()
+      return
+    }
+
+    void navigator.serviceWorker
+      .getRegistration()
+      .then((registration) => {
+        if (registration) {
+          activeRegistration =
+            registration
+          return registration.update()
+        }
+
+        return undefined
+      })
+  }
+
+  // Ako se korisnik vrati u FERSYS nakon što je u međuvremenu
+  // napravljen novi Vercel deploy, odmah provjeri novu verziju.
+  window.addEventListener(
+    'focus',
+    checkForUpdate,
+  )
+
+  window.addEventListener(
+    'online',
+    checkForUpdate,
+  )
+
+  document.addEventListener(
+    'visibilitychange',
+    checkForUpdate,
+  )
 }
 
 registerWebServiceWorker()
