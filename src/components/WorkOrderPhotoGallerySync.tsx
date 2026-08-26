@@ -95,10 +95,16 @@ export default function WorkOrderPhotoGallerySync() {
       return
     }
 
+    let disposed = false
+
     function schedule(
       row:
         WorkOrderRealtimeRow,
     ) {
+      if (disposed) {
+        return
+      }
+
       const workOrderId =
         String(
           row.id ?? '',
@@ -152,6 +158,10 @@ export default function WorkOrderPhotoGallerySync() {
               workOrderId,
             )
 
+            if (disposed) {
+              return
+            }
+
             void syncWorkOrderImagesToCustomerGallery({
               workOrderId,
               customerId,
@@ -177,6 +187,7 @@ export default function WorkOrderPhotoGallerySync() {
                   synced,
                 ) => {
                   if (
+                    !disposed &&
                     synced > 0
                   ) {
                     window.dispatchEvent(
@@ -198,10 +209,12 @@ export default function WorkOrderPhotoGallerySync() {
                 (
                   error,
                 ) => {
-                  console.warn(
-                    '[FERSYS] Fotografije radnog naloga nisu još sinkronizirane u galeriju investitora:',
-                    error,
-                  )
+                  if (!disposed) {
+                    console.warn(
+                      '[FERSYS] Fotografije radnog naloga nisu još sinkronizirane u galeriju investitora:',
+                      error,
+                    )
+                  }
                 },
               )
           },
@@ -214,56 +227,53 @@ export default function WorkOrderPhotoGallerySync() {
       )
     }
 
+    /*
+     * Supabase vraća postojeći kanal kada se u developmentu/HMR-u
+     * ponovno koristi ista tema. Tada je kanal već subscribe-an i novi
+     * postgres_changes callback više se ne smije dodati. Zato svaka
+     * instanca dobiva jedinstvenu temu i samo jedan '*' listener.
+     */
+    const instanceId =
+      typeof crypto !== 'undefined' &&
+      'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`
+
     const channel =
       supabase
         .channel(
-          `work-order-photo-gallery:${companyId}`,
+          `work-order-photo-gallery:${companyId}:${instanceId}`,
         )
         .on(
           'postgres_changes',
           {
-            event:
-              'INSERT',
-            schema:
-              'public',
-            table:
-              'work_orders',
+            event: '*',
+            schema: 'public',
+            table: 'work_orders',
             filter:
               `company_id=eq.${companyId}`,
           },
           (
             payload,
           ) => {
-            schedule(
-              payload.new as
-                WorkOrderRealtimeRow,
-            )
-          },
-        )
-        .on(
-          'postgres_changes',
-          {
-            event:
-              'UPDATE',
-            schema:
-              'public',
-            table:
-              'work_orders',
-            filter:
-              `company_id=eq.${companyId}`,
-          },
-          (
-            payload,
-          ) => {
-            schedule(
-              payload.new as
-                WorkOrderRealtimeRow,
-            )
+            if (
+              payload.eventType ===
+                'INSERT' ||
+              payload.eventType ===
+                'UPDATE'
+            ) {
+              schedule(
+                payload.new as
+                  WorkOrderRealtimeRow,
+              )
+            }
           },
         )
         .subscribe()
 
     return () => {
+      disposed = true
+
       for (
         const timer of
           pendingRef.current.values()
