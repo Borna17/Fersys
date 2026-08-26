@@ -22,6 +22,7 @@ import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import { isNativeApp } from './lib/platform'
 import './index.css'
+import './styles/workOrderPdfTotalsFix.css'
 
 const DownloadFeedbackCenter =
   lazy(
