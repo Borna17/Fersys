@@ -157,6 +157,26 @@ type WorkOrderRow = {
   updated_at: string
 }
 
+/*
+ * Optimistic concurrency protection.
+ *
+ * Svaki otvoreni browser/PWA pamti updated_at verziju radnog naloga koju je
+ * stvarno učitao. Pri spremanju zapis se smije promijeniti samo ako je ta
+ * verzija još uvijek aktualna u bazi. Time dva uređaja (čak i ako koriste isti
+ * e-mail / isti Supabase user_id) više ne mogu tiho pregaziti jedan drugoga.
+ */
+const workOrderVersionById =
+  new Map<string, string>()
+
+export class WorkOrderConflictError extends Error {
+  constructor() {
+    super(
+      'Radni nalog je u međuvremenu izmijenjen na drugom uređaju. Vaše izmjene nisu prepisale noviju verziju. Ponovno otvorite nalog i unesite izmjene na najnovijoj verziji.',
+    )
+    this.name = 'WorkOrderConflictError'
+  }
+}
+
 function isObject(
   value: unknown,
 ): value is Record<string, unknown> {
@@ -468,9 +488,24 @@ export async function getWorkOrderById(
     ? data[0]
     : data
 
-  return row
-    ? mapWorkOrder(row as WorkOrderRow)
-    : null
+  if (!row) {
+    workOrderVersionById.delete(
+      workOrderId,
+    )
+    return null
+  }
+
+  const order =
+    mapWorkOrder(
+      row as WorkOrderRow,
+    )
+
+  workOrderVersionById.set(
+    workOrderId,
+    order.updatedAt,
+  )
+
+  return order
 }
 
 export async function createWorkOrder(
@@ -517,13 +552,31 @@ export async function createWorkOrder(
     throw error
   }
 
-  return mapWorkOrder(data as WorkOrderRow)
+  const created =
+    mapWorkOrder(data as WorkOrderRow)
+
+  workOrderVersionById.set(
+    created.id,
+    created.updatedAt,
+  )
+
+  return created
 }
 
 export async function updateWorkOrder(
   workOrderId: string,
   input: UpdateWorkOrderInput,
 ): Promise<CloudWorkOrder> {
+  /*
+   * Verziju uzimamo PRIJE svježeg čitanja iz baze. Ako bi se verzija uzela
+   * nakon čitanja, drugi uređaj bi već mogao promijeniti nalog i konflikt bi
+   * ostao neprimijećen.
+   */
+  const expectedUpdatedAt =
+    workOrderVersionById.get(
+      workOrderId,
+    )
+
   const existing =
     await getWorkOrderById(workOrderId)
 
@@ -531,6 +584,23 @@ export async function updateWorkOrder(
     throw new Error(
       'Radni nalog nije pronađen.',
     )
+  }
+
+  if (
+    expectedUpdatedAt &&
+    existing.updatedAt !==
+      expectedUpdatedAt
+  ) {
+    /*
+     * getWorkOrderById je upravo zapamtio noviju verziju. Vraćamo očekivanu
+     * verziju u mapu kako sljedeći save bez ponovnog otvaranja ne bi mogao
+     * slučajno proći.
+     */
+    workOrderVersionById.set(
+      workOrderId,
+      expectedUpdatedAt,
+    )
+    throw new WorkOrderConflictError()
   }
 
   const completeInput: CreateWorkOrderInput = {
@@ -630,20 +700,46 @@ export async function updateWorkOrder(
       input.priority ?? existing.priority,
   }
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('work_orders')
     .update(
       createDatabasePayload(completeInput),
     )
     .eq('id', workOrderId)
+
+  if (expectedUpdatedAt) {
+    query = query.eq(
+      'updated_at',
+      expectedUpdatedAt,
+    )
+  }
+
+  const { data, error } = await query
     .select('*')
-    .single()
+    .maybeSingle()
 
   if (error) {
     throw error
   }
 
-  return mapWorkOrder(data as WorkOrderRow)
+  /*
+   * Ako UPDATE nije vratio red, updated_at više nije isti: drugi uređaj je
+   * spremio nalog između našeg čitanja i našeg UPDATE-a. To je atomska zaštita
+   * od race conditiona.
+   */
+  if (!data) {
+    throw new WorkOrderConflictError()
+  }
+
+  const saved =
+    mapWorkOrder(data as WorkOrderRow)
+
+  workOrderVersionById.set(
+    saved.id,
+    saved.updatedAt,
+  )
+
+  return saved
 }
 
 export async function deleteWorkOrder(
@@ -657,4 +753,8 @@ export async function deleteWorkOrder(
   if (error) {
     throw error
   }
+
+  workOrderVersionById.delete(
+    workOrderId,
+  )
 }
