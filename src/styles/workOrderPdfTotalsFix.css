@@ -1,0 +1,21 @@
+/*
+ * Radni nalog može imati PDV 0% ili drugu stopu.
+ * Generirani PDF je ranije uvijek ispisivao "UKUPNO S PDV-OM",
+ * što je kontradiktorno kada je nalog označen kao bez PDV-a.
+ * Neutralni "UKUPNO" je ispravan u oba slučaja i ne mijenja izračun.
+ */
+[data-fersys-work-order] .total-row.grand > span:first-child {
+  font-size: 0 !important;
+}
+
+[data-fersys-work-order] .total-row.grand > span:first-child::after {
+  content: 'UKUPNO';
+  font-size: 13.8px !important;
+  font-weight: 950 !important;
+}
+
+[data-fersys-work-order] .preset-minimal .total-row.grand > span:first-child::after,
+[data-fersys-work-order] .preset-classic .total-row.grand > span:first-child::after,
+[data-fersys-work-order] .preset-modern .total-row.grand > span:first-child::after {
+  letter-spacing: normal;
+}
