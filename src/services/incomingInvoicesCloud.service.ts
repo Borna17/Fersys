@@ -201,6 +201,66 @@ function invoicePayload(
   }
 }
 
+async function findExistingInvoiceId(
+  invoice: CloudIncomingInvoice,
+  companyId: string,
+): Promise<string | null> {
+  const { data: byId, error: idError } =
+    await supabase
+      .from('incoming_invoices')
+      .select('id')
+      .eq('id', invoice.id)
+      .eq('company_id', companyId)
+      .maybeSingle()
+
+  if (idError) {
+    throw idError
+  }
+
+  if (byId?.id) {
+    return String(byId.id)
+  }
+
+  const invoiceNumber =
+    invoice.invoiceNumber.trim()
+
+  if (!invoiceNumber) {
+    return null
+  }
+
+  let query = supabase
+    .from('incoming_invoices')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('invoice_number', invoiceNumber)
+
+  const supplierOib =
+    invoice.supplierOib.trim()
+
+  if (supplierOib) {
+    query = query.eq(
+      'supplier_oib',
+      supplierOib,
+    )
+  } else if (invoice.supplierName.trim()) {
+    query = query.eq(
+      'supplier_name',
+      invoice.supplierName.trim(),
+    )
+  }
+
+  const { data: byBusinessKey, error: keyError } =
+    await query.limit(1).maybeSingle()
+
+  if (keyError) {
+    throw keyError
+  }
+
+  return byBusinessKey?.id
+    ? String(byBusinessKey.id)
+    : null
+}
+
 export async function upsertIncomingInvoiceCloud(
   invoice: CloudIncomingInvoice,
 ): Promise<void> {
@@ -222,19 +282,13 @@ export async function upsertIncomingInvoiceCloud(
     )
   }
 
-  const { data: existing, error: lookupError } =
-    await supabase
-      .from('incoming_invoices')
-      .select('id')
-      .eq('id', invoice.id)
-      .eq('company_id', companyId)
-      .maybeSingle()
+  const existingId =
+    await findExistingInvoiceId(
+      invoice,
+      companyId,
+    )
 
-  if (lookupError) {
-    throw lookupError
-  }
-
-  if (existing) {
+  if (existingId) {
     const { error } = await supabase
       .from('incoming_invoices')
       .update(
@@ -243,7 +297,7 @@ export async function upsertIncomingInvoiceCloud(
           companyId,
         ),
       )
-      .eq('id', invoice.id)
+      .eq('id', existingId)
       .eq('company_id', companyId)
 
     if (error) {
