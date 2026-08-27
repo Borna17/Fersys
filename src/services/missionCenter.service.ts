@@ -2,7 +2,7 @@ import { supabase } from '../lib/supabase'
 
 import {
   getInventoryItems,
-} from '../utils/inventoryStorage'
+} from './inventory.service'
 
 const AI_MESSAGES_KEY =
   'fersys_ai_messages_v4'
@@ -155,11 +155,6 @@ export async function getMissionFlags() {
     storedAiOpened ||
     localAiUsed
 
-  /*
-   * Ako je korisnik AI već stvarno koristio
-   * preko Topbara, Sidebara ili /ai stranice,
-   * uskladi i Supabase flag.
-   */
   if (
     localAiUsed &&
     !storedAiOpened
@@ -295,15 +290,9 @@ export async function getCalendarEventCount() {
 }
 
 export async function getInventoryItemCount() {
-  /*
-   * Skladište trenutno koristi
-   * inventoryStorage/localStorage,
-   * zato Mission Center mora
-   * provjeravati isti izvor.
-   */
   try {
     const items =
-      getInventoryItems()
+      await getInventoryItems()
 
     return Array.isArray(
       items,
