@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase'
+﻿import { supabase } from '../lib/supabase'
 
 const BUCKET = 'customer-photos'
 const SIGNED_URL_SECONDS = 60 * 60
@@ -527,9 +527,13 @@ export async function syncWorkOrderImagesToCustomerGallery(
 
   let completed = 0
 
+  /*
+   * Tri paralelna uploada daju puno bolje vrijeme na veÄ‡im terenskim
+   * nalozima, a i dalje su dovoljno umjereni za mobilnu vezu.
+   */
   await runWithConcurrency(
     missing,
-    1,
+    3,
     async (image) => {
       await uploadWorkOrderImage(
         companyId,

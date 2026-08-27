@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { assertCanCreate } from '../subscription/subscription.service'
+import { getWorkOrderImagesForDisplay } from './workOrderImages.service'
 
 export type CloudWorkOrderStatus =
   | 'Novi'
@@ -446,7 +447,7 @@ function createDatabasePayload(
     investor_signature:
       input.investorSignature || null,
 
-    images: input.images,
+    images: input.images.filter((image) => image.dataUrl.startsWith('data:')),
 
     status: input.status,
     priority: input.priority,
@@ -500,12 +501,22 @@ export async function getWorkOrderById(
       row as WorkOrderRow,
     )
 
+  const hydratedImages =
+    await getWorkOrderImagesForDisplay(
+      workOrderId,
+    )
+
+  const hydratedOrder: CloudWorkOrder = {
+    ...order,
+    images: hydratedImages,
+  }
+
   workOrderVersionById.set(
     workOrderId,
-    order.updatedAt,
+    hydratedOrder.updatedAt,
   )
 
-  return order
+  return hydratedOrder
 }
 
 export async function createWorkOrder(

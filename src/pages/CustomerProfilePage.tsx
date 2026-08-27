@@ -361,6 +361,15 @@ export function CustomerProfilePage() {
     null,
   )
 
+  const [
+    selectedPhotoIds,
+    setSelectedPhotoIds,
+  ] = useState<string[]>([])
+  const [
+    photoActionBusy,
+    setPhotoActionBusy,
+  ] = useState(false)
+
   const [activeTab, setActiveTab] =
     useState<CustomerTab>('overview')
   const [
@@ -970,6 +979,134 @@ export function CustomerProfilePage() {
       window.alert(message)
     } finally {
       setPhotosUploading(false)
+    }
+  }
+
+  function togglePhotoSelection(
+    photoId: string,
+  ) {
+    setSelectedPhotoIds((current) =>
+      current.includes(photoId)
+        ? current.filter((id) => id !== photoId)
+        : [...current, photoId],
+    )
+  }
+
+  function clearPhotoSelection() {
+    setSelectedPhotoIds([])
+  }
+
+  function toggleSelectAllPhotos() {
+    setSelectedPhotoIds((current) =>
+      current.length === customerPhotos.length
+        ? []
+        : customerPhotos.map((photo) => photo.id),
+    )
+  }
+
+  const selectedPhotos = customerPhotos.filter((photo) =>
+    selectedPhotoIds.includes(photo.id),
+  )
+
+  async function photoToFile(photo: CustomerPhoto) {
+    const response = await fetch(photo.url)
+
+    if (!response.ok) {
+      throw new Error(
+        `Fotografiju „${photo.fileName}” nije moguće dohvatiti.`,
+      )
+    }
+
+    const blob = await response.blob()
+    const type = blob.type || photo.mimeType || 'image/jpeg'
+
+    return new File(
+      [blob],
+      photo.fileName || `fotografija-${photo.id}.jpg`,
+      { type },
+    )
+  }
+
+  async function handleDownloadSelectedPhotos() {
+    if (!selectedPhotos.length || photoActionBusy) return
+
+    try {
+      setPhotoActionBusy(true)
+
+      for (const photo of selectedPhotos) {
+        const response = await fetch(photo.url)
+        if (!response.ok) {
+          throw new Error(
+            `Fotografiju „${photo.fileName}” nije moguće preuzeti.`,
+          )
+        }
+
+        const blob = await response.blob()
+        const objectUrl = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = objectUrl
+        link.download = photo.fileName || `fotografija-${photo.id}.jpg`
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        URL.revokeObjectURL(objectUrl)
+
+        // Mali razmak sprječava preglednik da proguta više uzastopnih preuzimanja.
+        await new Promise((resolve) => window.setTimeout(resolve, 120))
+      }
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Odabrane fotografije nije moguće preuzeti.',
+      )
+    } finally {
+      setPhotoActionBusy(false)
+    }
+  }
+
+  async function handleShareSelectedPhotos() {
+    if (!selectedPhotos.length || photoActionBusy) return
+
+    try {
+      setPhotoActionBusy(true)
+      const files = await Promise.all(selectedPhotos.map(photoToFile))
+
+      const shareData: ShareData = {
+        title: customer?.name
+          ? `FERSYS fotografije – ${customer.name}`
+          : 'FERSYS fotografije',
+        text: customer?.name
+          ? `Fotografije investitora ${customer.name}`
+          : 'Fotografije iz FERSYS-a',
+        files,
+      }
+
+      if (navigator.canShare?.({ files }) && navigator.share) {
+        await navigator.share(shareData)
+        return
+      }
+
+      if (navigator.share && files.length === 1) {
+        await navigator.share(shareData)
+        return
+      }
+
+      window.alert(
+        'Ovaj preglednik ne podržava izravno dijeljenje više fotografija. Koristi „Preuzmi odabrane”, a u FERSYS Android aplikaciji otvorit će se sistemski izbornik za WhatsApp, Viber i druge aplikacije.',
+      )
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        return
+      }
+
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Odabrane fotografije nije moguće podijeliti.',
+      )
+    } finally {
+      setPhotoActionBusy(false)
     }
   }
 
@@ -1622,13 +1759,76 @@ export function CustomerProfilePage() {
                 text="Dodaj fotografije objekta, radova ili dokumentacije."
               />
             ) : (
-              <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              <>
+                <div className="mt-5 flex flex-wrap items-center gap-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-3">
+                  <button
+                    type="button"
+                    onClick={toggleSelectAllPhotos}
+                    className="min-h-10 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
+                  >
+                    {selectedPhotoIds.length === customerPhotos.length
+                      ? 'Poništi sve'
+                      : 'Odaberi sve'}
+                  </button>
+
+                  <span className="mr-auto rounded-xl bg-blue-500/10 px-3 py-2 text-xs font-black text-blue-200">
+                    Odabrano: {selectedPhotoIds.length}
+                  </span>
+
+                  {selectedPhotoIds.length > 0 && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={clearPhotoSelection}
+                        disabled={photoActionBusy}
+                        className="min-h-10 rounded-xl bg-slate-800 px-3 text-xs font-black text-slate-300 disabled:opacity-50"
+                      >
+                        Poništi
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleDownloadSelectedPhotos()}
+                        disabled={photoActionBusy}
+                        className="min-h-10 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white disabled:opacity-50"
+                      >
+                        {photoActionBusy ? 'Pričekaj...' : 'Preuzmi odabrane'}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => void handleShareSelectedPhotos()}
+                        disabled={photoActionBusy}
+                        className="min-h-10 rounded-xl bg-blue-600 px-3 text-xs font-black text-white disabled:opacity-50"
+                      >
+                        {photoActionBusy ? 'Pričekaj...' : 'Podijeli odabrane'}
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
                 {customerPhotos.map(
                   (photo) => (
                     <article
                       key={photo.id}
-                      className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-950"
+                      className={`relative overflow-hidden rounded-2xl border bg-slate-950 transition ${
+                        selectedPhotoIds.includes(photo.id)
+                          ? 'border-blue-500 ring-2 ring-blue-500/30'
+                          : 'border-slate-800'
+                      }`}
                     >
+                      <label
+                        className="absolute left-2 top-2 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-xl border border-white/20 bg-slate-950/85 shadow-lg backdrop-blur"
+                        title="Odaberi fotografiju"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedPhotoIds.includes(photo.id)}
+                          onChange={() => togglePhotoSelection(photo.id)}
+                          className="h-5 w-5 cursor-pointer accent-blue-600"
+                        />
+                      </label>
                       <button
                         type="button"
                         onClick={() =>
@@ -1685,6 +1885,7 @@ export function CustomerProfilePage() {
                   ),
                 )}
               </div>
+              </>
             )}
           </section>
         )}

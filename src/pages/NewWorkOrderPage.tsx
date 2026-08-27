@@ -1,4 +1,4 @@
-import {
+﻿import {
   useEffect,
   useMemo,
   useState,
@@ -1501,20 +1501,74 @@ export function NewWorkOrderPage() {
     )
   }
 
-  function addMaterial() {
-    setMaterials(
-      (current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          name: '',
-          quantity: 1,
-          unit: 'kom',
-          unitPrice: 0,
-          discountRate: 0,
-        },
-      ],
-    )
+  function addMaterial(
+    afterMaterialId?: string,
+  ) {
+    const materialId =
+      crypto.randomUUID()
+
+    const newMaterial: WorkOrderMaterial = {
+      id: materialId,
+      name: '',
+      quantity: 0,
+      unit: 'kom',
+      unitPrice: 0,
+      discountRate: 0,
+    }
+
+    setMaterials((current) => {
+      if (!afterMaterialId) {
+        return [
+          ...current,
+          newMaterial,
+        ]
+      }
+
+      const index =
+        current.findIndex(
+          (material) =>
+            material.id ===
+            afterMaterialId,
+        )
+
+      if (index < 0) {
+        return [
+          ...current,
+          newMaterial,
+        ]
+      }
+
+      return [
+        ...current.slice(
+          0,
+          index + 1,
+        ),
+        newMaterial,
+        ...current.slice(
+          index + 1,
+        ),
+      ]
+    })
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        const row =
+          document.getElementById(
+            `work-order-material-${materialId}`,
+          )
+
+        row?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+
+        row
+          ?.querySelector<HTMLInputElement>(
+            '[data-material-name="true"]',
+          )
+          ?.focus()
+      })
+    })
   }
 
   function updateMaterial(
@@ -1792,28 +1846,28 @@ export function NewWorkOrderPage() {
         })
 
       if (images.length > 0) {
-        try {
-          await syncWorkOrderImagesToCustomerGallery({
-            workOrderId:
-              createdOrder.id,
-            orderNumber:
-              createdOrder.orderNumber,
-            customerId,
-            workDate: date,
-            title:
-              title.trim(),
-            images,
-          })
-        } catch (galleryError) {
-          console.error(
-            'Fotografije radnog naloga nisu spremljene u galeriju investitora:',
+        /*
+         * Spremanje radnog naloga viÅ¡e NE Äeka upload galerije.
+         * Nalog je veÄ‡ sigurno spremljen u bazu; fotografije se zatim
+         * sinkroniziraju u pozadini. WorkOrderPhotoGallerySync sluÅ¾i kao
+         * dodatni retry mehanizam ako ova pozadinska sinkronizacija ne uspije.
+         */
+        void syncWorkOrderImagesToCustomerGallery({
+          workOrderId:
+            createdOrder.id,
+          orderNumber:
+            createdOrder.orderNumber,
+          customerId,
+          workDate: date,
+          title:
+            title.trim(),
+          images,
+        }).catch((galleryError) => {
+          console.warn(
+            '[FERSYS] Pozadinska sinkronizacija fotografija novog radnog naloga nije uspjela; realtime sinkronizacija Ä‡e pokuÅ¡ati ponovno:',
             galleryError,
           )
-
-          alert(
-            'Radni nalog je spremljen, ali fotografije se nisu uspjele spremiti u galeriju investitora. Otvori nalog, Uredi i ponovno spremi.',
-          )
-        }
+        })
       }
 
       localStorage.setItem(
@@ -2639,7 +2693,9 @@ export function NewWorkOrderPage() {
           action={
             <button
               type="button"
-              onClick={addMaterial}
+              onClick={() =>
+                addMaterial()
+              }
               className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-slate-800 px-3 text-xs font-black text-white"
             >
               <PackagePlus
@@ -2654,10 +2710,12 @@ export function NewWorkOrderPage() {
               (material) => (
                 <div
                   key={material.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3"
+                  id={`work-order-material-${material.id}`}
+                  className="scroll-mt-28 rounded-2xl border border-slate-800 bg-slate-950/45 p-3"
                 >
                   <div className="flex items-start gap-2">
                     <input
+                      data-material-name="true"
                       value={material.name}
                       onChange={(event) =>
                         updateMaterial(
@@ -2701,18 +2759,23 @@ export function NewWorkOrderPage() {
                         step="0.01"
                         inputMode="decimal"
                         value={
-                          material.quantity
+                          material.quantity === 0
+                            ? ''
+                            : material.quantity
                         }
+                        placeholder="KoliÄina"
                         onChange={(event) =>
                           updateMaterial(
                             material.id,
                             'quantity',
-                            Number(
-                              event.target.value,
-                            ),
+                            event.target.value === ''
+                              ? 0
+                              : Number(
+                                  event.target.value,
+                                ),
                           )
                         }
-                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none"
+                        className="h-10 w-full rounded-xl bg-slate-800 px-2 text-sm text-white outline-none placeholder:text-slate-600"
                       />
                     </MiniInput>
 
@@ -2788,6 +2851,19 @@ export function NewWorkOrderPage() {
                       </MiniInput>
                     )}
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      addMaterial(
+                        material.id,
+                      )
+                    }
+                    className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-500/30 bg-blue-500/[0.06] px-3 text-xs font-black text-blue-300 transition hover:bg-blue-500/10 active:scale-[0.99]"
+                  >
+                    <Plus size={15} />
+                    Dodaj materijal ispod
+                  </button>
                 </div>
               ),
             )}
@@ -3293,3 +3369,4 @@ function HeroMetric({
 }
 
 export default NewWorkOrderPage
+

@@ -1,4 +1,4 @@
-import html2canvas from 'html2canvas'
+﻿import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import {
@@ -722,7 +722,11 @@ function paginate(
 ): PdfPage[] {
   const compact = appearance.density === 'compact'
   const firstMaterialLimit = compact ? 8 : 6
-  const nextMaterialLimit = compact ? 13 : 10
+
+  // Nastavne A4 stranice imaju znatno viÅ¡e slobodnog prostora od prve.
+  // Do 15 stavki materijala stane sigurno u postojeÄ‡i layout, pa ne
+  // stvaramo novu stranicu samo zato Å¡to je prethodni limit bio 10/13.
+  const nextMaterialLimit = 15
 
   const pages: PdfPage[] = []
 
