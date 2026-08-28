@@ -28,6 +28,7 @@ import { useNavigate } from 'react-router'
 
 import FersysLoader from '../components/FersysLoader'
 import ModulesSettingsTab from '../components/settings/ModulesSettingsTab'
+import WeatherMorningSettingsCard from '../components/settings/WeatherMorningSettingsCard'
 import {
   defaultWorkingHours,
   getCompanySettings,
@@ -1328,6 +1329,8 @@ function NotificationsTab({
           }
         />
       </SettingsCard>
+
+      <WeatherMorningSettingsCard />
 
       <div className="xl:col-span-2">
         <SettingsCard
