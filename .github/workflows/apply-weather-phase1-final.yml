@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - scripts/apply-weather-phase1-final-v2.mjs
+      - scripts/apply-weather-phase1-final-v3.mjs
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
         run: npm ci
 
       - name: Apply Weather Phase 1
-        run: node scripts/apply-weather-phase1-final-v2.mjs
+        run: node scripts/apply-weather-phase1-final-v3.mjs
 
       - name: Verify production build
         run: npm run build
@@ -39,7 +39,7 @@ jobs:
         run: |
           git config user.name "FERSYS Build Bot"
           git config user.email "actions@users.noreply.github.com"
-          git add src/services/weather.service.ts src/services/workOrders.service.ts src/types/workOrder.ts src/pages/DashboardPage.tsx src/pages/WorkOrderDetailsPage.tsx src/utils/workOrderPdf.ts
+          git add src/services/weather.service.ts src/services/workOrders.service.ts src/types/workOrder.ts src/pages/DashboardPage.tsx src/pages/WorkOrderDetailsPage.tsx src/components/WorkOrderWeatherCard.tsx src/utils/workOrderPdf.ts
           if git diff --cached --quiet; then
             echo "No generated changes to commit."
             exit 0
