@@ -16,4 +16,4 @@ if (!source.includes('      <PushRegistrationSync />')) {
 }
 
 fs.writeFileSync(path, source)
-console.log('POTVRDENO: native push token sync je ukljucen u AppRouter.')
+console.log('POTVRDENO: native push token sync je ukljucen u AppRouter i spreman za build.')
