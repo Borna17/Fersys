@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - scripts/apply-weather-phase1-final.mjs
+      - scripts/apply-weather-phase1-final-v2.mjs
 
 permissions:
   contents: write
@@ -30,7 +30,7 @@ jobs:
         run: npm ci
 
       - name: Apply Weather Phase 1
-        run: node scripts/apply-weather-phase1-final.mjs
+        run: node scripts/apply-weather-phase1-final-v2.mjs
 
       - name: Verify production build
         run: npm run build
