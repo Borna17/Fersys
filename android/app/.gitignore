@@ -1,2 +1,5 @@
 /build/*
 !/build/.npmkeep
+
+# Local Firebase Android configuration. Keep it on the build machine.
+google-services.json
