@@ -396,6 +396,34 @@ function infoHtml(
           <strong>${esc(order.priority || '—')}</strong>
         </div>
 
+        ${
+          order.weatherTemperatureC != null
+            ? `
+              <div class="meta-row">
+                <span>Vrijeme na terenu</span>
+                <strong>${esc(
+                  `${Math.round(order.weatherTemperatureC)} °C · ${order.weatherCondition || '—'}`,
+                )}</strong>
+              </div>
+
+              <div class="meta-row">
+                <span>Vlaga / vjetar</span>
+                <strong>${esc(
+                  `${
+                    order.weatherHumidityPct != null
+                      ? `${Math.round(order.weatherHumidityPct)} %`
+                      : '—'
+                  } · ${
+                    order.weatherWindKmh != null
+                      ? `${Math.round(order.weatherWindKmh)} km/h`
+                      : '—'
+                  }`,
+                )}</strong>
+              </div>
+            `
+            : ''
+        }
+
         <div class="meta-row">
           <span>Izvršitelji</span>
           <strong>${esc(workers)}</strong>

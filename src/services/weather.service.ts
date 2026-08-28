@@ -68,14 +68,15 @@ function apiConfig() {
     }
   }
 
-  if (import.meta.env.DEV) {
-    return {
-      baseUrl: 'https://api.open-meteo.com/v1/forecast',
-      apiKey: '',
-    }
+  /*
+   * FERSYS je trenutno u evaluation/testing fazi. Open-Meteo free endpoint
+   * koristi se samo dok se ne postavi komercijalni API ključ. Prije javnog
+   * komercijalnog puštanja obavezno postaviti VITE_OPEN_METEO_API_KEY.
+   */
+  return {
+    baseUrl: 'https://api.open-meteo.com/v1/forecast',
+    apiKey: '',
   }
-
-  throw new Error('FERSYS Weather još nema konfiguriran komercijalni weather API ključ.')
 }
 
 async function fetchWeather(coords: Coordinates) {

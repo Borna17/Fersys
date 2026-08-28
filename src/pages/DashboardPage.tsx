@@ -25,6 +25,7 @@ import {
   useAuth,
 } from '../auth/AuthProvider'
 import MissionCenter from '../components/MissionCenter'
+import WeatherDashboardCard from '../components/WeatherDashboardCard'
 import {
   EMPTY_DASHBOARD_DATA,
   getFastDashboardData,
@@ -554,6 +555,8 @@ export function DashboardPage() {
           )}
         </div>
       </section>
+
+      <WeatherDashboardCard />
 
       {quickActions.length >
         0 && (

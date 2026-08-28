@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { assertCanCreate } from '../subscription/subscription.service'
 import { getWorkOrderImagesForDisplay } from './workOrderImages.service'
+import { captureCurrentWeatherSnapshot } from './weather.service'
 
 export type CloudWorkOrderStatus =
   | 'Novi'
@@ -66,6 +67,15 @@ export type CloudWorkOrder = {
   investorSignature: string
 
   images: CloudWorkOrderImage[]
+
+  weatherTemperatureC?: number | null
+  weatherCondition?: string
+  weatherHumidityPct?: number | null
+  weatherWindKmh?: number | null
+  weatherRecordedAt?: string
+  weatherLatitude?: number | null
+  weatherLongitude?: number | null
+  weatherSource?: string
 
   status: CloudWorkOrderStatus
   priority: CloudWorkOrderPriority
@@ -150,6 +160,15 @@ type WorkOrderRow = {
   investor_signature: string | null
 
   images: unknown
+
+  weather_temperature_c: number | string | null
+  weather_condition: string | null
+  weather_humidity_pct: number | string | null
+  weather_wind_kmh: number | string | null
+  weather_recorded_at: string | null
+  weather_latitude: number | string | null
+  weather_longitude: number | string | null
+  weather_source: string | null
 
   status: CloudWorkOrderStatus
   priority: CloudWorkOrderPriority
@@ -319,6 +338,33 @@ function mapWorkOrder(
       row.investor_signature ?? '',
 
     images: parseImages(row.images),
+
+    weatherTemperatureC:
+      row.weather_temperature_c === null
+        ? null
+        : Number(row.weather_temperature_c),
+    weatherCondition:
+      row.weather_condition ?? '',
+    weatherHumidityPct:
+      row.weather_humidity_pct === null
+        ? null
+        : Number(row.weather_humidity_pct),
+    weatherWindKmh:
+      row.weather_wind_kmh === null
+        ? null
+        : Number(row.weather_wind_kmh),
+    weatherRecordedAt:
+      row.weather_recorded_at ?? '',
+    weatherLatitude:
+      row.weather_latitude === null
+        ? null
+        : Number(row.weather_latitude),
+    weatherLongitude:
+      row.weather_longitude === null
+        ? null
+        : Number(row.weather_longitude),
+    weatherSource:
+      row.weather_source ?? '',
 
     status: row.status,
     priority: row.priority,
@@ -519,6 +565,47 @@ export async function getWorkOrderById(
   return hydratedOrder
 }
 
+async function attachWeatherSnapshot(
+  workOrderId: string,
+) {
+  try {
+    const snapshot =
+      await captureCurrentWeatherSnapshot()
+
+    const { error } = await supabase
+      .from('work_orders')
+      .update({
+        weather_temperature_c:
+          snapshot.temperatureC,
+        weather_condition:
+          snapshot.condition,
+        weather_humidity_pct:
+          snapshot.humidityPct,
+        weather_wind_kmh:
+          snapshot.windKmh,
+        weather_recorded_at:
+          snapshot.recordedAt,
+        weather_latitude:
+          snapshot.latitude,
+        weather_longitude:
+          snapshot.longitude,
+        weather_source:
+          snapshot.source,
+      })
+      .eq('id', workOrderId)
+
+    if (error) {
+      throw error
+    }
+  } catch (error) {
+    /* Weather je dodatni kontekst i nikada ne smije blokirati spremanje naloga. */
+    console.warn(
+      '[FERSYS Weather] Snapshot radnog naloga nije spremljen:',
+      error,
+    )
+  }
+}
+
 export async function createWorkOrder(
   input: CreateWorkOrderInput,
 ): Promise<CloudWorkOrder> {
@@ -569,6 +656,14 @@ export async function createWorkOrder(
   workOrderVersionById.set(
     created.id,
     created.updatedAt,
+  )
+
+  /*
+   * Nalog je već sigurno spremljen. Vrijeme dohvaćamo u pozadini kako GPS ili
+   * weather API ne bi usporavali korisnika na terenu.
+   */
+  void attachWeatherSnapshot(
+    created.id,
   )
 
   return created

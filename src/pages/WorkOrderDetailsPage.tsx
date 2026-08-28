@@ -33,6 +33,7 @@ import {
 } from '../auth/AuthProvider'
 
 import FersysLoader from '../components/FersysLoader'
+import WorkOrderWeatherCard from '../components/WorkOrderWeatherCard'
 
 import {
   deleteUserDraft,
@@ -798,6 +799,8 @@ export function WorkOrderDetailsPage() {
             }}
           />
         </section>
+
+        <WorkOrderWeatherCard order={order} />
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3 xl:gap-6">
           <div className="space-y-4 xl:col-span-2 xl:space-y-6">

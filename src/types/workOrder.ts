@@ -96,6 +96,15 @@ export type WorkOrder = {
 
   images: WorkOrderImage[]
 
+  weatherTemperatureC?: number | null
+  weatherCondition?: string
+  weatherHumidityPct?: number | null
+  weatherWindKmh?: number | null
+  weatherRecordedAt?: string
+  weatherLatitude?: number | null
+  weatherLongitude?: number | null
+  weatherSource?: string
+
   status: WorkOrderStatus
   priority: WorkOrderPriority
 

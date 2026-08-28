@@ -6,7 +6,7 @@ type Props = {
   order: CloudWorkOrder
 }
 
-function formatRecordedAt(value: string) {
+function formatRecordedAt(value?: string) {
   if (!value) return ''
 
   const parsed = new Date(value)
@@ -22,7 +22,7 @@ function formatRecordedAt(value: string) {
 }
 
 export default function WorkOrderWeatherCard({ order }: Props) {
-  if (order.weatherTemperatureC === null) {
+  if (order.weatherTemperatureC == null) {
     return null
   }
 
@@ -64,7 +64,7 @@ export default function WorkOrderWeatherCard({ order }: Props) {
             </span>
           </div>
           <p className="mt-2 text-lg font-black text-white">
-            {order.weatherHumidityPct !== null
+            {order.weatherHumidityPct != null
               ? `${Math.round(order.weatherHumidityPct)}%`
               : '—'}
           </p>
@@ -78,7 +78,7 @@ export default function WorkOrderWeatherCard({ order }: Props) {
             </span>
           </div>
           <p className="mt-2 text-lg font-black text-white">
-            {order.weatherWindKmh !== null
+            {order.weatherWindKmh != null
               ? `${Math.round(order.weatherWindKmh)} km/h`
               : '—'}
           </p>
