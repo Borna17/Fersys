@@ -23,6 +23,7 @@ import AdminLayout from '../admin/AdminLayout'
 
 import FersysLoader from '../components/FersysLoader'
 import WorkOrderPhotoGallerySync from '../components/WorkOrderPhotoGallerySync'
+import PushRegistrationSync from '../components/PushRegistrationSync'
 import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
 import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNoteContextShortcut'
@@ -257,6 +258,7 @@ function RouterContent() {
   return (
     <Suspense fallback={<FersysLoader fullScreen text="Učitavanje FERSYS modula..." />}>
       <WorkOrderPhotoGallerySync />
+      <PushRegistrationSync />
       <Routes>
         <Route path="/" element={isLoading ? <FersysLoader fullScreen text="Pokretanje FERSYS-a..." /> : <Navigate to={session ? '/dashboard' : '/login'} replace />} />
         <Route path="/join" element={<JoinInvitationPage />} />
