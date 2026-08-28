@@ -28,3 +28,5 @@ try {
 } finally {
   fs.rmSync(tempPath, { force: true })
 }
+
+console.log('Weather phase 1 v2 generator finished.')
