@@ -1,6 +1,7 @@
 import { CloudSun, MapPin, Search, Send, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { getWeatherPreferences, saveWeatherPreferences, searchWeatherCity, type WeatherPreferences } from '../../services/weatherPreferences.service'
+import { enablePushNotifications } from '../../services/pushNotifications.service'
 import { supabase } from '../../lib/supabase'
 
 type GeoResult = { name:string; latitude:number; longitude:number; timezone?:string; admin1?:string; country?:string }
@@ -42,9 +43,29 @@ export default function WeatherMorningSettingsCard() {
     try {
       setTesting(true); setError(''); setMessage('')
       await saveWeatherPreferences(prefs)
+
+      const pushState = await enablePushNotifications()
+      if(pushState !== 'subscribed'){
+        if(pushState === 'denied') throw new Error('Obavijesti su blokirane na ovom uređaju. Uključi ih u postavkama telefona ili preglednika pa pokušaj ponovno.')
+        if(pushState === 'unsupported') throw new Error('Push obavijesti nisu dostupne na ovom uređaju ili u ovom načinu rada.')
+        if(pushState === 'missing-key') throw new Error('Firebase Web Push nije potpuno konfiguriran.')
+        throw new Error('FERSYS nije uspio registrirati ovaj uređaj za push obavijesti.')
+      }
+
       const { data, error: invokeError }=await supabase.functions.invoke('weather-morning',{body:{test:true}})
-      if(invokeError)throw invokeError
-      setMessage(data?.message || 'Testna prognoza je poslana. Provjeri obavijesti na uređaju.')
+      if(invokeError){
+        let detail=''
+        const context=(invokeError as {context?:Response}).context
+        if(context){
+          try {
+            const body=await context.clone().json() as {error?:string;message?:string}
+            detail=body.error||body.message||''
+          } catch { /* response body is optional */ }
+        }
+        throw new Error(detail||invokeError.message)
+      }
+      if(!data?.ok)throw new Error(data?.error||data?.message||'Firebase nije prihvatio testnu obavijest ni za jedan uređaj.')
+      setMessage(data?.message || `Firebase je prihvatio test za ${data?.sent ?? 1} uređaj(a).`)
     } catch(e){ setError(e instanceof Error?e.message:'Testnu prognozu nije moguće poslati.') }
     finally { setTesting(false) }
   }
@@ -64,7 +85,7 @@ export default function WeatherMorningSettingsCard() {
     {prefs.city&&<div className="mt-4 grid gap-3 sm:grid-cols-3"><Info label="Odabrani grad" value={prefs.city}/><Info label="Vremenska zona" value={prefs.timezone}/><Info label="Vrijeme slanja" value="06:00"/></div>}
     {error&&<p className="mt-4 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">{error}</p>}
     {message&&<p className="mt-4 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300">{message}</p>}
-    <div className="mt-5 flex flex-wrap gap-3"><button type="button" onClick={()=>void save()} disabled={saving} className="flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50"><Save size={17}/>{saving?'Spremanje...':'Spremi prognozu'}</button><button type="button" onClick={()=>void testPush()} disabled={testing||!prefs.enabled} className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 text-sm font-black text-white disabled:opacity-50"><Send size={17}/>{testing?'Slanje...':'Pošalji testnu prognozu'}</button></div>
+    <div className="mt-5 flex flex-wrap gap-3"><button type="button" onClick={()=>void save()} disabled={saving} className="flex h-11 items-center gap-2 rounded-xl bg-blue-600 px-5 text-sm font-black text-white disabled:opacity-50"><Save size={17}/>{saving?'Spremanje...':'Spremi prognozu'}</button><button type="button" onClick={()=>void testPush()} disabled={testing||!prefs.enabled} className="flex h-11 items-center gap-2 rounded-xl border border-slate-700 bg-slate-800 px-5 text-sm font-black text-white disabled:opacity-50"><Send size={17}/>{testing?'Registracija i slanje...':'Pošalji testnu prognozu'}</button></div>
   </div>
 }
 
