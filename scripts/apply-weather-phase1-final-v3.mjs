@@ -90,3 +90,4 @@ patch('src/utils/workOrderPdf.ts', [
 ])
 
 console.log('POTVRĐENO: Weather Phase 1 v3 je backward-compatible sa starim i preview nalozima.')
+console.log('Pokrećem završnu CI provjeru FERSYS Weather Phase 1.')
