@@ -59,7 +59,7 @@ dependencies {
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
-    testImplementation "junit:junit:$junitVersion"
+    testImplementation "junit:junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')
@@ -67,11 +67,14 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+// FERSYS native push notifications require the Firebase Android configuration.
+// Do not silently create an APK without it: that APK can request notification
+// permission but can never obtain an FCM registration token.
+def servicesJSON = file('google-services.json')
+if (!servicesJSON.exists() || servicesJSON.length() == 0) {
+    throw new GradleException(
+        "FERSYS Firebase configuration is missing. Download google-services.json for Android app hr.fersys.app from Firebase project fersys-2e3d3 and place it in android/app/google-services.json before building the Android app."
+    )
 }
+
+apply plugin: 'com.google.gms.google-services'
