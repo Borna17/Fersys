@@ -25,16 +25,15 @@ jobs:
       - name: Install Pillow
         run: python -m pip install --upgrade pillow
 
-      - name: Generate launcher assets
+      - name: Generate launcher assets from the approved FERSYS mark
         run: |
           python <<'PY'
           from pathlib import Path
           from PIL import Image, ImageDraw
+          import math
 
           ROOT = Path('android/app/src/main/res')
-          BG = '#0F172A'
-          BLUE = '#3B82F6'
-          PURPLE = '#8B5CF6'
+          BG = (15, 23, 43, 255)
 
           legacy_sizes = {
               'mipmap-mdpi': 48,
@@ -52,55 +51,74 @@ jobs:
               'mipmap-xxxhdpi': 432,
           }
 
-          def symbol(canvas_size: int, transparent: bool, scale: float = 0.58):
+          def mix(a, b, t):
+              return tuple(round(a[i] + (b[i] - a[i]) * t) for i in range(4))
+
+          def gradient_square(side, radius, c1, c2):
+              layer = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+              grad = Image.new('RGBA', (side, side))
+              px = grad.load()
+              for y in range(side):
+                  for x in range(side):
+                      t = max(0.0, min(1.0, (x + y) / max(1, 2 * side - 2)))
+                      px[x, y] = mix(c1, c2, t)
+              mask = Image.new('L', (side, side), 0)
+              ImageDraw.Draw(mask).rounded_rectangle((0, 0, side - 1, side - 1), radius=radius, fill=255)
+              layer.paste(grad, (0, 0), mask)
+              return layer
+
+          def approved_mark(canvas_size, transparent=False, adaptive=False):
+              # Approved reference supplied by Borna: 2000x2000 dark canvas,
+              # mark bbox approx x=183..1817, y=478..1584.
               ss = 4
               size = canvas_size * ss
               base = Image.new('RGBA', (size, size), (0, 0, 0, 0) if transparent else BG)
 
-              # FERSYS mark: two overlapping rounded squares rotated 45 degrees.
-              mark_span = int(size * scale)
-              square = int(mark_span * 0.56)
-              radius = max(6, int(square * 0.18))
-              overlap = int(square * 0.36)
-              center_y = size // 2
-              center_x = size // 2
+              # Legacy icon follows the supplied 2000x2000 reference almost edge-for-edge.
+              # Adaptive foreground is intentionally reduced to Android's safe zone.
+              scale = 0.82 if not adaptive else 0.58
+              diamond_side = int(size * 0.53 * scale / 0.82)
+              radius = int(diamond_side * 0.205)
+              center_y = int(size * 0.515)
+              separation = int(size * 0.235 * scale / 0.82)
+              cx_left = size // 2 - separation // 2
+              cx_right = size // 2 + separation // 2
 
-              def diamond(color, cx):
-                  layer = Image.new('RGBA', (size, size), (0, 0, 0, 0))
-                  d = ImageDraw.Draw(layer)
-                  left = cx - square // 2
-                  top = center_y - square // 2
-                  right = cx + square // 2
-                  bottom = center_y + square // 2
-                  d.rounded_rectangle((left, top, right, bottom), radius=radius, fill=color)
-                  layer = layer.rotate(45, resample=Image.Resampling.BICUBIC, center=(cx, center_y))
-                  base.alpha_composite(layer)
+              def place(cx, colors, opacity=255):
+                  sq = gradient_square(diamond_side, radius, colors[0], colors[1])
+                  sq = sq.rotate(45, resample=Image.Resampling.BICUBIC, expand=True)
+                  if opacity != 255:
+                      a = sq.getchannel('A').point(lambda p: p * opacity // 255)
+                      sq.putalpha(a)
+                  x = round(cx - sq.width / 2)
+                  y = round(center_y - sq.height / 2)
+                  base.alpha_composite(sq, (x, y))
 
-              diamond(BLUE, center_x - overlap // 2)
-              diamond(PURPLE, center_x + overlap // 2)
+              # Blue and violet gradients sampled to match the supplied FERSYS artwork.
+              place(cx_left, ((41, 120, 246, 255), (62, 142, 255, 255)))
+              place(cx_right, ((139, 92, 246, 255), (126, 45, 245, 255)), 250)
+
               return base.resize((canvas_size, canvas_size), Image.Resampling.LANCZOS)
 
           for folder, px in legacy_sizes.items():
               out = ROOT / folder
               out.mkdir(parents=True, exist_ok=True)
-              icon = symbol(px, transparent=False, scale=0.60)
+              icon = approved_mark(px, transparent=False, adaptive=False)
               icon.save(out / 'ic_launcher.png', optimize=True)
               icon.save(out / 'ic_launcher_round.png', optimize=True)
 
           for folder, px in foreground_sizes.items():
               out = ROOT / folder
               out.mkdir(parents=True, exist_ok=True)
-              fg = symbol(px, transparent=True, scale=0.46)
+              fg = approved_mark(px, transparent=True, adaptive=True)
               fg.save(out / 'ic_launcher_foreground.png', optimize=True)
 
           bg_file = ROOT / 'values' / 'ic_launcher_background.xml'
-          bg_file.write_text('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0F172A</color>\n</resources>\n', encoding='utf-8')
+          bg_file.write_text('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0F172B</color>\n</resources>\n', encoding='utf-8')
 
-          # Create a 512x512 Play-ready preview/source icon for later store listing use.
-          play_icon = symbol(512, transparent=False, scale=0.60)
+          play_icon = approved_mark(512, transparent=False, adaptive=False)
           play_icon.save('public/fersys-android-icon-512.png', optimize=True)
 
-          # Validate all generated files are readable and expected sizes.
           for folder, px in legacy_sizes.items():
               for name in ('ic_launcher.png', 'ic_launcher_round.png'):
                   im = Image.open(ROOT / folder / name)
@@ -109,7 +127,7 @@ jobs:
               im = Image.open(ROOT / folder / 'ic_launcher_foreground.png')
               assert im.size == (px, px)
 
-          print('FERSYS Android launcher icons generated and validated.')
+          print('Approved FERSYS Android launcher icon generated and validated.')
           PY
 
       - uses: actions/setup-node@v4
@@ -133,5 +151,5 @@ jobs:
             echo "No launcher icon changes to commit."
             exit 0
           fi
-          git commit -m "Replace Capacitor launcher icon with FERSYS branding [skip ci]"
+          git commit -m "Use approved FERSYS launcher artwork [skip ci]"
           git push
