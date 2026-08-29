@@ -1,0 +1,104 @@
+name: Apply trial delivery status
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-trial-delivery-status.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch admin delivery status
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          function replaceOnce(text, from, to, label) {
+            if (!text.includes(from)) throw new Error(`Missing anchor: ${label}`)
+            return text.replace(from, to)
+          }
+
+          const servicePath = 'src/admin/services/admin.service.ts'
+          let service = fs.readFileSync(servicePath, 'utf8')
+
+          service = replaceOnce(
+            service,
+            "export async function isPlatformAdmin():\nPromise<boolean> {",
+            `export type AdminTrialNotificationDelivery = {\n  queueId: string\n  daysAdded: number\n  newTrialEndsAt: string\n  customMessage: string\n  queueStatus: string\n  emailStatus: string\n  errorMessage: string\n  createdAt: string\n  processedAt: string\n  notificationEventId: string\n  notificationCreatedAt: string\n  pushSentCount: number\n  readCount: number\n}\n\nexport async function isPlatformAdmin():\nPromise<boolean> {`,
+            'service type',
+          )
+
+          service = replaceOnce(
+            service,
+            "export async function updateCompanySubscription(\n",
+            `export async function getAdminTrialNotificationDelivery(\n  companyId: string,\n): Promise<AdminTrialNotificationDelivery[]> {\n  const { data, error } = await supabase.rpc(\n    'admin_get_trial_notification_delivery',\n    { requested_company_id: companyId },\n  )\n\n  if (error) throw error\n\n  return (data ?? []).map((row: Record<string, unknown>) => ({\n    queueId: String(row.queue_id ?? ''),\n    daysAdded: Number(row.days_added ?? 0),\n    newTrialEndsAt: String(row.new_trial_ends_at ?? ''),\n    customMessage: String(row.custom_message ?? ''),\n    queueStatus: String(row.queue_status ?? 'pending'),\n    emailStatus: String(row.email_status ?? 'pending'),\n    errorMessage: String(row.error_message ?? ''),\n    createdAt: String(row.created_at ?? ''),\n    processedAt: String(row.processed_at ?? ''),\n    notificationEventId: String(row.notification_event_id ?? ''),\n    notificationCreatedAt: String(row.notification_created_at ?? ''),\n    pushSentCount: Number(row.push_sent_count ?? 0),\n    readCount: Number(row.read_count ?? 0),\n  }))\n}\n\nexport async function updateCompanySubscription(\n`,
+            'service function',
+          )
+
+          fs.writeFileSync(servicePath, service)
+
+          const pagePath = 'src/admin/AdminCompanyDetailsPage.tsx'
+          let page = fs.readFileSync(pagePath, 'utf8')
+
+          page = replaceOnce(
+            page,
+            `  getAdminCompanyInsights,\n  updateCompanySubscription,\n  type AdminCompany,\n  type AdminCompanyInsights,\n`,
+            `  getAdminCompanyInsights,\n  getAdminTrialNotificationDelivery,\n  updateCompanySubscription,\n  type AdminCompany,\n  type AdminCompanyInsights,\n  type AdminTrialNotificationDelivery,\n`,
+            'page import',
+          )
+
+          page = replaceOnce(
+            page,
+            `  const [note, setNote] =\n    useState('')\n`,
+            `  const [note, setNote] =\n    useState('')\n\n  const [\n    trialDeliveries,\n    setTrialDeliveries,\n  ] = useState<AdminTrialNotificationDelivery[]>([])\n`,
+            'delivery state',
+          )
+
+          page = replaceOnce(
+            page,
+            `          const [\n            nextCompany,\n            nextInsights,\n          ] =\n            await Promise.all([\n              getAdminCompany(\n                companyId,\n              ),\n              getAdminCompanyInsights(\n                companyId,\n              ),\n            ])\n`,
+            `          const [\n            nextCompany,\n            nextInsights,\n            nextTrialDeliveries,\n          ] =\n            await Promise.all([\n              getAdminCompany(\n                companyId,\n              ),\n              getAdminCompanyInsights(\n                companyId,\n              ),\n              getAdminTrialNotificationDelivery(\n                companyId,\n              ),\n            ])\n`,
+            'load promise',
+          )
+
+          page = replaceOnce(
+            page,
+            `          setInsights(\n            nextInsights,\n          )\n`,
+            `          setInsights(\n            nextInsights,\n          )\n          setTrialDeliveries(\n            nextTrialDeliveries,\n          )\n`,
+            'set deliveries',
+          )
+
+          const deliveryCard = `          <Card>\n            <SectionTitle\n              icon={<Mail size={21} />}\n              title=\"Dostava trial obavijesti\"\n              description=\"Stvarni status zadnjih poruka poslanih nakon produženja triala.\"\n            />\n\n            <div className=\"mt-5 space-y-3\">\n              {trialDeliveries.length === 0 ? (\n                <EmptyState text=\"Još nema poslanih trial obavijesti za ovu tvrtku.\" />\n              ) : (\n                trialDeliveries.slice(0, 5).map((delivery) => {\n                  const notificationCreated = Boolean(delivery.notificationEventId)\n                  const emailSent = delivery.emailStatus === 'sent'\n                  const pushSent = delivery.pushSentCount > 0\n                  const opened = delivery.readCount > 0\n\n                  return (\n                    <div\n                      key={delivery.queueId}\n                      className=\"rounded-2xl border border-slate-800 bg-slate-950/45 p-4\"\n                    >\n                      <div className=\"flex flex-wrap items-start justify-between gap-3\">\n                        <div>\n                          <p className=\"font-black text-white\">\n                            +{delivery.daysAdded} dana triala\n                          </p>\n                          <p className=\"mt-1 text-xs text-slate-500\">\n                            {delivery.createdAt ? formatDate(delivery.createdAt) : '—'}\n                          </p>\n                        </div>\n\n                        <span className={\`rounded-full px-3 py-1 text-[10px] font-black uppercase \${\n                          delivery.queueStatus === 'sent'\n                            ? 'bg-emerald-500/10 text-emerald-300'\n                            : delivery.queueStatus === 'failed'\n                              ? 'bg-red-500/10 text-red-300'\n                              : 'bg-amber-500/10 text-amber-300'\n                        }\`}>\n                          {delivery.queueStatus === 'sent'\n                            ? 'Obrađeno'\n                            : delivery.queueStatus === 'failed'\n                              ? 'Greška'\n                              : 'Čeka slanje'}\n                        </span>\n                      </div>\n\n                      {delivery.customMessage && (\n                        <p className=\"mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs leading-5 text-slate-400\">\n                          {delivery.customMessage}\n                        </p>\n                      )}\n\n                      <div className=\"mt-4 grid gap-2 sm:grid-cols-2\">\n                        <DeliveryStatus\n                          label=\"FERSYS obavijest\"\n                          ok={notificationCreated}\n                          text={notificationCreated ? 'Kreirana' : 'Nije kreirana'}\n                        />\n                        <DeliveryStatus\n                          label=\"E-mail\"\n                          ok={emailSent}\n                          text={emailSent ? 'Resend prihvatio' : delivery.emailStatus === 'failed' ? 'Slanje nije uspjelo' : 'Čeka slanje'}\n                        />\n                        <DeliveryStatus\n                          label=\"Push\"\n                          ok={pushSent}\n                          text={pushSent ? \`Firebase prihvatio za \${delivery.pushSentCount} uređaj(a)\` : 'Još nije potvrđen'}\n                        />\n                        <DeliveryStatus\n                          label=\"Pročitano u FERSYS-u\"\n                          ok={opened}\n                          text={opened ? \`Otvoreno/pročitano (\${delivery.readCount})\` : 'Još nije otvoreno'}\n                        />\n                      </div>\n\n                      {delivery.processedAt && (\n                        <p className=\"mt-3 text-[11px] text-slate-600\">\n                          Obrada: {formatDate(delivery.processedAt)}\n                        </p>\n                      )}\n\n                      {delivery.errorMessage && (\n                        <p className=\"mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300\">\n                          {delivery.errorMessage}\n                        </p>\n                      )}\n                    </div>\n                  )\n                })\n              )}\n            </div>\n          </Card>\n\n`
+
+          page = replaceOnce(
+            page,
+            `          <article className=\"rounded-3xl border border-red-500/25 bg-red-500/5 p-6\">`,
+            deliveryCard + `          <article className=\"rounded-3xl border border-red-500/25 bg-red-500/5 p-6\">`,
+            'delivery card insertion',
+          )
+
+          const helperAnchor = `const inputClass =\n  'mt-2 h-12 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-white outline-none focus:border-violet-500'\n`
+          const helper = `function DeliveryStatus({\n  label,\n  ok,\n  text,\n}: {\n  label: string\n  ok: boolean\n  text: string\n}) {\n  return (\n    <div className=\"rounded-xl border border-slate-800 bg-slate-900/60 p-3\">\n      <div className=\"flex items-center gap-2\">\n        <span className={\`h-2.5 w-2.5 rounded-full \${ok ? 'bg-emerald-400' : 'bg-slate-600'}\`} />\n        <p className=\"text-[11px] font-black uppercase tracking-wide text-slate-400\">\n          {label}\n        </p>\n      </div>\n      <p className={\`mt-2 text-xs font-bold \${ok ? 'text-emerald-300' : 'text-slate-500'}\`}>\n        {text}\n      </p>\n    </div>\n  )\n}\n\n`
+
+          page = replaceOnce(page, helperAnchor, helper + helperAnchor, 'delivery helper')
+          fs.writeFileSync(pagePath, page)
+          NODE
+      - name: Build
+        run: npm ci && npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "FERSYS Automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/admin/services/admin.service.ts src/admin/AdminCompanyDetailsPage.tsx
+          git commit -m "Add trial notification delivery status [skip ci]"
+          git push
