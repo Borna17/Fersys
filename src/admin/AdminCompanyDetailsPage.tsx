@@ -40,9 +40,11 @@ import {
   deleteAdminCompany,
   getAdminCompany,
   getAdminCompanyInsights,
+  getAdminTrialNotificationDelivery,
   updateCompanySubscription,
   type AdminCompany,
   type AdminCompanyInsights,
+  type AdminTrialNotificationDelivery,
 } from './services/admin.service'
 
 const planLabels:
@@ -148,6 +150,11 @@ export function AdminCompanyDetailsPage() {
   const [note, setNote] =
     useState('')
 
+  const [
+    trialDeliveries,
+    setTrialDeliveries,
+  ] = useState<AdminTrialNotificationDelivery[]>([])
+
   const [deleteConfirmation, setDeleteConfirmation] =
     useState('')
 
@@ -173,12 +180,16 @@ export function AdminCompanyDetailsPage() {
           const [
             nextCompany,
             nextInsights,
+            nextTrialDeliveries,
           ] =
             await Promise.all([
               getAdminCompany(
                 companyId,
               ),
               getAdminCompanyInsights(
+                companyId,
+              ),
+              getAdminTrialNotificationDelivery(
                 companyId,
               ),
             ])
@@ -196,6 +207,9 @@ export function AdminCompanyDetailsPage() {
           )
           setInsights(
             nextInsights,
+          )
+          setTrialDeliveries(
+            nextTrialDeliveries,
           )
           setPlanId(
             nextCompany.planId,
@@ -1045,6 +1059,100 @@ export function AdminCompanyDetailsPage() {
             </div>
           </Card>
 
+          <Card>
+            <SectionTitle
+              icon={<Mail size={21} />}
+              title="Dostava trial obavijesti"
+              description="Stvarni status zadnjih poruka poslanih nakon produženja triala."
+            />
+
+            <div className="mt-5 space-y-3">
+              {trialDeliveries.length === 0 ? (
+                <EmptyState text="Još nema poslanih trial obavijesti za ovu tvrtku." />
+              ) : (
+                trialDeliveries.slice(0, 5).map((delivery) => {
+                  const notificationCreated = Boolean(delivery.notificationEventId)
+                  const emailSent = delivery.emailStatus === 'sent'
+                  const pushSent = delivery.pushSentCount > 0
+                  const opened = delivery.readCount > 0
+
+                  return (
+                    <div
+                      key={delivery.queueId}
+                      className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="font-black text-white">
+                            +{delivery.daysAdded} dana triala
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {delivery.createdAt ? formatDate(delivery.createdAt) : '—'}
+                          </p>
+                        </div>
+
+                        <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase ${
+                          delivery.queueStatus === 'sent'
+                            ? 'bg-emerald-500/10 text-emerald-300'
+                            : delivery.queueStatus === 'failed'
+                              ? 'bg-red-500/10 text-red-300'
+                              : 'bg-amber-500/10 text-amber-300'
+                        }`}>
+                          {delivery.queueStatus === 'sent'
+                            ? 'Obrađeno'
+                            : delivery.queueStatus === 'failed'
+                              ? 'Greška'
+                              : 'Čeka slanje'}
+                        </span>
+                      </div>
+
+                      {delivery.customMessage && (
+                        <p className="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-xs leading-5 text-slate-400">
+                          {delivery.customMessage}
+                        </p>
+                      )}
+
+                      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                        <DeliveryStatus
+                          label="FERSYS obavijest"
+                          ok={notificationCreated}
+                          text={notificationCreated ? 'Kreirana' : 'Nije kreirana'}
+                        />
+                        <DeliveryStatus
+                          label="E-mail"
+                          ok={emailSent}
+                          text={emailSent ? 'Resend prihvatio' : delivery.emailStatus === 'failed' ? 'Slanje nije uspjelo' : 'Čeka slanje'}
+                        />
+                        <DeliveryStatus
+                          label="Push"
+                          ok={pushSent}
+                          text={pushSent ? `Firebase prihvatio za ${delivery.pushSentCount} uređaj(a)` : 'Još nije potvrđen'}
+                        />
+                        <DeliveryStatus
+                          label="Pročitano u FERSYS-u"
+                          ok={opened}
+                          text={opened ? `Otvoreno/pročitano (${delivery.readCount})` : 'Još nije otvoreno'}
+                        />
+                      </div>
+
+                      {delivery.processedAt && (
+                        <p className="mt-3 text-[11px] text-slate-600">
+                          Obrada: {formatDate(delivery.processedAt)}
+                        </p>
+                      )}
+
+                      {delivery.errorMessage && (
+                        <p className="mt-3 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-xs text-red-300">
+                          {delivery.errorMessage}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })
+              )}
+            </div>
+          </Card>
+
           <article className="rounded-3xl border border-red-500/25 bg-red-500/5 p-6">
             <div className="flex gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-300">
@@ -1109,6 +1217,30 @@ export function AdminCompanyDetailsPage() {
         </aside>
       </div>
     </section>
+  )
+}
+
+function DeliveryStatus({
+  label,
+  ok,
+  text,
+}: {
+  label: string
+  ok: boolean
+  text: string
+}) {
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+      <div className="flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${ok ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+        <p className="text-[11px] font-black uppercase tracking-wide text-slate-400">
+          {label}
+        </p>
+      </div>
+      <p className={`mt-2 text-xs font-bold ${ok ? 'text-emerald-300' : 'text-slate-500'}`}>
+        {text}
+      </p>
+    </div>
   )
 }
 

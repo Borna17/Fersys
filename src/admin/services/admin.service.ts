@@ -72,6 +72,22 @@ export type AdminCompanyInsights = {
   generatedAt: string
 }
 
+export type AdminTrialNotificationDelivery = {
+  queueId: string
+  daysAdded: number
+  newTrialEndsAt: string
+  customMessage: string
+  queueStatus: string
+  emailStatus: string
+  errorMessage: string
+  createdAt: string
+  processedAt: string
+  notificationEventId: string
+  notificationCreatedAt: string
+  pushSentCount: number
+  readCount: number
+}
+
 export async function isPlatformAdmin():
 Promise<boolean> {
   const {
@@ -494,6 +510,33 @@ export async function getAdminCompanyInsights(
         '',
       ),
   }
+}
+
+export async function getAdminTrialNotificationDelivery(
+  companyId: string,
+): Promise<AdminTrialNotificationDelivery[]> {
+  const { data, error } = await supabase.rpc(
+    'admin_get_trial_notification_delivery',
+    { requested_company_id: companyId },
+  )
+
+  if (error) throw error
+
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    queueId: String(row.queue_id ?? ''),
+    daysAdded: Number(row.days_added ?? 0),
+    newTrialEndsAt: String(row.new_trial_ends_at ?? ''),
+    customMessage: String(row.custom_message ?? ''),
+    queueStatus: String(row.queue_status ?? 'pending'),
+    emailStatus: String(row.email_status ?? 'pending'),
+    errorMessage: String(row.error_message ?? ''),
+    createdAt: String(row.created_at ?? ''),
+    processedAt: String(row.processed_at ?? ''),
+    notificationEventId: String(row.notification_event_id ?? ''),
+    notificationCreatedAt: String(row.notification_created_at ?? ''),
+    pushSentCount: Number(row.push_sent_count ?? 0),
+    readCount: Number(row.read_count ?? 0),
+  }))
 }
 
 export async function updateCompanySubscription(
