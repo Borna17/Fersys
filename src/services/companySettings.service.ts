@@ -447,6 +447,7 @@ function cleanColor(
 
 function createDatabasePayload(
   input: UpdateCompanySettingsInput,
+  currentProfileSettings: Record<string, unknown> = {},
 ) {
   return {
     name: input.name.trim(),
@@ -584,8 +585,10 @@ function createDatabasePayload(
     email_notifications_enabled:
       input.emailNotificationsEnabled,
 
-    profile_settings:
-      input.profileSettings,
+    profile_settings: {
+      ...currentProfileSettings,
+      ...input.profileSettings,
+    },
   }
 }
 
@@ -645,10 +648,34 @@ export async function updateCompanySettings(
   const companyId =
     await getCurrentCompanyId()
 
+  // profile_settings contains document appearance, work-order branding
+  // and other module preferences. General company settings must merge
+  // regional settings into that JSON instead of replacing the whole object.
+  const {
+    data: currentCompany,
+    error: currentCompanyError,
+  } = await supabase
+    .from('companies')
+    .select('profile_settings')
+    .eq('id', companyId)
+    .single()
+
+  if (currentCompanyError) {
+    throw currentCompanyError
+  }
+
+  const currentProfileSettings =
+    isObject(currentCompany?.profile_settings)
+      ? currentCompany.profile_settings
+      : {}
+
   const { data, error } = await supabase
     .from('companies')
     .update(
-      createDatabasePayload(input),
+      createDatabasePayload(
+        input,
+        currentProfileSettings,
+      ),
     )
     .eq('id', companyId)
     .select('*')
