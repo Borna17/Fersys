@@ -8,11 +8,11 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "hr.fersys.app"
+    namespace = "com.fersys.app"
     compileSdk = rootProject.ext.compileSdkVersion
 
     defaultConfig {
-        applicationId "hr.fersys.app"
+        applicationId "com.fersys.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -73,7 +73,7 @@ apply from: 'capacitor.build.gradle'
 def servicesJSON = file('google-services.json')
 if (!servicesJSON.exists() || servicesJSON.length() == 0) {
     throw new GradleException(
-        "FERSYS Firebase configuration is missing. Download google-services.json for Android app hr.fersys.app from Firebase project fersys-2e3d3 and place it in android/app/google-services.json before building the Android app."
+        "FERSYS Firebase configuration is missing. Download google-services.json for Android app com.fersys.app from Firebase project fersys-2e3d3 and place it in android/app/google-services.json before building the Android app."
     )
 }
 
