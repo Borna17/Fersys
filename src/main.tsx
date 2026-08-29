@@ -17,6 +17,7 @@ import {
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
+import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
@@ -280,6 +281,7 @@ createRoot(
     <BrowserRouter>
       <App />
       <ActivityTracker />
+      <AdminTrialMessagePolish />
 
       <FloatingUiLayoutFix />
       <DeliveryNoteMobileLayoutFix />
