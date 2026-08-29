@@ -1,0 +1,137 @@
+name: Generate FERSYS Android launcher icons
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/generate-android-launcher-icons.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Pillow
+        run: python -m pip install --upgrade pillow
+
+      - name: Generate launcher assets
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          ROOT = Path('android/app/src/main/res')
+          BG = '#0F172A'
+          BLUE = '#3B82F6'
+          PURPLE = '#8B5CF6'
+
+          legacy_sizes = {
+              'mipmap-mdpi': 48,
+              'mipmap-hdpi': 72,
+              'mipmap-xhdpi': 96,
+              'mipmap-xxhdpi': 144,
+              'mipmap-xxxhdpi': 192,
+          }
+
+          foreground_sizes = {
+              'mipmap-mdpi': 108,
+              'mipmap-hdpi': 162,
+              'mipmap-xhdpi': 216,
+              'mipmap-xxhdpi': 324,
+              'mipmap-xxxhdpi': 432,
+          }
+
+          def symbol(canvas_size: int, transparent: bool, scale: float = 0.58):
+              ss = 4
+              size = canvas_size * ss
+              base = Image.new('RGBA', (size, size), (0, 0, 0, 0) if transparent else BG)
+
+              # FERSYS mark: two overlapping rounded squares rotated 45 degrees.
+              mark_span = int(size * scale)
+              square = int(mark_span * 0.56)
+              radius = max(6, int(square * 0.18))
+              overlap = int(square * 0.36)
+              center_y = size // 2
+              center_x = size // 2
+
+              def diamond(color, cx):
+                  layer = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+                  d = ImageDraw.Draw(layer)
+                  left = cx - square // 2
+                  top = center_y - square // 2
+                  right = cx + square // 2
+                  bottom = center_y + square // 2
+                  d.rounded_rectangle((left, top, right, bottom), radius=radius, fill=color)
+                  layer = layer.rotate(45, resample=Image.Resampling.BICUBIC, center=(cx, center_y))
+                  base.alpha_composite(layer)
+
+              diamond(BLUE, center_x - overlap // 2)
+              diamond(PURPLE, center_x + overlap // 2)
+              return base.resize((canvas_size, canvas_size), Image.Resampling.LANCZOS)
+
+          for folder, px in legacy_sizes.items():
+              out = ROOT / folder
+              out.mkdir(parents=True, exist_ok=True)
+              icon = symbol(px, transparent=False, scale=0.60)
+              icon.save(out / 'ic_launcher.png', optimize=True)
+              icon.save(out / 'ic_launcher_round.png', optimize=True)
+
+          for folder, px in foreground_sizes.items():
+              out = ROOT / folder
+              out.mkdir(parents=True, exist_ok=True)
+              fg = symbol(px, transparent=True, scale=0.46)
+              fg.save(out / 'ic_launcher_foreground.png', optimize=True)
+
+          bg_file = ROOT / 'values' / 'ic_launcher_background.xml'
+          bg_file.write_text('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0F172A</color>\n</resources>\n', encoding='utf-8')
+
+          # Create a 512x512 Play-ready preview/source icon for later store listing use.
+          play_icon = symbol(512, transparent=False, scale=0.60)
+          play_icon.save('public/fersys-android-icon-512.png', optimize=True)
+
+          # Validate all generated files are readable and expected sizes.
+          for folder, px in legacy_sizes.items():
+              for name in ('ic_launcher.png', 'ic_launcher_round.png'):
+                  im = Image.open(ROOT / folder / name)
+                  assert im.size == (px, px)
+          for folder, px in foreground_sizes.items():
+              im = Image.open(ROOT / folder / 'ic_launcher_foreground.png')
+              assert im.size == (px, px)
+
+          print('FERSYS Android launcher icons generated and validated.')
+          PY
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify web build
+        run: npm ci && npm run build
+
+      - name: Commit generated Android icons
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add android/app/src/main/res/mipmap-*/ic_launcher.png \
+                  android/app/src/main/res/mipmap-*/ic_launcher_round.png \
+                  android/app/src/main/res/mipmap-*/ic_launcher_foreground.png \
+                  android/app/src/main/res/values/ic_launcher_background.xml \
+                  public/fersys-android-icon-512.png
+          if git diff --cached --quiet; then
+            echo "No launcher icon changes to commit."
+            exit 0
+          fi
+          git commit -m "Replace Capacitor launcher icon with FERSYS branding [skip ci]"
+          git push
