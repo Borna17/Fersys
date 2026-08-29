@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 
+// v1: preserve unrelated company profile_settings keys.
 const path = 'src/services/companySettings.service.ts'
 let source = fs.readFileSync(path, 'utf8')
 
