@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { enablePushNotifications } from './pushNotifications.service'
 
 export type WeatherPreferences = {
   city: string
@@ -16,6 +17,17 @@ type GeoResult = {
   timezone?: string
   admin1?: string
   country?: string
+}
+
+type WeatherTestResponse = {
+  ok?: boolean
+  mode?: string
+  registered?: number
+  sent?: number
+  failed?: number
+  deactivated?: number
+  message?: string
+  error?: string
 }
 
 const DEFAULT_PREFERENCES: WeatherPreferences = {
@@ -137,4 +149,48 @@ export async function saveWeatherPreferences(
   }
 
   return saved
+}
+
+export async function sendWeatherTestNotification(
+  value: WeatherPreferences,
+): Promise<string> {
+  if (!value.city || value.latitude == null || value.longitude == null) {
+    throw new Error('Prvo odaberi i spremi grad za vremensku prognozu.')
+  }
+
+  // Test mora prvo osvježiti FCM token baš uređaja na kojem je gumb pritisnut.
+  // Bez ovoga backend može pronaći samo stare tokene s prethodnih instalacija/uređaja.
+  const pushState = await enablePushNotifications()
+  if (pushState !== 'subscribed') {
+    throw new Error(
+      pushState === 'denied'
+        ? 'Obavijesti su blokirane na ovom uređaju. Uključi ih u postavkama telefona ili preglednika.'
+        : 'Ovaj uređaj nije moguće registrirati za FERSYS obavijesti.',
+    )
+  }
+
+  const saved = await saveWeatherPreferences(value)
+  if (!saved.city || saved.latitude == null || saved.longitude == null) {
+    throw new Error('Lokacija prognoze nije spremljena.')
+  }
+
+  const { data, error } = await supabase.functions.invoke<WeatherTestResponse>(
+    'weather-morning',
+    { body: { mode: 'test' } },
+  )
+
+  if (error) {
+    throw new Error(`Testnu prognozu nije moguće poslati: ${error.message}`)
+  }
+
+  if (!data?.ok) {
+    throw new Error(data?.error || 'Firebase nije potvrdio slanje testne prognoze.')
+  }
+
+  const sent = Number(data.sent ?? 0)
+  if (sent < 1) {
+    throw new Error('Firebase nije potvrdio slanje ni na jedan uređaj.')
+  }
+
+  return `Testna prognoza je poslana. Firebase je prihvatio slanje na ${sent} uređaj${sent === 1 ? '' : 'a'}.`
 }
