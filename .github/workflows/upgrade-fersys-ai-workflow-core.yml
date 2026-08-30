@@ -1,0 +1,94 @@
+name: Upgrade FERSYS AI workflow core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-fersys-ai-workflow-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Upgrade AI runtime context and conversational work order handling
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          function replaceOrThrow(path, from, to, label) {
+            let s = fs.readFileSync(path, 'utf8')
+            if (!s.includes(from)) throw new Error(`${label} not found in ${path}`)
+            s = s.replace(from, to)
+            fs.writeFileSync(path, s)
+          }
+
+          // 1) Richer context: give AI enough customer/work-order/offer data to fill fields correctly.
+          const contextPath = 'src/services/aiContext.service.ts'
+          let c = fs.readFileSync(contextPath, 'utf8')
+          c = c.replace(
+`    oib: string\n    city: string\n  }>` ,
+`    oib: string\n    phone: string\n    email: string\n    street: string\n    city: string\n    postalCode: string\n    contactPerson: string\n  }>`
+          )
+          c = c.replace(
+`        oib: customer.oib,\n        city: customer.city,`,
+`        oib: customer.oib,\n        phone: customer.phone,\n        email: customer.email,\n        street: customer.street,\n        city: customer.city,\n        postalCode: customer.postalCode,\n        contactPerson: customer.contactPerson ?? '',`
+          )
+          fs.writeFileSync(contextPath, c)
+
+          // 2) Add deterministic conversational workflow layer before generic AI.
+          const workflowPath = 'src/ai/aiWorkflowFastPath.ts'
+          fs.writeFileSync(workflowPath, `import { getCustomers } from '../services/customers.service'\nimport { getOffers } from '../services/offers.service'\nimport { getWorkOrders, updateWorkOrder } from '../services/workOrders.service'\nimport type { AiAssistantMessage, AiAssistantResponse } from '../services/aiAssistant.service'\n\nfunction normalize(value: string) {\n  return value.normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLocaleLowerCase('hr-HR').replace(/[^a-z0-9\\s:.,+@/-]/g, ' ').replace(/\\s+/g, ' ').trim()\n}\n\nfunction score(query: string, candidate: string) {\n  const q = normalize(query)\n  const c = normalize(candidate)\n  if (!q || !c) return 0\n  if (q === c) return 100\n  if (c.includes(q) || q.includes(c)) return 85\n  const qTokens = q.split(' ').filter(Boolean)\n  const cTokens = new Set(c.split(' ').filter(Boolean))\n  const common = qTokens.filter((t) => cTokens.has(t)).length\n  return Math.round((common / Math.max(qTokens.length, 1)) * 70)\n}\n\nfunction customerNameFrom(text: string) {\n  return text.replace(/^(napravi|kreiraj|stvori|dodaj|unesi|izradi)\\s+(mi\\s+)?(novi\\s+|novog\\s+)?(radni\\s+nalog|nalog|ponudu|ponuda)\\s*(za|od)?\\s*/i, '').replace(/^(otvori|pronadi|pronađi|nadi|nađi|pokazi|pokaži|pretrazi|pretraži)\\s+(mi\\s+)?(radne\\s+naloge|radni\\s+nalog|naloge|nalog|ponude|ponudu)\\s*(za|od)?\\s*/i, '').trim()\n}\n\nfunction latestMentionedOrderId(conversation: AiAssistantMessage[], orders: Awaited<ReturnType<typeof getWorkOrders>>) {\n  for (let i = conversation.length - 1; i >= 0; i -= 1) {\n    const content = normalize(conversation[i].content)\n    const matches = orders.filter((o) => content.includes(normalize(o.orderNumber)) || content.includes(normalize(o.customerName)))\n    if (matches.length === 1) return matches[0].id\n  }\n  return ''\n}\n\nfunction parseTime(text: string, labels: string[]) {\n  for (const label of labels) {\n    const re = new RegExp('(?:' + label + ')\\\\s*(?:je|u|:) ?(\\\\d{1,2})(?:[:.]?(\\\\d{2}))?', 'i')\n    const m = text.match(re)\n    if (m) return String(Math.min(23, Number(m[1]))).padStart(2, '0') + ':' + String(Math.min(59, Number(m[2] || 0))).padStart(2, '0')\n  }\n  return ''\n}\n\nfunction parseMaterials(text: string) {\n  const marker = text.match(/(?:materijal|utroseni materijal|utrošeni materijal)\\s*[:=-]?\\s*(.+)$/i)\n  if (!marker?.[1]) return []\n  return marker[1].split(/,|\\bi\\b/i).map((part) => part.trim()).filter(Boolean).map((part) => {\n    const m = part.match(/^(\\d+(?:[.,]\\d+)?)\\s*(kom|m|m2|m²|kg|l)?\\s*(.*)$/i)\n    if (m) return { id: crypto.randomUUID(), name: (m[3] || 'Materijal').trim(), quantity: Number(m[1].replace(',', '.')), unit: m[2] || 'kom', unitPrice: 0 }\n    return { id: crypto.randomUUID(), name: part, quantity: 1, unit: 'kom', unitPrice: 0 }\n  })\n}\n\nasync function findCustomer(query: string) {\n  const customers = await getCustomers()\n  const ranked = customers.map((customer) => ({ customer, score: score(query, [customer.name, customer.oib, customer.phone, customer.email, customer.street, customer.city].join(' ')) })).filter((x) => x.score >= 45).sort((a, b) => b.score - a.score)\n  if (!ranked.length) return null\n  if (ranked.length > 1 && ranked[0].score - ranked[1].score < 15 && ranked[0].score < 85) return null\n  return ranked[0].customer\n}\n\nexport async function tryWorkflowFastPath(text: string, conversation: AiAssistantMessage[]): Promise<AiAssistantResponse | null> {\n  const n = normalize(text)\n\n  if (/^(napravi|kreiraj|stvori|dodaj|unesi|izradi).*(radni nalog|nalog)/i.test(n)) {\n    const query = customerNameFrom(text)\n    const customer = await findCustomer(query)\n    if (!customer) return null\n    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zagreb' }).format(new Date())\n    return {\n      message: 'Pripremio sam novi radni nalog za „' + customer.name + '”.',\n      proposedAction: null,\n      clientAction: {\n        type: 'create_work_order',\n        payload: { customerId: customer.id, customerName: customer.name, customerContactPerson: customer.contactPerson ?? '', customerPhone: customer.phone, customerEmail: customer.email, customerOib: customer.oib, address: [customer.street, customer.postalCode, customer.city].filter(Boolean).join(', '), date: today, title: 'Radni nalog', description: '', materials: [], assignedWorkers: [], labourPrice: 0, vatRate: 25, investorName: customer.name, status: 'Novi', priority: 'Normalan' }\n      }\n    }\n  }\n\n  if (/^(napravi|kreiraj|stvori|dodaj|unesi|izradi).*(ponudu|ponuda)/i.test(n)) {\n    const query = customerNameFrom(text)\n    const customer = await findCustomer(query)\n    if (!customer) return null\n    const today = new Date()\n    const valid = new Date(today)\n    valid.setDate(valid.getDate() + 14)\n    const fmt = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zagreb' }).format(d)\n    return { message: 'Pripremio sam novu ponudu za „' + customer.name + '”.', proposedAction: null, clientAction: { type: 'create_offer', payload: { customerId: customer.id, customerName: customer.name, customerType: customer.type, customerOib: customer.oib, customerPhone: customer.phone, customerEmail: customer.email, customerAddress: customer.street, customerPostalCode: customer.postalCode, customerCity: customer.city, customerContactPerson: customer.contactPerson ?? '', date: fmt(today), validUntil: fmt(valid), title: 'Ponuda', description: '', items: [], vatRate: 25 } } }\n  }\n\n  if (/^(otvori|pronadi|pronađi|nadi|nađi|pokazi|pokaži).*(zadnji|posljednji).*(radni nalog|nalog)/i.test(n)) {\n    const orders = await getWorkOrders()\n    const order = [...orders].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]\n    if (!order) return { message: 'Nema radnih naloga za otvaranje.', proposedAction: null, clientAction: null }\n    return { message: 'Otvaram zadnji radni nalog ' + order.orderNumber + ' — ' + order.customerName + '.', proposedAction: null, clientAction: { type: 'open_work_order', payload: { workOrderId: order.id } } }\n  }\n\n  if (/^(pretrazi|pretraži|pronadi|pronađi|nadi|nađi|pokazi|pokaži).*(radne naloge|naloge)/i.test(n)) {\n    const query = customerNameFrom(text)\n    const orders = await getWorkOrders()\n    const found = orders.filter((o) => score(query, [o.orderNumber, o.customerName, o.title, o.address, o.status].join(' ')) >= 45).slice(0, 8)\n    return { message: found.length ? 'Pronašao sam radne naloge:\\n\\n' + found.map((o, i) => (i+1) + '. ' + o.orderNumber + ' · ' + o.customerName + ' · ' + o.title).join('\\n') : 'Nisam pronašao radne naloge za „' + query + '”.', proposedAction: null, clientAction: null }\n  }\n\n  if (/^(pretrazi|pretraži|pronadi|pronađi|nadi|nađi|pokazi|pokaži).*(ponude)/i.test(n)) {\n    const query = customerNameFrom(text)\n    const offers = await getOffers()\n    const found = offers.filter((o) => score(query, [o.offerNumber, o.customerName, o.description, o.status].join(' ')) >= 45).slice(0, 8)\n    return { message: found.length ? 'Pronašao sam ponude:\\n\\n' + found.map((o, i) => (i+1) + '. ' + o.offerNumber + ' · ' + o.customerName + ' · ' + o.status).join('\\n') : 'Nisam pronašao ponude za „' + query + '”.', proposedAction: null, clientAction: null }\n  }\n\n  const editIntent = /(dolazak|odlazak|opis|radeno|rađeno|materijal|utroseni|utrošeni)/i.test(text) && /(nalog|taj|tog|zadnji|posljednji|dolazak|odlazak|opis|materijal)/i.test(text)\n  if (editIntent) {\n    const orders = await getWorkOrders()\n    let order = null as typeof orders[number] | null\n    if (/zadnji|posljednji/i.test(text)) order = [...orders].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null\n    if (!order) { const id = latestMentionedOrderId(conversation, orders); order = orders.find((o) => o.id === id) ?? null }\n    if (!order) return null\n\n    const arrivalTime = parseTime(text, ['dolazak', 'dosao', 'došao'])\n    const departureTime = parseTime(text, ['odlazak', 'otisao', 'otišao'])\n    const descriptionMatch = text.match(/(?:opis|radeno|rađeno|napravljeno)\\s*[:=-]?\\s*(.+?)(?=(?:,?\\s*(?:materijal|dolazak|odlazak)\\b)|$)/i)\n    const materials = parseMaterials(text)\n    const patch: any = {}\n    if (arrivalTime) patch.arrivalTime = arrivalTime\n    if (departureTime) patch.departureTime = departureTime\n    if (descriptionMatch?.[1]) patch.description = descriptionMatch[1].trim()\n    if (materials.length) patch.materials = [...order.materials, ...materials]\n    if (Object.keys(patch).length === 0) return null\n    if (patch.arrivalTime || patch.departureTime) {\n      const start = patch.arrivalTime || order.arrivalTime\n      const end = patch.departureTime || order.departureTime\n      if (start && end) { const [sh,sm] = start.split(':').map(Number); const [eh,em] = end.split(':').map(Number); let mins = eh*60+em - (sh*60+sm); if (mins < 0) mins += 1440; patch.durationMinutes = mins }\n    }\n    const updated = await updateWorkOrder(order.id, patch)\n    return { message: 'Ažurirao sam radni nalog ' + updated.orderNumber + ' — ' + updated.customerName + '.', proposedAction: null, clientAction: { type: 'open_work_order', payload: { workOrderId: updated.id } } }\n  }\n\n  return null\n}\n`)
+
+          // 3) Call workflow fast path before the generic model.
+          const storePath = 'src/ai/aiConversation.store.ts'
+          let s = fs.readFileSync(storePath, 'utf8')
+          if (!s.includes("from './aiWorkflowFastPath'")) {
+            s = s.replace(
+`import {\n  confirmLocalCustomerCreation,\n  tryCustomerFastPath,\n} from './aiCustomerFastPath'`,
+`import {\n  confirmLocalCustomerCreation,\n  tryCustomerFastPath,\n} from './aiCustomerFastPath'\nimport {\n  tryWorkflowFastPath,\n} from './aiWorkflowFastPath'`
+            )
+          }
+          s = s.replace(
+`          const response =\n            customerFast ??\n            await askAiAssistant(\n              clean,\n              next,\n            )`,
+`          const workflowFast =\n            customerFast\n              ? null\n              : await tryWorkflowFastPath(\n                  clean,\n                  before,\n                )\n\n          const response =\n            customerFast ??\n            workflowFast ??\n            await askAiAssistant(\n              clean,\n              next,\n            )`
+          )
+          fs.writeFileSync(storePath, s)
+
+          // 4) Improve welcome text / examples to teach users natural commands.
+          const panelPath = 'src/ai/AIChatPanel.tsx'
+          let p = fs.readFileSync(panelPath, 'utf8')
+          p = p.replace(
+`const quickPrompts = [\n  'Pronađi investitora Ivan Horvat',\n  'Pronađi investitora i pokaži sve njegove ponude: ',\n  'Pronađi zadnji radni nalog',\n  'Što imam danas u kalendaru?',\n]`,
+`const quickPrompts = [\n  'Napravi radni nalog za Ivan Horvat',\n  'Otvori zadnji radni nalog',\n  'Pretraži radne naloge za Ivan Horvat',\n  'Napravi ponudu za Ivan Horvat',\n]`
+          )
+          fs.writeFileSync(panelPath, p)
+          NODE
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit upgrade
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/services/aiContext.service.ts src/ai/aiWorkflowFastPath.ts src/ai/aiConversation.store.ts src/ai/AIChatPanel.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Upgrade FERSYS AI conversational workflows [skip ci]'
+          git push
