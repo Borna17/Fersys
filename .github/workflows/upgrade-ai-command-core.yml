@@ -1,0 +1,431 @@
+name: Upgrade FERSYS AI command core
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-ai-command-core.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Upgrade customer field parsing
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/ai/aiCustomerFastPath.ts'
+          let s = fs.readFileSync(path, 'utf8')
+
+          s = s.replace(
+`function createIntent(
+  text: string,
+) {
+  const match =
+    text.match(
+      /(?:napravi|kreiraj|dodaj|unesi|stvori)\\s+(?:novog\\s+|novu\\s+)?(?:kupca|klijenta|investitora|naru[cč]itelja|firmu|tvrtku|obrt|zgradu)\\s*(.*)$/i,
+    )
+
+  if (!match) {
+    return null
+  }
+
+  const name =
+    cleanName(
+      match[1] || '',
+    )
+
+  if (!name) {
+    return null
+  }
+
+  return {
+    name,
+    type:
+      customerTypeFromText(
+        text,
+      ),
+  }
+}`,
+`function labeledField(text: string, labels: string[]) {
+  const escaped = labels.map((label) => label.replace(/[.*+?^\${}()|[\\]\\]/g, '\\\\$&')).join('|')
+  const stop = '(?=\\s*(?:,|;|\\.|\\n|\\r|\\b(?:naziv|ime|lokacija|adresa|ulica|grad|mjesto|poštanski broj|postanski broj|oib|telefon|mobitel|broj telefona|email|e-mail|kontakt osoba|iban|napomena)\\b|$))'
+  const match = text.match(new RegExp('(?:^|[\\s,;])(?:' + escaped + ')\\s*(?:je|:|-)?\\s*(.+?)' + stop, 'i'))
+  return match?.[1]?.trim() ?? ''
+}
+
+function parseCustomerCreate(text: string) {
+  const match = text.match(/(?:napravi|kreiraj|dodaj|unesi|stvori|izradi|ubaci)\\s+(?:mi\\s+)?(?:novog\\s+|novu\\s+)?(?:kupca|klijenta|investitora|naru[cč]itelja|firmu|tvrtku|obrt|zgradu)\\s*(.*)$/i)
+  if (!match) return null
+
+  const tail = match[1] || ''
+  const marker = /\\b(?:lokacija|adresa|ulica|grad|mjesto|poštanski broj|postanski broj|oib|telefon|mobitel|broj telefona|email|e-mail|kontakt osoba|iban|napomena)\\b/i
+  const beforeMarker = tail.split(marker)[0]
+  const explicitName = labeledField(tail, ['naziv', 'ime'])
+  const name = cleanName(explicitName || beforeMarker)
+  if (!name) return null
+
+  const location = labeledField(tail, ['lokacija', 'adresa', 'ulica'])
+  const city = labeledField(tail, ['grad', 'mjesto'])
+  const postalCode = labeledField(tail, ['poštanski broj', 'postanski broj'])
+  const oib = labeledField(tail, ['oib']).replace(/\\D/g, '')
+  const phone = labeledField(tail, ['telefon', 'mobitel', 'broj telefona'])
+  const email = labeledField(tail, ['email', 'e-mail']).toLowerCase()
+  const contactPerson = labeledField(tail, ['kontakt osoba'])
+  const iban = labeledField(tail, ['iban']).replace(/\\s+/g, '').toUpperCase()
+  const notes = labeledField(tail, ['napomena'])
+
+  return {
+    name,
+    type: customerTypeFromText(text),
+    street: location,
+    city,
+    postalCode,
+    oib,
+    phone,
+    email,
+    contactPerson,
+    iban,
+    notes,
+  }
+}
+
+function createIntent(text: string) {
+  return parseCustomerCreate(text)
+}`)
+
+          s = s.replace(
+`      payload: {
+        name:
+          create.name,
+        customerType:
+          create.type,
+      },`,
+`      payload: {
+        name: create.name,
+        customerType: create.type,
+        street: create.street,
+        city: create.city,
+        postalCode: create.postalCode,
+        oib: create.oib,
+        phone: create.phone,
+        email: create.email,
+        contactPerson: create.contactPerson,
+        iban: create.iban,
+        notes: create.notes,
+      },`)
+
+          s = s.replace(
+`    description:
+        \`Kreirat ću \${typeLabel(
+          create.type,
+        )} "\${create.name}". OIB i ostale podatke možeš dodati kasnije.\`,`,
+`    description:
+        [
+          \`Kreirat ću \${typeLabel(create.type)} "\${create.name}".\`,
+          create.street ? \`Adresa: \${create.street}\` : '',
+          create.city ? \`Grad: \${create.city}\` : '',
+          create.oib ? \`OIB: \${create.oib}\` : '',
+          create.phone ? \`Telefon: \${create.phone}\` : '',
+          create.email ? \`E-mail: \${create.email}\` : '',
+        ].filter(Boolean).join('\\n'),`)
+
+          s = s.replace(
+`    contactPerson:
+      '',
+    oib: '',
+    phone: '',
+    email: '',
+    street: '',
+    city: '',
+    postalCode: '',
+    iban: '',
+    notes:
+      'Kreirano putem FERSYS AI.',`,
+`    contactPerson:
+      typeof action.payload.contactPerson === 'string' ? action.payload.contactPerson.trim() : '',
+    oib:
+      typeof action.payload.oib === 'string' ? action.payload.oib.replace(/\\D/g, '') : '',
+    phone:
+      typeof action.payload.phone === 'string' ? action.payload.phone.trim() : '',
+    email:
+      typeof action.payload.email === 'string' ? action.payload.email.trim().toLowerCase() : '',
+    street:
+      typeof action.payload.street === 'string' ? action.payload.street.trim() : '',
+    city:
+      typeof action.payload.city === 'string' ? action.payload.city.trim() : '',
+    postalCode:
+      typeof action.payload.postalCode === 'string' ? action.payload.postalCode.trim() : '',
+    iban:
+      typeof action.payload.iban === 'string' ? action.payload.iban.replace(/\\s+/g, '').toUpperCase() : '',
+    notes:
+      [
+        'Kreirano putem FERSYS AI.',
+        typeof action.payload.notes === 'string' ? action.payload.notes.trim() : '',
+      ].filter(Boolean).join(' '),`)
+
+          fs.writeFileSync(path, s)
+          NODE
+
+      - name: Add deterministic business command fast path
+        run: |
+          cat > src/ai/aiBusinessFastPath.ts <<'EOF'
+          import { getCustomers } from '../services/customers.service'
+          import { getWorkOrders } from '../services/workOrders.service'
+          import { getOffers } from '../services/offers.service'
+          import type { Customer } from '../types/customer'
+          import type { AiAssistantMessage, AiAssistantResponse } from '../services/aiAssistant.service'
+
+          function normalize(value: string) {
+            return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('hr-HR').replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim()
+          }
+
+          function score(query: string, value: string) {
+            const q = normalize(query)
+            const v = normalize(value)
+            if (!q || !v) return 0
+            if (q === v) return 100
+            if (v.includes(q) || q.includes(v)) return 85
+            const qt = q.split(' ').filter(Boolean)
+            const vt = new Set(v.split(' ').filter(Boolean))
+            return Math.round((qt.filter((t) => vt.has(t)).length / Math.max(1, qt.length)) * 70)
+          }
+
+          async function findCustomer(query: string): Promise<Customer | null> {
+            const customers = await getCustomers()
+            const ranked = customers.filter((c) => c.status === 'Aktivan').map((customer) => ({ customer, score: score(query, [customer.name, customer.city, customer.oib, customer.phone].join(' ')) })).sort((a, b) => b.score - a.score)
+            return ranked[0]?.score >= 45 ? ranked[0].customer : null
+          }
+
+          function customerQuery(text: string, entity: 'nalog'|'ponuda') {
+            const normalized = text
+              .replace(/^(?:napravi|kreiraj|izradi|dodaj|stvori|otvori|pronađi|pronadi|nađi|nadi|pretraži|pretrazi|pokaži|pokazi)\s+(?:mi\s+)?/i, '')
+              .replace(entity === 'nalog' ? /(?:novi\s+)?(?:radni\s+)?nalog(?:a)?\s*/i : /(?:novu\s+)?ponud(?:u|a|e)\s*/i, '')
+              .replace(/^(?:za|od|kod)\s+/i, '')
+            return normalized.split(/\b(?:opis|radovi|materijal|dolazak|odlazak|datum|cijena|iznos|stavke)\b/i)[0].replace(/[,:;.-]+$/g, '').trim()
+          }
+
+          function today() {
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zagreb' }).format(new Date())
+          }
+
+          function plusDays(days: number) {
+            const d = new Date()
+            d.setDate(d.getDate() + days)
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zagreb' }).format(d)
+          }
+
+          function lastMentionedName(conversation: AiAssistantMessage[]) {
+            for (let i = conversation.length - 1; i >= 0; i -= 1) {
+              const m = conversation[i].content.match(/(?:investitor|kupac|klijent)\s+[„"]?([^„"\n,.]+)[”"]?/i)
+              if (m?.[1]) return m[1].trim()
+            }
+            return ''
+          }
+
+          export async function tryBusinessFastPath(text: string, conversation: AiAssistantMessage[]): Promise<AiAssistantResponse | null> {
+            const n = normalize(text)
+
+            if (/\b(otvori|pronadi|nadi|pokazi)\b.*\b(zadnji|zadnju|posljednji|posljednju)\b.*\b(radni nalog|nalog)\b/.test(n)) {
+              const orders = await getWorkOrders()
+              const latest = [...orders].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+              if (!latest) return { message: 'Nema radnih naloga za otvoriti.', proposedAction: null, clientAction: null }
+              return { message: `Otvaram zadnji radni nalog ${latest.orderNumber} — ${latest.customerName}.`, proposedAction: null, clientAction: { type: 'open_work_order', payload: { workOrderId: latest.id } } }
+            }
+
+            if (/\b(otvori|pronadi|nadi|pokazi)\b.*\b(zadnju|posljednju)\b.*\bponud/.test(n)) {
+              const offers = await getOffers()
+              const latest = [...offers].sort((a, b) => new Date(b.createdAt ?? b.date).getTime() - new Date(a.createdAt ?? a.date).getTime())[0]
+              if (!latest) return { message: 'Nema ponuda za otvoriti.', proposedAction: null, clientAction: null }
+              return { message: `Otvaram zadnju ponudu ${latest.offerNumber} — ${latest.customerName}.`, proposedAction: null, clientAction: { type: 'open_offer', payload: { offerId: latest.id } } }
+            }
+
+            if (/\b(pretrazi|pronadi|nadi|pokazi|izlistaj|nabroji)\b.*\b(radni nalog|radne naloge|naloge)\b/.test(n)) {
+              const orders = await getWorkOrders()
+              const q = customerQuery(text, 'nalog')
+              const hits = q ? orders.filter((o) => score(q, [o.orderNumber, o.customerName, o.title, o.address, o.description].join(' ')) >= 35) : orders
+              const top = hits.slice(0, 8)
+              return { message: top.length ? ['Pronašao sam radne naloge:', ...top.map((o) => `• ${o.orderNumber} — ${o.customerName} — ${o.title} — ${o.status}`)].join('\n') : `Nisam pronašao radne naloge${q ? ` za „${q}”` : ''}.`, proposedAction: null, clientAction: null }
+            }
+
+            if (/\b(pretrazi|pronadi|nadi|pokazi|izlistaj|nabroji)\b.*\bponud/.test(n)) {
+              const offers = await getOffers()
+              const q = customerQuery(text, 'ponuda')
+              const hits = q ? offers.filter((o) => score(q, [o.offerNumber, o.customerName, o.description, o.status].join(' ')) >= 35) : offers
+              const top = hits.slice(0, 8)
+              return { message: top.length ? ['Pronašao sam ponude:', ...top.map((o) => `• ${o.offerNumber} — ${o.customerName} — ${o.status}`)].join('\n') : `Nisam pronašao ponude${q ? ` za „${q}”` : ''}.`, proposedAction: null, clientAction: null }
+            }
+
+            if (/\b(napravi|kreiraj|izradi|dodaj|stvori)\b.*\b(radni nalog|nalog)\b/.test(n)) {
+              const q = customerQuery(text, 'nalog') || lastMentionedName(conversation)
+              if (!q) return { message: 'Za kojeg investitora želiš radni nalog? Napiši npr. „Napravi radni nalog za Ivan Horvat”.', proposedAction: null, clientAction: null }
+              const customer = await findCustomer(q)
+              if (!customer) return { message: `Nisam pronašao investitora „${q}”. Ako je novi, prvo reci „napravi investitora ${q}”.`, proposedAction: null, clientAction: null }
+              return {
+                message: `Kreiram novi radni nalog za „${customer.name}”. Možeš zatim reći dolazak, odlazak, opis radova i utrošeni materijal.`,
+                proposedAction: null,
+                clientAction: {
+                  type: 'create_work_order',
+                  payload: {
+                    customerId: customer.id,
+                    customerName: customer.name,
+                    customerContactPerson: customer.contactPerson ?? '',
+                    customerPhone: customer.phone,
+                    customerEmail: customer.email,
+                    customerOib: customer.oib,
+                    address: [customer.street, customer.postalCode, customer.city].filter(Boolean).join(', '),
+                    date: today(),
+                    title: `Radni nalog - ${customer.name}`,
+                    description: '',
+                    materials: [],
+                    assignedWorkers: [],
+                    labourPrice: 0,
+                    vatRate: 25,
+                    investorName: customer.name,
+                    status: 'Novi',
+                    priority: 'Normalan',
+                    generatePdfAfterCreate: false,
+                  },
+                },
+              }
+            }
+
+            if (/\b(napravi|kreiraj|izradi|dodaj|stvori)\b.*\bponud/.test(n)) {
+              const q = customerQuery(text, 'ponuda') || lastMentionedName(conversation)
+              if (!q) return { message: 'Za kojeg investitora želiš ponudu?', proposedAction: null, clientAction: null }
+              const customer = await findCustomer(q)
+              if (!customer) return { message: `Nisam pronašao investitora „${q}”. Ako je novi, prvo ga kreiraj.`, proposedAction: null, clientAction: null }
+              return {
+                message: `Kreiram nacrt ponude za „${customer.name}”. Nakon toga možeš zadati stavke, količine, cijene i opis.`,
+                proposedAction: null,
+                clientAction: {
+                  type: 'create_offer',
+                  payload: {
+                    customerId: customer.id,
+                    customerName: customer.name,
+                    customerType: customer.type,
+                    customerOib: customer.oib,
+                    customerEmail: customer.email,
+                    customerPhone: customer.phone,
+                    customerAddress: customer.street,
+                    customerPostalCode: customer.postalCode,
+                    customerCity: customer.city,
+                    customerContactPerson: customer.contactPerson ?? '',
+                    date: today(),
+                    validUntil: plusDays(30),
+                    title: `Ponuda - ${customer.name}`,
+                    description: '',
+                    items: [],
+                    vatRate: 25,
+                    generatePdfAfterCreate: false,
+                  },
+                },
+              }
+            }
+
+            return null
+          }
+          EOF
+
+      - name: Wire business fast path into conversation
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/ai/aiConversation.store.ts'
+          let s = fs.readFileSync(path, 'utf8')
+
+          if (!s.includes("from './aiBusinessFastPath'")) {
+            s = s.replace(
+              "import {\n  confirmLocalCustomerCreation,\n  tryCustomerFastPath,\n} from './aiCustomerFastPath'\n",
+              "import {\n  confirmLocalCustomerCreation,\n  tryCustomerFastPath,\n} from './aiCustomerFastPath'\nimport { tryBusinessFastPath } from './aiBusinessFastPath'\n",
+            )
+          }
+
+          s = s.replace(
+`          const customerFast =
+            await tryCustomerFastPath(
+              clean,
+              before,
+            )
+
+          const response =
+            customerFast ??
+            await askAiAssistant(
+              clean,
+              next,
+            )`,
+`          const customerFast =
+            await tryCustomerFastPath(
+              clean,
+              before,
+            )
+
+          const businessFast =
+            customerFast
+              ? null
+              : await tryBusinessFastPath(
+                  clean,
+                  before,
+                )
+
+          const response =
+            customerFast ??
+            businessFast ??
+            await askAiAssistant(
+              clean,
+              next,
+            )`)
+
+          fs.writeFileSync(path, s)
+          NODE
+
+      - name: Improve AI examples
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/ai/AIChatPanel.tsx'
+          let s = fs.readFileSync(path, 'utf8')
+          s = s.replace(
+`const quickPrompts = [
+  'Pronađi investitora Ivan Horvat',
+  'Pronađi investitora i pokaži sve njegove ponude: ',
+  'Pronađi zadnji radni nalog',
+  'Što imam danas u kalendaru?',
+]`,
+`const quickPrompts = [
+  'Napravi investitora Ivan Horvat, adresa Vukovarska 10, Slavonski Brod, OIB 12345678901, telefon 0911234567',
+  'Napravi radni nalog za Ivan Horvat',
+  'Otvori zadnji radni nalog',
+  'Pretraži ponude za Ivan Horvat',
+]`)
+          fs.writeFileSync(path, s)
+          NODE
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit AI upgrade
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/ai/aiCustomerFastPath.ts src/ai/aiBusinessFastPath.ts src/ai/aiConversation.store.ts src/ai/AIChatPanel.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Upgrade FERSYS AI command understanding [skip ci]'
+          git push
