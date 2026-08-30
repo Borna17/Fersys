@@ -29,6 +29,7 @@ import {
 } from '../services/drafts.service'
 import type { Customer as CompanyCustomer } from '../types/customer'
 import { downloadInvoicePdf } from '../utils/invoicePdf'
+import { scopedStorageKey } from '../utils/scopedLocalStorage'
 import {
   createInvoice as createCloudInvoice,
   getInvoices as getCloudInvoices,
@@ -124,7 +125,7 @@ type StoredOffer = {
   items: InvoiceItem[]
 }
 
-const STORAGE_KEY = 'fersys_invoices'
+const STORAGE_KEY = scopedStorageKey('fersys_invoices')
 const OFFERS_STORAGE_KEY = 'fersys_offers'
 const FLOW_PREFILL_KEY = 'fersys_invoice_prefill'
 

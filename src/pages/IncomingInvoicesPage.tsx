@@ -20,6 +20,7 @@ import {
   deleteDocument,
   downloadDocument,
 } from '../utils/documentStorage'
+import { scopedStorageKey } from '../utils/scopedLocalStorage'
 
 type Status =
   | 'Nije knjiženo'
@@ -68,7 +69,7 @@ type IncomingInvoice = {
 }
 
 const STORAGE_KEY =
-  'fersys_incoming_invoices'
+  scopedStorageKey('fersys_incoming_invoices')
 
 const statuses: Array<
   Status | 'Svi'

@@ -17,10 +17,10 @@ import {
 } from 'lucide-react'
 
 import { downloadInvoicePdf } from '../utils/invoicePdf'
+import { scopedStorageKey } from '../utils/scopedLocalStorage'
 import {
   deleteInvoice as deleteCloudInvoice,
   getInvoices as getCloudInvoices,
-  importLocalInvoices,
   updateInvoice as updateCloudInvoice,
 } from '../services/invoices.service'
 
@@ -86,7 +86,7 @@ type Invoice = {
 }
 
 const STORAGE_KEY =
-  'fersys_invoices'
+  scopedStorageKey('fersys_invoices')
 
 const statuses:
 Array<
@@ -241,13 +241,6 @@ export function InvoicesPage() {
       try {
         setIsCloudLoading(true)
         setCloudError('')
-
-        const local =
-          readInvoices()
-
-        await importLocalInvoices(
-          local,
-        )
 
         const cloud =
           await getCloudInvoices<Invoice>()

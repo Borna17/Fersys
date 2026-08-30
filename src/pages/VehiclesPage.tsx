@@ -382,7 +382,7 @@ export function VehiclesPage() {
           </div>
         )}
 
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
           <StatCard
             icon={CarFront}
             label="Ukupno vozila"
@@ -945,20 +945,21 @@ function StatCard({
   value: number
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-5">
-      <div className="flex items-center justify-between">
-        <span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-400">
-          <Icon size={19} />
+    <div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-500/10 text-blue-400">
+          <Icon size={16} />
         </span>
 
-        <strong className="text-2xl font-black text-white">
-          {value}
-        </strong>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-xs">
+            {label}
+          </p>
+          <strong className="mt-0.5 block text-lg font-black leading-none text-white sm:text-xl">
+            {value}
+          </strong>
+        </div>
       </div>
-
-      <p className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">
-        {label}
-      </p>
     </div>
   )
 }

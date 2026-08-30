@@ -32,6 +32,7 @@ import {
   downloadDocument,
   saveDocument,
 } from '../utils/documentStorage'
+import { scopedStorageKey } from '../utils/scopedLocalStorage'
 
 type Status =
   | 'Nije knjiženo'
@@ -79,7 +80,7 @@ type IncomingInvoice = {
   updatedAt: string
 }
 
-const STORAGE_KEY = 'fersys_incoming_invoices'
+const STORAGE_KEY = scopedStorageKey('fersys_incoming_invoices')
 
 const categories: Category[] = [
   'Gorivo',

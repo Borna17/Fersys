@@ -66,10 +66,14 @@ function payload<T extends InvoiceCloudShape>(
 export async function getInvoices<
   T extends InvoiceCloudShape,
 >(): Promise<T[]> {
+  const companyId =
+    await getCurrentCompanyId()
+
   const { data, error } =
     await supabase
       .from('invoices')
       .select('*')
+      .eq('company_id', companyId)
       .order(
         'issue_date',
         { ascending: false },
@@ -128,6 +132,9 @@ export async function updateInvoice<
 >(
   invoice: T,
 ): Promise<T> {
+  const companyId =
+    await getCurrentCompanyId()
+
   const { data, error } =
     await supabase
       .from('invoices')
@@ -138,6 +145,7 @@ export async function updateInvoice<
         'id',
         invoice.id,
       )
+      .eq('company_id', companyId)
       .select('*')
       .single()
 
@@ -151,6 +159,9 @@ export async function updateInvoice<
 export async function deleteInvoice(
   id: string,
 ): Promise<void> {
+  const companyId =
+    await getCurrentCompanyId()
+
   const { error } =
     await supabase
       .from('invoices')
@@ -159,6 +170,7 @@ export async function deleteInvoice(
         'id',
         id,
       )
+      .eq('company_id', companyId)
 
   if (error) {
     throw error
