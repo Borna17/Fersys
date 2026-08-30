@@ -1,0 +1,154 @@
+name: Fix native notification center
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-native-notification-center.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Make notification aggregation resilient
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/services/notifications.service.ts'
+          let s = fs.readFileSync(path, 'utf8')
+
+          const replacements = [
+            [
+`      getActivityNotifications(
+        companyId,
+        readKeys,
+        prefMap,
+      ),`,
+`      getActivityNotifications(
+        companyId,
+        readKeys,
+        prefMap,
+      ).catch((error) => {
+        console.error('Activity notifications:', error)
+        return []
+      }),`
+            ],
+            [
+`      getVehicleReminders(
+        companyId,
+        readKeys,
+        prefMap.get(
+          'vehicles',
+        )!,
+      ),`,
+`      getVehicleReminders(
+        companyId,
+        readKeys,
+        prefMap.get(
+          'vehicles',
+        )!,
+      ).catch((error) => {
+        console.error('Vehicle notifications:', error)
+        return []
+      }),`
+            ],
+            [
+`      getInvoiceReminders(
+        companyId,
+        readKeys,
+        prefMap.get(
+          'invoices',
+        )!,
+      ),`,
+`      getInvoiceReminders(
+        companyId,
+        readKeys,
+        prefMap.get(
+          'invoices',
+        )!,
+      ).catch((error) => {
+        console.error('Invoice notifications:', error)
+        return []
+      }),`
+            ],
+            [
+`      getCalendarNotifications(
+        readKeys,
+        prefMap.get(
+          'calendar',
+        )!,
+      ),`,
+`      getCalendarNotifications(
+        readKeys,
+        prefMap.get(
+          'calendar',
+        )!,
+      ).catch((error) => {
+        console.error('Calendar notifications:', error)
+        return []
+      }),`
+            ],
+            [
+`      getLegacyNotifications(
+        prefMap,
+      ),`,
+`      getLegacyNotifications(
+        prefMap,
+      ).catch((error) => {
+        console.error('Legacy notifications:', error)
+        return []
+      }),`
+            ],
+          ]
+
+          for (const [from, to] of replacements) {
+            if (!s.includes(from)) {
+              throw new Error('Expected notification block not found: ' + from.slice(0, 50))
+            }
+            s = s.replace(from, to)
+          }
+
+          fs.writeFileSync(path, s)
+          NODE
+
+      - name: Refresh notifications immediately when bell opens
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/components/MobileNotificationBell.tsx'
+          let s = fs.readFileSync(path, 'utf8')
+          const from = `        onClick={() =>\n          setOpen(\n            (current) =>\n              !current,\n          )\n        }`
+          const to = `        onClick={() => {\n          setOpen(\n            (current) =>\n              !current,\n          )\n          void load()\n        }}`
+          if (!s.includes(from)) throw new Error('Bell click block not found')
+          s = s.replace(from, to)
+          fs.writeFileSync(path, s)
+          NODE
+
+      - name: Build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/services/notifications.service.ts src/components/MobileNotificationBell.tsx
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Fix native notification center resilience [skip ci]'
+          git push
