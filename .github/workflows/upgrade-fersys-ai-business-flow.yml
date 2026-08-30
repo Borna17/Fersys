@@ -1,0 +1,137 @@
+name: Upgrade FERSYS AI business flow and daily assistant
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-fersys-ai-business-flow.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Add AI document flow, daily brief and readiness checks
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          // 1) Add a safe generic navigation client action so AI can open prepared drafts.
+          const assistantPath = 'src/services/aiAssistant.service.ts'
+          let a = fs.readFileSync(assistantPath, 'utf8')
+          if (!a.includes("| 'navigate'")) {
+            a = a.replace("export type AiClientActionType =\n", "export type AiClientActionType =\n  | 'navigate'\n")
+          }
+          fs.writeFileSync(assistantPath, a)
+
+          const enginePath = 'src/ai/aiActionEngine.ts'
+          let e = fs.readFileSync(enginePath, 'utf8')
+          if (!e.includes("case 'navigate':")) {
+            const switchMarker = "  switch (action.type) {\n"
+            if (!e.includes(switchMarker)) throw new Error('AI action switch marker missing')
+            e = e.replace(switchMarker, switchMarker + `    case 'navigate': {\n      const route = requiredString(action.payload.route, 'putanja')\n      if (!route.startsWith('/')) throw new Error('AI putanja nije dopuštena.')\n      navigate(route)\n      return { message: stringValue(action.payload.message, 'Otvorio sam pripremljeni dokument.') }\n    }\n\n`)
+          }
+          fs.writeFileSync(enginePath, e)
+
+          // 2) Expand deterministic workflow fast path.
+          const workflowPath = 'src/ai/aiWorkflowFastPath.ts'
+          let s = fs.readFileSync(workflowPath, 'utf8')
+          if (!s.includes("prepareDocumentConversion")) {
+            s = s.replace("import { getCustomers } from '../services/customers.service'", "import { getCustomers } from '../services/customers.service'\nimport { prepareDocumentConversion } from '../services/documentFlow.service'\nimport { getDailyBrief } from '../services/dailyBrief.service'")
+          }
+
+          const marker = '\n  // Conversational PDF/export commands.'
+          if (!s.includes(marker)) throw new Error('AI operation marker missing')
+          const block = `
+  // Daily business assistant. This is deterministic and uses live FERSYS data.
+  if (/^(sto|što|sta|šta).*(imam|trebam).*(danas)|^(daj|napravi|pokazi|pokaži).*(dnevni|danasnji|današnji).*(pregled|brief|plan)|sto.*nisam.*zavrsio|što.*nisam.*završio/i.test(n)) {
+    const brief = await getDailyBrief()
+    const lines = [
+      'Današnji FERSYS pregled:',
+      '• Današnji aktivni nalozi: ' + brief.todayOrders,
+      '• Hitni nalozi: ' + brief.urgentOrders,
+      '• Nezavršeni raniji nalozi: ' + brief.unfinishedOrders,
+      '• Ponude koje čekaju: ' + brief.waitingOffers,
+      '• Upozorenja za račune: ' + brief.invoiceAlerts,
+    ]
+    if (brief.items.length) {
+      lines.push('', 'Prioriteti:')
+      brief.items.slice(0, 8).forEach((item, index) => lines.push((index + 1) + '. ' + item.title + (item.description ? ' — ' + item.description : '')))
+    }
+    return { message: lines.join('\\n'), proposedAction: null, clientAction: null }
+  }
+
+  // Business document chain: offer -> work order -> invoice. Existing documentFlow service prepares a real draft and links it after save.
+  if (/(pretvori|napravi|kreiraj|izradi).*(iz|od|prema).*(ponud).*(radni nalog|nalog)|(?:iz ove|iz te|iz zadnje|iz posljednje) ponude.*(?:radni nalog|nalog)/i.test(n)) {
+    const offers = await getOffers()
+    let offer = null as typeof offers[number] | null
+    if (/zadnj|posljednj/i.test(n)) offer = [...offers].sort((x,y) => new Date(y.updatedAt || y.createdAt || y.date).getTime() - new Date(x.updatedAt || x.createdAt || x.date).getTime())[0] ?? null
+    if (!offer) {
+      for (let i = conversation.length - 1; i >= 0 && !offer; i -= 1) {
+        const c = normalize(conversation[i].content)
+        offer = offers.find((o) => c.includes(normalize(o.offerNumber)) || c.includes(normalize(o.customerName))) ?? null
+      }
+    }
+    if (!offer) return { message: 'Ne mogu pouzdano odrediti ponudu. Prvo otvori ili navedi ponudu, pa reci „napravi radni nalog iz ove ponude”.', proposedAction: null, clientAction: null }
+    const result = await prepareDocumentConversion('offer', offer.id, 'work_order', true)
+    return { message: result.alreadyExists ? 'Radni nalog iz te ponude već postoji. Otvaram ga.' : 'Pripremio sam radni nalog iz ponude ' + offer.offerNumber + '. Podaci i stavke su preneseni; provjeri ih i spremi nalog.', proposedAction: null, clientAction: { type: 'navigate', payload: { route: result.route, message: 'Otvorio sam radni nalog pripremljen iz ponude.' } } }
+  }
+
+  if (/(pretvori|napravi|kreiraj|izradi).*(iz|od|prema).*(radni nalog|nalog).*(racun|račun)|(?:iz ovog|iz tog|iz zadnjeg|iz posljednjeg) naloga.*(?:racun|račun)/i.test(n)) {
+    const orders = await getWorkOrders()
+    let order = null as typeof orders[number] | null
+    if (/zadnji|zadnjeg|posljednji|posljednjeg/i.test(n)) order = [...orders].sort((x,y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())[0] ?? null
+    if (!order) { const id = latestMentionedOrderId(conversation, orders); order = orders.find((o) => o.id === id) ?? null }
+    if (!order) return { message: 'Ne mogu pouzdano odrediti radni nalog. Prvo otvori ili navedi nalog, pa reci „napravi račun iz ovog naloga”.', proposedAction: null, clientAction: null }
+    const result = await prepareDocumentConversion('work_order', order.id, 'invoice', true)
+    return { message: result.alreadyExists ? 'Račun iz tog naloga već postoji. Otvaram ga.' : 'Pripremio sam račun iz radnog naloga ' + order.orderNumber + '. Investitor, radovi i materijal su preneseni; provjeri cijene i spremi račun.', proposedAction: null, clientAction: { type: 'navigate', payload: { route: result.route, message: 'Otvorio sam račun pripremljen iz radnog naloga.' } } }
+  }
+
+  // Readiness check before finishing/exporting a work order. Never invent missing business data.
+  if (/(provjeri|proveri|je li|jel|spreman).*(nalog).*(gotov|spreman|zavrs|završ|pdf)|(?:sto|što|sta|šta).*(nedostaje).*(nalog)/i.test(n)) {
+    const orders = await getWorkOrders()
+    let order = null as typeof orders[number] | null
+    if (/zadnji|posljednji/i.test(n)) order = [...orders].sort((x,y) => new Date(y.createdAt).getTime() - new Date(x.createdAt).getTime())[0] ?? null
+    if (!order) { const id = latestMentionedOrderId(conversation, orders); order = orders.find((o) => o.id === id) ?? null }
+    if (!order) return null
+    const missing = [] as string[]
+    if (!order.customerName) missing.push('investitor')
+    if (!order.address) missing.push('adresa')
+    if (!order.description?.trim()) missing.push('opis izvedenih radova')
+    if (!order.arrivalTime) missing.push('vrijeme dolaska')
+    if (!order.departureTime) missing.push('vrijeme odlaska')
+    if (!order.materials?.length) missing.push('utrošeni materijal (ako ga je bilo)')
+    if (!order.images?.length) missing.push('fotografije (ako su potrebne)')
+    if (!order.investorSignature) missing.push('potpis investitora (ako je potreban)')
+    return { message: missing.length ? 'Radni nalog ' + order.orderNumber + ' još možeš dopuniti:\\n• ' + missing.join('\\n• ') + '\\n\\nNeću izmišljati podatke koji nisu uneseni.' : 'Radni nalog ' + order.orderNumber + ' ima sve osnovne podatke i spreman je za završetak/PDF.', proposedAction: null, clientAction: null }
+  }
+`
+          s = s.replace(marker, '\n' + block + marker)
+          fs.writeFileSync(workflowPath, s)
+
+          // 3) Improve quick prompts so users discover the real workflow.
+          const panelPath = 'src/ai/AIChatPanel.tsx'
+          let p = fs.readFileSync(panelPath, 'utf8')
+          p = p.replace("  'Pronađi zadnji radni nalog',\n  'Što imam danas u kalendaru?',", "  'Otvori zadnji radni nalog',\n  'Što imam danas?',\n  'Napravi radni nalog iz zadnje ponude',\n  'Napravi račun iz zadnjeg radnog naloga',")
+          fs.writeFileSync(panelPath, p)
+          NODE
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiAssistant.service.ts src/ai/aiActionEngine.ts src/ai/aiWorkflowFastPath.ts src/ai/AIChatPanel.tsx
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Connect FERSYS AI business document flow [skip ci]"
+          git push
