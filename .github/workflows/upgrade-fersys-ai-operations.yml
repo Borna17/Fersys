@@ -1,0 +1,128 @@
+name: Upgrade FERSYS AI operational workflows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/upgrade-fersys-ai-operations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Add conversational offer, PDF and work-order operations
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const p = 'src/ai/aiWorkflowFastPath.ts'
+          let s = fs.readFileSync(p, 'utf8')
+          s = s.replace("import { getOffers } from '../services/offers.service'", "import { getOffers, updateOffer } from '../services/offers.service'")
+          if (!s.includes("getWorkOrderBrandingFromCompanySettings")) {
+            s = s.replace("import type { AiAssistantMessage, AiAssistantResponse } from '../services/aiAssistant.service'", "import type { AiAssistantMessage, AiAssistantResponse } from '../services/aiAssistant.service'\nimport { downloadWorkOrderPdf } from '../utils/workOrderPdf'\nimport { openOfferPdf } from '../utils/offerPdf'\nimport { getWorkOrderBrandingFromCompanySettings } from '../services/workOrderBranding.service'")
+          }
+          const marker = '\n  const editIntent = '
+          if (!s.includes(marker)) throw new Error('workflow marker missing')
+          const block = `
+  // Conversational PDF/export commands. These are read/export operations and may run immediately.
+  if (/(napravi|izradi|generiraj|skini|preuzmi|otvori).*(pdf)/i.test(n) && /(nalog|taj|tog|zadnji|posljednji)/i.test(n)) {
+    const orders = await getWorkOrders()
+    let order = null as typeof orders[number] | null
+    if (/zadnji|posljednji/i.test(n)) order = [...orders].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null
+    if (!order) { const id = latestMentionedOrderId(conversation, orders); order = orders.find((o) => o.id === id) ?? null }
+    if (!order) return { message: 'Ne mogu pouzdano odrediti za koji radni nalog želiš PDF. Otvori ili navedi nalog pa ponovi naredbu.', proposedAction: null, clientAction: null }
+    const branding = await getWorkOrderBrandingFromCompanySettings()
+    await downloadWorkOrderPdf(order, branding)
+    return { message: 'PDF radnog naloga ' + order.orderNumber + ' je spreman za preuzimanje.', proposedAction: null, clientAction: { type: 'open_work_order', payload: { workOrderId: order.id } } }
+  }
+
+  if (/(napravi|izradi|generiraj|otvori).*(pdf)/i.test(n) && /(ponud)/i.test(n)) {
+    const offers = await getOffers()
+    let offer = null as typeof offers[number] | null
+    if (/zadnj|posljednj/i.test(n)) offer = [...offers].sort((a,b) => new Date(b.updatedAt || b.createdAt || b.date).getTime() - new Date(a.updatedAt || a.createdAt || a.date).getTime())[0] ?? null
+    if (!offer) {
+      for (let i = conversation.length - 1; i >= 0 && !offer; i -= 1) {
+        const c = normalize(conversation[i].content)
+        offer = offers.find((o) => c.includes(normalize(o.offerNumber)) || c.includes(normalize(o.customerName))) ?? null
+      }
+    }
+    if (!offer) return { message: 'Ne mogu pouzdano odrediti za koju ponudu želiš PDF. Navedi broj ponude ili investitora.', proposedAction: null, clientAction: null }
+    openOfferPdf(offer)
+    return { message: 'Otvorio sam PDF ponude ' + offer.offerNumber + '.', proposedAction: null, clientAction: { type: 'open_offer', payload: { offerId: offer.id } } }
+  }
+
+  // Natural status/priority changes for the current work order.
+  const statusMatch = n.match(/(?:stavi|promijeni|postavi|oznaci|označi).*(?:nalog|ga|taj).*(zavrsen|završen|otkazan|novi|zakazan|u tijeku)/i)
+  const priorityMatch = n.match(/(?:prioritet|hitnost).*(nizak|normalan|visok|hitno)/i)
+  if (statusMatch || priorityMatch) {
+    const orders = await getWorkOrders()
+    let order = null as typeof orders[number] | null
+    if (/zadnji|posljednji/i.test(n)) order = [...orders].sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0] ?? null
+    if (!order) { const id = latestMentionedOrderId(conversation, orders); order = orders.find((o) => o.id === id) ?? null }
+    if (!order) return null
+    const patch: any = {}
+    if (statusMatch?.[1]) {
+      const raw = normalize(statusMatch[1])
+      patch.status = raw === 'zavrsen' ? 'Završen' : raw === 'otkazan' ? 'Otkazan' : raw === 'zakazan' ? 'Zakazan' : raw === 'u tijeku' ? 'U tijeku' : 'Novi'
+    }
+    if (priorityMatch?.[1]) {
+      const raw = normalize(priorityMatch[1])
+      patch.priority = raw === 'nizak' ? 'Nizak' : raw === 'visok' ? 'Visok' : raw === 'hitno' ? 'Hitno' : 'Normalan'
+    }
+    const updated = await updateWorkOrder(order.id, patch)
+    return { message: 'Ažurirao sam radni nalog ' + updated.orderNumber + '.', proposedAction: null, clientAction: { type: 'open_work_order', payload: { workOrderId: updated.id } } }
+  }
+
+  // Conversational offer editing: description, note, payment terms and status.
+  if (/(ponud)/i.test(n) && /(opis|napomena|placanje|plaćanje|status|poslana|prihvacena|prihvaćena|odbijena)/i.test(n) && !/^(napravi|kreiraj|stvori|dodaj|unesi|izradi)/i.test(n)) {
+    const offers = await getOffers()
+    let offer = null as typeof offers[number] | null
+    if (/zadnj|posljednj/i.test(n)) offer = [...offers].sort((a,b) => new Date(b.updatedAt || b.createdAt || b.date).getTime() - new Date(a.updatedAt || a.createdAt || a.date).getTime())[0] ?? null
+    if (!offer) {
+      for (let i = conversation.length - 1; i >= 0 && !offer; i -= 1) {
+        const c = normalize(conversation[i].content)
+        offer = offers.find((o) => c.includes(normalize(o.offerNumber)) || c.includes(normalize(o.customerName))) ?? null
+      }
+    }
+    if (!offer) return null
+    const patch: any = {}
+    const desc = text.match(/opis(?: ponude)?\s*[:=-]?\s*(.+?)(?=(?:,?\s*(?:napomena|placanje|plaćanje|status)\b)|$)/i)
+    const note = text.match(/napomena\s*[:=-]?\s*(.+?)(?=(?:,?\s*(?:opis|placanje|plaćanje|status)\b)|$)/i)
+    const payment = text.match(/(?:placanje|plaćanje|uvjeti placanja|uvjeti plaćanja)\s*[:=-]?\s*(.+?)(?=(?:,?\s*(?:opis|napomena|status)\b)|$)/i)
+    if (desc?.[1]) patch.description = desc[1].trim()
+    if (note?.[1]) patch.customerNote = note[1].trim()
+    if (payment?.[1]) patch.paymentTerms = payment[1].trim()
+    if (/prihvacen|prihvaćen|prihvacena|prihvaćena/i.test(n)) patch.status = 'Prihvaćena'
+    else if (/odbijen|odbijena/i.test(n)) patch.status = 'Odbijena'
+    else if (/poslan|poslana/i.test(n)) patch.status = 'Poslana'
+    if (!Object.keys(patch).length) return null
+    const updated = await updateOffer(offer.id, patch)
+    return { message: 'Ažurirao sam ponudu ' + updated.offerNumber + '.', proposedAction: null, clientAction: { type: 'open_offer', payload: { offerId: updated.id } } }
+  }
+
+  // Never guess destructive commands. Route them to the generic AI confirmation layer.
+  if (/(obrisi|obriši|izbrisi|izbriši|ponisti|poništi)/i.test(n) && /(nalog|ponud|racun|račun|investitor|kupac)/i.test(n)) return null
+`
+          s = s.replace(marker, '\n' + block + marker)
+          fs.writeFileSync(p, s)
+          NODE
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/ai/aiWorkflowFastPath.ts
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Expand FERSYS AI operational commands [skip ci]"
+          git push
