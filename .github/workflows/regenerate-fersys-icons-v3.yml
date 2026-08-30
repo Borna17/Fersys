@@ -1,0 +1,88 @@
+name: Regenerate FERSYS Android icons v3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/regenerate-fersys-icons-v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pillow
+      - name: Generate correctly sized FERSYS launcher icons
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          from PIL import Image, ImageDraw
+
+          ROOT = Path('android/app/src/main/res')
+          BG = (15, 23, 43, 255)
+          legacy = {'mipmap-mdpi':48,'mipmap-hdpi':72,'mipmap-xhdpi':96,'mipmap-xxhdpi':144,'mipmap-xxxhdpi':192}
+          foreground = {'mipmap-mdpi':108,'mipmap-hdpi':162,'mipmap-xhdpi':216,'mipmap-xxhdpi':324,'mipmap-xxxhdpi':432}
+
+          def mix(a,b,t):
+              return tuple(round(a[i] + (b[i]-a[i])*t) for i in range(4))
+
+          def gradient_square(side, radius, c1, c2):
+              layer=Image.new('RGBA',(side,side),(0,0,0,0))
+              grad=Image.new('RGBA',(side,side)); px=grad.load()
+              for y in range(side):
+                  for x in range(side):
+                      t=max(0,min(1,(x+y)/max(1,2*side-2)))
+                      px[x,y]=mix(c1,c2,t)
+              mask=Image.new('L',(side,side),0)
+              ImageDraw.Draw(mask).rounded_rectangle((0,0,side-1,side-1),radius=radius,fill=255)
+              layer.paste(grad,(0,0),mask)
+              return layer
+
+          def mark(canvas_size, transparent=False, adaptive=False):
+              ss=4; size=canvas_size*ss
+              base=Image.new('RGBA',(size,size),(0,0,0,0) if transparent else BG)
+              # Smaller than the previous icon so Android/Samsung masks do not stretch the mark.
+              scale=0.68 if not adaptive else 0.44
+              diamond_side=int(size*0.53*scale/0.82)
+              radius=int(diamond_side*0.205)
+              center_y=int(size*0.50)
+              separation=int(size*0.235*scale/0.82)
+              def place(cx, colors, opacity=255):
+                  sq=gradient_square(diamond_side,radius,colors[0],colors[1])
+                  sq=sq.rotate(45,resample=Image.Resampling.BICUBIC,expand=True)
+                  if opacity != 255:
+                      a=sq.getchannel('A').point(lambda p:p*opacity//255); sq.putalpha(a)
+                  base.alpha_composite(sq,(round(cx-sq.width/2),round(center_y-sq.height/2)))
+              place(size//2-separation//2,((41,120,246,255),(62,142,255,255)))
+              place(size//2+separation//2,((139,92,246,255),(126,45,245,255)),250)
+              return base.resize((canvas_size,canvas_size),Image.Resampling.LANCZOS)
+
+          for folder,px in legacy.items():
+              out=ROOT/folder; out.mkdir(parents=True,exist_ok=True)
+              icon=mark(px)
+              icon.save(out/'ic_launcher.png',optimize=True)
+              icon.save(out/'ic_launcher_round.png',optimize=True)
+          for folder,px in foreground.items():
+              out=ROOT/folder; out.mkdir(parents=True,exist_ok=True)
+              mark(px,transparent=True,adaptive=True).save(out/'ic_launcher_foreground.png',optimize=True)
+
+          (ROOT/'values'/'ic_launcher_background.xml').write_text('<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0F172B</color>\n</resources>\n',encoding='utf-8')
+          mark(512).save('public/fersys-android-icon-512.png',optimize=True)
+          print('FERSYS icon v3 generated.')
+          PY
+      - name: Commit generated icons
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add android/app/src/main/res/mipmap-*/ic_launcher.png android/app/src/main/res/mipmap-*/ic_launcher_round.png android/app/src/main/res/mipmap-*/ic_launcher_foreground.png android/app/src/main/res/values/ic_launcher_background.xml public/fersys-android-icon-512.png
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Fix FERSYS Android launcher icon sizing [skip ci]"
+          git push
