@@ -2,7 +2,6 @@ import { supabase } from '../lib/supabase'
 import type { CloudWorkOrderImage } from './workOrders.service'
 
 const BUCKET = 'customer-photos'
-const SIGNED_URL_SECONDS = 60 * 60
 
 type GalleryRow = {
   id: string
@@ -29,6 +28,34 @@ function parseLegacyImages(value: unknown): CloudWorkOrderImage[] {
     .filter((image) => image.dataUrl !== '')
 }
 
+/**
+ * PDF se izrađuje preko html2canvas. Udaljeni/signed URL može biti vidljiv u
+ * aplikaciji, ali ga canvas na nekim browserima/PWA uređajima ne uspije
+ * nacrtati zbog CORS-a ili zato što je URL istekao. Zato fotografiju za radni
+ * nalog preuzimamo autorizirano iz Supabase Storagea i pretvaramo u data URL.
+ * Tako PDF uvijek dobiva stvarne bajtove slike, a ne privremenu mrežnu adresu.
+ */
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error('Fotografiju nije moguće pretvoriti za PDF.'))
+    }
+
+    reader.onerror = () => {
+      reject(reader.error ?? new Error('Fotografiju nije moguće učitati.'))
+    }
+
+    reader.readAsDataURL(blob)
+  })
+}
+
 async function getGalleryImages(workOrderId: string): Promise<CloudWorkOrderImage[]> {
   const { data, error } = await supabase
     .from('customer_photos')
@@ -43,16 +70,17 @@ async function getGalleryImages(workOrderId: string): Promise<CloudWorkOrderImag
 
   return Promise.all(
     rows.map(async (row) => {
-      const { data: signed, error: signedError } = await supabase.storage
+      const { data: file, error: downloadError } = await supabase.storage
         .from(BUCKET)
-        .createSignedUrl(row.storage_path, SIGNED_URL_SECONDS)
+        .download(row.storage_path)
 
-      if (signedError) throw signedError
+      if (downloadError) throw downloadError
+      if (!file) throw new Error(`Fotografija ${row.file_name || row.id} nije pronađena.`)
 
       return {
         id: row.source_image_id || row.id,
         name: row.file_name || 'Fotografija',
-        dataUrl: signed.signedUrl,
+        dataUrl: await blobToDataUrl(file),
       }
     }),
   )
