@@ -121,6 +121,9 @@ const JoinInvitationPage = lazy(
 const LoginPage = lazy(
   () => import('../pages/LoginPage').then((module) => ({ default: module.LoginPage })),
 )
+const CompanyDeletionResponsePage = lazy(
+  () => import('../pages/CompanyDeletionResponsePage').then((module) => ({ default: module.CompanyDeletionResponsePage })),
+)
 const NewIncomingInvoicePage = lazy(
   () => import('../pages/NewIncomingInvoicePage').then((module) => ({ default: module.NewIncomingInvoicePage })),
 )
@@ -275,6 +278,7 @@ function RouterContent() {
       <PushRegistrationSync />
       <Routes>
         <Route path="/" element={isLoading ? <FersysLoader fullScreen text="Pokretanje FERSYS-a..." /> : <Navigate to={session ? '/dashboard' : '/login'} replace />} />
+        <Route path="/company-deletion-response" element={<CompanyDeletionResponsePage />} />
         <Route path="/join" element={<JoinInvitationPage />} />
         <Route path="/r/:code" element={<ReferralLandingPage />} />
         <Route path="/terms" element={<LegalPage />} />
