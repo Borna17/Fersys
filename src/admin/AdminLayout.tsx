@@ -8,6 +8,8 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
+  ScrollText,
+  ServerCog,
   ShieldCheck,
 } from 'lucide-react'
 import {
@@ -32,6 +34,16 @@ const items = [
     name: 'Aktivnost',
     path: '/admin#activity',
     icon: Activity,
+  },
+  {
+    name: 'Dnevnik radnji',
+    path: '/admin/audit',
+    icon: ScrollText,
+  },
+  {
+    name: 'Sustav',
+    path: '/admin/system',
+    icon: ServerCog,
   },
   {
     name: 'Tvrtke',
