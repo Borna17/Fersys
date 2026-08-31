@@ -1,0 +1,84 @@
+name: Optimize release candidate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/optimize-release-candidate.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply safe performance optimizations and restore native push registration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # 1) Keep large route modules out of the initial app bundle.
+          p = Path('src/router/AppRouter.tsx')
+          s = p.read_text()
+          s = s.replace("import { OffersPage } from '../pages/OffersPage'\n", '')
+          s = s.replace("import { WorkOrdersPage } from '../pages/WorkOrdersPage'\n", '')
+
+          anchor = "const OfferDetailsPage = lazy(\n  () => import('../pages/OfferDetailsPage').then((module) => ({ default: module.OfferDetailsPage })),\n)\n"
+          additions = anchor + "const OffersPage = lazy(\n  () => import('../pages/OffersPage').then((module) => ({ default: module.OffersPage })),\n)\nconst WorkOrdersPage = lazy(\n  () => import('../pages/WorkOrdersPage').then((module) => ({ default: module.WorkOrdersPage })),\n)\n"
+          if "const OffersPage = lazy(" not in s:
+              if anchor not in s:
+                  raise SystemExit('AppRouter lazy anchor not found')
+              s = s.replace(anchor, additions, 1)
+          p.write_text(s)
+
+          # 2) Load XLSX only when export is actually requested.
+          for filename, function_name, workbook_marker in [
+              ('src/pages/OffersPage.tsx', 'exportOffers', '    const workbook ='),
+              ('src/pages/IncomingInvoicesPage.tsx', 'exportExcel', '    const workbook ='),
+          ]:
+              p = Path(filename)
+              s = p.read_text()
+              s = s.replace("import * as XLSX from 'xlsx'\n", '')
+              s = s.replace("import * as XLSX from 'xlsx'\r\n", '')
+              s = s.replace(f"  function {function_name}() {{", f"  async function {function_name}() {{")
+              if "await import('xlsx')" not in s:
+                  if workbook_marker not in s:
+                      raise SystemExit(f'Workbook marker missing in {filename}')
+                  s = s.replace(workbook_marker, "    const XLSX = await import('xlsx')\n\n" + workbook_marker, 1)
+              p.write_text(s)
+
+          # 3) Native FCM registration. Web/PWA behavior remains untouched.
+          push = Path('src/components/PushRegistrationSync.tsx')
+          push.write_text("""import { useEffect } from 'react'\nimport { Capacitor } from '@capacitor/core'\nimport { PushNotifications } from '@capacitor/push-notifications'\n\nimport { useAuth } from '../auth/AuthProvider'\nimport { supabase } from '../lib/supabase'\n\nexport default function PushRegistrationSync() {\n  const { user, membership } = useAuth()\n\n  useEffect(() => {\n    if (!user?.id || !membership?.companyId || !Capacitor.isNativePlatform()) {\n      return\n    }\n\n    let cancelled = false\n    const handles: Array<{ remove: () => Promise<void> }> = []\n\n    void (async () => {\n      try {\n        handles.push(\n          await PushNotifications.addListener('registration', (token) => {\n            if (cancelled || !token.value) return\n\n            void supabase.rpc('register_my_fcm_token', {\n              requested_token: token.value,\n              requested_user_agent: navigator.userAgent,\n              requested_platform: Capacitor.getPlatform(),\n            }).then(({ error }) => {\n              if (error) {\n                console.error('FCM token nije spremljen:', error)\n              }\n            })\n          }),\n        )\n\n        handles.push(\n          await PushNotifications.addListener('registrationError', (error) => {\n            console.error('Native push registracija nije uspjela:', error)\n          }),\n        )\n\n        let permission = await PushNotifications.checkPermissions()\n\n        if (permission.receive === 'prompt') {\n          permission = await PushNotifications.requestPermissions()\n        }\n\n        if (permission.receive !== 'granted' || cancelled) {\n          return\n        }\n\n        await PushNotifications.register()\n      } catch (error) {\n        console.error('Native push inicijalizacija nije uspjela:', error)\n      }\n    })()\n\n    return () => {\n      cancelled = true\n      for (const handle of handles) {\n        void handle.remove()\n      }\n    }\n  }, [membership?.companyId, user?.id])\n\n  return null\n}\n""")
+          PY
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Report production bundle size
+        shell: bash
+        run: |
+          echo "DIST_TOTAL=$(du -sh dist | cut -f1)"
+          echo "Largest JS/CSS assets:"
+          find dist/assets -maxdepth 1 -type f \( -name '*.js' -o -name '*.css' \) -printf '%s %p\n' | sort -nr | head -20 | awk '{printf "%.1f KB %s\n", $1/1024, $2}'
+
+      - name: Commit verified optimizations
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No optimization changes required."
+            exit 0
+          fi
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/router/AppRouter.tsx src/pages/OffersPage.tsx src/pages/IncomingInvoicesPage.tsx src/components/PushRegistrationSync.tsx
+          git commit -m "Optimize startup bundle and restore native push registration"
+          git push
