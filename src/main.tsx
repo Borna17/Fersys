@@ -22,6 +22,7 @@ import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFi
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
+import IncomingInvoicesDatabaseBridge from './components/IncomingInvoicesDatabaseBridge'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
@@ -267,6 +268,7 @@ createRoot(
       <App />
       <ActivityTracker />
       <AdminTrialMessagePolish />
+      <IncomingInvoicesDatabaseBridge />
 
       <FloatingUiLayoutFix />
       <DeliveryNoteMobileLayoutFix />
