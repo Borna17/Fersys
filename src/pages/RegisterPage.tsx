@@ -116,6 +116,11 @@ export function RegisterPage() {
     setCompanyName,
   ] = useState('')
 
+  const [
+    companyOib,
+    setCompanyOib,
+  ] = useState('')
+
   const [email, setEmail] =
     useState('')
 
@@ -203,11 +208,22 @@ export function RegisterPage() {
     if (
       !fullName.trim() ||
       !companyName.trim() ||
+      !companyOib.trim() ||
       !normalizedEmail ||
       !password
     ) {
       setError(
         'Popuni sva obavezna polja.',
+      )
+      return
+    }
+
+    const normalizedCompanyOib =
+      companyOib.replace(/\D/g, '')
+
+    if (!/^\d{11}$/.test(normalizedCompanyOib)) {
+      setError(
+        'OIB tvrtke ili obrta mora sadržavati točno 11 znamenki.',
       )
       return
     }
@@ -270,6 +286,8 @@ export function RegisterPage() {
                   fullName.trim(),
                 company_name:
                   companyName.trim(),
+                company_oib:
+                  normalizedCompanyOib,
                 account_type:
                   'owner',
                 legal_version:
@@ -317,7 +335,7 @@ export function RegisterPage() {
       }
 
       setSuccess(
-        'Registracija je uspješna. Provjeri e-mail i potvrdi račun, a zatim se prijavi.',
+        'Registracija je zaprimljena. Provjeri e-mail i potvrdi račun. Nakon potvrde FERSYS administrator će pregledati prijavu i aktivirati tvrtku.',
       )
 
       setPassword('')
@@ -358,7 +376,7 @@ export function RegisterPage() {
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Prvi korisnik automatski postaje vlasnik tvrtke.
+              Nova tvrtka postaje aktivna nakon provjere FERSYS administratora.
             </p>
           </div>
 
@@ -449,6 +467,32 @@ export function RegisterPage() {
                     />
                   </Field>
                 </div>
+
+                <Field
+                  label="OIB tvrtke ili obrta"
+                  icon={
+                    <Building2
+                      size={19}
+                    />
+                  }
+                >
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    value={companyOib}
+                    onChange={(event) =>
+                      setCompanyOib(
+                        event.target.value
+                          .replace(/\D/g, '')
+                          .slice(0, 11),
+                      )
+                    }
+                    placeholder="11 znamenki OIB-a"
+                    maxLength={11}
+                    className="auth-input"
+                  />
+                </Field>
 
                 <Field
                   label="E-mail adresa"

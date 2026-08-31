@@ -257,6 +257,10 @@ export function AuthProvider({
 
         await ensureCompanyForCurrentUser()
 
+        void supabase.functions
+          .invoke('company-registration-notify')
+          .catch(() => undefined)
+
         const nextMembership =
           await getCurrentMembership()
 
@@ -361,6 +365,9 @@ export function AuthProvider({
       setIsAccessLoading(true)
 
       await ensureCompanyForCurrentUser()
+      void supabase.functions
+        .invoke('company-registration-notify')
+        .catch(() => undefined)
       const nextMembership =
         await getCurrentMembership()
 
