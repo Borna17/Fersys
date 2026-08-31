@@ -1,14 +1,15 @@
 /**
- * Returns a per-account storage key so data cached in the browser/native
- * WebView can never be shown to a different signed-in FERSYS account.
+ * Returns a storage key isolated by both signed-in account and active company.
  *
- * Supabase persists the active auth session under an sb-*-auth-token key.
- * We only read the user id from that local session object; if it cannot be
- * resolved we deliberately use an isolated fallback rather than the old
- * shared global key.
+ * Supabase remains the source of truth for business data. localStorage is used
+ * only as a local cache/fallback by older screens, so it must never be shared
+ * between companies or accounts in the same browser/native WebView.
  */
 export function scopedStorageKey(base: string): string {
   try {
+    const companyId =
+      sessionStorage.getItem('fersys_active_company_id') || 'no-company'
+
     for (let index = 0; index < localStorage.length; index += 1) {
       const key = localStorage.key(index)
       if (!key || !key.startsWith('sb-') || !key.endsWith('-auth-token')) {
@@ -25,12 +26,12 @@ export function scopedStorageKey(base: string): string {
 
       const userId = parsed?.user?.id ?? parsed?.currentSession?.user?.id
       if (userId) {
-        return `${base}:${userId}`
+        return `${base}:${userId}:${companyId}`
       }
     }
   } catch {
-    // Never fall back to the old unscoped key.
+    // Never fall back to an old unscoped key.
   }
 
-  return `${base}:isolated`
+  return `${base}:isolated:no-company`
 }
