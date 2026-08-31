@@ -58,6 +58,12 @@ const AdminSupportPage = lazy(
 const AdminRewardsPage = lazy(
   () => import('../admin/AdminRewardsPage').then((module) => ({ default: module.AdminRewardsPage })),
 )
+const AdminAuditPage = lazy(
+  () => import('../admin/AdminAuditPage'),
+)
+const AdminSystemPage = lazy(
+  () => import('../admin/AdminSystemPage'),
+)
 const AiAssistantPage = lazy(
   () => import('../pages/AiAssistantPage').then((module) => ({ default: module.AiAssistantPage })),
 )
@@ -275,6 +281,8 @@ function RouterContent() {
           <Route path="/admin" element={<AdminDashboardPage />} />
           <Route path="/admin/companies" element={<AdminCompaniesPage />} />
           <Route path="/admin/companies/:companyId" element={<AdminCompanyDetailsPage />} />
+          <Route path="/admin/audit" element={<AdminAuditPage />} />
+          <Route path="/admin/system" element={<AdminSystemPage />} />
           <Route path="/admin/rewards" element={<AdminRewardsPage />} />
           <Route path="/admin/email" element={<AdminEmailCenterPage />} />
           <Route path="/admin/support" element={<AdminSupportPage />} />
