@@ -13,6 +13,11 @@ export type CompanyRegistrationRequest = {
   rejectionReason: string
 }
 
+export type CompanyApprovalResult = {
+  emailSent: boolean
+  emailError: string
+}
+
 export async function getCompanyRegistrationRequests(): Promise<CompanyRegistrationRequest[]> {
   const { data, error } = await supabase.rpc('admin_get_pending_company_registrations_v1')
   if (error) throw error
@@ -30,9 +35,31 @@ export async function getCompanyRegistrationRequests(): Promise<CompanyRegistrat
   }))
 }
 
-export async function approveCompanyRegistration(companyId: string): Promise<void> {
-  const { error } = await supabase.rpc('admin_approve_company_registration_v1', { requested_company_id: companyId })
+export async function approveCompanyRegistration(companyId: string): Promise<CompanyApprovalResult> {
+  const { error } = await supabase.rpc('admin_approve_company_registration_v1', {
+    requested_company_id: companyId,
+  })
   if (error) throw error
+
+  const { error: notificationError } = await supabase.functions.invoke(
+    'company-registration-approved-notify',
+    {
+      body: { companyId },
+    },
+  )
+
+  if (notificationError) {
+    console.error('FERSYS approval e-mail notification failed:', notificationError)
+    return {
+      emailSent: false,
+      emailError: notificationError.message || 'E-mail obavijest nije poslana.',
+    }
+  }
+
+  return {
+    emailSent: true,
+    emailError: '',
+  }
 }
 
 export async function rejectCompanyRegistration(companyId: string, reason: string): Promise<void> {
