@@ -10,7 +10,6 @@ import {
 } from 'react'
 import {
   Link,
-  useNavigate,
 } from 'react-router'
 
 import { supabase } from '../lib/supabase'
@@ -30,8 +29,6 @@ function getHashParameters() {
 }
 
 export function AuthCallbackPage() {
-  const navigate = useNavigate()
-
   const hasStarted =
     useRef(false)
 
@@ -47,7 +44,7 @@ export function AuthCallbackPage() {
     message,
     setMessage,
   ] = useState(
-    'Potvrđujemo e-mail i pripremamo tvoju FERSYS tvrtku...',
+    'Potvrđujemo e-mail i pripremamo vašu FERSYS prijavu...',
   )
 
   useEffect(() => {
@@ -89,9 +86,7 @@ export function AuthCallbackPage() {
           )
         }
 
-        if (
-          code
-        ) {
+        if (code) {
           const { error } =
             await supabase.auth.exchangeCodeForSession(
               code,
@@ -167,12 +162,12 @@ export function AuthCallbackPage() {
 
         if (!session) {
           throw new Error(
-            'E-mail je možda potvrđen, ali automatska prijava nije dovršena. Pokušaj se prijaviti ručno.',
+            'E-mail je možda potvrđen, ali automatska prijava nije dovršena. Pokušajte se prijaviti ručno.',
           )
         }
 
         setMessage(
-          'E-mail je potvrđen. Pripremamo tvoju tvrtku i početni tutorijal...',
+          'E-mail je potvrđen. Šaljemo vašu prijavu FERSYS administraciji...',
         )
 
         const {
@@ -185,16 +180,14 @@ export function AuthCallbackPage() {
           throw companyError
         }
 
+        void supabase.functions
+          .invoke('company-registration-notify')
+          .catch(() => undefined)
+
         setState('success')
         setMessage(
-          'Račun je potvrđen. Otvaramo FERSYS...',
+          'Vaša prijava je poslana FERSYS administraciji. Bit ćete obaviješteni e-mailom kada vaša prijava bude prihvaćena.',
         )
-
-        window.setTimeout(() => {
-          navigate('/dashboard', {
-            replace: true,
-          })
-        }, 900)
       } catch (callbackError) {
         console.error(
           'Auth callback error:',
@@ -211,11 +204,22 @@ export function AuthCallbackPage() {
     }
 
     void finishAuthentication()
-  }, [navigate])
+  }, [])
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
-      <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-7 text-center shadow-2xl shadow-black/50 sm:p-9">
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-slate-950 p-5 text-white">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-40 -top-40 h-96 w-96 rounded-full bg-violet-600/20 blur-3xl" />
+        <div className="absolute -bottom-48 -right-32 h-[30rem] w-[30rem] rounded-full bg-blue-600/20 blur-3xl" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900/95 p-7 text-center shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-9">
+        <img
+          src="/fersys-auth-logo.svg"
+          alt="FERSYS"
+          className="mx-auto mb-6 h-auto w-36 object-contain"
+        />
+
         {state === 'loading' && (
           <>
             <LoaderCircle
@@ -224,7 +228,7 @@ export function AuthCallbackPage() {
             />
 
             <h1 className="mt-6 text-2xl font-black">
-              Potvrda računa
+              Otvaramo FERSYS
             </h1>
           </>
         )}
@@ -237,7 +241,7 @@ export function AuthCallbackPage() {
             />
 
             <h1 className="mt-6 text-2xl font-black">
-              Račun je potvrđen
+              Prijava je poslana administraciji
             </h1>
           </>
         )}
@@ -258,6 +262,12 @@ export function AuthCallbackPage() {
         <p className="mt-4 break-words text-sm leading-6 text-slate-400">
           {message}
         </p>
+
+        {state === 'success' && (
+          <p className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-xs leading-5 text-violet-200">
+            Ne morate ponovno slati prijavu. Nakon odobrenja dobit ćete e-mail i moći ćete se prijaviti u FERSYS.
+          </p>
+        )}
 
         {state === 'error' && (
           <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -280,4 +290,3 @@ export function AuthCallbackPage() {
     </main>
   )
 }
-
