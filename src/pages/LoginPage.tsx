@@ -514,9 +514,17 @@ export function LoginPage() {
               </div>
             </div>
 
-            <p className="mt-6 text-center text-xs text-slate-600">
-              Zaštićeni pristup poslovnim podacima
-            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-xs">
+              <a
+                href="/FERSYS-Korisnicki-prirucnik.pdf"
+                download="FERSYS-Korisnicki-prirucnik.pdf"
+                className="font-bold text-violet-300 transition hover:text-violet-200"
+              >
+                Preuzmi korisnički priručnik (PDF)
+              </a>
+              <span className="text-slate-700">•</span>
+              <span className="text-slate-600">Zaštićeni pristup poslovnim podacima</span>
+            </div>
           </div>
         </section>
       </div>

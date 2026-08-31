@@ -1,5 +1,4 @@
 import {
-  BookOpen,
   Bot,
   CalendarDays,
   CarFront,
@@ -73,7 +72,6 @@ const navigationItems: Array<{
   icon: typeof Gauge
   permission: PermissionKey
   feature?: SubscriptionFeature
-  static?: boolean
 }> = [
   {
     name: 'Dashboard',
@@ -177,15 +175,6 @@ const navigationItems: Array<{
   },
 
   {
-    name: 'Korisnički priručnik',
-    path: '/prirucnik.html',
-    icon: BookOpen,
-    permission:
-      'dashboard.view',
-    static: true,
-  },
-
-  {
     name: 'Podrška',
     path: '/support',
     icon: Headphones,
@@ -261,11 +250,8 @@ export default function Sidebar() {
             can(
               item.permission,
             ) &&
-            (
-              item.static ||
-              isPathEnabled(
-                item.path,
-              )
+            isPathEnabled(
+              item.path,
             ),
         ),
       [
@@ -577,9 +563,6 @@ function Navigation({
                 isLocked
                   ? '/pricing'
                   : item.path
-              }
-              reloadDocument={
-                item.static
               }
               title={
                 !expanded

@@ -1,6 +1,9 @@
 import type { ReactNode } from 'react'
 import {
   AlertTriangle,
+  BookOpen,
+  Download,
+  ExternalLink,
   CheckCircle2,
   Headphones,
   MailQuestion,
@@ -392,6 +395,43 @@ export function SupportPage() {
           icon={<CheckCircle2 size={20} />}
         />
       </div>
+
+      <section className="overflow-hidden rounded-3xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 via-slate-900 to-blue-500/10 p-4 sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-violet-500/15 text-violet-300">
+              <BookOpen size={22} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-violet-300">POMOĆ PRIJE SLANJA ZAHTJEVA</p>
+              <h2 className="mt-1 text-lg font-black text-white sm:text-xl">Korisnički priručnik</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-400">
+                Otvori službeni FERSYS PDF vodič s prikazima aplikacije i kratkim uputama. Ako ne pronađeš rješenje, pošalji poruku podršci ispod.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
+            <a
+              href="/FERSYS-Korisnicki-prirucnik.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-500"
+            >
+              <ExternalLink size={17} />
+              Otvori PDF
+            </a>
+            <a
+              href="/FERSYS-Korisnicki-prirucnik.pdf"
+              download="FERSYS-Korisnicki-prirucnik.pdf"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm font-black text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
+            >
+              <Download size={17} />
+              Preuzmi
+            </a>
+          </div>
+        </div>
+      </section>
 
       {error && (
         <MessageBox
