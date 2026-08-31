@@ -1,0 +1,70 @@
+name: Apply incoming invoices Supabase migration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-incoming-invoices-supabase.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch incoming invoice pages
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/IncomingInvoicesPage.tsx')
+          s = p.read_text()
+          s = s.replace("import { useMemo, useState } from 'react'", "import { useEffect, useMemo, useState } from 'react'")
+          marker = "import {\n  deleteDocument,\n  downloadDocument,\n} from '../utils/documentStorage'"
+          add = marker + "\nimport {\n  deleteIncomingInvoice,\n  listIncomingInvoices,\n} from '../services/incomingInvoices.service'"
+          if "listIncomingInvoices" not in s:
+              s = s.replace(marker, add)
+          s = s.replace("useState<\n      IncomingInvoice[]\n    >(readInvoices)", "useState<\n      IncomingInvoice[]\n    >([])")
+          anchor = "  const [\n    search,\n    setSearch,\n  ] =\n    useState('')"
+          effect = """  useEffect(() => {\n    let cancelled = false\n    void listIncomingInvoices()\n      .then((rows) => {\n        if (cancelled) return\n        const next = rows as IncomingInvoice[]\n        setInvoices(next)\n        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))\n      })\n      .catch((error) => {\n        console.error('Ulazni računi se nisu mogli učitati iz baze:', error)\n        if (!cancelled) setInvoices([])\n      })\n    return () => { cancelled = true }\n  }, [])\n\n""" + anchor
+          if "Ulazni računi se nisu mogli učitati iz baze" not in s:
+              s = s.replace(anchor, effect)
+          needle = """    for (\n      const document\n      of invoice.documents\n    ) {"""
+          replacement = """    try {\n      await deleteIncomingInvoice(invoice.id)\n    } catch (error) {\n      console.error('Ulazni račun se nije mogao obrisati iz baze:', error)\n      window.alert('Račun se nije mogao obrisati iz baze. Pokušaj ponovno.')\n      return\n    }\n\n    for (\n      const document\n      of invoice.documents\n    ) {"""
+          if "deleteIncomingInvoice(invoice.id)" not in s:
+              s = s.replace(needle, replacement)
+          p.write_text(s)
+
+          p = Path('src/pages/NewIncomingInvoicePage.tsx')
+          s = p.read_text()
+          s = s.replace("  useMemo,\n  useRef,\n  useState,", "  useEffect,\n  useMemo,\n  useRef,\n  useState,")
+          marker = "import {\n  analyzeIncomingInvoice,\n  type IncomingInvoiceAiResult,\n} from '../services/incomingInvoiceAi.service'"
+          add = marker + "\nimport {\n  listIncomingInvoices,\n  upsertIncomingInvoice,\n  type IncomingInvoiceRecord,\n} from '../services/incomingInvoices.service'"
+          if "upsertIncomingInvoice" not in s:
+              s = s.replace(marker, add)
+          anchor = "  const fileInputRef =\n    useRef<HTMLInputElement | null>(null)"
+          hydrate = """  useEffect(() => {\n    if (!incomingInvoiceId) return\n    let cancelled = false\n    void listIncomingInvoices()\n      .then((rows) => {\n        if (cancelled) return\n        const invoice = rows.find((item) => item.id === incomingInvoiceId)\n        if (!invoice) return\n        setSupplierName(invoice.supplierName)\n        setSupplierOib(invoice.supplierOib)\n        setInvoiceNumber(invoice.invoiceNumber)\n        setInvoiceDate(invoice.invoiceDate)\n        setDueDate(invoice.dueDate)\n        setBookingDate(invoice.bookingDate)\n        setCategory(invoice.category as Category)\n        setStatus(invoice.status as Status)\n        setPaymentMethod(invoice.paymentMethod)\n        setNetAmount(invoice.netAmount)\n        setVatAmount(invoice.vatAmount)\n        setTotalAmount(invoice.totalAmount)\n        setNote(invoice.note)\n        setDocuments(invoice.documents)\n        localStorage.setItem(STORAGE_KEY, JSON.stringify(rows))\n      })\n      .catch((error) => console.error('Račun se nije mogao učitati iz baze:', error))\n    return () => { cancelled = true }\n  }, [incomingInvoiceId])\n\n""" + anchor
+          if "Račun se nije mogao učitati iz baze" not in s:
+              s = s.replace(anchor, hydrate)
+          s = s.replace("  function saveInvoice() {", "  async function saveInvoice() {")
+          needle = """    const current = readInvoices()\n\n    const updated = editing"""
+          replacement = """    try {\n      await upsertIncomingInvoice(saved as IncomingInvoiceRecord)\n    } catch (error) {\n      console.error('Ulazni račun se nije mogao spremiti u bazu:', error)\n      window.alert('Račun se nije mogao spremiti u bazu. Pokušaj ponovno.')\n      return\n    }\n\n    const current = readInvoices()\n\n    const updated = editing"""
+          if "upsertIncomingInvoice(saved as IncomingInvoiceRecord)" not in s:
+              s = s.replace(needle, replacement)
+          p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run build
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/IncomingInvoicesPage.tsx src/pages/NewIncomingInvoicePage.tsx
+          git diff --cached --quiet || git commit -m "Read and save incoming invoices through Supabase"
+          git push
