@@ -1,0 +1,44 @@
+name: Apply admin audit and system routes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - scripts/apply-admin-audit-system-routes.mjs
+      - src/admin/AdminAuditPage.tsx
+      - src/admin/AdminSystemPage.tsx
+      - src/admin/AdminLayout.tsx
+      - supabase/migrations/20260831_admin_business_audit_system_v1.sql
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply source changes
+        run: node scripts/apply-admin-audit-system-routes.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit applied source
+        run: |
+          if git diff --quiet; then
+            echo "Nema dodatnih promjena."
+            exit 0
+          fi
+          git config user.name "Borna17"
+          git config user.email "69678243+Borna17@users.noreply.github.com"
+          git add src/router/AppRouter.tsx
+          git commit -m "Wire admin audit and system pages"
+          git push
