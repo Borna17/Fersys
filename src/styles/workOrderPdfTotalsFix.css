@@ -19,3 +19,44 @@
 [data-fersys-work-order] .preset-modern .total-row.grand > span:first-child::after {
   letter-spacing: normal;
 }
+
+/*
+ * Fotografije radnog naloga uvijek zadržavaju istu, normalnu širinu.
+ * Grid je stalno 2 stupca: ako je samo jedna fotografija, drugi stupac
+ * ostaje prazan; kod 3 fotografije treća ostaje lijevo u drugom redu.
+ * Time se pojedinačna/slobodna fotografija nikad ne rasteže preko cijelog A4.
+ */
+[data-fersys-work-order] .photo-grid.photos-1,
+[data-fersys-work-order] .photo-grid.photos-2,
+[data-fersys-work-order] .photo-grid.photos-3,
+[data-fersys-work-order] .photo-grid.photos-4 {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+[data-fersys-work-order] .photos-1 .photo-card,
+[data-fersys-work-order] .photos-2 .photo-card,
+[data-fersys-work-order] .photos-3 .photo-card,
+[data-fersys-work-order] .photos-4 .photo-card {
+  width: 100% !important;
+  max-width: none !important;
+}
+
+/* Jednake, umjerene dimenzije fotografija na samostalnim foto stranicama. */
+[data-fersys-work-order] .photos-1 .photo-card img,
+[data-fersys-work-order] .photos-2 .photo-card img,
+[data-fersys-work-order] .photos-3 .photo-card img,
+[data-fersys-work-order] .photos-4 .photo-card img {
+  height: 270px !important;
+  object-fit: contain !important;
+}
+
+/* Na prvoj stranici i završnoj stranici ostaju nešto niže zbog ostalog sadržaja. */
+[data-fersys-work-order] .first-pdf-page .photos-1 .photo-card img,
+[data-fersys-work-order] .first-pdf-page .photos-2 .photo-card img {
+  height: 210px !important;
+}
+
+[data-fersys-work-order] .final-pdf-page .photos-1 .photo-card img,
+[data-fersys-work-order] .final-pdf-page .photos-2 .photo-card img {
+  height: 220px !important;
+}
