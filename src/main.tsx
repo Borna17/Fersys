@@ -19,19 +19,12 @@ import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
+import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
-
-const DownloadFeedbackCenter =
-  lazy(
-    () =>
-      import(
-        './components/DownloadFeedbackCenter'
-      ),
-  )
 
 const MobileNotificationBell =
   lazy(
@@ -92,7 +85,6 @@ function registerWebServiceWorker() {
         activeRegistration =
           registration
 
-        // Provjeri novu verziju odmah nakon pokretanja aplikacije.
         void registration.update()
 
         window.setTimeout(
@@ -102,7 +94,6 @@ function registerWebServiceWorker() {
           1_500,
         )
 
-        // Dok je aplikacija otvorena provjeravaj deploy svakih 5 min.
         window.setInterval(
           () => {
             void registration.update()
@@ -112,7 +103,6 @@ function registerWebServiceWorker() {
       },
 
       onNeedRefresh() {
-        // Vite PWA aktivira novi SW bez pitanja korisnika.
         void updateServiceWorker(
           true,
         )
@@ -128,8 +118,6 @@ function registerWebServiceWorker() {
       },
     })
 
-  // Čim novi service worker preuzme kontrolu, jednom ponovno
-  // učitaj aplikaciju kako bi korisnik odmah dobio novi deploy.
   navigator.serviceWorker.addEventListener(
     'controllerchange',
     () => {
@@ -169,8 +157,6 @@ function registerWebServiceWorker() {
       })
   }
 
-  // Ako se korisnik vrati u FERSYS nakon što je u međuvremenu
-  // napravljen novi Vercel deploy, odmah provjeri novu verziju.
   window.addEventListener(
     'focus',
     checkForUpdate,
@@ -263,7 +249,6 @@ function DeferredEnhancements() {
 
   return (
     <Suspense fallback={null}>
-      <DownloadFeedbackCenter />
       <MobileNotificationBell />
       <DocumentFlowOrchestrator />
       <FirstTenMinutes />
@@ -287,6 +272,8 @@ createRoot(
       <DeliveryNoteMobileLayoutFix />
       <GoogleCalendarOAuthBridge />
 
+      {/* Download status mora raditi i na mobitelu/native aplikaciji. */}
+      <DownloadFeedbackCenter />
       <DeferredEnhancements />
     </BrowserRouter>
   </StrictMode>,
