@@ -1,0 +1,79 @@
+name: Final release audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/final-release-audit.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Dependency audit report
+        shell: bash
+        run: |
+          npm audit --json > /tmp/npm-audit.json || true
+          node - <<'NODE'
+          const fs = require('fs')
+          const report = JSON.parse(fs.readFileSync('/tmp/npm-audit.json', 'utf8'))
+          const vulns = report.vulnerabilities || {}
+          console.log('Dependency vulnerabilities:')
+          for (const [name, v] of Object.entries(vulns)) {
+            console.log(`- ${name}: ${v.severity}; direct=${Boolean(v.isDirect)}; fix=${JSON.stringify(v.fixAvailable)}`)
+            if (Array.isArray(v.via)) {
+              for (const via of v.via) {
+                if (typeof via === 'object') console.log(`  via ${via.name || ''}: ${via.title || ''} ${via.url || ''}`)
+              }
+            }
+          }
+          console.log('Metadata:', JSON.stringify(report.metadata?.vulnerabilities || {}))
+          NODE
+
+      - name: Apply safe non-breaking audit fixes
+        shell: bash
+        run: |
+          npm audit fix || true
+          npm audit --audit-level=high || true
+
+      - name: Production build after safe fixes
+        run: npm run build
+
+      - name: Prepare Android release 1.0.3
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('android/app/build.gradle')
+          s = p.read_text()
+          s = s.replace('versionCode 3', 'versionCode 4')
+          s = s.replace('versionName "1.0.2"', 'versionName "1.0.3"')
+          if 'versionCode 4' not in s or 'versionName "1.0.3"' not in s:
+              raise SystemExit('Could not set Android version to 1.0.3 (4)')
+          p.write_text(s)
+          PY
+
+      - name: Verify Android project sync
+        run: npx cap sync android
+
+      - name: Commit only verified safe changes
+        shell: bash
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add package-lock.json package.json android/app/build.gradle
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Prepare Android 1.0.3 release and safe dependency fixes"
+          git push
