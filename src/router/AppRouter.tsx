@@ -30,6 +30,7 @@ import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNot
 import AppLayout from '../layouts/AppLayout'
 import { OffersPage } from '../pages/OffersPage'
 import { WorkOrdersPage } from '../pages/WorkOrdersPage'
+import { lazyWithRetry } from '../utils/lazyWithRetry'
 
 import {
   SubscriptionProvider,
@@ -130,8 +131,9 @@ const NewInvoicePage = lazy(
 const NewOfferPage = lazy(
   () => import('../pages/NewOfferPage').then((module) => ({ default: module.NewOfferPage })),
 )
-const NewWorkOrderPage = lazy(
+const NewWorkOrderPage = lazyWithRetry(
   () => import('../pages/NewWorkOrderPage').then((module) => ({ default: module.NewWorkOrderPage })),
+  'NewWorkOrderPage',
 )
 const NotificationSettingsPage = lazy(
   () => import('../pages/NotificationSettingsPage').then((module) => ({ default: module.NotificationSettingsPage })),
