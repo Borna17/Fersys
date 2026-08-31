@@ -264,22 +264,13 @@ export function LoginPage() {
 
       <div className="relative z-10 flex min-h-dvh">
         <section className="hidden w-1/2 flex-col justify-between border-r border-white/10 p-12 lg:flex">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">
-              <span className="text-xl font-black">
-                F
-              </span>
-            </div>
-
-            <div>
-              <p className="text-xl font-black tracking-wide">
-                FERSYS
-              </p>
-              <p className="text-sm text-slate-400">
-                Business Management System
-              </p>
-            </div>
-          </div>
+          <div className="flex items-center">
+  <img
+    src="/fersys-auth-logo.svg"
+    alt="FERSYS"
+    className="h-auto w-44 object-contain"
+  />
+</div>
 
           <div className="max-w-xl">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/10 px-4 py-2 text-sm text-violet-200">
@@ -303,22 +294,13 @@ export function LoginPage() {
 
         <section className="flex w-full items-center justify-center px-4 py-8 sm:px-5 sm:py-10 lg:w-1/2">
           <div className="w-full max-w-md">
-            <div className="mb-7 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600">
-                <span className="text-lg font-black">
-                  F
-                </span>
-              </div>
-
-              <div>
-                <p className="font-black">
-                  FERSYS
-                </p>
-                <p className="text-xs text-slate-400">
-                  Business Management System
-                </p>
-              </div>
-            </div>
+            <div className="mb-7 flex justify-center lg:hidden">
+    <img
+      src="/fersys-auth-logo.svg"
+      alt="FERSYS"
+      className="h-auto w-40 object-contain"
+    />
+  </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-5 shadow-2xl backdrop-blur-xl sm:p-8">
               <div className="mb-7">

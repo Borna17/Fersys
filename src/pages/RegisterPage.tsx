@@ -480,11 +480,11 @@ export function RegisterPage() {
       <div className="relative z-10 mx-auto flex min-h-[calc(100dvh-2.5rem)] w-full max-w-2xl items-center">
         <div className="w-full">
           <div className="mb-5 text-center sm:mb-7">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">
-              <span className="text-xl font-black">
-                F
-              </span>
-            </div>
+            <img
+    src="/fersys-auth-logo.svg"
+    alt="FERSYS"
+    className="mx-auto h-auto w-44 object-contain sm:w-48"
+  />
 
             <h1 className="mt-4 text-2xl font-black tracking-tight sm:text-3xl">
               Registracija FERSYS tvrtke
