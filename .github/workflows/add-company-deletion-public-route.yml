@@ -1,0 +1,44 @@
+name: Wire public company deletion response route
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add-company-deletion-public-route.yml'
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Patch router
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/router/AppRouter.tsx')
+          s=p.read_text()
+          anchor="const LoginPage = lazy(\n  () => import('../pages/LoginPage').then((module) => ({ default: module.LoginPage })),\n)\n"
+          add="const CompanyDeletionResponsePage = lazy(\n  () => import('../pages/CompanyDeletionResponsePage').then((module) => ({ default: module.CompanyDeletionResponsePage })),\n)\n"
+          if add not in s:
+              s=s.replace(anchor, anchor+add, 1)
+          route='        <Route path="/company-deletion-response" element={<CompanyDeletionResponsePage />} />\n'
+          route_anchor='        <Route path="/join" element={<JoinInvitationPage />} />\n'
+          if route not in s:
+              s=s.replace(route_anchor, route+route_anchor, 1)
+          p.write_text(s)
+          PY
+      - run: npm ci
+      - run: npm run build
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/router/AppRouter.tsx
+          git commit -m "Add public company deletion response route"
+          git push
