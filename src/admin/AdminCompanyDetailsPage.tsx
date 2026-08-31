@@ -17,9 +17,7 @@ import {
   ReceiptText,
   RefreshCw,
   Save,
-  ShieldBan,
   Sparkles,
-  Trash2,
   UserRound,
   Users,
   Wrench,
@@ -37,7 +35,6 @@ import {
 } from 'react-router'
 
 import {
-  deleteAdminCompany,
   getAdminCompany,
   getAdminCompanyInsights,
   getAdminTrialNotificationDelivery,
@@ -46,6 +43,7 @@ import {
   type AdminCompanyInsights,
   type AdminTrialNotificationDelivery,
 } from './services/admin.service'
+import { AdminCompanyDeletionPanel } from './AdminCompanyDeletionPanel'
 
 const planLabels:
 Record<
@@ -155,11 +153,6 @@ export function AdminCompanyDetailsPage() {
     setTrialDeliveries,
   ] = useState<AdminTrialNotificationDelivery[]>([])
 
-  const [deleteConfirmation, setDeleteConfirmation] =
-    useState('')
-
-  const [deletingCompany, setDeletingCompany] =
-    useState(false)
 
   const loadCompany =
     useCallback(
@@ -255,55 +248,6 @@ export function AdminCompanyDetailsPage() {
         ),
       [company],
     )
-
-  async function handleDeleteCompany() {
-    if (!company) return
-
-    const expectedName = company.companyName.trim()
-
-    if (!expectedName) {
-      setError('Tvrtka nema naziv i ne može se obrisati kroz ovu kontrolu.')
-      return
-    }
-
-    if (deleteConfirmation.trim() !== expectedName) {
-      setError('Za potvrdu upiši točan naziv tvrtke.')
-      return
-    }
-
-    const confirmed = window.confirm(
-      `Trajno obrisati tvrtku "${expectedName}" i sve njezine podatke? Ova radnja se ne može poništiti.`,
-    )
-
-    if (!confirmed) return
-
-    try {
-      setDeletingCompany(true)
-      setError('')
-      setSuccess('')
-
-      const result = await deleteAdminCompany({
-        companyId: company.companyId,
-        confirmation: deleteConfirmation.trim(),
-      })
-
-      if (result.authWarnings.length > 0) {
-        window.alert(
-          `Tvrtka je obrisana, ali ${result.authWarnings.length} Auth korisnika nije automatski obrisano. Provjeri Supabase Auth.`,
-        )
-      }
-
-      navigate('/admin/companies', { replace: true })
-    } catch (value) {
-      setError(
-        value instanceof Error
-          ? value.message
-          : 'Tvrtku nije moguće obrisati.',
-      )
-    } finally {
-      setDeletingCompany(false)
-    }
-  }
 
   async function saveChanges() {
     if (!company) return
@@ -1153,67 +1097,10 @@ export function AdminCompanyDetailsPage() {
             </div>
           </Card>
 
-          <article className="rounded-3xl border border-red-500/25 bg-red-500/5 p-6">
-            <div className="flex gap-3">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-red-500/10 text-red-300">
-                <Trash2 size={21} />
-              </span>
-
-              <div className="min-w-0 flex-1">
-                <h2 className="font-black text-red-200">
-                  Opasna zona
-                </h2>
-
-                <p className="mt-2 text-sm leading-6 text-slate-400">
-                  Koristi samo za testne račune. Brisanjem se trajno uklanja tvrtka, njezini poslovni podaci, članstva i Auth računi korisnika koji nisu članovi drugih tvrtki.
-                </p>
-
-                <div className="mt-5 rounded-2xl border border-red-500/15 bg-slate-950/50 p-4">
-                  <p className="text-xs font-black uppercase tracking-wider text-red-300">
-                    Za potvrdu upiši naziv tvrtke
-                  </p>
-
-                  <p className="mt-2 break-words text-sm font-black text-white">
-                    {company.companyName}
-                  </p>
-
-                  <input
-                    type="text"
-                    value={deleteConfirmation}
-                    onChange={(event) => setDeleteConfirmation(event.target.value)}
-                    autoComplete="off"
-                    placeholder="Upiši točan naziv tvrtke"
-                    className="mt-3 h-12 w-full rounded-xl border border-red-500/20 bg-slate-950 px-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-red-500"
-                  />
-
-                  <button
-                    type="button"
-                    onClick={() => void handleDeleteCompany()}
-                    disabled={
-                      deletingCompany ||
-                      deleteConfirmation.trim() !== company.companyName.trim()
-                    }
-                    className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-5 font-black text-white transition hover:bg-red-500 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Trash2 size={18} />
-                    {deletingCompany
-                      ? 'Brisanje...'
-                      : 'Trajno obriši testnu tvrtku'}
-                  </button>
-                </div>
-
-                <div className="mt-4 flex gap-3 rounded-2xl border border-amber-500/15 bg-amber-500/5 p-4">
-                  <ShieldBan
-                    size={18}
-                    className="mt-0.5 shrink-0 text-amber-300"
-                  />
-                  <p className="text-xs leading-5 text-slate-500">
-                    Ako samo želiš privremeno zaustaviti pristup, nemoj brisati tvrtku. Postavi status pretplate na <strong className="text-amber-200">Blokirano</strong>.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </article>
+          <AdminCompanyDeletionPanel
+            companyId={company.companyId}
+            companyName={company.companyName}
+          />
         </aside>
       </div>
     </section>
