@@ -1,0 +1,42 @@
+name: Apply NewWorkOrderPage lazy retry now
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-new-work-order-lazy-retry-now.yml'
+      - 'scripts/apply-new-work-order-lazy-retry.mjs'
+      - 'src/utils/lazyWithRetry.ts'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply source changes
+        run: node scripts/apply-new-work-order-lazy-retry.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit applied source
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/router/AppRouter.tsx
+          git commit -m "Fix NewWorkOrderPage lazy chunk loading"
+          git push
