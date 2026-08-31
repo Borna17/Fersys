@@ -15,7 +15,6 @@ import {
   useState,
 } from 'react'
 import { useNavigate } from 'react-router'
-import * as XLSX from 'xlsx'
 
 import FersysLoader from '../components/FersysLoader'
 import {
@@ -419,7 +418,7 @@ export function OffersPage() {
     }
   }
 
-  function exportOffers() {
+  async function exportOffers() {
     const list =
       selectedOfferIds.length
         ? filtered.filter(
@@ -453,6 +452,8 @@ export function OffersPage() {
         Ukupno:
           offerTotal(offer),
       }))
+
+    const XLSX = await import('xlsx')
 
     const workbook =
       XLSX.utils.book_new()

@@ -28,8 +28,6 @@ import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
 import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNoteContextShortcut'
 import AppLayout from '../layouts/AppLayout'
-import { OffersPage } from '../pages/OffersPage'
-import { WorkOrdersPage } from '../pages/WorkOrdersPage'
 import { lazyWithRetry } from '../utils/lazyWithRetry'
 
 import {
@@ -146,6 +144,12 @@ const NotFoundPage = lazy(
 )
 const OfferDetailsPage = lazy(
   () => import('../pages/OfferDetailsPage').then((module) => ({ default: module.OfferDetailsPage })),
+)
+const OffersPage = lazy(
+  () => import('../pages/OffersPage').then((module) => ({ default: module.OffersPage })),
+)
+const WorkOrdersPage = lazy(
+  () => import('../pages/WorkOrdersPage').then((module) => ({ default: module.WorkOrdersPage })),
 )
 const PricingPage = lazy(
   () => import('../pages/PricingPage').then((module) => ({ default: module.PricingPage })),

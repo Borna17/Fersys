@@ -14,7 +14,6 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
-import * as XLSX from 'xlsx'
 
 import {
   deleteDocument,
@@ -402,7 +401,7 @@ export function IncomingInvoicesPage() {
     setSelectedId(null)
   }
 
-  function exportExcel() {
+  async function exportExcel() {
     const rows =
       filtered.map(
         (item) => ({
@@ -435,6 +434,8 @@ export function IncomingInvoicesPage() {
             item.note,
         }),
       )
+
+    const XLSX = await import('xlsx')
 
     const workbook =
       XLSX.utils.book_new()
