@@ -13,6 +13,7 @@ export default function AdminCompanyVerificationPanel() {
   const [loading, setLoading] = useState(true)
   const [workingId, setWorkingId] = useState('')
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -35,7 +36,13 @@ export default function AdminCompanyVerificationPanel() {
     try {
       setWorkingId(item.companyId)
       setError('')
-      await approveCompanyRegistration(item.companyId)
+      setNotice('')
+      const result = await approveCompanyRegistration(item.companyId)
+      setNotice(
+        result.emailSent
+          ? `Tvrtka ${item.companyName} je potvrđena. Korisniku je poslana e-mail obavijest da je prijava odobrena.`
+          : `Tvrtka ${item.companyName} je potvrđena, ali e-mail obavijest nije poslana. ${result.emailError}`,
+      )
       await load()
     } catch (value) {
       setError(value instanceof Error ? value.message : 'Tvrtku nije moguće potvrditi.')
@@ -51,6 +58,7 @@ export default function AdminCompanyVerificationPanel() {
     try {
       setWorkingId(item.companyId)
       setError('')
+      setNotice('')
       await rejectCompanyRegistration(item.companyId, reason)
       await load()
     } catch (value) {
@@ -76,6 +84,7 @@ export default function AdminCompanyVerificationPanel() {
         <button type="button" onClick={() => void load()} disabled={loading} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-4 text-sm font-black text-slate-300 disabled:opacity-50"><RefreshCw size={17} className={loading ? 'animate-spin' : ''} />Osvježi</button>
       </div>
 
+      {notice && <div className="m-4 flex items-start gap-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-sm text-emerald-300"><CheckCircle2 size={18} className="mt-0.5 shrink-0" />{notice}</div>}
       {error && <div className="m-4 flex items-start gap-2 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm text-red-300"><AlertTriangle size={18} className="mt-0.5 shrink-0" />{error}</div>}
 
       {loading ? (
