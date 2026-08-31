@@ -124,12 +124,9 @@ export default defineConfig({
           '/index.html',
 
         /*
-         * V3:
-         * Ne precacheamo sve lazy JS module.
-         * Time prvi PWA install/deploy ne povlači cijelu aplikaciju.
-         *
-         * JS se sprema kroz runtime cache tek kada je modul
-         * stvarno potreban korisniku.
+         * HTML/CSS i statičke slike možemo precacheati, ali route JS chunkove
+         * namjerno ne precacheamo. Nakon deploya mobilni PWA mora uvijek moći
+         * dohvatiti aktualni hash modula.
          */
         globPatterns: [
           '**/*.{html,css,ico,png,svg,webp,woff,woff2}',
@@ -137,135 +134,102 @@ export default defineConfig({
 
         runtimeCaching: [
           {
-            urlPattern: ({
-              request,
-            }) =>
-              request.mode ===
-              'navigate',
+            urlPattern: ({ request }) =>
+              request.mode === 'navigate',
 
-            handler:
-              'StaleWhileRevalidate',
+            /*
+             * NetworkFirst je važan za PWA: novi index.html prvo dolazi s
+             * mreže, a cache je samo offline fallback. StaleWhileRevalidate
+             * je mogao vratiti stari index koji referencira obrisane chunkove.
+             */
+            handler: 'NetworkFirst',
 
             options: {
               cacheName:
-                'fersys-pages-v3',
+                'fersys-pages-v4',
+              networkTimeoutSeconds: 5,
 
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds:
-                  60 *
-                  60 *
-                  24 *
-                  3,
+                  60 * 60 * 24,
               },
 
               cacheableResponse: {
-                statuses: [
-                  0,
-                  200,
-                ],
+                statuses: [0, 200],
               },
             },
           },
 
           {
-            urlPattern: ({
-              request,
-            }) =>
-              request.destination ===
-                'script' ||
-              request.destination ===
-                'worker',
+            urlPattern: ({ request }) =>
+              request.destination === 'script' ||
+              request.destination === 'worker',
 
             /*
-             * Chunk se preuzme samo prvi put kada ga ruta/funkcija
-             * stvarno zatraži. Sljedeći put dolazi iz cachea.
+             * Vite asseti imaju hash u imenu. CacheFirst je siguran za isti
+             * hash i, za razliku od StaleWhileRevalidate, ne može vratiti
+             * zastarjeli odgovor za aktualni zahtjev. Nova verzija ima novi
+             * URL/hash pa se automatski preuzima.
              */
-            handler:
-              'StaleWhileRevalidate',
+            handler: 'CacheFirst',
 
             options: {
               cacheName:
-                'fersys-js-v3',
+                'fersys-js-v4',
 
               expiration: {
                 maxEntries: 160,
                 maxAgeSeconds:
-                  60 *
-                  60 *
-                  24 *
-                  14,
+                  60 * 60 * 24 * 14,
               },
 
               cacheableResponse: {
-                statuses: [
-                  0,
-                  200,
-                ],
+                statuses: [0, 200],
               },
             },
           },
 
           {
-            urlPattern: ({
-              request,
-            }) =>
-              request.destination ===
-              'image',
+            urlPattern: ({ request }) =>
+              request.destination === 'image',
 
-            handler:
-              'CacheFirst',
+            handler: 'CacheFirst',
 
             options: {
               cacheName:
-                'fersys-images-v3',
+                'fersys-images-v4',
 
               expiration: {
                 maxEntries: 120,
                 maxAgeSeconds:
-                  60 *
-                  60 *
-                  24 *
-                  30,
+                  60 * 60 * 24 * 30,
               },
 
               cacheableResponse: {
-                statuses: [
-                  0,
-                  200,
-                ],
+                statuses: [0, 200],
               },
             },
           },
 
           {
-            urlPattern: ({
-              request,
-            }) =>
-              request.destination ===
-              'font',
+            urlPattern: ({ request }) =>
+              request.destination === 'font',
 
-            handler:
-              'CacheFirst',
+            handler: 'CacheFirst',
 
             options: {
               cacheName:
-                'fersys-fonts-v3',
+                'fersys-fonts-v4',
 
               expiration: {
                 maxEntries: 30,
                 maxAgeSeconds:
-                  60 *
-                  60 *
-                  24 *
-                  365,
+                  60 * 60 * 24 * 365,
               },
 
               cacheableResponse: {
-                statuses: [
-                  0,
-                  200,
-                ],
+                statuses: [0, 200],
               },
             },
           },
@@ -279,35 +243,15 @@ export default defineConfig({
   ],
 
   build: {
-    /*
-     * Ostavimo stvarni prag na 500 KB.
-     * Ako ponovno nastane veliki chunk, želimo ga vidjeti.
-     */
     chunkSizeWarningLimit: 500,
 
     rolldownOptions: {
-      /*
-       * Ova dva slučaja u AI engineu su već provjerena:
-       * modul je namjerno statički korišten i na drugim mjestima,
-       * pa dynamic import ne može stvoriti zaseban chunk.
-       *
-       * Ne isključujemo nikakva upozorenja o veličini bundlea.
-       */
       checks: {
         ineffectiveDynamicImport:
           false,
       },
 
       output: {
-        /*
-         * V3:
-         * NEMA više catch-all "vendor" grupe.
-         *
-         * Ona je povezivala velik broj lazy routeova u jedan
-         * golemi zajednički chunk. Sada Rolldown sam zadržava
-         * application-level code splitting, a mi ručno izdvajamo
-         * samo stvarno velike i stabilne third-party biblioteke.
-         */
         codeSplitting: {
           groups: [
             {
@@ -358,49 +302,16 @@ export default defineConfig({
 
             {
               name:
-                'pdf-support',
-              test:
-                /node_modules[\\/](canvg|dompurify|fflate)[\\/]/,
-              priority: 95,
-              maxSize:
-                220 * 1024,
-            },
-
-            {
-              name:
-                'excel-tools',
+                'xlsx',
               test:
                 /node_modules[\\/]xlsx[\\/]/,
-              priority: 95,
+              priority: 100,
               maxSize:
-                260 * 1024,
-            },
-
-            {
-              name:
-                'qr-tools',
-              test:
-                /node_modules[\\/]qrcode[\\/]/,
-              priority: 90,
-            },
-
-            {
-              name:
-                'icons',
-              test:
-                /node_modules[\\/]lucide-react[\\/]/,
-              priority: 80,
-              maxSize:
-                180 * 1024,
+                240 * 1024,
             },
           ],
         },
       },
     },
-  },
-
-  server: {
-    host: '0.0.0.0',
-    port: 5173,
   },
 })
