@@ -405,8 +405,18 @@ export function CustomerProfilePage() {
     useState('')
   const [editNotes, setEditNotes] =
     useState('')
+  const [noteDraft, setNoteDraft] =
+    useState('')
+  const [isSavingNote, setIsSavingNote] =
+    useState(false)
+  const [isNoteDismissed, setIsNoteDismissed] =
+    useState(false)
   const [editStatus, setEditStatus] =
     useState<CustomerStatus>('Aktivan')
+
+  useEffect(() => {
+    setIsNoteDismissed(false)
+  }, [id])
 
   useEffect(() => {
     let cancelled = false
@@ -426,6 +436,8 @@ export function CustomerProfilePage() {
 
         if (!cancelled) {
           setCustomer(savedCustomer)
+          setNoteDraft(savedCustomer?.notes ?? '')
+          setIsNoteDismissed(false)
         }
       } catch (error) {
         if (!cancelled) {
@@ -858,6 +870,8 @@ export function CustomerProfilePage() {
         )
 
       setCustomer(updatedCustomer)
+      setNoteDraft(updatedCustomer.notes)
+      setIsNoteDismissed(false)
       setIsEditModalOpen(false)
     } catch (error) {
       window.alert(
@@ -867,6 +881,51 @@ export function CustomerProfilePage() {
       )
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  async function handleSaveCustomerNote() {
+    if (!customer || isSavingNote) {
+      return
+    }
+
+    try {
+      setIsSavingNote(true)
+
+      const updatedCustomer =
+        await updateCustomer(
+          customer.id,
+          {
+            type: customer.type,
+            name: customer.name,
+            contactPerson:
+              customer.contactPerson,
+            logo: customer.logo,
+            oib: customer.oib,
+            phone: customer.phone,
+            email: customer.email,
+            street: customer.street,
+            city: customer.city,
+            postalCode:
+              customer.postalCode,
+            iban: customer.iban,
+            notes: noteDraft.trim(),
+            status: customer.status,
+          },
+        )
+
+      setCustomer(updatedCustomer)
+      setNoteDraft(updatedCustomer.notes)
+      setEditNotes(updatedCustomer.notes)
+      setIsNoteDismissed(false)
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Napomenu nije moguće spremiti.',
+      )
+    } finally {
+      setIsSavingNote(false)
     }
   }
 
@@ -1305,6 +1364,42 @@ export function CustomerProfilePage() {
             </div>
           </div>
         </section>
+
+        {customer.notes.trim() && !isNoteDismissed && (
+          <section className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 shadow-lg shadow-amber-950/10 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300">
+                <NotebookPen size={19} />
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('notes')}
+                className="min-w-0 flex-1 text-left"
+              >
+                <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-amber-300">
+                  Napomena investitora
+                </span>
+                <span className="mt-1 block whitespace-pre-wrap text-sm font-semibold leading-6 text-amber-50">
+                  {customer.notes}
+                </span>
+                <span className="mt-2 block text-[11px] font-black text-amber-300/80">
+                  Dodirni za uređivanje
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsNoteDismissed(true)}
+                className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-slate-950/25 text-amber-200 active:bg-slate-950/45"
+                aria-label="Privremeno sakrij napomenu"
+                title="Sakrij do sljedećeg otvaranja investitora"
+              >
+                <X size={17} />
+              </button>
+            </div>
+          </section>
+        )}
 
         <section className="grid grid-cols-3 gap-2">
           <ContactAction
@@ -1893,28 +1988,48 @@ export function CustomerProfilePage() {
         {activeTab === 'notes' && (
           <section className="rounded-3xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
             <div className="flex items-center gap-3">
-              <NotebookPen
-                size={22}
-                className="text-amber-400"
-              />
-              <h2 className="text-lg font-black text-white">
-                Napomene
-              </h2>
+              <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-500/10 text-amber-300">
+                <NotebookPen size={21} />
+              </span>
+              <div>
+                <h2 className="text-lg font-black text-white">
+                  Napomena investitora
+                </h2>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Zapiši nedovršene radove, dogovore ili nešto što treba provjeriti.
+                </p>
+              </div>
             </div>
 
-            <p className="mt-4 whitespace-pre-wrap rounded-2xl bg-slate-800/60 p-4 text-sm leading-7 text-slate-300">
-              {customer.notes ||
-                'Za ovog investitora još nema spremljenih napomena.'}
-            </p>
+            <textarea
+              rows={6}
+              value={noteDraft}
+              onChange={(event) =>
+                setNoteDraft(event.target.value)
+              }
+              placeholder="Npr. Potrebno se vratiti i zamijeniti ventil nakon dolaska dijela..."
+              className="mt-4 w-full resize-y rounded-2xl border border-slate-700 bg-slate-800 p-4 text-sm leading-6 text-white outline-none placeholder:text-slate-600 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+            />
 
-            <button
-              type="button"
-              onClick={openEditModal}
-              className="mt-4 inline-flex min-h-11 items-center gap-2 rounded-2xl bg-slate-800 px-4 text-sm font-black text-white"
-            >
-              <Edit3 size={17} />
-              Uredi napomenu
-            </button>
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs leading-5 text-slate-500">
+                X na upozorenju samo ga privremeno sakrije. Za trajno uklanjanje obriši tekst ovdje i spremi.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => void handleSaveCustomerNote()}
+                disabled={isSavingNote || noteDraft.trim() === customer.notes.trim()}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 text-sm font-black text-slate-950 disabled:opacity-40"
+              >
+                {isSavingNote ? (
+                  <Loader2 size={17} className="animate-spin" />
+                ) : (
+                  <Save size={17} />
+                )}
+                {isSavingNote ? 'Spremanje...' : 'Spremi napomenu'}
+              </button>
+            </div>
           </section>
         )}
       </section>

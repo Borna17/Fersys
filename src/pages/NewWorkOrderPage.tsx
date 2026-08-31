@@ -12,6 +12,8 @@ import {
   BookmarkPlus,
   Camera,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   Euro,
   ImagePlus,
@@ -174,6 +176,8 @@ export function NewWorkOrderPage() {
   const [customerSearch, setCustomerSearch] =
     useState('')
   const [showCustomerResults, setShowCustomerResults] =
+    useState(false)
+  const [showCustomerDetails, setShowCustomerDetails] =
     useState(false)
   const [
     customerContactPerson,
@@ -1394,6 +1398,7 @@ export function NewWorkOrderPage() {
       )
 
     if (!customer) {
+      setShowCustomerDetails(false)
       setCustomerName('')
       setCustomerSearch('')
       setCustomerContactPerson('')
@@ -1408,6 +1413,7 @@ export function NewWorkOrderPage() {
     setCustomerName(
       customer.name,
     )
+    setShowCustomerDetails(false)
     setCustomerSearch(customer.name)
     setShowCustomerResults(false)
     setCustomerContactPerson(
@@ -2112,104 +2118,132 @@ export function NewWorkOrderPage() {
             </div>
 
             {customerId && (
-              <div className="mt-2 flex items-center justify-between rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-black uppercase tracking-wider text-emerald-400">
-                    Odabrani investitor
-                  </p>
-                  <p className="truncate text-sm font-black text-white">
-                    {customerName}
-                  </p>
-                </div>
+              <div className="mt-2 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-3">
+                <div className="flex items-center gap-3">
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/15 text-emerald-300">
+                    <UserRound size={18} />
+                  </span>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleCustomerChange('')
-                    setShowCustomerResults(true)
-                  }}
-                  className="ml-3 shrink-0 text-xs font-black text-slate-400"
-                >
-                  Promijeni
-                </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowCustomerDetails((current) => !current)
+                    }
+                    className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left"
+                    aria-expanded={showCustomerDetails}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[10px] font-black uppercase tracking-wider text-emerald-400">
+                        Odabrani investitor
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm font-black text-white">
+                        {customerName}
+                      </span>
+                    </span>
+
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-xl bg-slate-950/35 px-2.5 py-2 text-[11px] font-black text-slate-300">
+                      {showCustomerDetails ? 'Sakrij' : 'Detalji'}
+                      {showCustomerDetails ? (
+                        <ChevronUp size={15} />
+                      ) : (
+                        <ChevronDown size={15} />
+                      )}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleCustomerChange('')
+                      setShowCustomerResults(true)
+                    }}
+                    className="shrink-0 rounded-xl px-2 py-2 text-[11px] font-black text-slate-400 active:bg-slate-800"
+                  >
+                    Promijeni
+                  </button>
+                </div>
               </div>
             )}
           </Field>
 
-          <Field label="Ime i prezime osobe / investitora *">
-            <input
-              required
-              value={investorName}
-              onChange={(event) =>
-                setInvestorName(event.target.value)
-              }
-              placeholder="Npr. Marko Marić"
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="Telefon">
-            <input
-              inputMode="tel"
-              value={customerPhone}
-              onChange={(event) =>
-                setCustomerPhone(
-                  event.target.value,
-                )
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="E-mail">
-            <input
-              type="email"
-              value={customerEmail}
-              onChange={(event) =>
-                setCustomerEmail(
-                  event.target.value,
-                )
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field label="OIB">
-            <input
-              inputMode="numeric"
-              maxLength={11}
-              value={customerOib}
-              onChange={(event) =>
-                setCustomerOib(
-                  event.target.value
-                    .replace(/\D/g, '')
-                    .slice(0, 11),
-                )
-              }
-              className={inputClass}
-            />
-          </Field>
-
-          <Field
-            label="Adresa radova"
-            className="sm:col-span-2"
-          >
-            <div className="relative">
-              <MapPin
-                size={18}
-                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
-              />
+          {(!customerId || showCustomerDetails) && (
+            <>
+            <Field label="Ime i prezime osobe / investitora *">
               <input
-                value={address}
+                required
+                value={investorName}
                 onChange={(event) =>
-                  setAddress(
+                  setInvestorName(event.target.value)
+                }
+                placeholder="Npr. Marko Marić"
+                className={inputClass}
+              />
+            </Field>
+  
+            <Field label="Telefon">
+              <input
+                inputMode="tel"
+                value={customerPhone}
+                onChange={(event) =>
+                  setCustomerPhone(
                     event.target.value,
                   )
                 }
-                className={`${inputClass} pl-11`}
+                className={inputClass}
               />
-            </div>
-          </Field>
+            </Field>
+  
+            <Field label="E-mail">
+              <input
+                type="email"
+                value={customerEmail}
+                onChange={(event) =>
+                  setCustomerEmail(
+                    event.target.value,
+                  )
+                }
+                className={inputClass}
+              />
+            </Field>
+  
+            <Field label="OIB">
+              <input
+                inputMode="numeric"
+                maxLength={11}
+                value={customerOib}
+                onChange={(event) =>
+                  setCustomerOib(
+                    event.target.value
+                      .replace(/\D/g, '')
+                      .slice(0, 11),
+                  )
+                }
+                className={inputClass}
+              />
+            </Field>
+  
+            <Field
+              label="Adresa radova"
+              className="sm:col-span-2"
+            >
+              <div className="relative">
+                <MapPin
+                  size={18}
+                  className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+                <input
+                  value={address}
+                  onChange={(event) =>
+                    setAddress(
+                      event.target.value,
+                    )
+                  }
+                  className={`${inputClass} pl-11`}
+                />
+              </div>
+            </Field>
+            </>
+          )}
         </MobileSection>
 
         <MobileSection
