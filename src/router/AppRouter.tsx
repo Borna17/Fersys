@@ -19,7 +19,6 @@ import type {
 } from '../auth/permissions'
 
 import AdminGuard from '../admin/AdminGuard'
-import AdminLayout from '../admin/AdminLayout'
 
 import FersysLoader from '../components/FersysLoader'
 import WorkOrderPhotoGallerySync from '../components/WorkOrderPhotoGallerySync'
@@ -27,7 +26,6 @@ import PushRegistrationSync from '../components/PushRegistrationSync'
 import ReferralClaimBridge from '../components/referral/ReferralClaimBridge'
 import PlanLock from '../components/subscription/PlanLock'
 import DeliveryNoteContextShortcut from '../components/deliveryNotes/DeliveryNoteContextShortcut'
-import AppLayout from '../layouts/AppLayout'
 import { lazyWithRetry } from '../utils/lazyWithRetry'
 
 import {
@@ -38,6 +36,9 @@ import {
   featureRequiredPlan,
   type SubscriptionFeature,
 } from '../subscription/plans'
+
+const AdminLayout = lazy(() => import('../admin/AdminLayout'))
+const AppLayout = lazy(() => import('../layouts/AppLayout'))
 
 const AdminDashboardPage = lazy(
   () => import('../admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),

@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { Capacitor } from '@capacitor/core'
-import { PushNotifications } from '@capacitor/push-notifications'
 
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
@@ -18,6 +17,7 @@ export default function PushRegistrationSync() {
 
     void (async () => {
       try {
+        const { PushNotifications } = await import('@capacitor/push-notifications')
         handles.push(
           await PushNotifications.addListener('registration', (token) => {
             if (cancelled || !token.value) return

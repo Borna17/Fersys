@@ -15,6 +15,7 @@ import {
   CarFront,
 } from 'lucide-react'
 import {
+  lazy,
   useEffect,
   useMemo,
   useRef,
@@ -26,12 +27,9 @@ import {
   useNavigate,
 } from 'react-router'
 
-import AiClientActionRunner from '../ai/AiClientActionRunner'
 import { useAuth } from '../auth/AuthProvider'
 import type { PermissionKey } from '../auth/permissions'
 import CompanyLogo from '../components/CompanyLogo'
-import ModuleSetupModal from '../components/onboarding/ModuleSetupModal'
-import OnboardingTutorial from '../components/OnboardingTutorial'
 import Sidebar from '../components/Sidebar'
 import RealtimeOutlet from '../components/RealtimeOutlet'
 import TrialBanner from '../components/subscription/TrialBanner'
@@ -46,6 +44,10 @@ import {
 } from '../services/onboarding.service'
 import { useSubscription } from '../subscription/SubscriptionProvider'
 import type { SubscriptionFeature } from '../subscription/plans'
+
+const AiClientActionRunner = lazy(() => import('../ai/AiClientActionRunner'))
+const ModuleSetupModal = lazy(() => import('../components/onboarding/ModuleSetupModal'))
+const OnboardingTutorial = lazy(() => import('../components/OnboardingTutorial'))
 
 const pageTitles = [
   {
