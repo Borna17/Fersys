@@ -1,0 +1,88 @@
+name: Optimize release candidate v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/optimize-release-candidate-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Split optional startup modules
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          # Lazy-load complete authenticated/admin layouts so public login pages
+          # don't download the business application shell before authentication.
+          p = Path('src/router/AppRouter.tsx')
+          s = p.read_text()
+          s = s.replace("import AdminLayout from '../admin/AdminLayout'\n", '')
+          s = s.replace("import AppLayout from '../layouts/AppLayout'\n", '')
+          anchor = "const AdminDashboardPage = lazy(\n"
+          lazy_layouts = "const AdminLayout = lazy(() => import('../admin/AdminLayout'))\nconst AppLayout = lazy(() => import('../layouts/AppLayout'))\n\n"
+          if "const AppLayout = lazy(" not in s:
+              if anchor not in s:
+                  raise SystemExit('Router layout anchor missing')
+              s = s.replace(anchor, lazy_layouts + anchor, 1)
+          p.write_text(s)
+
+          # AI action engine and onboarding UI are optional and expensive.
+          p = Path('src/layouts/AppLayout.tsx')
+          s = p.read_text()
+          s = s.replace("import {\n  useEffect,\n  useMemo,\n  useRef,\n  useState,\n} from 'react'", "import {\n  lazy,\n  useEffect,\n  useMemo,\n  useRef,\n  useState,\n} from 'react'")
+          s = s.replace("import AiClientActionRunner from '../ai/AiClientActionRunner'\n", '')
+          s = s.replace("import ModuleSetupModal from '../components/onboarding/ModuleSetupModal'\n", '')
+          s = s.replace("import OnboardingTutorial from '../components/OnboardingTutorial'\n", '')
+          marker = "import type { SubscriptionFeature } from '../subscription/plans'\n"
+          additions = marker + "\nconst AiClientActionRunner = lazy(() => import('../ai/AiClientActionRunner'))\nconst ModuleSetupModal = lazy(() => import('../components/onboarding/ModuleSetupModal'))\nconst OnboardingTutorial = lazy(() => import('../components/OnboardingTutorial'))\n"
+          if "const AiClientActionRunner = lazy(" not in s:
+              if marker not in s:
+                  raise SystemExit('AppLayout lazy anchor missing')
+              s = s.replace(marker, additions, 1)
+          p.write_text(s)
+
+          # Keep Capacitor push plugin out of the web startup bundle. It loads
+          # only inside a real native Android/iOS runtime after authentication.
+          p = Path('src/components/PushRegistrationSync.tsx')
+          s = p.read_text()
+          s = s.replace("import { PushNotifications } from '@capacitor/push-notifications'\n", '')
+          needle = "    void (async () => {\n      try {\n"
+          replacement = "    void (async () => {\n      try {\n        const { PushNotifications } = await import('@capacitor/push-notifications')\n"
+          if "await import('@capacitor/push-notifications')" not in s:
+              if needle not in s:
+                  raise SystemExit('Push init anchor missing')
+              s = s.replace(needle, replacement, 1)
+          p.write_text(s)
+          PY
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Report production bundle size
+        shell: bash
+        run: |
+          echo "DIST_TOTAL=$(du -sh dist | cut -f1)"
+          find dist/assets -maxdepth 1 -type f -name '*.js' -printf '%s %p\n' | sort -nr | head -15 | awk '{printf "%.1f KB %s\n", $1/1024, $2}'
+
+      - name: Commit verified optimizations
+        shell: bash
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/router/AppRouter.tsx src/layouts/AppLayout.tsx src/components/PushRegistrationSync.tsx
+          git commit -m "Split optional startup modules for faster FERSYS load"
+          git push
