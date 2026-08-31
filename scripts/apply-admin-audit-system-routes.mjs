@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 
+// Applies the actual router wiring and is safe to run repeatedly.
 const path = 'src/router/AppRouter.tsx'
 let source = fs.readFileSync(path, 'utf8')
 
