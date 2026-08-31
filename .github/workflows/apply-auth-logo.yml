@@ -10,84 +10,69 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Replace placeholder branding
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
 
-          p = Path('src/pages/LoginPage.tsx')
-          s = p.read_text()
-          old = '''          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">
-              <span className="text-xl font-black">
-                F
-              </span>
-            </div>
+          login = Path('src/pages/LoginPage.tsx')
+          s = login.read_text(encoding='utf-8')
 
-            <div>
-              <p className="text-xl font-black tracking-wide">
-                FERSYS
-              </p>
-              <p className="text-sm text-slate-400">
-                Business Management System
-              </p>
-            </div>
-          </div>'''
-          new = '''          <div className="flex items-center">
+          desktop_pattern = re.compile(
+              r'<div className="flex items-center gap-3">\s*'
+              r'<div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">.*?'
+              r'Business Management System\s*</p>\s*</div>\s*</div>',
+              re.S,
+          )
+          desktop_replacement = '''<div className="flex items-center">
             <img
               src="/fersys-auth-logo.svg"
               alt="FERSYS"
               className="h-auto w-44 object-contain"
             />
           </div>'''
-          if old not in s:
-              raise SystemExit('Desktop login branding block not found')
-          s = s.replace(old, new, 1)
+          s, count = desktop_pattern.subn(desktop_replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'Desktop login branding replacement count: {count}')
 
-          old2 = '''            <div className="mb-7 flex items-center gap-3 lg:hidden">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600">
-                <span className="text-lg font-black">
-                  F
-                </span>
-              </div>
-
-              <div>
-                <p className="font-black">
-                  FERSYS
-                </p>
-                <p className="text-xs text-slate-400">
-                  Business Management System
-                </p>
-              </div>
-            </div>'''
-          new2 = '''            <div className="mb-7 flex justify-center lg:hidden">
+          mobile_pattern = re.compile(
+              r'<div className="mb-7 flex items-center gap-3 lg:hidden">.*?'
+              r'Business Management System\s*</p>\s*</div>\s*</div>',
+              re.S,
+          )
+          mobile_replacement = '''<div className="mb-7 flex justify-center lg:hidden">
               <img
                 src="/fersys-auth-logo.svg"
                 alt="FERSYS"
                 className="h-auto w-40 object-contain"
               />
             </div>'''
-          if old2 not in s:
-              raise SystemExit('Mobile login branding block not found')
-          s = s.replace(old2, new2, 1)
-          p.write_text(s)
+          s, count = mobile_pattern.subn(mobile_replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'Mobile login branding replacement count: {count}')
 
-          p = Path('src/pages/RegisterPage.tsx')
-          s = p.read_text()
-          old3 = '''            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">
-              <span className="text-xl font-black">
-                F
-              </span>
-            </div>'''
-          new3 = '''            <img
+          login.write_text(s, encoding='utf-8')
+
+          register = Path('src/pages/RegisterPage.tsx')
+          s = register.read_text(encoding='utf-8')
+          register_pattern = re.compile(
+              r'<div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-blue-600 shadow-lg shadow-violet-500/20">\s*'
+              r'<span className="text-xl font-black">\s*F\s*</span>\s*</div>',
+              re.S,
+          )
+          register_replacement = '''<img
               src="/fersys-auth-logo.svg"
               alt="FERSYS"
               className="mx-auto h-auto w-44 object-contain sm:w-48"
             />'''
-          if old3 not in s:
-              raise SystemExit('Register branding block not found')
-          s = s.replace(old3, new3, 1)
-          p.write_text(s)
+          s, count = register_pattern.subn(register_replacement, s, count=1)
+          if count != 1:
+              raise SystemExit(f'Register branding replacement count: {count}')
+
+          register.write_text(s, encoding='utf-8')
           PY
       - name: Build
         run: |
