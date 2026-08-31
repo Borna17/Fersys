@@ -120,23 +120,6 @@ Record<InvoiceStatus, string> = {
     'border-rose-500/20 bg-rose-500/15 text-rose-300',
 }
 
-function readInvoices(): Invoice[] {
-  try {
-    const parsed =
-      JSON.parse(
-        localStorage.getItem(
-          STORAGE_KEY,
-        ) ?? '[]',
-      ) as Invoice[]
-
-    return Array.isArray(parsed)
-      ? parsed
-      : []
-  } catch {
-    return []
-  }
-}
-
 function itemTotal(
   item: InvoiceItem,
 ) {
@@ -210,9 +193,7 @@ export function InvoicesPage() {
   const navigate = useNavigate()
 
   const [invoices, setInvoices] =
-    useState<Invoice[]>(
-      readInvoices,
-    )
+    useState<Invoice[]>([])
   const [
     isCloudLoading,
     setIsCloudLoading,

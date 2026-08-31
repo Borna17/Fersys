@@ -10,6 +10,7 @@ import {
   Upload,
 } from 'lucide-react'
 import {
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -27,6 +28,11 @@ import {
   analyzeIncomingInvoice,
   type IncomingInvoiceAiResult,
 } from '../services/incomingInvoiceAi.service'
+import {
+  listIncomingInvoices,
+  upsertIncomingInvoice,
+  type IncomingInvoiceRecord,
+} from '../services/incomingInvoices.service'
 import {
   deleteDocument,
   downloadDocument,
@@ -230,6 +236,33 @@ export function NewIncomingInvoicePage() {
     number | null
   >(null)
 
+  useEffect(() => {
+    if (!incomingInvoiceId) return
+    let cancelled = false
+    void listIncomingInvoices()
+      .then((rows) => {
+        if (cancelled) return
+        const invoice = rows.find((item) => item.id === incomingInvoiceId)
+        if (!invoice) return
+        setSupplierName(invoice.supplierName)
+        setSupplierOib(invoice.supplierOib)
+        setInvoiceNumber(invoice.invoiceNumber)
+        setInvoiceDate(invoice.invoiceDate)
+        setDueDate(invoice.dueDate)
+        setBookingDate(invoice.bookingDate)
+        setCategory(invoice.category as Category)
+        setStatus(invoice.status as Status)
+        setPaymentMethod(invoice.paymentMethod)
+        setNetAmount(invoice.netAmount)
+        setVatAmount(invoice.vatAmount)
+        setTotalAmount(invoice.totalAmount)
+        setNote(invoice.note)
+        setDocuments(invoice.documents)
+      })
+      .catch((error) => console.error('Račun se nije mogao učitati iz baze:', error))
+    return () => { cancelled = true }
+  }, [incomingInvoiceId])
+
   const fileInputRef =
     useRef<HTMLInputElement | null>(null)
 
@@ -397,7 +430,7 @@ export function NewIncomingInvoicePage() {
     }
   }
 
-  function saveInvoice() {
+  async function saveInvoice() {
     const nextErrors: Record<
       string,
       string
@@ -460,6 +493,14 @@ export function NewIncomingInvoicePage() {
       documents,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
+    }
+
+    try {
+      await upsertIncomingInvoice(saved as IncomingInvoiceRecord)
+    } catch (error) {
+      console.error('Ulazni račun se nije mogao spremiti u bazu:', error)
+      window.alert('Račun se nije mogao spremiti u bazu. Pokušaj ponovno.')
+      return
     }
 
     const current = readInvoices()

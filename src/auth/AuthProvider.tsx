@@ -146,6 +146,11 @@ export function AuthProvider({
         const nextMembership =
           await getCurrentMembership()
 
+        if (nextMembership?.companyId) {
+          sessionStorage.setItem('fersys_active_company_id', nextMembership.companyId)
+        } else {
+          sessionStorage.removeItem('fersys_active_company_id')
+        }
         setMembership(nextMembership)
         accessInitializedRef.current = true
       } finally {
@@ -212,6 +217,7 @@ export function AuthProvider({
         if (!nextSession) {
           preparedUserIdRef.current = null
           accessInitializedRef.current = false
+          sessionStorage.removeItem('fersys_active_company_id')
           setMembership(null)
           setCompanySetupError('')
         }
@@ -267,6 +273,11 @@ export function AuthProvider({
         if (!isCancelled) {
           preparedUserIdRef.current = userId
           accessInitializedRef.current = true
+          if (nextMembership?.companyId) {
+            sessionStorage.setItem('fersys_active_company_id', nextMembership.companyId)
+          } else {
+            sessionStorage.removeItem('fersys_active_company_id')
+          }
           setMembership(nextMembership)
         }
       } catch (error) {
@@ -348,6 +359,7 @@ export function AuthProvider({
 
     preparedUserIdRef.current = null
     accessInitializedRef.current = false
+    sessionStorage.removeItem('fersys_active_company_id')
     setSession(null)
     setMembership(null)
     setCompanySetupError('')
@@ -373,6 +385,11 @@ export function AuthProvider({
 
       preparedUserIdRef.current = currentUserId
       accessInitializedRef.current = true
+      if (nextMembership?.companyId) {
+        sessionStorage.setItem('fersys_active_company_id', nextMembership.companyId)
+      } else {
+        sessionStorage.removeItem('fersys_active_company_id')
+      }
       setMembership(nextMembership)
     } finally {
       setIsAccessLoading(false)

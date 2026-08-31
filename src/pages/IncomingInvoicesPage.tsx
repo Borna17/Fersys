@@ -12,7 +12,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import * as XLSX from 'xlsx'
 
@@ -20,6 +20,10 @@ import {
   deleteDocument,
   downloadDocument,
 } from '../utils/documentStorage'
+import {
+  deleteIncomingInvoice,
+  listIncomingInvoices,
+} from '../services/incomingInvoices.service'
 import { scopedStorageKey } from '../utils/scopedLocalStorage'
 
 type Status =
@@ -113,23 +117,6 @@ const statusStyles: Record<
     'border-red-500/20 bg-red-500/15 text-red-300',
 }
 
-function readInvoices(): IncomingInvoice[] {
-  try {
-    const value =
-      JSON.parse(
-        localStorage.getItem(
-          STORAGE_KEY,
-        ) ?? '[]',
-      ) as IncomingInvoice[]
-
-    return Array.isArray(value)
-      ? value
-      : []
-  } catch {
-    return []
-  }
-}
-
 function money(value: number) {
   return new Intl.NumberFormat(
     'hr-HR',
@@ -187,7 +174,21 @@ export function IncomingInvoicesPage() {
   ] =
     useState<
       IncomingInvoice[]
-    >(readInvoices)
+    >([])
+
+  useEffect(() => {
+    let cancelled = false
+    void listIncomingInvoices()
+      .then((rows) => {
+        if (cancelled) return
+        setInvoices(rows as IncomingInvoice[])
+      })
+      .catch((error) => {
+        console.error('Ulazni računi se nisu mogli učitati iz baze:', error)
+        if (!cancelled) setInvoices([])
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const [
     search,
@@ -370,6 +371,14 @@ export function IncomingInvoicesPage() {
         `Želiš li obrisati račun ${invoice.invoiceNumber}?`,
       )
     ) {
+      return
+    }
+
+    try {
+      await deleteIncomingInvoice(invoice.id)
+    } catch (error) {
+      console.error('Ulazni račun se nije mogao obrisati iz baze:', error)
+      window.alert('Račun se nije mogao obrisati iz baze. Pokušaj ponovno.')
       return
     }
 
