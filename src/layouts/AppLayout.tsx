@@ -29,6 +29,7 @@ import {
 
 import { useAuth } from '../auth/AuthProvider'
 import type { PermissionKey } from '../auth/permissions'
+import AppUpdatePrompt from '../components/AppUpdatePrompt'
 import CompanyLogo from '../components/CompanyLogo'
 import Sidebar from '../components/Sidebar'
 import RealtimeOutlet from '../components/RealtimeOutlet'
@@ -596,6 +597,7 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-dvh overflow-hidden bg-slate-950 text-white">
+      <AppUpdatePrompt />
       {canUseAi && (
         <AiClientActionRunner />
       )}
