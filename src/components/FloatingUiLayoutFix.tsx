@@ -177,7 +177,7 @@ export default function FloatingUiLayoutFix() {
         }
 
         body:has(button[aria-label="Spremi postavke"])
-          button.fixed.z-\[84\] {
+          button.fixed.z-\\[84\\] {
           left: auto !important;
           right: 0.75rem !important;
           bottom:
