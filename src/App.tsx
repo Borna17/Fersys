@@ -2,6 +2,7 @@ import CroatianNavigationLabels from './components/CroatianNavigationLabels'
 import {
   IncomingInvoicesCloudBridge,
 } from './components/IncomingInvoicesCloudBridge'
+import NotificationPermissionBridge from './components/NotificationPermissionBridge'
 import {
   WorkOrderShareAction,
 } from './components/WorkOrderShareAction'
@@ -17,6 +18,7 @@ function App() {
     <>
       <CroatianNavigationLabels />
       <IncomingInvoicesCloudBridge />
+      <NotificationPermissionBridge />
       <AppRouter />
       <WorkOrderShareAction />
     </>
