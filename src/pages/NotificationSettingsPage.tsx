@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import WeatherNotificationSettings from '../components/WeatherNotificationSettings'
 import { disablePushNotifications, enablePushNotifications, getPushRegistrationState, type PushRegistrationState } from '../services/pushNotifications.service'
 import { isNativeApp } from '../lib/platform'
+import { supabase } from '../lib/supabase'
 
 function stateLabel(state: PushRegistrationState) {
   if (state === 'subscribed') return 'Obavijesti su uključene'
@@ -67,8 +68,7 @@ export function NotificationSettingsPage() {
       setError('')
       setMessage('')
 
-      // Važno: ovaj gumb je izravna korisnička radnja. Na iOS-u i Androidu
-      // upravo ovdje smijemo prikazati sistemski dijalog za dopuštenje.
+      // Klik korisnika prvo pokreće stvarno dopuštenje i registraciju uređaja.
       const next = await enablePushNotifications()
       setState(next)
 
@@ -82,10 +82,26 @@ export function NotificationSettingsPage() {
         return
       }
 
-      setMessage('Test registracije je uspio. Ovaj uređaj sada može primati FERSYS push obavijesti.')
+      // Nakon registracije šaljemo stvarnu FCM testnu poruku na aktivne uređaje ovog korisnika.
+      const { data, error: invokeError } = await supabase.functions.invoke('send-test-push', {
+        body: {},
+      })
+
+      if (invokeError) throw invokeError
+
+      const result = data as { ok?: boolean; sent?: number; failed?: number; error?: string } | null
+      if (!result?.ok || !result.sent) {
+        throw new Error(result?.error || 'Testna push poruka nije poslana.')
+      }
+
+      setMessage(
+        result.sent === 1
+          ? 'Testna push poruka je poslana. Provjeri obavijest na telefonu.'
+          : `Testna push poruka je poslana na ${result.sent} registrirana uređaja.`,
+      )
       window.dispatchEvent(new Event('fersys:notifications-refresh'))
     } catch (value) {
-      setError(value instanceof Error ? value.message : 'Test push registracije nije uspio.')
+      setError(value instanceof Error ? value.message : 'Test push obavijesti nije uspio.')
     } finally {
       setWorking(false)
     }
@@ -136,10 +152,10 @@ export function NotificationSettingsPage() {
           ) : (
             <button type="button" onClick={() => void disable()} disabled={working} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-5 text-sm font-black text-red-300 disabled:opacity-50"><BellOff size={18} />{working ? 'Isključivanje...' : 'Isključi na ovom uređaju'}</button>
           )}
-          <button type="button" onClick={() => void testRegistration()} disabled={working || state === 'unsupported' || state === 'missing-key'} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 text-sm font-black text-violet-200 disabled:opacity-50"><Send size={18} />{working ? 'Provjera uređaja...' : 'Pošalji testnu poruku'}</button>
+          <button type="button" onClick={() => void testRegistration()} disabled={working || state === 'unsupported' || state === 'missing-key'} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/30 bg-violet-500/10 px-5 text-sm font-black text-violet-200 disabled:opacity-50"><Send size={18} />{working ? 'Slanje testa...' : 'Pošalji testnu poruku'}</button>
         </div>
 
-        <div className="mt-3 flex min-h-12 items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-4 text-sm text-slate-400"><Smartphone size={18} className="shrink-0 text-slate-500" />Ako dopuštenje još nije dano, gumb za test prvo pokreće sistemski upit i registrira ovaj uređaj.</div>
+        <div className="mt-3 flex min-h-12 items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-4 text-sm text-slate-400"><Smartphone size={18} className="shrink-0 text-slate-500" />Ako dopuštenje još nije dano, gumb za test prvo pokreće sistemski upit, registrira uređaj i zatim šalje stvarnu push poruku.</div>
       </div>
 
       <WeatherNotificationSettings />
