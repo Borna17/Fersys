@@ -48,6 +48,9 @@ jobs:
         continue-on-error: true
         run: npx cap sync android
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
       - name: Android lint
         id: android_lint
         continue-on-error: true
