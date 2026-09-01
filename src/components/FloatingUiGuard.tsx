@@ -43,7 +43,7 @@ function tagFloatingUi() {
   const fieldContainer =
     field?.closest(
       'div.fixed',
-    )
+    ) as HTMLElement | null
 
   if (
     fieldContainer
@@ -56,6 +56,64 @@ function tagFloatingUi() {
       'data-fersys-hide-while-editing',
       'true',
     )
+
+    if (
+      window.matchMedia(
+        '(min-width: 768px)',
+      ).matches
+    ) {
+      fieldContainer.style.left =
+        '19rem'
+      fieldContainer.style.bottom =
+        '1.5rem'
+      fieldContainer.style.transform =
+        'none'
+    } else {
+      fieldContainer.style.removeProperty(
+        'left',
+      )
+      fieldContainer.style.removeProperty(
+        'bottom',
+      )
+      fieldContainer.style.removeProperty(
+        'transform',
+      )
+    }
+  }
+
+  const deliveryNoteAction =
+    findButtonByText(
+      'Izradi otpremnicu',
+    )
+
+  if (
+    deliveryNoteAction &&
+    deliveryNoteAction.className
+      .toString()
+      .includes('fixed')
+  ) {
+    deliveryNoteAction.setAttribute(
+      'data-fersys-floating',
+      'delivery-note-action',
+    )
+
+    if (
+      window.matchMedia(
+        '(min-width: 768px)',
+      ).matches
+    ) {
+      deliveryNoteAction.style.bottom =
+        '5.5rem'
+      deliveryNoteAction.style.right =
+        '1.5rem'
+    } else {
+      deliveryNoteAction.style.removeProperty(
+        'bottom',
+      )
+      deliveryNoteAction.style.removeProperty(
+        'right',
+      )
+    }
   }
 
   const offline =
@@ -113,8 +171,21 @@ export default function FloatingUiGuard() {
       },
     )
 
+    const handleResize = () => {
+      tagFloatingUi()
+    }
+
+    window.addEventListener(
+      'resize',
+      handleResize,
+    )
+
     return () => {
       observer.disconnect()
+      window.removeEventListener(
+        'resize',
+        handleResize,
+      )
     }
   }, [])
 
