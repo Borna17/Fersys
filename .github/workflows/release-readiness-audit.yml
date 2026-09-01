@@ -4,6 +4,15 @@ on:
   push:
     branches: [main]
     paths:
+      - 'src/**'
+      - 'android/**'
+      - 'public/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.*'
+      - 'vite.config.*'
+      - 'tsconfig*.json'
+      - 'eslint.config.js'
       - '.github/workflows/release-readiness-audit.yml'
   workflow_dispatch:
 
@@ -26,21 +35,53 @@ jobs:
         run: npm ci
 
       - name: TypeScript and production web build
+        id: web_build
         run: npm run build
 
       - name: ESLint
+        id: eslint
+        continue-on-error: true
         run: npm run lint
 
       - name: Sync Android native project
+        id: cap_sync
+        continue-on-error: true
         run: npx cap sync android
 
       - name: Android lint
+        id: android_lint
+        continue-on-error: true
         working-directory: android
         run: ./gradlew lintDebug --no-daemon
 
       - name: Android debug compile
+        id: android_build
+        continue-on-error: true
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
 
       - name: High severity dependency audit
+        id: npm_audit
+        continue-on-error: true
         run: npm audit --audit-level=high
+
+      - name: Release gate
+        if: always()
+        shell: bash
+        run: |
+          echo "ESLint: ${{ steps.eslint.outcome }}"
+          echo "Capacitor sync: ${{ steps.cap_sync.outcome }}"
+          echo "Android lint: ${{ steps.android_lint.outcome }}"
+          echo "Android build: ${{ steps.android_build.outcome }}"
+          echo "npm audit: ${{ steps.npm_audit.outcome }}"
+
+          if [[ "${{ steps.eslint.outcome }}" != "success" || \
+                "${{ steps.cap_sync.outcome }}" != "success" || \
+                "${{ steps.android_lint.outcome }}" != "success" || \
+                "${{ steps.android_build.outcome }}" != "success" || \
+                "${{ steps.npm_audit.outcome }}" != "success" ]]; then
+            echo "Release readiness audit failed. Review the failed checks above."
+            exit 1
+          fi
+
+          echo "Release readiness audit passed."
