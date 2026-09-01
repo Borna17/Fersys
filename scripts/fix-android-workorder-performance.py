@@ -148,6 +148,7 @@ new = """        () => {
 if old not in s:
     raise SystemExit('Download slow-warning block not found')
 s = s.replace(old, new, 1)
+s = s.replace("const WARNING_TIMEOUT_MS =\n  8_000\n\n", "")
 p.write_text(s, encoding='utf-8')
 
 # Work order mobile UX/performance
