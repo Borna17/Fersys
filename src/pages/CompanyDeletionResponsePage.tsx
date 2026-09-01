@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { AlertTriangle, CheckCircle2, ShieldCheck, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -25,11 +25,7 @@ export function CompanyDeletionResponsePage() {
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
 
-  useEffect(() => {
-    void loadStatus()
-  }, [token])
-
-  async function loadStatus() {
+  const loadStatus = useCallback(async () => {
     if (!token) {
       setError('Poveznica nije valjana. Otvorite cijelu poveznicu iz FERSYS e-maila.')
       setLoading(false)
@@ -38,6 +34,7 @@ export function CompanyDeletionResponsePage() {
 
     try {
       setLoading(true)
+      setError('')
       const { data: response, error: invokeError } = await supabase.functions.invoke('company-deletion-response', {
         body: { token, action: 'status' },
       })
@@ -49,7 +46,11 @@ export function CompanyDeletionResponsePage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [token])
+
+  useEffect(() => {
+    void loadStatus()
+  }, [loadStatus])
 
   async function submitKeep() {
     if (reason.trim().length < 5) {
@@ -83,10 +84,9 @@ export function CompanyDeletionResponsePage() {
     }
   }
 
-  const deadline = useMemo(() => {
-    if (!data?.deadline) return '—'
-    return new Intl.DateTimeFormat('hr-HR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.deadline))
-  }, [data?.deadline])
+  const deadline = data?.deadline
+    ? new Intl.DateTimeFormat('hr-HR', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(data.deadline))
+    : '—'
 
   return (
     <main className="min-h-dvh bg-slate-950 px-4 py-8 text-white sm:py-14">
