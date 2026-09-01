@@ -23,6 +23,26 @@ type CachedInvoice = {
   updatedAt?: string
 }
 
+type IncomingInvoiceRow = {
+  id: string | number
+  supplier_name?: string | null
+  supplier_oib?: string | null
+  invoice_number?: string | null
+  invoice_date?: string | null
+  due_date?: string | null
+  booking_date?: string | null
+  category?: string | null
+  status?: string | null
+  payment_method?: string | null
+  net_amount?: number | string | null
+  vat_amount?: number | string | null
+  total_amount?: number | string | null
+  note?: string | null
+  documents?: unknown
+  created_at?: string | null
+  updated_at?: string | null
+}
+
 type AccessRow = { company_id?: string | null }
 
 const BASE_KEY = 'fersys_incoming_invoices'
@@ -43,7 +63,7 @@ async function currentCompanyId() {
   return (row as AccessRow | null)?.company_id ?? null
 }
 
-function rowToCache(row: any): CachedInvoice {
+function rowToCache(row: IncomingInvoiceRow): CachedInvoice {
   return {
     id: String(row.id),
     supplierName: String(row.supplier_name ?? ''),
@@ -101,7 +121,7 @@ async function mirrorCacheChange(previous: CachedInvoice[], next: CachedInvoice[
     const { error } = await supabase
       .from('incoming_invoices')
       .upsert(
-        next.map((invoice) => cacheToRow(invoice, companyId, authData.user!.id)),
+        next.map((invoice) => cacheToRow(invoice, companyId, authData.user.id)),
         { onConflict: 'id' },
       )
     if (error) throw error
@@ -132,6 +152,12 @@ export default function IncomingInvoicesDatabaseBridge() {
         const companyId = await currentCompanyId()
         if (!companyId || disposed) return
 
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+        if (authError || !authData.user || disposed) return
+
+        const key = scopedStorageKey(BASE_KEY)
+        const cached = parseInvoices(storage.getItem(key))
+
         const { data, error } = await supabase
           .from('incoming_invoices')
           .select('*')
@@ -140,8 +166,21 @@ export default function IncomingInvoicesDatabaseBridge() {
           .order('created_at', { ascending: false })
         if (error) throw error
 
-        const key = scopedStorageKey(BASE_KEY)
-        const next = (data ?? []).map(rowToCache)
+        // One-time safety migration for older installations: if the database has
+        // no rows yet but this account/company still has a populated scoped cache,
+        // move that cache into Supabase before any hydration can overwrite it.
+        if ((data ?? []).length === 0 && cached.length > 0) {
+          const { error: migrationError } = await supabase
+            .from('incoming_invoices')
+            .upsert(
+              cached.map((invoice) => cacheToRow(invoice, companyId, authData.user.id)),
+              { onConflict: 'id' },
+            )
+          if (migrationError) throw migrationError
+          return
+        }
+
+        const next = ((data ?? []) as IncomingInvoiceRow[]).map(rowToCache)
         const nextRaw = JSON.stringify(next)
         const currentRaw = storage.getItem(key) ?? '[]'
 
@@ -169,11 +208,7 @@ export default function IncomingInvoicesDatabaseBridge() {
       const previousRaw = this.getItem(key)
       originalSetItem.call(this, key, value)
 
-      if (
-        !hydrating &&
-        this === storage &&
-        key.startsWith(`${BASE_KEY}:`)
-      ) {
+      if (!hydrating && this === storage && key.startsWith(`${BASE_KEY}:`)) {
         const previous = parseInvoices(previousRaw)
         const next = parseInvoices(value)
         void mirrorCacheChange(previous, next).catch((error) => {
