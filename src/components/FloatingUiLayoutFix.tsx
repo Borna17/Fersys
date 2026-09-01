@@ -8,9 +8,9 @@ export default function FloatingUiLayoutFix() {
       }
 
       document
-        .querySelectorAll<HTMLInputElement>('input[placeholder="Kolicina"]')
+        .querySelectorAll<HTMLInputElement>('input[placeholder="Kolicina"], input[placeholder*="Koli"]')
         .forEach((input) => {
-          input.placeholder = 'Količina'
+          input.placeholder = 'Koli\u010Dina'
         })
 
       const walker = document.createTreeWalker(
@@ -21,11 +21,15 @@ export default function FloatingUiLayoutFix() {
       let node = walker.nextNode()
 
       while (node) {
-        if (node.nodeValue?.trim() === 'Kolicina') {
-          node.nodeValue = node.nodeValue.replace(
-            'Kolicina',
-            'Količina',
-          )
+        const text = node.nodeValue?.trim() ?? ''
+
+        if (text === 'Kolicina' || text.includes('Koli')) {
+          if (text === 'Kolicina') {
+            node.nodeValue = node.nodeValue?.replace(
+              'Kolicina',
+              'Koli\u010Dina',
+            ) ?? null
+          }
         }
 
         node = walker.nextNode()
