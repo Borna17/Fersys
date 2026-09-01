@@ -180,7 +180,7 @@ jobs:
             }
 
             function later() {
-              if (update.required) return
+              if (update?.required) return
               localStorage.setItem(
                 SNOOZE_PREFIX + release.latestVersionCode,
                 String(Date.now() + SNOOZE_MS),
