@@ -28,17 +28,20 @@ const OAUTH_STARTED_KEY =
 const OAUTH_ERROR_EVENT =
   'fersys:google-calendar-oauth-error'
 
+const PRODUCTION_REDIRECT_URI =
+  'https://app.fersys.app/calendar'
+
 type GoogleTokenResponse = {
   access_token?: string
   error?: string
+  expires_in?: number
 }
 
 type TokenClientConfig = {
   client_id: string
   scope: string
   callback: (
-    response:
-      GoogleTokenResponse,
+    response: GoogleTokenResponse,
   ) => void
   error_callback?: () => void
 }
@@ -56,32 +59,22 @@ type CodeClient = {
 }
 
 type GoogleOAuth2Api = {
-  initTokenClient:
-    (
-      config:
-        TokenClientConfig,
-    ) => TokenClient
-
-  initCodeClient:
-    (
-      config: {
-        client_id: string
-        scope: string
-        ux_mode:
-          'redirect'
-        redirect_uri:
-          string
-        state:
-          string
-      },
-    ) => CodeClient
-
-  revoke:
-    (
-      token: string,
-      callback?: () => void,
-    ) => void
-
+  initTokenClient: (
+    config: TokenClientConfig,
+  ) => TokenClient
+  initCodeClient: (
+    config: {
+      client_id: string
+      scope: string
+      ux_mode: 'redirect'
+      redirect_uri: string
+      state: string
+    },
+  ) => CodeClient
+  revoke: (
+    token: string,
+    callback?: () => void,
+  ) => void
   __fersysPatched?: boolean
 }
 
@@ -91,6 +84,9 @@ type GoogleWindow = Window & {
       oauth2?: GoogleOAuth2Api
     }
   }
+  Capacitor?: {
+    isNativePlatform?: () => boolean
+  }
 }
 
 function getGoogleOAuth2() {
@@ -99,8 +95,24 @@ function getGoogleOAuth2() {
   ).google?.accounts?.oauth2
 }
 
+function isNativeCapacitor() {
+  try {
+    return Boolean(
+      (
+        window as GoogleWindow
+      ).Capacitor
+        ?.isNativePlatform?.(),
+    )
+  } catch {
+    return false
+  }
+}
 
-function isMobileOrStandalone() {
+function isMobileOrStandaloneWeb() {
+  if (isNativeCapacitor()) {
+    return false
+  }
+
   const standalone =
     window.matchMedia(
       '(display-mode: standalone)',
@@ -110,8 +122,7 @@ function isMobileOrStandalone() {
       Boolean(
         (
           navigator as Navigator & {
-            standalone?:
-              boolean
+            standalone?: boolean
           }
         ).standalone,
       )
@@ -122,16 +133,11 @@ function isMobileOrStandalone() {
       navigator.userAgent,
     )
 
-  return (
-    standalone ||
-    mobile
-  )
+  return standalone || mobile
 }
 
 function createState() {
-  if (
-    crypto.randomUUID
-  ) {
+  if (crypto.randomUUID) {
     return crypto.randomUUID()
   }
 
@@ -147,29 +153,45 @@ function createState() {
 }
 
 function getRedirectUri() {
-  return `${window.location.origin}/calendar`
+  const hostname =
+    window.location.hostname
+
+  if (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1'
+  ) {
+    return `${window.location.origin}/calendar`
+  }
+
+  return PRODUCTION_REDIRECT_URI
+}
+
+function clearStoredToken() {
+  window.localStorage.removeItem(
+    TOKEN_KEY,
+  )
+  window.localStorage.removeItem(
+    TOKEN_EXPIRY_KEY,
+  )
 }
 
 function getStoredToken() {
   const token =
-    window.localStorage
-      .getItem(
-        TOKEN_KEY,
-      )
+    window.localStorage.getItem(
+      TOKEN_KEY,
+    )
 
   const expiresAt =
     Number(
-      window.localStorage
-        .getItem(
-          TOKEN_EXPIRY_KEY,
-        ) ?? 0,
+      window.localStorage.getItem(
+        TOKEN_EXPIRY_KEY,
+      ) ?? 0,
     )
 
   if (
     !token ||
     !expiresAt ||
-    Date.now() >=
-      expiresAt
+    Date.now() >= expiresAt
   ) {
     clearStoredToken()
     return ''
@@ -180,13 +202,8 @@ function getStoredToken() {
 
 function storeToken(
   token: string,
-  expiresIn:
-    number,
+  expiresIn: number,
 ) {
-  /*
-   * Ostavimo 60 sekundi sigurnosne rezerve
-   * kako ne bismo koristili token baš u trenutku isteka.
-   */
   const safeLifetime =
     Math.max(
       60,
@@ -202,19 +219,8 @@ function storeToken(
     TOKEN_EXPIRY_KEY,
     String(
       Date.now() +
-        safeLifetime *
-          1000,
+        safeLifetime * 1000,
     ),
-  )
-}
-
-function clearStoredToken() {
-  window.localStorage.removeItem(
-    TOKEN_KEY,
-  )
-
-  window.localStorage.removeItem(
-    TOKEN_EXPIRY_KEY,
   )
 }
 
@@ -239,26 +245,16 @@ function cleanGoogleCallbackUrl() {
       window.location.href,
     )
 
-  url.searchParams.delete(
+  ;[
     'code',
-  )
-  url.searchParams.delete(
     'state',
-  )
-  url.searchParams.delete(
     'scope',
-  )
-  url.searchParams.delete(
     'authuser',
-  )
-  url.searchParams.delete(
     'prompt',
-  )
-  url.searchParams.delete(
     'error',
-  )
-  url.searchParams.delete(
     'error_description',
+  ].forEach((key) =>
+    url.searchParams.delete(key),
   )
 
   window.history.replaceState(
@@ -274,13 +270,11 @@ function findVisibleConnectButton() {
       document.querySelectorAll(
         'button',
       ),
-    ) as
-      HTMLButtonElement[]
+    ) as HTMLButtonElement[]
 
   return buttons.find(
     (button) =>
-      button.offsetParent !==
-        null &&
+      button.offsetParent !== null &&
       (
         button.innerText ||
         button.textContent ||
@@ -294,34 +288,23 @@ function findVisibleConnectButton() {
 }
 
 async function ensureGoogleScript() {
-  if (
-    getGoogleOAuth2()
-  ) {
+  if (getGoogleOAuth2()) {
     return
   }
 
   await new Promise<void>(
-    (
-      resolve,
-      reject,
-    ) => {
+    (resolve, reject) => {
       const existing =
         document.querySelector(
           'script[data-google-identity]',
-        ) as
-          HTMLScriptElement |
-          null
+        ) as HTMLScriptElement | null
 
       if (existing) {
         existing.addEventListener(
           'load',
-          () =>
-            resolve(),
-          {
-            once: true,
-          },
+          () => resolve(),
+          { once: true },
         )
-
         existing.addEventListener(
           'error',
           () =>
@@ -330,11 +313,8 @@ async function ensureGoogleScript() {
                 'Google OAuth skripta se nije učitala.',
               ),
             ),
-          {
-            once: true,
-          },
+          { once: true },
         )
-
         return
       }
 
@@ -347,13 +327,11 @@ async function ensureGoogleScript() {
         'https://accounts.google.com/gsi/client'
       script.async = true
       script.defer = true
-      script.dataset
-        .googleIdentity =
+      script.dataset.googleIdentity =
         'true'
 
       script.onload =
         () => resolve()
-
       script.onerror =
         () =>
           reject(
@@ -370,40 +348,30 @@ async function ensureGoogleScript() {
 }
 
 function startRedirectFlow(
-  oauth2:
-    GoogleOAuth2Api,
+  oauth2: GoogleOAuth2Api,
   clientId: string,
   scope: string,
 ) {
   const state =
     createState()
 
-  const redirectUri =
-    getRedirectUri()
-
   window.localStorage.setItem(
     OAUTH_STATE_KEY,
     state,
   )
-
   window.localStorage.setItem(
     OAUTH_STARTED_KEY,
-    String(
-      Date.now(),
-    ),
+    String(Date.now()),
   )
 
   const codeClient =
     oauth2.initCodeClient({
-      client_id:
-        clientId,
+      client_id: clientId,
       scope:
-        scope ||
-        GOOGLE_SCOPE,
-      ux_mode:
-        'redirect',
+        scope || GOOGLE_SCOPE,
+      ux_mode: 'redirect',
       redirect_uri:
-        redirectUri,
+        getRedirectUri(),
       state,
     })
 
@@ -433,8 +401,7 @@ function patchGoogleOAuth() {
 
   oauth2.initTokenClient =
     (
-      config:
-        TokenClientConfig,
+      config: TokenClientConfig,
     ) => {
       const originalClient =
         originalInitTokenClient(
@@ -448,11 +415,6 @@ function patchGoogleOAuth() {
           const storedToken =
             getStoredToken()
 
-          /*
-           * Nakon redirecta samo vratimo spremljeni
-           * kratkotrajni access token postojećem
-           * CalendarPage callbacku.
-           */
           if (storedToken) {
             window.setTimeout(
               () => {
@@ -467,12 +429,25 @@ function patchGoogleOAuth() {
           }
 
           /*
-           * Na mobitelu i instaliranoj PWA ne koristimo
-           * GIS token popup. Umjesto toga ide puni redirect
-           * authorization-code flow.
+           * Capacitor Android/iOS ne smije koristiti web redirect
+           * na lokalni native origin (npr. https://localhost), jer
+           * Google taj URI odbija i callback se ne može vratiti u
+           * isti storage. Na nativeu zato koristimo GIS token flow,
+           * kao na desktopu, koji nema redirect_uri.
+           */
+          if (isNativeCapacitor()) {
+            originalClient.requestAccessToken(
+              options,
+            )
+            return
+          }
+
+          /*
+           * Mobilni web i instalirana PWA ostaju na redirect flowu,
+           * ali uvijek koriste jedan stabilan produkcijski callback.
            */
           if (
-            isMobileOrStandalone()
+            isMobileOrStandaloneWeb()
           ) {
             startRedirectFlow(
               oauth2,
@@ -482,14 +457,9 @@ function patchGoogleOAuth() {
             return
           }
 
-          /*
-           * Desktop ostaje na postojećem popup modelu
-           * koji korisniku već radi.
-           */
-          originalClient
-            .requestAccessToken(
-              options,
-            )
+          originalClient.requestAccessToken(
+            options,
+          )
         },
       }
     }
@@ -500,7 +470,6 @@ function patchGoogleOAuth() {
       callback,
     ) => {
       clearStoredToken()
-
       originalRevoke(
         token,
         callback,
@@ -521,8 +490,7 @@ async function exchangeCode(
 ) {
   const clientId =
     import.meta.env
-      .VITE_GOOGLE_CLIENT_ID ??
-    ''
+      .VITE_GOOGLE_CLIENT_ID ?? ''
 
   if (!clientId) {
     throw new Error(
@@ -534,43 +502,36 @@ async function exchangeCode(
     data,
     error,
   } =
-    await supabase.functions
-      .invoke(
-        'google-calendar-oauth',
-        {
-          body: {
-            code,
-            clientId,
-            redirectUri:
-              getRedirectUri(),
-          },
+    await supabase.functions.invoke(
+      'google-calendar-oauth',
+      {
+        body: {
+          code,
+          clientId,
+          redirectUri:
+            getRedirectUri(),
         },
-      )
+      },
+    )
 
   if (error) {
     throw error
   }
 
-  if (
-    data?.error
-  ) {
+  if (data?.error) {
     throw new Error(
-      String(
-        data.error,
-      ),
+      String(data.error),
     )
   }
 
   const token =
     String(
-      data?.accessToken ??
-        '',
+      data?.accessToken ?? '',
     )
 
   const expiresIn =
     Number(
-      data?.expiresIn ??
-        3600,
+      data?.expiresIn ?? 3600,
     )
 
   if (!token) {
@@ -646,10 +607,7 @@ export default function GoogleCalendarOAuthBridge() {
           )
 
         const oauthError =
-          params.get(
-            'error',
-          )
-
+          params.get('error')
         const oauthErrorDescription =
           params.get(
             'error_description',
@@ -657,7 +615,6 @@ export default function GoogleCalendarOAuthBridge() {
 
         if (oauthError) {
           cleanGoogleCallbackUrl()
-
           emitError(
             oauthErrorDescription ||
               `Google autorizacija nije uspjela: ${oauthError}`,
@@ -666,46 +623,34 @@ export default function GoogleCalendarOAuthBridge() {
         }
 
         const code =
-          params.get(
-            'code',
-          )
-
+          params.get('code')
         const returnedState =
-          params.get(
-            'state',
-          )
+          params.get('state')
 
         if (
           code &&
           !processingRef.current
         ) {
-          processingRef.current =
-            true
+          processingRef.current = true
 
           const expectedState =
-            window.localStorage
-              .getItem(
-                OAUTH_STATE_KEY,
-              )
-
-          const startedAt =
-            Number(
-              window.localStorage
-                .getItem(
-                  OAUTH_STARTED_KEY,
-                ) ??
-                0,
-            )
-
-          window.localStorage
-            .removeItem(
+            window.localStorage.getItem(
               OAUTH_STATE_KEY,
             )
 
-          window.localStorage
-            .removeItem(
-              OAUTH_STARTED_KEY,
+          const startedAt =
+            Number(
+              window.localStorage.getItem(
+                OAUTH_STARTED_KEY,
+              ) ?? 0,
             )
+
+          window.localStorage.removeItem(
+            OAUTH_STATE_KEY,
+          )
+          window.localStorage.removeItem(
+            OAUTH_STARTED_KEY,
+          )
 
           if (
             !expectedState ||
@@ -714,7 +659,6 @@ export default function GoogleCalendarOAuthBridge() {
               returnedState
           ) {
             cleanGoogleCallbackUrl()
-
             throw new Error(
               'Google sigurnosna provjera nije prošla. Pokušaj ponovno povezati kalendar.',
             )
@@ -722,21 +666,16 @@ export default function GoogleCalendarOAuthBridge() {
 
           if (
             !startedAt ||
-            Date.now() -
-              startedAt >
+            Date.now() - startedAt >
               15 * 60 * 1000
           ) {
             cleanGoogleCallbackUrl()
-
             throw new Error(
               'Google povezivanje je isteklo. Pokušaj ponovno.',
             )
           }
 
-          await exchangeCode(
-            code,
-          )
-
+          await exchangeCode(code)
           cleanGoogleCallbackUrl()
 
           if (cancelled) {
@@ -751,27 +690,16 @@ export default function GoogleCalendarOAuthBridge() {
             ),
           )
 
-          processingRef.current =
-            false
+          processingRef.current = false
           return
         }
 
-        /*
-         * Ako je PWA ponovno otvorena, a kratkotrajni
-         * token još vrijedi, automatski osvježimo status
-         * CalendarPagea bez novog Google prozora.
-         */
-        if (
-          getStoredToken()
-        ) {
+        if (getStoredToken()) {
           await hydrateCalendarPage()
         }
       } catch (error) {
-        processingRef.current =
-          false
-
+        processingRef.current = false
         cleanGoogleCallbackUrl()
-
         emitError(
           error instanceof Error
             ? error.message
@@ -787,42 +715,6 @@ export default function GoogleCalendarOAuthBridge() {
     location.pathname,
     location.search,
   ])
-
-  useEffect(() => {
-    function handleError(
-      event: Event,
-    ) {
-      const detail =
-        (
-          event as
-            CustomEvent<{
-              message?:
-                string
-            }>
-        ).detail
-
-      if (
-        detail?.message
-      ) {
-        console.error(
-          'Google Calendar OAuth:',
-          detail.message,
-        )
-      }
-    }
-
-    window.addEventListener(
-      OAUTH_ERROR_EVENT,
-      handleError,
-    )
-
-    return () => {
-      window.removeEventListener(
-        OAUTH_ERROR_EVENT,
-        handleError,
-      )
-    }
-  }, [])
 
   return null
 }
