@@ -1,4 +1,53 @@
+import { useEffect } from 'react'
+
 export default function FloatingUiLayoutFix() {
+  useEffect(() => {
+    function fixWorkOrderQuantityText() {
+      if (!window.location.pathname.startsWith('/work-orders/new')) {
+        return
+      }
+
+      document
+        .querySelectorAll<HTMLInputElement>('input[placeholder="Kolicina"]')
+        .forEach((input) => {
+          input.placeholder = 'Količina'
+        })
+
+      const walker = document.createTreeWalker(
+        document.body,
+        NodeFilter.SHOW_TEXT,
+      )
+
+      let node = walker.nextNode()
+
+      while (node) {
+        if (node.nodeValue?.trim() === 'Kolicina') {
+          node.nodeValue = node.nodeValue.replace(
+            'Kolicina',
+            'Količina',
+          )
+        }
+
+        node = walker.nextNode()
+      }
+    }
+
+    fixWorkOrderQuantityText()
+
+    const observer = new MutationObserver(
+      fixWorkOrderQuantityText,
+    )
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    })
+
+    return () => {
+      observer.disconnect()
+    }
+  }, [])
+
   return (
     <style>{`
       /*
