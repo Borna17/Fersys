@@ -5,7 +5,6 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/add-fersys-native-update-prompt.yml'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -15,40 +14,239 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Add update service and modal
+          cache: npm
+
+      - name: Add reliable Android update banner
+        shell: bash
         run: |
-          node <<'NODE'
-          const fs = require('fs')
+          cat > src/services/appUpdate.service.ts <<'TS'
+          import { App } from '@capacitor/app'
+          import { Capacitor } from '@capacitor/core'
+          import { supabase } from '../lib/supabase'
 
-          fs.writeFileSync('src/services/appUpdate.service.ts', `import { App } from '@capacitor/app'\nimport { Capacitor } from '@capacitor/core'\nimport { supabase } from '../lib/supabase'\n\nexport type AppReleaseChannel = {\n  platform: 'android'\n  latestVersion: string\n  latestVersionCode: number\n  minimumVersionCode: number\n  updateRequired: boolean\n  title: string\n  message: string\n  releaseNotes: string\n  storeUrl: string\n}\n\nfunction mapRow(row: any): AppReleaseChannel {\n  return {\n    platform: 'android',\n    latestVersion: String(row.latest_version ?? ''),\n    latestVersionCode: Number(row.latest_version_code ?? 0),\n    minimumVersionCode: Number(row.minimum_version_code ?? 0),\n    updateRequired: Boolean(row.update_required),\n    title: String(row.title ?? 'Dostupna je nova verzija FERSYS-a'),\n    message: String(row.message ?? ''),\n    releaseNotes: String(row.release_notes ?? ''),\n    storeUrl: String(row.store_url ?? 'https://play.google.com/store/apps/details?id=com.fersys.app'),\n  }\n}\n\nexport type AppUpdateCheck = {\n  available: boolean\n  required: boolean\n  installedVersion: string\n  installedVersionCode: number\n  release: AppReleaseChannel | null\n}\n\nexport async function checkForAndroidAppUpdate(): Promise<AppUpdateCheck> {\n  if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {\n    return { available: false, required: false, installedVersion: '', installedVersionCode: 0, release: null }\n  }\n\n  const info = await App.getInfo()\n  const installedVersionCode = Number(info.build ?? 0)\n\n  const { data, error } = await supabase\n    .from('app_release_channel')\n    .select('*')\n    .eq('platform', 'android')\n    .maybeSingle()\n\n  if (error) throw error\n  if (!data) {\n    return { available: false, required: false, installedVersion: info.version, installedVersionCode, release: null }\n  }\n\n  const release = mapRow(data)\n  const available = release.latestVersionCode > installedVersionCode\n  const required = available && (release.updateRequired || installedVersionCode < release.minimumVersionCode)\n\n  return {\n    available,\n    required,\n    installedVersion: info.version,\n    installedVersionCode,\n    release,\n  }\n}\n`)
-
-          fs.writeFileSync('src/components/AppUpdatePrompt.tsx', `import { Browser } from '@capacitor/browser'\nimport { useCallback, useEffect, useState } from 'react'\nimport { Download, RefreshCw, Sparkles, X } from 'lucide-react'\nimport { checkForAndroidAppUpdate, type AppUpdateCheck } from '../services/appUpdate.service'\n\nconst SNOOZE_PREFIX = 'fersys_update_snooze_v1:'\nconst CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000\nconst SNOOZE_MS = 24 * 60 * 60 * 1000\n\nexport default function AppUpdatePrompt() {\n  const [update, setUpdate] = useState<AppUpdateCheck | null>(null)\n  const [isChecking, setIsChecking] = useState(false)\n\n  const check = useCallback(async (force = false) => {\n    if (isChecking) return\n    try {\n      setIsChecking(true)\n      const result = await checkForAndroidAppUpdate()\n      if (!result.available || !result.release) {\n        setUpdate(null)\n        return\n      }\n\n      if (!result.required && !force) {\n        const key = SNOOZE_PREFIX + result.release.latestVersionCode\n        const until = Number(localStorage.getItem(key) ?? 0)\n        if (Date.now() < until) return\n      }\n\n      setUpdate(result)\n    } catch (error) {\n      console.warn('Provjera nove FERSYS verzije nije uspjela:', error)\n    } finally {\n      setIsChecking(false)\n    }\n  }, [isChecking])\n\n  useEffect(() => {\n    void check()\n    const onVisible = () => {\n      if (document.visibilityState === 'visible') void check()\n    }\n    document.addEventListener('visibilitychange', onVisible)\n    const timer = window.setInterval(() => void check(), CHECK_INTERVAL_MS)\n    return () => {\n      document.removeEventListener('visibilitychange', onVisible)\n      window.clearInterval(timer)\n    }\n  }, [check])\n\n  if (!update?.available || !update.release) return null\n\n  const release = update.release\n\n  async function openStore() {\n    try {\n      await Browser.open({ url: release.storeUrl })\n    } catch {\n      window.location.href = release.storeUrl\n    }\n  }\n\n  function later() {\n    if (update.required) return\n    localStorage.setItem(SNOOZE_PREFIX + release.latestVersionCode, String(Date.now() + SNOOZE_MS))\n    setUpdate(null)\n  }\n\n  return (\n    <div className="fixed inset-0 z-[9999] flex items-end justify-center bg-black/70 p-3 backdrop-blur-sm sm:items-center sm:p-6">\n      <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-blue-500/20 bg-slate-950 shadow-2xl shadow-black/70">\n        <div className="relative overflow-hidden border-b border-slate-800 bg-gradient-to-br from-blue-500/15 via-violet-500/10 to-slate-950 px-6 pb-5 pt-6">\n          {!update.required && (\n            <button type="button" onClick={later} className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-xl text-slate-400 transition hover:bg-white/5 hover:text-white" aria-label="Zatvori">\n              <X size={20} />\n            </button>\n          )}\n          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-violet-600 shadow-lg shadow-blue-950/40">\n            <Sparkles size={26} className="text-white" />\n          </div>\n          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-blue-400">FERSYS UPDATE</p>\n          <h2 className="mt-2 pr-8 text-2xl font-black text-white">{release.title}</h2>\n          <p className="mt-2 text-sm font-medium leading-6 text-slate-300">{release.message}</p>\n        </div>\n\n        <div className="space-y-5 p-6">\n          <div className="rounded-2xl border border-slate-800 bg-slate-900/70 p-4">\n            <div className="flex items-center justify-between gap-3 text-sm">\n              <span className="text-slate-400">Trenutna verzija</span>\n              <span className="font-bold text-slate-200">{update.installedVersion}</span>\n            </div>\n            <div className="mt-2 flex items-center justify-between gap-3 text-sm">\n              <span className="text-slate-400">Nova verzija</span>\n              <span className="font-black text-blue-400">{release.latestVersion}</span>\n            </div>\n          </div>\n\n          {release.releaseNotes && (\n            <div>\n              <p className="mb-2 flex items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-500"><RefreshCw size={14} /> Što je novo</p>\n              <p className="text-sm leading-6 text-slate-300">{release.releaseNotes}</p>\n            </div>\n          )}\n\n          <button type="button" onClick={() => void openStore()} className="flex min-h-14 w-full items-center justify-center gap-3 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 px-5 text-base font-black text-white shadow-lg shadow-blue-950/30 transition active:scale-[0.98]">\n            <Download size={20} />\n            Preuzmi novu verziju\n          </button>\n\n          {!update.required && (\n            <button type="button" onClick={later} className="w-full py-2 text-sm font-bold text-slate-400 transition hover:text-white">Kasnije</button>\n          )}\n\n          {update.required && (\n            <p className="text-center text-xs font-semibold leading-5 text-amber-300">Ovo ažuriranje je potrebno za nastavak sigurnog korištenja FERSYS-a.</p>\n          )}\n        </div>\n      </div>\n    </div>\n  )\n}\n`)
-
-          const layoutPath = 'src/layouts/AppLayout.tsx'
-          let layout = fs.readFileSync(layoutPath, 'utf8')
-          if (!layout.includes("../components/AppUpdatePrompt")) {
-            layout = layout.replace("import AiClientActionRunner from '../ai/AiClientActionRunner'", "import AiClientActionRunner from '../ai/AiClientActionRunner'\nimport AppUpdatePrompt from '../components/AppUpdatePrompt'")
+          export type AppReleaseChannel = {
+            platform: 'android'
+            latestVersion: string
+            latestVersionCode: number
+            minimumVersionCode: number
+            updateRequired: boolean
+            title: string
+            message: string
+            releaseNotes: string
+            storeUrl: string
           }
-          if (!layout.includes('<AppUpdatePrompt />')) {
-            layout = layout.replace('<div className="flex h-dvh overflow-hidden bg-slate-950 text-white">', '<div className="flex h-dvh overflow-hidden bg-slate-950 text-white">\n      <AppUpdatePrompt />')
+
+          export type AppUpdateCheck = {
+            available: boolean
+            required: boolean
+            installedVersion: string
+            installedVersionCode: number
+            release: AppReleaseChannel | null
           }
-          fs.writeFileSync(layoutPath, layout)
-          NODE
 
-          npm ci
-          npm run build
+          function mapRow(row: Record<string, unknown>): AppReleaseChannel {
+            return {
+              platform: 'android',
+              latestVersion: String(row.latest_version ?? ''),
+              latestVersionCode: Number(row.latest_version_code ?? 0),
+              minimumVersionCode: Number(row.minimum_version_code ?? 0),
+              updateRequired: Boolean(row.update_required),
+              title: String(row.title ?? 'Dostupna je nova verzija FERSYS-a'),
+              message: String(row.message ?? 'Ažuriraj FERSYS za najnovije funkcije i ispravke.'),
+              releaseNotes: String(row.release_notes ?? ''),
+              storeUrl: String(row.store_url ?? 'https://play.google.com/store/apps/details?id=com.fersys.app'),
+            }
+          }
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          export async function checkForAndroidAppUpdate(): Promise<AppUpdateCheck> {
+            if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+              return { available: false, required: false, installedVersion: '', installedVersionCode: 0, release: null }
+            }
+
+            const info = await App.getInfo()
+            const installedVersionCode = Number(info.build ?? 0)
+
+            const { data, error } = await supabase
+              .from('app_release_channel')
+              .select('*')
+              .eq('platform', 'android')
+              .maybeSingle()
+
+            if (error) throw error
+            if (!data) {
+              return { available: false, required: false, installedVersion: info.version, installedVersionCode, release: null }
+            }
+
+            const release = mapRow(data as Record<string, unknown>)
+            const available = release.latestVersionCode > installedVersionCode
+            const required = available && (release.updateRequired || installedVersionCode < release.minimumVersionCode)
+
+            return {
+              available,
+              required,
+              installedVersion: info.version,
+              installedVersionCode,
+              release,
+            }
+          }
+          TS
+
+          cat > src/components/AppUpdatePrompt.tsx <<'TSX'
+          import { App } from '@capacitor/app'
+          import { Browser } from '@capacitor/browser'
+          import { Capacitor } from '@capacitor/core'
+          import { Download, RefreshCw, X } from 'lucide-react'
+          import { useCallback, useEffect, useRef, useState } from 'react'
+          import { checkForAndroidAppUpdate, type AppUpdateCheck } from '../services/appUpdate.service'
+
+          const SNOOZE_PREFIX = 'fersys_update_snooze_v2:'
+          const CHECK_INTERVAL_MS = 30 * 60 * 1000
+          const SNOOZE_MS = 12 * 60 * 60 * 1000
+
+          export default function AppUpdatePrompt() {
+            const [update, setUpdate] = useState<AppUpdateCheck | null>(null)
+            const checkingRef = useRef(false)
+
+            const check = useCallback(async () => {
+              if (checkingRef.current) return
+              checkingRef.current = true
+
+              try {
+                const result = await checkForAndroidAppUpdate()
+                if (!result.available || !result.release) {
+                  setUpdate(null)
+                  return
+                }
+
+                if (!result.required) {
+                  const key = SNOOZE_PREFIX + result.release.latestVersionCode
+                  const until = Number(localStorage.getItem(key) ?? 0)
+                  if (Date.now() < until) {
+                    setUpdate(null)
+                    return
+                  }
+                }
+
+                setUpdate(result)
+              } catch (error) {
+                console.warn('[FERSYS] Provjera nove verzije nije uspjela:', error)
+              } finally {
+                checkingRef.current = false
+              }
+            }, [])
+
+            useEffect(() => {
+              if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
+
+              void check()
+              const timer = window.setInterval(() => void check(), CHECK_INTERVAL_MS)
+              const onVisible = () => {
+                if (document.visibilityState === 'visible') void check()
+              }
+              document.addEventListener('visibilitychange', onVisible)
+
+              let removeAppState: (() => void) | undefined
+              void App.addListener('appStateChange', ({ isActive }) => {
+                if (isActive) void check()
+              }).then((handle) => {
+                removeAppState = () => void handle.remove()
+              })
+
+              return () => {
+                window.clearInterval(timer)
+                document.removeEventListener('visibilitychange', onVisible)
+                removeAppState?.()
+              }
+            }, [check])
+
+            if (!update?.available || !update.release) return null
+            const release = update.release
+
+            async function openStore() {
+              const marketUrl = 'market://details?id=com.fersys.app'
+              try {
+                window.location.href = marketUrl
+                window.setTimeout(() => {
+                  if (document.visibilityState === 'visible') {
+                    void Browser.open({ url: release.storeUrl })
+                  }
+                }, 1200)
+              } catch {
+                await Browser.open({ url: release.storeUrl })
+              }
+            }
+
+            function later() {
+              if (update.required) return
+              localStorage.setItem(
+                SNOOZE_PREFIX + release.latestVersionCode,
+                String(Date.now() + SNOOZE_MS),
+              )
+              setUpdate(null)
+            }
+
+            return (
+              <div className="fixed left-1/2 top-[max(12px,env(safe-area-inset-top))] z-[2147482500] w-[min(calc(100vw-24px),720px)] -translate-x-1/2">
+                <div className="flex items-start gap-3 rounded-2xl border border-blue-400/25 bg-slate-950/98 p-3 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-4">
+                  <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-blue-500/15 text-blue-300">
+                    <RefreshCw size={21} />
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-white">{release.title}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-300">{release.message}</p>
+                        <p className="mt-1 text-[11px] font-bold text-blue-300">
+                          Instalirano {update.installedVersion} · dostupno {release.latestVersion}
+                        </p>
+                      </div>
+
+                      {!update.required && (
+                        <button type="button" onClick={later} className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-slate-400 active:bg-slate-800" aria-label="Kasnije">
+                          <X size={18} />
+                        </button>
+                      )}
+                    </div>
+
+                    <button type="button" onClick={() => void openStore()} className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white active:scale-[0.98]">
+                      <Download size={17} />
+                      Ažuriraj na Trgovini Play
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          }
+          TSX
+
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/layouts/AppLayout.tsx')
+          s = p.read_text(encoding='utf-8-sig')
+          imp = "import AppUpdatePrompt from '../components/AppUpdatePrompt'\n"
+          anchor = "import CompanyLogo from '../components/CompanyLogo'\n"
+          if imp not in s:
+              s = s.replace(anchor, imp + anchor, 1)
+          marker = '<div className="flex h-dvh overflow-hidden bg-slate-950 text-white">'
+          if '<AppUpdatePrompt />' not in s:
+              s = s.replace(marker, marker + '\n      <AppUpdatePrompt />', 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - run: npm ci
+      - run: npm run build
+      - run: npx cap sync android
+
+      - name: Commit verified update prompt
+        shell: bash
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
           git add src/services/appUpdate.service.ts src/components/AppUpdatePrompt.tsx src/layouts/AppLayout.tsx
-          if git diff --cached --quiet; then
-            echo "No changes"
-            exit 0
-          fi
-          git commit -m "Add native Play Store update prompt [skip ci]"
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add reliable Android Play Store update banner"
           git push
