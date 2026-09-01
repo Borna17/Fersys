@@ -44,9 +44,6 @@ const EXCLUDED_BUTTON_PATTERN =
 const SLOW_WARNING_MS =
   10_000
 
-const WARNING_TIMEOUT_MS =
-  8_000
-
 const SUCCESS_TIMEOUT_MS =
   12_000
 
@@ -228,24 +225,13 @@ export default function DownloadFeedbackCenter() {
     slowTimer.current =
       window.setTimeout(
         () => {
-          clearButton()
-
-          setState({
-            status:
-              'warning',
-            title:
-              'Izrada traje dulje nego inače',
+          setState((current) => ({
+            status: 'preparing',
+            title: 'Veći dokument – još ga pripremam...',
             message:
-              'Dokument nije završen. Možeš pokušati ponovno.',
-          })
-
-          dismissTimer.current =
-            window.setTimeout(
-              () => {
-                setState(null)
-              },
-              WARNING_TIMEOUT_MS,
-            )
+              'Radni nalog s više stavki ili fotografija može potrajati malo duže. Ne zatvaraj aplikaciju – FERSYS i dalje radi.',
+            fileName: current?.fileName,
+          }))
         },
         SLOW_WARNING_MS,
       )

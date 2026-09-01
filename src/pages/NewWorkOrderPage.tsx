@@ -1,4 +1,4 @@
-﻿import {
+import {
   useEffect,
   useMemo,
   useState,
@@ -1648,6 +1648,9 @@ export function NewWorkOrderPage() {
                 dataUrl:
                   await fileToCompressedDataUrl(
                     file,
+                    1280,
+                    1280,
+                    0.72,
                   ),
               }),
             ),
@@ -1926,6 +1929,23 @@ export function NewWorkOrderPage() {
           </button>
         </div>
       </section>
+    )
+  }
+
+  if (isSaving) {
+    const isLargeWorkOrder =
+      images.length >= 4 ||
+      materials.length >= 8 ||
+      description.length >= 1500
+
+    return (
+      <FersysLoader
+        text={
+          isLargeWorkOrder
+            ? 'Spremanje većeg radnog naloga... Ima više podataka ili fotografija pa može potrajati malo duže. Ne zatvaraj aplikaciju.'
+            : 'Spremanje radnog naloga...'
+        }
+      />
     )
   }
 
@@ -2785,7 +2805,7 @@ export function NewWorkOrderPage() {
                     }`}
                   >
                     <MiniInput
-                      label="Količina"
+                      label="Kolicina"
                     >
                       <input
                         type="number"
@@ -2797,7 +2817,7 @@ export function NewWorkOrderPage() {
                             ? ''
                             : material.quantity
                         }
-                        placeholder="KoliÄina"
+                        placeholder="Kolicina"
                         onChange={(event) =>
                           updateMaterial(
                             material.id,
