@@ -413,7 +413,7 @@ export function SupportPage() {
 
           <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex">
             <a
-              href="/FERSYS-Korisnicki-prirucnik.pdf"
+              href="https://github.com/Borna17/Fersys/blob/main/public/FERSYS-Korisnicki-prirucnik.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-black text-white transition hover:bg-violet-500"
