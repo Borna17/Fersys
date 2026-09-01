@@ -1,4 +1,11 @@
 {
+  "redirects": [
+    {
+      "source": "/FERSYS-Korisnicki-prirucnik.pdf",
+      "destination": "https://raw.githubusercontent.com/Borna17/Fersys/main/public/FERSYS-Korisnicki-prirucnik.pdf",
+      "permanent": false
+    }
+  ],
   "rewrites": [
     {
       "source": "/((?!assets/|favicon|manifest|robots|icons/|FERSYS-Korisnicki-prirucnik\\.pdf$).*)",
