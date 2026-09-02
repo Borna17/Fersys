@@ -24,7 +24,6 @@ import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
 import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
 import IncomingInvoicesDatabaseBridge from './components/IncomingInvoicesDatabaseBridge'
-import WorkOrderQuantityAsciiFix from './components/WorkOrderQuantityAsciiFix'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
@@ -132,7 +131,6 @@ createRoot(document.getElementById('root')!).render(
       <ConnectionStatusNotice />
       <IncomingInvoicesDatabaseBridge />
       <FloatingUiLayoutFix />
-      <WorkOrderQuantityAsciiFix />
       <DeliveryNoteMobileLayoutFix />
       <GoogleCalendarOAuthBridge />
       <DownloadFeedbackCenter />
