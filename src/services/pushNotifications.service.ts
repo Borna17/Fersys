@@ -196,23 +196,76 @@ async function enableNativePush(): Promise<PushRegistrationState> {
   return 'subscribed'
 }
 
+function waitForServiceWorkerActive(
+  registration: ServiceWorkerRegistration,
+): Promise<ServiceWorkerRegistration> {
+  if (registration.active) return Promise.resolve(registration)
+
+  return new Promise((resolve, reject) => {
+    let finished = false
+
+    const finish = () => {
+      if (finished) return
+      if (!registration.active) return
+      finished = true
+      cleanup()
+      resolve(registration)
+    }
+
+    const watchWorker = (worker: ServiceWorker | null) => {
+      if (!worker) return
+      worker.addEventListener('statechange', finish)
+    }
+
+    const handleUpdateFound = () => {
+      watchWorker(registration.installing)
+      watchWorker(registration.waiting)
+      finish()
+    }
+
+    const timer = window.setTimeout(() => {
+      if (finished) return
+      finished = true
+      cleanup()
+      reject(
+        new Error(
+          'FCM service worker se nije aktivirao na vrijeme.',
+        ),
+      )
+    }, 15000)
+
+    const cleanup = () => {
+      window.clearTimeout(timer)
+      registration.removeEventListener(
+        'updatefound',
+        handleUpdateFound,
+      )
+    }
+
+    registration.addEventListener('updatefound', handleUpdateFound)
+    watchWorker(registration.installing)
+    watchWorker(registration.waiting)
+    finish()
+  })
+}
+
 async function getFirebaseMessagingRegistration() {
-  const existing = await navigator.serviceWorker.getRegistration(
+  let registration = await navigator.serviceWorker.getRegistration(
     FIREBASE_SW_SCOPE,
   )
 
-  if (existing) {
-    await existing.update().catch(() => undefined)
-    return existing
+  if (!registration) {
+    registration = await navigator.serviceWorker.register(
+      '/firebase-messaging-sw.js',
+      {
+        scope: FIREBASE_SW_SCOPE,
+        updateViaCache: 'none',
+      },
+    )
   }
 
-  return navigator.serviceWorker.register(
-    '/firebase-messaging-sw.js',
-    {
-      scope: FIREBASE_SW_SCOPE,
-      updateViaCache: 'none',
-    },
-  )
+  registration.update().catch(() => undefined)
+  return waitForServiceWorkerActive(registration)
 }
 
 async function webContext() {
