@@ -272,16 +272,6 @@ export default defineConfig({
 
             {
               name:
-                'firebase',
-              test:
-                /node_modules[\\/](firebase|@firebase)[\\/]/,
-              priority: 110,
-              maxSize:
-                240 * 1024,
-            },
-
-            {
-              name:
                 'jspdf',
               test:
                 /node_modules[\\/]jspdf[\\/]/,
