@@ -1,7 +1,12 @@
 import { supabase } from '../lib/supabase'
 import { isNativeApp } from '../lib/platform'
 
-export type PushRegistrationState = 'unsupported' | 'missing-key' | 'denied' | 'available' | 'subscribed'
+export type PushRegistrationState =
+  | 'unsupported'
+  | 'missing-key'
+  | 'denied'
+  | 'available'
+  | 'subscribed'
 
 const firebaseConfig = {
   apiKey: 'AIzaSyBM1dPzjGK5cZEv_P5fKGSGMMOZfP22VfQ',
@@ -14,36 +19,67 @@ const firebaseConfig = {
 
 const NATIVE_TOKEN_KEY = 'fersys_native_push_token'
 const FIREBASE_SW_SCOPE = '/firebase-cloud-messaging-push-scope/'
+let enablePromise: Promise<PushRegistrationState> | null = null
 
 function vapidKey() {
   return String(import.meta.env.VITE_FIREBASE_VAPID_KEY ?? '').trim()
 }
 
 function isDesktopViewport() {
-  return typeof window !== 'undefined' && !isNativeApp() && window.matchMedia('(min-width: 768px)').matches
+  return (
+    typeof window !== 'undefined' &&
+    !isNativeApp() &&
+    window.matchMedia('(min-width: 768px)').matches
+  )
+}
+
+function webPushBasicsAvailable() {
+  return (
+    typeof window !== 'undefined' &&
+    typeof navigator !== 'undefined' &&
+    typeof Notification !== 'undefined' &&
+    window.isSecureContext &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'indexedDB' in window
+  )
 }
 
 async function save(token: string) {
   const { error } = await supabase.rpc('register_my_fcm_token', {
     requested_token: token,
-    requested_user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : 'FERSYS Native',
-    requested_platform: typeof navigator !== 'undefined' ? navigator.platform ?? '' : 'native',
+    requested_user_agent:
+      typeof navigator !== 'undefined'
+        ? navigator.userAgent
+        : 'FERSYS Native',
+    requested_platform:
+      typeof navigator !== 'undefined'
+        ? navigator.platform ?? ''
+        : 'native',
   })
+
   if (error) throw error
 }
 
 async function disableSavedToken(token: string) {
-  const { error } = await supabase.rpc('disable_my_fcm_token', { requested_token: token })
+  const { error } = await supabase.rpc('disable_my_fcm_token', {
+    requested_token: token,
+  })
+
   if (error) throw error
 }
 
 async function ensureNativeChannel() {
-  const { PushNotifications } = await import('@capacitor/push-notifications')
+  const { PushNotifications } = await import(
+    '@capacitor/push-notifications'
+  )
+
   if ('createChannel' in PushNotifications) {
     await PushNotifications.createChannel({
       id: 'fersys_default',
       name: 'FERSYS obavijesti',
-      description: 'Radni nalozi, poslovne obavijesti i vremenska prognoza',
+      description:
+        'Radni nalozi, poslovne obavijesti i vremenska prognoza',
       importance: 5,
       visibility: 1,
       vibration: true,
@@ -53,12 +89,17 @@ async function ensureNativeChannel() {
 }
 
 async function nativePermissionState(): Promise<PushRegistrationState> {
-  const { PushNotifications } = await import('@capacitor/push-notifications')
+  const { PushNotifications } = await import(
+    '@capacitor/push-notifications'
+  )
+
   const permission = await PushNotifications.checkPermissions()
+
   if (permission.receive === 'denied') return 'denied'
   if (permission.receive !== 'granted') return 'available'
 
   await ensureNativeChannel()
+
   const stored = localStorage.getItem(NATIVE_TOKEN_KEY)
   if (!stored) return 'available'
 
@@ -67,7 +108,9 @@ async function nativePermissionState(): Promise<PushRegistrationState> {
 }
 
 async function registerNativeToken(): Promise<string> {
-  const { PushNotifications } = await import('@capacitor/push-notifications')
+  const { PushNotifications } = await import(
+    '@capacitor/push-notifications'
+  )
 
   let resolveToken!: (token: string) => void
   let rejectToken!: (error: Error) => void
@@ -78,138 +121,230 @@ async function registerNativeToken(): Promise<string> {
     rejectToken = reject
   })
 
-  const registrationListener = await PushNotifications.addListener('registration', (token) => {
-    if (settled) return
-    settled = true
-    resolveToken(token.value)
-  })
+  const registrationListener = await PushNotifications.addListener(
+    'registration',
+    (token) => {
+      if (settled) return
+      settled = true
+      resolveToken(token.value)
+    },
+  )
 
-  const errorListener = await PushNotifications.addListener('registrationError', (error) => {
-    if (settled) return
-    settled = true
-    rejectToken(new Error(error.error || 'Android nije vratio push token.'))
-  })
+  const errorListener = await PushNotifications.addListener(
+    'registrationError',
+    (registrationError) => {
+      if (settled) return
+      settled = true
+      rejectToken(
+        new Error(
+          registrationError.error ||
+            'Android nije vratio push token.',
+        ),
+      )
+    },
+  )
 
   const timer = window.setTimeout(() => {
     if (settled) return
     settled = true
-    rejectToken(new Error('Registracija obavijesti traje predugo. Pokušaj ponovno.'))
+    rejectToken(
+      new Error(
+        'Registracija obavijesti traje predugo. Pokušaj ponovno.',
+      ),
+    )
   }, 15000)
 
   try {
     await PushNotifications.register()
-    return await tokenPromise
+    const token = await tokenPromise
+    localStorage.setItem(NATIVE_TOKEN_KEY, token)
+    return token
   } finally {
     window.clearTimeout(timer)
-    await Promise.allSettled([registrationListener.remove(), errorListener.remove()])
+    await Promise.allSettled([
+      registrationListener.remove(),
+      errorListener.remove(),
+    ])
   }
 }
 
 async function enableNativePush(): Promise<PushRegistrationState> {
-  const { PushNotifications } = await import('@capacitor/push-notifications')
+  const { PushNotifications } = await import(
+    '@capacitor/push-notifications'
+  )
+
   let permission = await PushNotifications.checkPermissions()
-  if (permission.receive !== 'granted') permission = await PushNotifications.requestPermissions()
+
+  if (permission.receive !== 'granted') {
+    permission = await PushNotifications.requestPermissions()
+  }
+
   if (permission.receive !== 'granted') return 'denied'
 
   await ensureNativeChannel()
-  const token = await registerNativeToken()
-  if (!token) throw new Error('Android nije vratio FCM token za ovaj uređaj.')
 
-  localStorage.setItem(NATIVE_TOKEN_KEY, token)
+  const stored = localStorage.getItem(NATIVE_TOKEN_KEY)
+  if (stored) {
+    await save(stored)
+    return 'subscribed'
+  }
+
+  const token = await registerNativeToken()
+
+  if (!token) {
+    throw new Error(
+      'Android nije vratio FCM token za ovaj uređaj.',
+    )
+  }
+
   await save(token)
   return 'subscribed'
 }
 
 async function getFirebaseMessagingRegistration() {
-  const existing = await navigator.serviceWorker.getRegistration(FIREBASE_SW_SCOPE)
-  if (existing) {
-    await existing.update().catch(() => undefined)
-    return existing
-  }
-  return navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-    scope: FIREBASE_SW_SCOPE,
-    updateViaCache: 'none',
-  })
+  const existing = await navigator.serviceWorker.getRegistration(
+    FIREBASE_SW_SCOPE,
+  )
+
+  if (existing) return existing
+
+  return navigator.serviceWorker.register(
+    '/firebase-messaging-sw.js',
+    {
+      scope: FIREBASE_SW_SCOPE,
+      updateViaCache: 'none',
+    },
+  )
 }
 
 async function webContext() {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined' || typeof Notification === 'undefined') return null
+  if (!webPushBasicsAvailable()) return null
   if (isDesktopViewport()) return null
-  if (!('serviceWorker' in navigator)) return null
 
-  const [firebaseApp, firebaseMessaging] = await Promise.all([import('firebase/app'), import('firebase/messaging')])
-  if (!(await firebaseMessaging.isSupported())) return null
+  try {
+    const [firebaseApp, firebaseMessaging] = await Promise.all([
+      import('firebase/app'),
+      import('firebase/messaging'),
+    ])
 
-  const firebase = firebaseApp.getApps().length ? firebaseApp.getApp() : firebaseApp.initializeApp(firebaseConfig)
-  const registration = await getFirebaseMessagingRegistration()
-  await navigator.serviceWorker.ready.catch(() => undefined)
+    if (!(await firebaseMessaging.isSupported())) return null
 
-  return {
-    registration,
-    messaging: firebaseMessaging.getMessaging(firebase),
-    getToken: firebaseMessaging.getToken,
-    deleteToken: firebaseMessaging.deleteToken,
+    const firebase = firebaseApp.getApps().length
+      ? firebaseApp.getApp()
+      : firebaseApp.initializeApp(firebaseConfig)
+
+    const registration = await getFirebaseMessagingRegistration()
+
+    return {
+      registration,
+      messaging: firebaseMessaging.getMessaging(firebase),
+      getToken: firebaseMessaging.getToken,
+      deleteToken: firebaseMessaging.deleteToken,
+    }
+  } catch (error) {
+    console.error('Web push inicijalizacija nije uspjela:', error)
+    return null
   }
 }
 
 export async function getPushRegistrationState(): Promise<PushRegistrationState> {
   if (isNativeApp()) return nativePermissionState()
   if (isDesktopViewport()) return 'unsupported'
+  if (!webPushBasicsAvailable()) return 'unsupported'
+  if (!vapidKey()) return 'missing-key'
+  if (Notification.permission === 'denied') return 'denied'
+
+  // Dok korisnik još nije dao dopuštenje ne učitavamo Firebase Messaging.
+  // Time izbjegavamo nepotrebnu inicijalizaciju i browser greške prije korisničkog klika.
+  if (Notification.permission !== 'granted') return 'available'
 
   const ctx = await webContext()
   if (!ctx) return 'unsupported'
-  if (!vapidKey()) return 'missing-key'
-  if (Notification.permission === 'denied') return 'denied'
-  if (Notification.permission !== 'granted') return 'available'
 
   const token = await ctx.getToken(ctx.messaging, {
     vapidKey: vapidKey(),
     serviceWorkerRegistration: ctx.registration,
   })
+
   if (!token) return 'available'
 
   await save(token)
   return 'subscribed'
 }
 
-export async function enablePushNotifications(): Promise<PushRegistrationState> {
+async function doEnablePushNotifications(): Promise<PushRegistrationState> {
   if (isNativeApp()) return enableNativePush()
-
-  const ctx = await webContext()
-  if (!ctx) return 'unsupported'
+  if (isDesktopViewport()) return 'unsupported'
+  if (!webPushBasicsAvailable()) return 'unsupported'
   if (!vapidKey()) return 'missing-key'
 
   let permission = Notification.permission
-  if (permission !== 'granted') permission = await Notification.requestPermission()
+
+  if (permission !== 'granted') {
+    permission = await Notification.requestPermission()
+  }
+
   if (permission !== 'granted') return 'denied'
+
+  const ctx = await webContext()
+
+  if (!ctx) {
+    throw new Error(
+      'Push obavijesti nisu dostupne u ovom pregledniku ili načinu rada aplikacije.',
+    )
+  }
 
   const token = await ctx.getToken(ctx.messaging, {
     vapidKey: vapidKey(),
     serviceWorkerRegistration: ctx.registration,
   })
-  if (!token) throw new Error('Firebase nije vratio FCM token za ovaj uređaj.')
+
+  if (!token) {
+    throw new Error(
+      'Firebase nije vratio FCM token za ovaj uređaj.',
+    )
+  }
 
   await save(token)
   return 'subscribed'
 }
 
+export async function enablePushNotifications(): Promise<PushRegistrationState> {
+  if (enablePromise) return enablePromise
+
+  enablePromise = doEnablePushNotifications().finally(() => {
+    enablePromise = null
+  })
+
+  return enablePromise
+}
+
 export async function disablePushNotifications() {
   if (isNativeApp()) {
-    const { PushNotifications } = await import('@capacitor/push-notifications')
+    const { PushNotifications } = await import(
+      '@capacitor/push-notifications'
+    )
+
     const token = localStorage.getItem(NATIVE_TOKEN_KEY)
+
     if (token) await disableSavedToken(token)
+
     localStorage.removeItem(NATIVE_TOKEN_KEY)
     await PushNotifications.unregister()
     return
   }
 
+  if (!webPushBasicsAvailable() || !vapidKey()) return
+  if (Notification.permission !== 'granted') return
+
   const ctx = await webContext()
-  if (!ctx || !vapidKey()) return
+  if (!ctx) return
 
   const token = await ctx.getToken(ctx.messaging, {
     vapidKey: vapidKey(),
     serviceWorkerRegistration: ctx.registration,
   })
+
   if (token) await disableSavedToken(token)
   await ctx.deleteToken(ctx.messaging)
 }
