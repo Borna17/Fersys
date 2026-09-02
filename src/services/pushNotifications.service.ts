@@ -25,14 +25,6 @@ function vapidKey() {
   return String(import.meta.env.VITE_FIREBASE_VAPID_KEY ?? '').trim()
 }
 
-function isDesktopViewport() {
-  return (
-    typeof window !== 'undefined' &&
-    !isNativeApp() &&
-    window.matchMedia('(min-width: 768px)').matches
-  )
-}
-
 function webPushBasicsAvailable() {
   return (
     typeof window !== 'undefined' &&
@@ -40,9 +32,14 @@ function webPushBasicsAvailable() {
     typeof Notification !== 'undefined' &&
     window.isSecureContext &&
     'serviceWorker' in navigator &&
-    'PushManager' in window &&
-    'indexedDB' in window
+    'PushManager' in window
   )
+}
+
+function readableError(value: unknown) {
+  if (value instanceof Error && value.message) return value.message
+  if (typeof value === 'string' && value.trim()) return value
+  return 'Nepoznata pogreška.'
 }
 
 async function save(token: string) {
@@ -138,7 +135,7 @@ async function registerNativeToken(): Promise<string> {
       rejectToken(
         new Error(
           registrationError.error ||
-            'Android nije vratio push token.',
+            'Uređaj nije vratio push token.',
         ),
       )
     },
@@ -192,9 +189,7 @@ async function enableNativePush(): Promise<PushRegistrationState> {
   const token = await registerNativeToken()
 
   if (!token) {
-    throw new Error(
-      'Android nije vratio FCM token za ovaj uređaj.',
-    )
+    throw new Error('Uređaj nije vratio FCM token.')
   }
 
   await save(token)
@@ -206,7 +201,10 @@ async function getFirebaseMessagingRegistration() {
     FIREBASE_SW_SCOPE,
   )
 
-  if (existing) return existing
+  if (existing) {
+    await existing.update().catch(() => undefined)
+    return existing
+  }
 
   return navigator.serviceWorker.register(
     '/firebase-messaging-sw.js',
@@ -219,62 +217,56 @@ async function getFirebaseMessagingRegistration() {
 
 async function webContext() {
   if (!webPushBasicsAvailable()) return null
-  if (isDesktopViewport()) return null
 
-  try {
-    const [firebaseApp, firebaseMessaging] = await Promise.all([
-      import('firebase/app'),
-      import('firebase/messaging'),
-    ])
+  const [firebaseApp, firebaseMessaging] = await Promise.all([
+    import('firebase/app'),
+    import('firebase/messaging'),
+  ])
 
-    if (!(await firebaseMessaging.isSupported())) return null
+  const firebase = firebaseApp.getApps().length
+    ? firebaseApp.getApp()
+    : firebaseApp.initializeApp(firebaseConfig)
 
-    const firebase = firebaseApp.getApps().length
-      ? firebaseApp.getApp()
-      : firebaseApp.initializeApp(firebaseConfig)
+  const registration = await getFirebaseMessagingRegistration()
 
-    const registration = await getFirebaseMessagingRegistration()
-
-    return {
-      registration,
-      messaging: firebaseMessaging.getMessaging(firebase),
-      getToken: firebaseMessaging.getToken,
-      deleteToken: firebaseMessaging.deleteToken,
-    }
-  } catch (error) {
-    console.error('Web push inicijalizacija nije uspjela:', error)
-    return null
+  return {
+    registration,
+    messaging: firebaseMessaging.getMessaging(firebase),
+    getToken: firebaseMessaging.getToken,
+    deleteToken: firebaseMessaging.deleteToken,
   }
+}
+
+async function getWebToken() {
+  const ctx = await webContext()
+  if (!ctx) return null
+
+  return ctx.getToken(ctx.messaging, {
+    vapidKey: vapidKey(),
+    serviceWorkerRegistration: ctx.registration,
+  })
 }
 
 export async function getPushRegistrationState(): Promise<PushRegistrationState> {
   if (isNativeApp()) return nativePermissionState()
-  if (isDesktopViewport()) return 'unsupported'
   if (!webPushBasicsAvailable()) return 'unsupported'
   if (!vapidKey()) return 'missing-key'
   if (Notification.permission === 'denied') return 'denied'
-
-  // Dok korisnik još nije dao dopuštenje ne učitavamo Firebase Messaging.
-  // Time izbjegavamo nepotrebnu inicijalizaciju i browser greške prije korisničkog klika.
   if (Notification.permission !== 'granted') return 'available'
 
-  const ctx = await webContext()
-  if (!ctx) return 'unsupported'
-
-  const token = await ctx.getToken(ctx.messaging, {
-    vapidKey: vapidKey(),
-    serviceWorkerRegistration: ctx.registration,
-  })
-
-  if (!token) return 'available'
-
-  await save(token)
-  return 'subscribed'
+  try {
+    const token = await getWebToken()
+    if (!token) return 'available'
+    await save(token)
+    return 'subscribed'
+  } catch (error) {
+    console.error('Provjera web push registracije nije uspjela:', error)
+    return 'available'
+  }
 }
 
 async function doEnablePushNotifications(): Promise<PushRegistrationState> {
   if (isNativeApp()) return enableNativePush()
-  if (isDesktopViewport()) return 'unsupported'
   if (!webPushBasicsAvailable()) return 'unsupported'
   if (!vapidKey()) return 'missing-key'
 
@@ -286,27 +278,21 @@ async function doEnablePushNotifications(): Promise<PushRegistrationState> {
 
   if (permission !== 'granted') return 'denied'
 
-  const ctx = await webContext()
+  try {
+    const token = await getWebToken()
 
-  if (!ctx) {
+    if (!token) {
+      throw new Error('Firebase nije vratio FCM token za ovaj uređaj.')
+    }
+
+    await save(token)
+    return 'subscribed'
+  } catch (error) {
+    console.error('Web push registracija nije uspjela:', error)
     throw new Error(
-      'Push obavijesti nisu dostupne u ovom pregledniku ili načinu rada aplikacije.',
+      `Registracija push obavijesti nije uspjela: ${readableError(error)}`,
     )
   }
-
-  const token = await ctx.getToken(ctx.messaging, {
-    vapidKey: vapidKey(),
-    serviceWorkerRegistration: ctx.registration,
-  })
-
-  if (!token) {
-    throw new Error(
-      'Firebase nije vratio FCM token za ovaj uređaj.',
-    )
-  }
-
-  await save(token)
-  return 'subscribed'
 }
 
 export async function enablePushNotifications(): Promise<PushRegistrationState> {
@@ -337,14 +323,18 @@ export async function disablePushNotifications() {
   if (!webPushBasicsAvailable() || !vapidKey()) return
   if (Notification.permission !== 'granted') return
 
-  const ctx = await webContext()
-  if (!ctx) return
+  try {
+    const ctx = await webContext()
+    if (!ctx) return
 
-  const token = await ctx.getToken(ctx.messaging, {
-    vapidKey: vapidKey(),
-    serviceWorkerRegistration: ctx.registration,
-  })
+    const token = await ctx.getToken(ctx.messaging, {
+      vapidKey: vapidKey(),
+      serviceWorkerRegistration: ctx.registration,
+    })
 
-  if (token) await disableSavedToken(token)
-  await ctx.deleteToken(ctx.messaging)
+    if (token) await disableSavedToken(token)
+    await ctx.deleteToken(ctx.messaging)
+  } catch (error) {
+    console.error('Web push odjava nije uspjela:', error)
+  }
 }
