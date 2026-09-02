@@ -2,6 +2,7 @@ import CroatianNavigationLabels from './components/CroatianNavigationLabels'
 import {
   IncomingInvoicesCloudBridge,
 } from './components/IncomingInvoicesCloudBridge'
+import WebPushForegroundListener from './components/WebPushForegroundListener'
 import {
   WorkOrderShareAction,
 } from './components/WorkOrderShareAction'
@@ -17,6 +18,7 @@ function App() {
     <>
       <CroatianNavigationLabels />
       <IncomingInvoicesCloudBridge />
+      <WebPushForegroundListener />
       <AppRouter />
       <WorkOrderShareAction />
     </>
