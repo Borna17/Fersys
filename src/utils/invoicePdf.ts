@@ -251,15 +251,15 @@ function paginateItems(items: InvoicePdfItem[]) {
   while (cursor < items.length) {
     const remaining = items.length - cursor
     const isFirst = pages.length === 0
-    const finalCapacity = isFirst ? 8 : 10
+    const finalCapacity = isFirst ? 6 : 8
 
     if (remaining <= finalCapacity) {
       pages.push(items.slice(cursor))
       break
     }
 
-    const capacity = isFirst ? 12 : 15
-    const take = Math.min(capacity, Math.max(1, remaining - 5))
+    const capacity = isFirst ? 9 : 11
+    const take = Math.min(capacity, Math.max(1, remaining - 4))
     pages.push(items.slice(cursor, cursor + take))
     cursor += take
   }
@@ -379,6 +379,14 @@ function finalHtml(
   const signature = settings.showSignature && settings.signatureDataUrl
     ? `<img class="signature" src="${esc(settings.signatureDataUrl)}" alt="Potpis" />`
     : ''
+  const responsiblePerson = invoice.responsiblePerson.trim()
+  const customerName = invoice.customerName.trim()
+  const issuer =
+    responsiblePerson &&
+    responsiblePerson.toLocaleLowerCase('hr-HR') !==
+      customerName.toLocaleLowerCase('hr-HR')
+      ? responsiblePerson
+      : settings.companyName || '—'
 
   return `
     <section class="summary-grid">
@@ -407,7 +415,7 @@ function finalHtml(
       <section class="issued-by">
         <div>
           <span>Račun izdao</span>
-          <strong>${esc(invoice.responsiblePerson || settings.companyName)}</strong>
+          <strong>${esc(issuer)}</strong>
         </div>
         <div class="issued-media">${signature}${stamp}</div>
       </section>
@@ -499,57 +507,57 @@ function css(settings: InvoicePdfSettings) {
       align-items: flex-start;
       gap: 10px;
       min-width: 0;
-      max-width: 64%;
+      max-width: 66%;
     }
     .company-center { text-align: center; }
     .company-right { text-align: right; flex-direction: row-reverse; }
     .company-logo {
-      width: ${compact ? 50 : 58}px;
-      height: ${compact ? 42 : 50}px;
+      width: ${compact ? 54 : 62}px;
+      height: ${compact ? 46 : 54}px;
       flex: 0 0 auto;
       object-fit: contain;
     }
-    .company-copy { min-width: 0; font-size: ${compact ? 5.6 : 6.1}px; line-height: 1.45; color: ${alpha(t, '88')}; }
-    .company-name { margin-bottom: 3px; font-size: ${compact ? 12.5 : 14}px; font-weight: 950; color: ${t}; }
+    .company-copy { min-width: 0; font-size: ${compact ? 8.8 : 9.4}px; line-height: 1.42; color: ${alpha(t, '88')}; }
+    .company-name { margin-bottom: 3px; font-size: ${compact ? 18 : 20}px; line-height: 1.08; font-weight: 950; color: ${t}; }
     .title-block { flex: 0 0 auto; text-align: right; }
-    .document-title { font-size: ${compact ? 28 : 32}px; line-height: .95; font-weight: 950; letter-spacing: -.03em; }
-    .document-number { margin-top: 7px; color: ${p}; font-size: 10px; font-weight: 950; }
-    .continuation { margin-top: 4px; color: ${alpha(t, '70')}; font-size: 5.5px; font-weight: 900; letter-spacing: .12em; }
+    .document-title { font-size: ${compact ? 30 : 34}px; line-height: .95; font-weight: 950; letter-spacing: -.03em; }
+    .document-number { margin-top: 7px; color: ${p}; font-size: ${compact ? 13 : 14}px; font-weight: 950; }
+    .continuation { margin-top: 4px; color: ${alpha(t, '70')}; font-size: 8px; font-weight: 900; letter-spacing: .12em; }
     .info-grid {
       position: relative;
       z-index: 1;
       display: grid;
-      grid-template-columns: minmax(0,1fr) 210px;
+      grid-template-columns: minmax(0,1fr) 225px;
       gap: 18px;
       margin-top: ${compact ? '13px' : '17px'};
     }
     .info-cards > div { border: 1px solid ${b}; border-radius: 7px; padding: 9px 10px; background: ${alpha(p, '05')}; }
     .customer-block { min-width: 0; }
-    .eyebrow { color: ${alpha(t, '70')}; font-size: 6px; font-weight: 950; text-transform: uppercase; }
-    .customer-name { margin-top: 6px; font-size: ${compact ? 12 : 13.5}px; font-weight: 950; }
-    .customer-details { margin-top: 4px; color: ${alpha(t, '82')}; font-size: 6.5px; line-height: 1.4; }
-    .meta-block { font-size: 6.4px; }
-    .meta-block > div { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; border-bottom: 1px solid ${alpha(b, 'AA')}; }
+    .eyebrow { color: ${alpha(t, '70')}; font-size: 9px; font-weight: 950; text-transform: uppercase; }
+    .customer-name { margin-top: 6px; font-size: ${compact ? 13 : 14.5}px; font-weight: 950; }
+    .customer-details { margin-top: 4px; color: ${alpha(t, '82')}; font-size: 9px; line-height: 1.4; }
+    .meta-block { font-size: 9px; }
+    .meta-block > div { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-bottom: 1px solid ${alpha(b, 'AA')}; }
     .meta-block span { color: ${alpha(t, '72')}; }
     .meta-block strong { text-align: right; }
-    .description { margin-top: 10px; padding: 7px 9px; border-left: 2px solid ${p}; background: ${alpha(p, '06')}; font-size: 6.3px; line-height: 1.4; }
-    .section-title { margin: ${compact ? '11px 0 6px' : '14px 0 7px'}; font-size: 6.8px; font-weight: 950; text-transform: uppercase; }
+    .description { margin-top: 10px; padding: 8px 10px; border-left: 2px solid ${p}; background: ${alpha(p, '06')}; font-size: 9px; line-height: 1.42; }
+    .section-title { margin: ${compact ? '11px 0 6px' : '14px 0 7px'}; font-size: 10px; font-weight: 950; text-transform: uppercase; }
     .section-bar { padding: 6px 8px; border-radius: 6px; background: ${p}; color: #fff; }
     .section-line { padding-bottom: 4px; border-bottom: 1.5px solid ${p}; color: ${p}; }
     .section-plain { color: ${p}; }
     .table { position: relative; z-index: 1; overflow: hidden; border: 1px solid ${b}; border-radius: 7px; }
     .item-head, .item-row { display: grid; grid-template-columns: minmax(0,1.55fr) .55fr .8fr .9fr; gap: 8px; align-items: center; }
-    .item-head { padding: ${compact ? '5px 8px' : '7px 9px'}; background: ${tableHead}; color: #fff; font-size: 5.5px; font-weight: 950; text-transform: uppercase; }
+    .item-head { padding: ${compact ? '6px 8px' : '8px 9px'}; background: ${tableHead}; color: #fff; font-size: 8.5px; font-weight: 950; text-transform: uppercase; }
     .table-minimal .item-head { color: ${settings.tableStyle === 'minimal' && settings.preset === 'minimal' ? t : '#fff'}; }
-    .item-row { min-height: ${compact ? 30 : 35}px; padding: ${compact ? '4px 8px' : '5px 9px'}; border-top: 1px solid ${b}; font-size: ${compact ? 6.4 : 7}px; }
+    .item-row { min-height: ${compact ? 34 : 40}px; padding: ${compact ? '5px 8px' : '6px 9px'}; border-top: 1px solid ${b}; font-size: ${compact ? 9 : 9.5}px; line-height: 1.3; }
     .table-soft .item-row:nth-child(odd) { background: ${alpha(p, '05')}; }
     .item-row span, .item-row > strong { text-align: right; }
     .item-main { min-width: 0; text-align: left !important; }
     .item-main strong { display: block; text-align: left; }
-    .item-main small { display: block; margin-top: 2px; color: ${alpha(t, '72')}; font-size: 5.2px; line-height: 1.3; }
+    .item-main small { display: block; margin-top: 2px; color: ${alpha(t, '72')}; font-size: 8px; line-height: 1.35; }
     .summary-grid { display: grid; grid-template-columns: minmax(0,1fr) 46%; gap: 20px; margin-top: 14px; align-items: start; }
-    .payment-card { border: 1px solid ${alpha(p, '55')}; border-radius: 7px; padding: 9px; background: ${alpha(p, '04')}; }
-    .pay-row, .totals > div { display: flex; justify-content: space-between; gap: 10px; padding: 4px 2px; border-bottom: 1px solid ${b}; font-size: 6px; }
+    .payment-card { border: 1px solid ${alpha(p, '55')}; border-radius: 7px; padding: 10px; background: ${alpha(p, '04')}; }
+    .pay-row, .totals > div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 2px; border-bottom: 1px solid ${b}; font-size: 8.8px; }
     .pay-row span, .totals span { color: ${alpha(t, '72')}; }
     .pay-row strong { max-width: 65%; text-align: right; overflow-wrap: anywhere; }
     .totals .grand {
@@ -561,21 +569,21 @@ function css(settings: InvoicePdfSettings) {
       color: #fff;
       align-items: center;
     }
-    .totals .grand span { color: rgba(255,255,255,.76); font-size: 6px; font-weight: 950; }
-    .totals .grand strong { font-size: 13px; }
-    .quick-pay { display: grid; grid-template-columns: minmax(0,1fr) 62mm; gap: 12px; align-items: center; margin-top: 11px; padding: 8px 10px; border: 1px solid ${alpha(p, '55')}; border-radius: 7px; background: ${alpha(p, '035')}; }
-    .quick-pay > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; font-size: 5.7px; }
-    .quick-pay > div > strong { font-size: 7px; }
+    .totals .grand span { color: rgba(255,255,255,.76); font-size: 9px; font-weight: 950; }
+    .totals .grand strong { font-size: 15px; }
+    .quick-pay { display: grid; grid-template-columns: minmax(0,1fr) 62mm; gap: 12px; align-items: center; margin-top: 11px; padding: 9px 10px; border: 1px solid ${alpha(p, '55')}; border-radius: 7px; background: ${alpha(p, '035')}; }
+    .quick-pay > div { display: flex; min-width: 0; flex-direction: column; gap: 4px; font-size: 8.3px; }
+    .quick-pay > div > strong { font-size: 9.5px; }
     .quick-pay > div > span { color: ${alpha(t, '78')}; }
     .quick-pay img { display: block; width: 60mm; max-height: 27mm; object-fit: contain; background: #fff; }
-    .note { margin-top: 9px; padding: 7px 8px; border: 1px solid ${b}; border-radius: 6px; font-size: 5.8px; line-height: 1.4; }
-    .issued-by { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 9px; font-size: 5.5px; }
+    .note { margin-top: 9px; padding: 8px 9px; border: 1px solid ${b}; border-radius: 6px; font-size: 8.5px; line-height: 1.4; }
+    .issued-by { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 9px; font-size: 8.5px; }
     .issued-by span { display: block; color: ${alpha(t, '70')}; }
-    .issued-by strong { display: block; margin-top: 2px; font-size: 6.5px; }
+    .issued-by strong { display: block; margin-top: 2px; font-size: 10px; }
     .issued-media { display: flex; align-items: center; gap: 8px; }
     .stamp { max-width: 165px; max-height: 82px; object-fit: contain; }
     .signature { max-width: 180px; max-height: 58px; object-fit: contain; }
-    .footer { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 15px; margin-top: auto; padding-top: 7px; border-top: 1px solid ${alpha(p, '55')}; color: ${alpha(t, '6D')}; font-size: 5.3px; }
+    .footer { position: relative; z-index: 1; display: flex; justify-content: space-between; gap: 15px; margin-top: auto; padding-top: 7px; border-top: 1px solid ${alpha(p, '55')}; color: ${alpha(t, '6D')}; font-size: 7.8px; }
 
     @media print {
       @page { size: A4; margin: 0; }
