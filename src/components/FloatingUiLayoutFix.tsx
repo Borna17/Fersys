@@ -121,6 +121,15 @@ export default function FloatingUiLayoutFix() {
        */
       @media (max-width: 767px) {
         /*
+         * Mobilno zvonce je iznad sadržaja, ali ispod drawer overlaya
+         * (sidebar overlay z=75, sidebar z=80). Zato pri otvaranju
+         * izbornika više ne može prekriti FERSYS logo niti navigaciju.
+         */
+        .fersys-mobile-fixed-top {
+          z-index: 74 !important;
+        }
+
+        /*
          * MOBILE WORK ORDER DETAILS CLEANUP
          *
          * Na detalju radnog naloga ostaje samo Poslovni tok.
