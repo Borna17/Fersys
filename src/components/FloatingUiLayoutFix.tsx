@@ -31,10 +31,27 @@ export default function FloatingUiLayoutFix() {
       }
     }
 
-    fixWorkOrderQuantityText()
+    function syncDeliveryNoteDetailsClass() {
+      const path = window.location.pathname
+      const isDetails =
+        /^\/inventory\/delivery-notes\/[^/]+$/.test(path) &&
+        !path.endsWith('/new')
+
+      document.body.classList.toggle(
+        'fersys-delivery-note-details',
+        isDetails,
+      )
+    }
+
+    function applyRuntimeFixes() {
+      fixWorkOrderQuantityText()
+      syncDeliveryNoteDetailsClass()
+    }
+
+    applyRuntimeFixes()
 
     const observer = new MutationObserver(
-      fixWorkOrderQuantityText,
+      applyRuntimeFixes,
     )
 
     observer.observe(document.body, {
@@ -42,8 +59,20 @@ export default function FloatingUiLayoutFix() {
       subtree: true,
     })
 
+    window.addEventListener(
+      'popstate',
+      syncDeliveryNoteDetailsClass,
+    )
+
     return () => {
       observer.disconnect()
+      window.removeEventListener(
+        'popstate',
+        syncDeliveryNoteDetailsClass,
+      )
+      document.body.classList.remove(
+        'fersys-delivery-note-details',
+      )
     }
   }, [])
 
@@ -127,6 +156,72 @@ export default function FloatingUiLayoutFix() {
          */
         .fersys-mobile-fixed-top {
           z-index: 74 !important;
+        }
+
+        /*
+         * DELIVERY NOTE DETAILS
+         *
+         * Tablica stavki namjerno ima min-width kako bi se mogla
+         * horizontalno pomicati. Grid roditelji na mobilnom moraju
+         * imati min-width: 0, inače min-content širina tablice rastegne
+         * cijelu stranicu izvan viewporta.
+         */
+        body.fersys-delivery-note-details {
+          overflow-x: hidden !important;
+        }
+
+        body.fersys-delivery-note-details main,
+        body.fersys-delivery-note-details main > *,
+        body.fersys-delivery-note-details section,
+        body.fersys-delivery-note-details header,
+        body.fersys-delivery-note-details .grid,
+        body.fersys-delivery-note-details .space-y-5 {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
+        body.fersys-delivery-note-details section.mx-auto.max-w-\\[1450px\\] {
+          width: 100% !important;
+          min-width: 0 !important;
+          overflow-x: hidden !important;
+        }
+
+        body.fersys-delivery-note-details header h1 {
+          max-width: 100% !important;
+          overflow-wrap: anywhere !important;
+          font-size: clamp(1.65rem, 8vw, 2.25rem) !important;
+        }
+
+        body.fersys-delivery-note-details header > div > div:last-child {
+          width: 100% !important;
+          min-width: 0 !important;
+        }
+
+        body.fersys-delivery-note-details header > div > div:last-child > button {
+          flex: 1 1 auto !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          white-space: normal !important;
+        }
+
+        body.fersys-delivery-note-details section.rounded-3xl {
+          overflow: hidden !important;
+        }
+
+        body.fersys-delivery-note-details section.rounded-3xl > div.overflow-x-auto {
+          width: 100% !important;
+          min-width: 0 !important;
+          max-width: 100% !important;
+          overflow-x: auto !important;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        body.fersys-delivery-note-details section.rounded-3xl button.w-full {
+          min-width: 0 !important;
+          max-width: 100% !important;
+          white-space: normal !important;
+          text-align: center !important;
+          line-height: 1.25rem !important;
         }
 
         /*
