@@ -18,6 +18,7 @@ import {
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
+import ConnectionStatusNotice from './components/ConnectionStatusNotice'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
 import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
 import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
@@ -127,6 +128,7 @@ createRoot(document.getElementById('root')!).render(
       <App />
       <ActivityTracker />
       <AdminTrialMessagePolish />
+      <ConnectionStatusNotice />
       <IncomingInvoicesDatabaseBridge />
       <FloatingUiLayoutFix />
       <DeliveryNoteMobileLayoutFix />
