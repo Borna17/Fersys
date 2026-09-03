@@ -1,4 +1,4 @@
-﻿import {
+import {
   ArrowLeft,
   Camera,
   Check,
@@ -18,17 +18,27 @@ import {
   type ReactNode,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react'
 import { useNavigate, useParams } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
+import DraftAutosaveBadge, {
+  type DraftAutosaveState,
+} from '../components/DraftAutosaveBadge'
 import FersysLoader from '../components/FersysLoader'
 import { SignaturePad } from '../components/SignaturePad'
 import { getCustomers } from '../services/customers.service'
 import {
   syncWorkOrderImagesToCustomerGallery,
 } from '../services/customerPhotos.service'
+import {
+  deleteUserDraft,
+  formatDraftSavedAt,
+  loadUserDraft,
+  saveUserDraft,
+} from '../services/drafts.service'
 import {
   getEmployees,
   type CompanyEmployee,
@@ -140,6 +150,14 @@ export function EditWorkOrderPage() {
   const [images, setImages] = useState<WorkOrderImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
 
+  const [autosaveState, setAutosaveState] =
+    useState<DraftAutosaveState>('idle')
+  const [autosaveText, setAutosaveText] = useState('')
+  const [draftReady, setDraftReady] = useState(false)
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState('')
+  const baselineRef = useRef('')
+  const saveSucceededRef = useRef(false)
+
   useEffect(() => {
     let cancelled = false
 
@@ -210,6 +228,71 @@ export function EditWorkOrderPage() {
         setInvestorName(savedOrder.investorName)
         setInvestorSignature(savedOrder.investorSignature)
         setImages(savedOrder.images)
+        setBaseUpdatedAt(savedOrder.updatedAt)
+
+        const draftKey = `edit:${id}`
+        const draft = await loadUserDraft<any>('work-order', draftKey)
+        const value = draft?.payload ?? null
+        const sameBase =
+          value && value.baseUpdatedAt === savedOrder.updatedAt
+
+        if (sameBase) {
+          setCustomerId(value.customerId ?? savedOrder.customerId)
+          setCustomerName(value.customerName ?? savedOrder.customerName)
+          setCustomerContactPerson(value.customerContactPerson ?? savedOrder.customerContactPerson)
+          setCustomerPhone(value.customerPhone ?? savedOrder.customerPhone)
+          setCustomerEmail(value.customerEmail ?? savedOrder.customerEmail)
+          setCustomerOib(value.customerOib ?? savedOrder.customerOib)
+          setAddress(value.address ?? savedOrder.address)
+          setDate(value.date ?? savedOrder.date)
+          setArrivalTime(value.arrivalTime ?? savedOrder.arrivalTime)
+          setDepartureTime(value.departureTime ?? savedOrder.departureTime)
+          setStatus(value.status ?? savedOrder.status)
+          setPriority(value.priority ?? savedOrder.priority)
+          setTitle(value.title ?? savedOrder.title)
+          setDescription(value.description ?? savedOrder.description)
+          setAssignedWorkers(Array.isArray(value.assignedWorkers) ? value.assignedWorkers : savedOrder.assignedWorkers)
+          setMaterials(Array.isArray(value.materials) ? value.materials : savedOrder.materials)
+          setLabourPrice(value.labourPrice ?? (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)))
+          setDiscountRate(value.discountRate ?? String(savedOrder.discountRate ?? 0))
+          setVatRate(value.vatRate ?? String(savedOrder.vatRate))
+          setPriceNote(value.priceNote ?? savedOrder.priceNote)
+          setInvestorName(value.investorName ?? savedOrder.investorName)
+          setInvestorSignature(value.investorSignature ?? savedOrder.investorSignature)
+          setImages(Array.isArray(value.images) ? value.images : savedOrder.images)
+          setAutosaveState('restored')
+          setAutosaveText(`Vraćene nespremljene izmjene · ${formatDraftSavedAt(draft!.updatedAt)}`)
+        } else if (draft) {
+          // Server ima noviju verziju naloga. Stari nacrt ne smije pregaziti nove podatke.
+          await deleteUserDraft('work-order', draftKey)
+        }
+
+        baselineRef.current = JSON.stringify({
+          customerId: sameBase ? value.customerId ?? savedOrder.customerId : savedOrder.customerId,
+          customerName: sameBase ? value.customerName ?? savedOrder.customerName : savedOrder.customerName,
+          customerContactPerson: sameBase ? value.customerContactPerson ?? savedOrder.customerContactPerson : savedOrder.customerContactPerson,
+          customerPhone: sameBase ? value.customerPhone ?? savedOrder.customerPhone : savedOrder.customerPhone,
+          customerEmail: sameBase ? value.customerEmail ?? savedOrder.customerEmail : savedOrder.customerEmail,
+          customerOib: sameBase ? value.customerOib ?? savedOrder.customerOib : savedOrder.customerOib,
+          address: sameBase ? value.address ?? savedOrder.address : savedOrder.address,
+          date: sameBase ? value.date ?? savedOrder.date : savedOrder.date,
+          arrivalTime: sameBase ? value.arrivalTime ?? savedOrder.arrivalTime : savedOrder.arrivalTime,
+          departureTime: sameBase ? value.departureTime ?? savedOrder.departureTime : savedOrder.departureTime,
+          status: sameBase ? value.status ?? savedOrder.status : savedOrder.status,
+          priority: sameBase ? value.priority ?? savedOrder.priority : savedOrder.priority,
+          title: sameBase ? value.title ?? savedOrder.title : savedOrder.title,
+          description: sameBase ? value.description ?? savedOrder.description : savedOrder.description,
+          assignedWorkers: sameBase && Array.isArray(value.assignedWorkers) ? value.assignedWorkers : savedOrder.assignedWorkers,
+          materials: sameBase && Array.isArray(value.materials) ? value.materials : savedOrder.materials,
+          labourPrice: sameBase ? value.labourPrice ?? (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)) : (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)),
+          discountRate: sameBase ? value.discountRate ?? String(savedOrder.discountRate ?? 0) : String(savedOrder.discountRate ?? 0),
+          vatRate: sameBase ? value.vatRate ?? String(savedOrder.vatRate) : String(savedOrder.vatRate),
+          priceNote: sameBase ? value.priceNote ?? savedOrder.priceNote : savedOrder.priceNote,
+          investorName: sameBase ? value.investorName ?? savedOrder.investorName : savedOrder.investorName,
+          investorSignature: sameBase ? value.investorSignature ?? savedOrder.investorSignature : savedOrder.investorSignature,
+          images: sameBase && Array.isArray(value.images) ? value.images : savedOrder.images,
+        })
+        setDraftReady(true)
       } catch (error) {
         if (!cancelled) {
           setLoadError(
@@ -229,7 +312,51 @@ export function EditWorkOrderPage() {
     }
   }, [id])
 
-  const durationMinutes = useMemo(
+  useEffect(() => {
+    if (!draftReady || !id || saveSucceededRef.current) return
+
+    const payload = {
+      baseUpdatedAt, customerId, customerName, customerContactPerson,
+      customerPhone, customerEmail, customerOib, address, date,
+      arrivalTime, departureTime, status, priority, title, description,
+      assignedWorkers, materials, labourPrice, discountRate, vatRate,
+      priceNote, investorName, investorSignature, images,
+    }
+    const serialized = JSON.stringify({
+      customerId, customerName, customerContactPerson, customerPhone,
+      customerEmail, customerOib, address, date, arrivalTime, departureTime,
+      status, priority, title, description, assignedWorkers, materials,
+      labourPrice, discountRate, vatRate, priceNote, investorName,
+      investorSignature, images,
+    })
+
+    if (serialized === baselineRef.current) return
+
+    const timer = window.setTimeout(() => {
+      void (async () => {
+        try {
+          setAutosaveState('saving')
+          const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)
+          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveText(formatDraftSavedAt(savedAt))
+        } catch (error) {
+          console.error('Autosave izmjena radnog naloga nije uspio:', error)
+          setAutosaveState('offline')
+          setAutosaveText('Nacrt izmjena čuva se lokalno.')
+        }
+      })()
+    }, 700)
+
+    return () => window.clearTimeout(timer)
+  }, [
+    draftReady, id, baseUpdatedAt, customerId, customerName,
+    customerContactPerson, customerPhone, customerEmail, customerOib,
+    address, date, arrivalTime, departureTime, status, priority, title,
+    description, assignedWorkers, materials, labourPrice, discountRate,
+    vatRate, priceNote, investorName, investorSignature, images,
+  ])
+
+    const durationMinutes = useMemo(
     () => calculateDuration(arrivalTime, departureTime),
     [arrivalTime, departureTime],
   )
@@ -539,6 +666,12 @@ export function EditWorkOrderPage() {
         })
       }
 
+      saveSucceededRef.current = true
+      try {
+        await deleteUserDraft('work-order', `edit:${id}`)
+      } catch (draftError) {
+        console.warn('Spremljen nalog, ali nacrt nije očišćen:', draftError)
+      }
       navigate(`/work-orders/${saved.id}`, { replace: true })
     } catch (error) {
       alert(
@@ -599,6 +732,7 @@ export function EditWorkOrderPage() {
 
   return (
     <>
+      <DraftAutosaveBadge state={autosaveState} text={autosaveText} />
       <form
         id="mobile-edit-work-order-form"
         onSubmit={submit}
