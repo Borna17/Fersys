@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/scripts/finalize_multi_country_fiscal_foundation.py'
       - '.github/scripts/finalize_fiscal_pdf_and_invoice.py'
+      - '.github/scripts/harden_multi_country_compatibility.py'
       - '.github/workflows/finalize-multi-country-fiscal-foundation.yml'
 
 permissions:
@@ -26,6 +27,7 @@ jobs:
         run: |
           python .github/scripts/finalize_multi_country_fiscal_foundation.py
           python .github/scripts/finalize_fiscal_pdf_and_invoice.py
+          python .github/scripts/harden_multi_country_compatibility.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -58,6 +60,6 @@ jobs:
                   src/services/inventory.service.ts \
                   src/pages/NewInventoryItemPage.tsx \
                   src/utils/invoicePdf.ts
-          git commit -m "Finalize multi-country fiscalization foundation"
+          git commit -m "Harden multi-country fiscalization compatibility"
           git pull --rebase origin main
           git push origin HEAD:main
