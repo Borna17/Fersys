@@ -120,13 +120,13 @@ function normalizeName(
     .replace(/\s+/g, ' ')
 }
 
-function normalizeOib(
+function normalizeTaxId(
   value: string | undefined,
 ) {
-  return (value ?? '').replace(
-    /\D/g,
-    '',
-  )
+  return (value ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '')
 }
 
 function belongsToCustomer(
@@ -145,12 +145,12 @@ function belongsToCustomer(
   }
 
   const customerOib =
-    normalizeOib(customer.oib)
+    normalizeTaxId(customer.oib)
   const recordOib =
-    normalizeOib(record.oib)
+    normalizeTaxId(record.oib)
 
   if (
-    customerOib.length === 11 &&
+    customerOib.length >= 5 &&
     customerOib === recordOib
   ) {
     return true
@@ -812,8 +812,12 @@ export function CustomerProfilePage() {
 
     const cleanName =
       editName.trim()
-    const cleanOib =
-      editOib.replace(/\D/g, '')
+    const cleanTaxId =
+      editOib
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .slice(0, 32)
 
     if (!cleanName) {
       window.alert(
@@ -822,12 +826,9 @@ export function CustomerProfilePage() {
       return
     }
 
-    if (
-      cleanOib &&
-      cleanOib.length !== 11
-    ) {
+    if (cleanTaxId && cleanTaxId.length < 5) {
       window.alert(
-        'Ako unosite OIB, mora sadržavati točno 11 znamenki.',
+        'Ako unosite porezni broj, unesite najmanje 5 znakova.',
       )
       return
     }
@@ -849,7 +850,7 @@ export function CustomerProfilePage() {
               editType === 'company'
                 ? editLogo
                 : undefined,
-            oib: cleanOib,
+            oib: cleanTaxId,
             phone: editPhone.trim(),
             email:
               editEmail
@@ -2282,21 +2283,15 @@ export function CustomerProfilePage() {
 
                   <Field label="Porezni broj (OIB / PIB / JIB)">
                     <input
-                      inputMode="numeric"
-                      maxLength={11}
+                      inputMode="text"
+                      maxLength={32}
                       value={editOib}
                       onChange={(event) =>
                         setEditOib(
-                          event.target
-                            .value
-                            .replace(
-                              /\D/g,
-                              '',
-                            )
-                            .slice(
-                              0,
-                              11,
-                            ),
+                          event.target.value
+                            .toUpperCase()
+                            .replace(/\s+/g, '')
+                            .slice(0, 32),
                         )
                       }
                       className={

@@ -4,6 +4,10 @@ import {
   normalizeTaxId,
   validateTaxId,
 } from './taxIdentity.service'
+import {
+  getCompanyComplianceSettings,
+  updateCompanyComplianceSettings,
+} from './companyCompliance.service'
 
 export type WorkingDay = {
   enabled: boolean
@@ -693,9 +697,18 @@ export async function updateCompanySettings(
     throw error
   }
 
-  return mapCompany(
+  const mapped = mapCompany(
     data as CompanyRow,
   )
+
+  const compliance = await getCompanyComplianceSettings()
+  await updateCompanyComplianceSettings({
+    ...compliance,
+    countryCode: normalizeTaxCountryCode(mapped.country),
+    currency: mapped.currency,
+  })
+
+  return mapped
 }
 
 export async function updateCompanyLogo(

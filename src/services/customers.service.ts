@@ -172,11 +172,12 @@ export async function createCustomer(
   const companyId =
     await getCurrentCompanyId()
 
-  const cleanOib =
-    input.oib.replace(
-      /\D/g,
-      '',
-    )
+  const cleanTaxId =
+    input.oib
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .slice(0, 32)
 
   const { data, error } =
     await supabase
@@ -201,9 +202,9 @@ export async function createCustomer(
               null
             : null,
         oib:
-          cleanOib || null,
+          cleanTaxId || null,
         tax_id:
-          cleanOib || null,
+          cleanTaxId || null,
         phone:
           input.phone.trim() ||
           null,
@@ -258,11 +259,12 @@ export async function updateCustomer(
   customerId: string,
   input: CustomerInput,
 ): Promise<Customer> {
-  const cleanOib =
-    input.oib.replace(
-      /\D/g,
-      '',
-    )
+  const cleanTaxId =
+    input.oib
+      .trim()
+      .toUpperCase()
+      .replace(/\s+/g, '')
+      .slice(0, 32)
 
   const { data, error } =
     await supabase
@@ -285,9 +287,9 @@ export async function updateCustomer(
               null
             : null,
         oib:
-          cleanOib || null,
+          cleanTaxId || null,
         tax_id:
-          cleanOib || null,
+          cleanTaxId || null,
         phone:
           input.phone.trim() ||
           null,

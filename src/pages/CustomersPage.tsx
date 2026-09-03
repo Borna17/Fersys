@@ -367,8 +367,12 @@ export function CustomersPage() {
     if (isSaving) return
 
     const cleanName = name.trim()
-    const cleanOib =
-      oib.replace(/\D/g, '')
+    const cleanTaxId =
+      oib
+        .trim()
+        .toUpperCase()
+        .replace(/\s+/g, '')
+        .slice(0, 32)
     const cleanEmail =
       email.trim().toLowerCase()
     const cleanIban =
@@ -383,12 +387,9 @@ export function CustomersPage() {
       return
     }
 
-    if (
-      cleanOib &&
-      cleanOib.length !== 11
-    ) {
+    if (cleanTaxId && cleanTaxId.length < 5) {
       window.alert(
-        'Ako unosite OIB, mora sadržavati točno 11 znamenki.',
+        'Ako unosite porezni broj, unesite najmanje 5 znakova.',
       )
       return
     }
@@ -408,7 +409,7 @@ export function CustomersPage() {
             customerType === 'company'
               ? logo
               : undefined,
-          oib: cleanOib,
+          oib: cleanTaxId,
           phone: phone.trim(),
           email: cleanEmail,
           street: street.trim(),
@@ -1133,28 +1134,26 @@ export function CustomersPage() {
                     </Field>
                   )}
 
-                  <Field label="OIB (nije obavezno)">
+                  <Field label="Porezni broj (OIB / PIB / JIB) – nije obavezno">
                     <input
-                      inputMode="numeric"
-                      maxLength={11}
+                      inputMode="text"
+                      maxLength={32}
                       value={oib}
                       onChange={(event) =>
                         setOib(
                           event.target.value
-                            .replace(
-                              /\D/g,
-                              '',
-                            )
-                            .slice(0, 11),
+                            .toUpperCase()
+                            .replace(/\s+/g, '')
+                            .slice(0, 32),
                         )
                       }
-                      placeholder="11 znamenki"
+                      placeholder="OIB, PIB, JIB ili drugi porezni broj"
                       className={inputClass}
                     />
                     <p className="mt-1.5 text-xs text-slate-500">
                       {oib
-                        ? `Uneseno ${oib.length}/11`
-                        : 'OIB možete ostaviti prazan.'}
+                        ? `Uneseno ${oib.length}/32 znakova`
+                        : 'Porezni broj možete ostaviti prazan.'}
                     </p>
                   </Field>
 

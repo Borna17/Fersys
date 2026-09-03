@@ -7,6 +7,7 @@ import {
   saveBlobDownload,
 } from './downloadFeedback'
 import { getCompanySettings } from '../services/companySettings.service'
+import { getTaxIdLabel } from '../services/taxIdentity.service'
 import { getDocumentAppearanceSettings } from '../services/documentAppearance.service'
 import {
   createPresetAppearance,
@@ -65,6 +66,8 @@ export type InvoicePdfSettings = {
   companyStreetAddress: string
   companyPostalCity: string
   companyOib: string
+  companyTaxIdLabel: string
+  companyCurrency: string
   companyIban: string
   companyEmail: string
   companyPhone: string
@@ -105,6 +108,8 @@ const DEFAULT_SETTINGS: InvoicePdfSettings = {
   companyStreetAddress: '',
   companyPostalCity: '',
   companyOib: '',
+  companyTaxIdLabel: 'Porezni broj (OIB)',
+  companyCurrency: 'EUR',
   companyIban: '',
   companyEmail: '',
   companyPhone: '',
@@ -145,10 +150,10 @@ function alpha(color: string, opacity: string) {
   return /^#[0-9A-Fa-f]{6}$/.test(color) ? `${color}${opacity}` : color
 }
 
-function currency(value: number) {
+function currency(value: number, currencyCode = 'EUR') {
   return new Intl.NumberFormat('hr-HR', {
     style: 'currency',
-    currency: 'EUR',
+    currency: currencyCode || 'EUR',
     minimumFractionDigits: 2,
   }).format(Number.isFinite(value) ? value : 0)
 }
@@ -211,6 +216,8 @@ function companySettingsFromCurrent(
     companyStreetAddress: settings.address,
     companyPostalCity: postalCity,
     companyOib: settings.oib,
+    companyTaxIdLabel: getTaxIdLabel(settings.country),
+    companyCurrency: settings.currency || 'EUR',
     companyIban: settings.iban,
     companyEmail: settings.email,
     companyPhone: settings.phone,
@@ -284,7 +291,7 @@ function companyHtml(settings: InvoicePdfSettings) {
       <div class="company-copy">
         <div class="company-name">${esc(settings.companyName)}</div>
         ${settings.companyAddress ? `<div>${esc(settings.companyAddress)}</div>` : ''}
-        ${settings.companyOib ? `<div>OIB: ${esc(settings.companyOib)}</div>` : ''}
+        ${settings.companyOib ? `<div>${esc(settings.companyTaxIdLabel)}: ${esc(settings.companyOib)}</div>` : ''}
         ${settings.companyPhone || settings.companyEmail
           ? `<div>${esc([settings.companyPhone, settings.companyEmail].filter(Boolean).join(' • '))}</div>`
           : ''}
@@ -313,7 +320,7 @@ function headerHtml(
 function customerAndMetaHtml(invoice: InvoicePdfData, settings: InvoicePdfSettings) {
   const customerDetails = [
     [invoice.address, invoice.city].filter(Boolean).join(', '),
-    invoice.oib ? `OIB: ${invoice.oib}` : '',
+    invoice.oib ? `Porezni broj (OIB / PIB / JIB): ${invoice.oib}` : '',
     invoice.email,
     invoice.phone,
   ].filter(Boolean)
@@ -341,7 +348,7 @@ function sectionTitle(label: string, settings: InvoicePdfSettings) {
   return `<div class="section-title section-${esc(settings.sectionStyle)}">${esc(label)}</div>`
 }
 
-function itemRows(items: InvoicePdfItem[], startIndex: number) {
+function itemRows(items: InvoicePdfItem[], startIndex: number, currencyCode: string) {
   return items.map((item, index) => `
     <div class="item-row">
       <div class="item-main">
@@ -349,8 +356,8 @@ function itemRows(items: InvoicePdfItem[], startIndex: number) {
         ${item.description ? `<small>${multi(item.description)}</small>` : ''}
       </div>
       <span>${number(item.quantity)} ${esc(item.unit)}</span>
-      <span>${currency(item.price)}</span>
-      <strong>${currency(itemTotal(item))}</strong>
+      <span>${currency(item.price, currencyCode)}</span>
+      <strong>${currency(itemTotal(item), currencyCode)}</strong>
     </div>
   `).join('')
 }
@@ -367,7 +374,7 @@ function quickPayHtml(
       <div>
         <div class="eyebrow">BRZO PLAĆANJE</div>
         <strong>Skeniraj 2D barkod mobilnim bankarstvom</strong>
-        <span>${currency(total)} · ${esc(invoice.paymentModel || 'HR00')} ${esc(invoice.paymentReference || '')}</span>
+        <span>${currency(total, settings.companyCurrency)} · ${esc(invoice.paymentModel || 'HR00')} ${esc(invoice.paymentReference || '')}</span>
       </div>
       <img src="${esc(settings.quickPayBarcodeDataUrl)}" alt="HUB3 PDF417 barkod" />
     </section>
@@ -405,11 +412,11 @@ function finalHtml(
       </div>
 
       <div class="totals">
-        <div><span>Vrijednost</span><strong>${currency(totals.base)}</strong></div>
-        ${totals.discount > 0 ? `<div><span>Popust</span><strong>− ${currency(totals.discount)}</strong></div>` : ''}
-        <div><span>Osnovica</span><strong>${currency(totals.net)}</strong></div>
-        <div><span>PDV</span><strong>${currency(totals.vat)}</strong></div>
-        <div class="grand"><span>UKUPNO ZA PLATITI</span><strong>${currency(totals.total)}</strong></div>
+        <div><span>Vrijednost</span><strong>${currency(totals.base, settings.companyCurrency)}</strong></div>
+        ${totals.discount > 0 ? `<div><span>Popust</span><strong>− ${currency(totals.discount, settings.companyCurrency)}</strong></div>` : ''}
+        <div><span>Osnovica</span><strong>${currency(totals.net, settings.companyCurrency)}</strong></div>
+        <div><span>PDV</span><strong>${currency(totals.vat, settings.companyCurrency)}</strong></div>
+        <div class="grand"><span>UKUPNO ZA PLATITI</span><strong>${currency(totals.total, settings.companyCurrency)}</strong></div>
       </div>
     </section>
 
@@ -632,7 +639,7 @@ export function buildInvoicePdfHtml(
           <div class="item-head">
             <span>OPIS</span><span>KOL.</span><span>CIJENA</span><span>UKUPNO</span>
           </div>
-          ${itemRows(pageItems, startIndex)}
+          ${itemRows(pageItems, startIndex, settings.companyCurrency)}
         </div>
         ${final ? finalHtml(invoice, settings, totals) : ''}
         ${settings.showFooter ? `
