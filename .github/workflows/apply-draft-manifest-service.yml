@@ -1,0 +1,78 @@
+name: Apply draft manifest service
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-draft-manifest-service.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch drafts service
+        shell: bash
+        env:
+          MANIFEST_B64: "CmNvbnN0IERSQUZUX01BTklGRVNUX0tFWSA9CiAgJ2ZlcnN5cy1kcmFmdC1tYW5pZmVzdC12MScKCmV4cG9ydCB0eXBlIERyYWZ0TWFuaWZlc3RFbnRyeSA9IHsKICBkcmFmdFR5cGU6IERyYWZ0VHlwZQogIGRyYWZ0S2V5OiBzdHJpbmcKICBsYWJlbDogc3RyaW5nCiAgcm91dGU6IHN0cmluZwogIHVwZGF0ZWRBdDogc3RyaW5nCn0KCmZ1bmN0aW9uIGRyYWZ0TWV0YSgKICBkcmFmdFR5cGU6IERyYWZ0VHlwZSwKICBkcmFmdEtleTogc3RyaW5nLAogIHBheWxvYWQ6IHVua25vd24sCik6IHsgbGFiZWw6IHN0cmluZzsgcm91dGU6IHN0cmluZyB9IHsKICBjb25zdCBzb3VyY2UgPQogICAgcGF5bG9hZCAmJiB0eXBlb2YgcGF5bG9hZCA9PT0gJ29iamVjdCcKICAgICAgPyAocGF5bG9hZCBhcyBSZWNvcmQ8c3RyaW5nLCB1bmtub3duPikKICAgICAgOiBudWxsCgogIGNvbnN0IG1ldGEgPQogICAgc291cmNlPy5fX2RyYWZ0TWV0YSAmJgogICAgdHlwZW9mIHNvdXJjZS5fX2RyYWZ0TWV0YSA9PT0gJ29iamVjdCcKICAgICAgPyAoc291cmNlLl9fZHJhZnRNZXRhIGFzIFJlY29yZDxzdHJpbmcsIHVua25vd24+KQogICAgICA6IG51bGwKCiAgY29uc3QgZXhwbGljaXRMYWJlbCA9CiAgICB0eXBlb2YgbWV0YT8ubGFiZWwgPT09ICdzdHJpbmcnCiAgICAgID8gbWV0YS5sYWJlbC50cmltKCkKICAgICAgOiAnJwogIGNvbnN0IGV4cGxpY2l0Um91dGUgPQogICAgdHlwZW9mIG1ldGE/LnJvdXRlID09PSAnc3RyaW5nJwogICAgICA/IG1ldGEucm91dGUudHJpbSgpCiAgICAgIDogJycKCiAgaWYgKGV4cGxpY2l0TGFiZWwgJiYgZXhwbGljaXRSb3V0ZSkgewogICAgcmV0dXJuIHsKICAgICAgbGFiZWw6IGV4cGxpY2l0TGFiZWwsCiAgICAgIHJvdXRlOiBleHBsaWNpdFJvdXRlLAogICAgfQogIH0KCiAgY29uc3QgZWRpdElkID0KICAgIGRyYWZ0S2V5LnN0YXJ0c1dpdGgoJ2VkaXQ6JykKICAgICAgPyBkcmFmdEtleS5zbGljZSg1KQogICAgICA6ICcnCgogIHN3aXRjaCAoZHJhZnRUeXBlKSB7CiAgICBjYXNlICd3b3JrLW9yZGVyJzoKICAgICAgcmV0dXJuIHsKICAgICAgICBsYWJlbDogZWRpdElkCiAgICAgICAgICA/ICdVcmXEkWl2YW5qZSByYWRub2cgbmFsb2dhJwogICAgICAgICAgOiAnTm92aSByYWRuaSBuYWxvZycsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL3dvcmstb3JkZXJzLyR7ZWRpdElkfS9lZGl0YAogICAgICAgICAgOiAnL3dvcmstb3JkZXJzL25ldycsCiAgICAgIH0KICAgIGNhc2UgJ29mZmVyJzoKICAgICAgcmV0dXJuIHsKICAgICAgICBsYWJlbDogZWRpdElkCiAgICAgICAgICA/ICdVcmXEkWl2YW5qZSBwb251ZGUnCiAgICAgICAgICA6ICdOb3ZhIHBvbnVkYScsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL29mZmVycy8ke2VkaXRJZH0vZWRpdGAKICAgICAgICAgIDogJy9vZmZlcnMvbmV3JywKICAgICAgfQogICAgY2FzZSAnaW52b2ljZSc6CiAgICAgIHJldHVybiB7CiAgICAgICAgbGFiZWw6IGVkaXRJZAogICAgICAgICAgPyAnVXJlxJFpdmFuamUgcmHEjXVuYScKICAgICAgICAgIDogJ05vdmkgcmHEjXVuJywKICAgICAgICByb3V0ZTogZWRpdElkCiAgICAgICAgICA/IGAvaW52b2ljZXMvJHtlZGl0SWR9L2VkaXRgCiAgICAgICAgICA6ICcvaW52b2ljZXMvbmV3JywKICAgICAgfQogICAgY2FzZSAnaW52ZW50b3J5LWl0ZW0nOgogICAgICByZXR1cm4gewogICAgICAgIGxhYmVsOiBlZGl0SWQKICAgICAgICAgID8gJ1VyZcSRaXZhbmplIGFydGlrbGEnCiAgICAgICAgICA6ICdOb3ZpIGFydGlrbCcsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL2ludmVudG9yeS8ke2VkaXRJZH0vZWRpdGAKICAgICAgICAgIDogJy9pbnZlbnRvcnkvbmV3JywKICAgICAgfQogICAgY2FzZSAnZGVsaXZlcnktbm90ZSc6CiAgICAgIHJldHVybiB7CiAgICAgICAgbGFiZWw6IGVkaXRJZAogICAgICAgICAgPyAnVXJlxJFpdmFuamUgb3RwcmVtbmljZScKICAgICAgICAgIDogJ05vdmEgb3RwcmVtbmljYScsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL2RlbGl2ZXJ5LW5vdGVzL25ldz9lZGl0PSR7ZW5jb2RlVVJJQ29tcG9uZW50KGVkaXRJZCl9YAogICAgICAgICAgOiAnL2RlbGl2ZXJ5LW5vdGVzL25ldycsCiAgICAgIH0KICAgIGNhc2UgJ2luY29taW5nLWludm9pY2UnOgogICAgICByZXR1cm4gewogICAgICAgIGxhYmVsOiBlZGl0SWQKICAgICAgICAgID8gJ1VyZcSRaXZhbmplIHVsYXpub2cgcmHEjXVuYScKICAgICAgICAgIDogJ05vdmkgdWxhem5pIHJhxI11bicsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL2luY29taW5nLWludm9pY2VzLyR7ZWRpdElkfS9lZGl0YAogICAgICAgICAgOiAnL2luY29taW5nLWludm9pY2VzL25ldycsCiAgICAgIH0KICAgIGNhc2UgJ2N1c3RvbWVyJzoKICAgICAgcmV0dXJuIHsKICAgICAgICBsYWJlbDogZWRpdElkCiAgICAgICAgICA/ICdVcmXEkWl2YW5qZSBpbnZlc3RpdG9yYScKICAgICAgICAgIDogJ05vdmkgaW52ZXN0aXRvcicsCiAgICAgICAgcm91dGU6IGVkaXRJZAogICAgICAgICAgPyBgL2N1c3RvbWVycy8ke2VkaXRJZH1gCiAgICAgICAgICA6ICcvY3VzdG9tZXJzJywKICAgICAgfQogICAgY2FzZSAndmVoaWNsZSc6CiAgICAgIHJldHVybiB7CiAgICAgICAgbGFiZWw6IGVkaXRJZAogICAgICAgICAgPyAnVXJlxJFpdmFuamUgdm96aWxhJwogICAgICAgICAgOiAnTm92byB2b3ppbG8nLAogICAgICAgIHJvdXRlOiBlZGl0SWQKICAgICAgICAgID8gYC92ZWhpY2xlcy8ke2VkaXRJZH1gCiAgICAgICAgICA6ICcvdmVoaWNsZXMnLAogICAgICB9CiAgICBjYXNlICdlbXBsb3llZSc6CiAgICAgIHJldHVybiB7CiAgICAgICAgbGFiZWw6IGVkaXRJZAogICAgICAgICAgPyAnVXJlxJFpdmFuamUgemFwb3NsZW5pa2EnCiAgICAgICAgICA6ICdOb3ZpIHphcG9zbGVuaWsnLAogICAgICAgIHJvdXRlOiAnL3NldHRpbmdzL2VtcGxveWVlcycsCiAgICAgIH0KICAgIGRlZmF1bHQ6CiAgICAgIHJldHVybiB7CiAgICAgICAgbGFiZWw6IGV4cGxpY2l0TGFiZWwgfHwgJ05lZG92csWhZW5pIHVub3MnLAogICAgICAgIHJvdXRlOiBleHBsaWNpdFJvdXRlIHx8ICcvZGFzaGJvYXJkJywKICAgICAgfQogIH0KfQoKZnVuY3Rpb24gcmVhZERyYWZ0TWFuaWZlc3QoKTogRHJhZnRNYW5pZmVzdEVudHJ5W10gewogIHRyeSB7CiAgICBjb25zdCByYXcgPSBsb2NhbFN0b3JhZ2UuZ2V0SXRlbShEUkFGVF9NQU5JRkVTVF9LRVkpCiAgICBpZiAoIXJhdykgcmV0dXJuIFtdCiAgICBjb25zdCB2YWx1ZSA9IEpTT04ucGFyc2UocmF3KSBhcyBEcmFmdE1hbmlmZXN0RW50cnlbXQogICAgcmV0dXJuIEFycmF5LmlzQXJyYXkodmFsdWUpID8gdmFsdWUgOiBbXQogIH0gY2F0Y2ggewogICAgcmV0dXJuIFtdCiAgfQp9CgpmdW5jdGlvbiB3cml0ZURyYWZ0TWFuaWZlc3QoZW50cmllczogRHJhZnRNYW5pZmVzdEVudHJ5W10pIHsKICB0cnkgewogICAgbG9jYWxTdG9yYWdlLnNldEl0ZW0oCiAgICAgIERSQUZUX01BTklGRVNUX0tFWSwKICAgICAgSlNPTi5zdHJpbmdpZnkoZW50cmllcyksCiAgICApCiAgfSBjYXRjaCB7CiAgICAvLyBNYW5pZmVzdCBqZSBwb21vxIduaSBwcmlrYXo7IEluZGV4ZWREQiBuYWNydCBvc3RhamUgZ2xhdm5pIGl6dm9yIHNpZ3Vybm9zdGkuCiAgfQp9CgpmdW5jdGlvbiByZW1lbWJlckRyYWZ0TWFuaWZlc3QoCiAgZHJhZnRUeXBlOiBEcmFmdFR5cGUsCiAgZHJhZnRLZXk6IHN0cmluZywKICBwYXlsb2FkOiB1bmtub3duLAogIHVwZGF0ZWRBdDogc3RyaW5nLAopIHsKICBjb25zdCBtZXRhID0gZHJhZnRNZXRhKGRyYWZ0VHlwZSwgZHJhZnRLZXksIHBheWxvYWQpCiAgY29uc3QgbmV4dDogRHJhZnRNYW5pZmVzdEVudHJ5ID0gewogICAgZHJhZnRUeXBlLAogICAgZHJhZnRLZXksCiAgICBsYWJlbDogbWV0YS5sYWJlbCwKICAgIHJvdXRlOiBtZXRhLnJvdXRlLAogICAgdXBkYXRlZEF0LAogIH0KCiAgY29uc3QgY3VycmVudCA9IHJlYWREcmFmdE1hbmlmZXN0KCkuZmlsdGVyKAogICAgKGVudHJ5KSA9PgogICAgICAhKAogICAgICAgIGVudHJ5LmRyYWZ0VHlwZSA9PT0gZHJhZnRUeXBlICYmCiAgICAgICAgZW50cnkuZHJhZnRLZXkgPT09IGRyYWZ0S2V5CiAgICAgICksCiAgKQoKICB3cml0ZURyYWZ0TWFuaWZlc3QoW25leHQsIC4uLmN1cnJlbnRdLnNsaWNlKDAsIDEwMCkpCn0KCmZ1bmN0aW9uIGZvcmdldERyYWZ0TWFuaWZlc3QoCiAgZHJhZnRUeXBlOiBEcmFmdFR5cGUsCiAgZHJhZnRLZXk6IHN0cmluZywKKSB7CiAgd3JpdGVEcmFmdE1hbmlmZXN0KAogICAgcmVhZERyYWZ0TWFuaWZlc3QoKS5maWx0ZXIoCiAgICAgIChlbnRyeSkgPT4KICAgICAgICAhKAogICAgICAgICAgZW50cnkuZHJhZnRUeXBlID09PSBkcmFmdFR5cGUgJiYKICAgICAgICAgIGVudHJ5LmRyYWZ0S2V5ID09PSBkcmFmdEtleQogICAgICAgICksCiAgICApLAogICkKfQoKZXhwb3J0IGZ1bmN0aW9uIGdldERyYWZ0TWFuaWZlc3RFbnRyaWVzKCkgewogIHJldHVybiByZWFkRHJhZnRNYW5pZmVzdCgpLnNvcnQoCiAgICAoYSwgYikgPT4KICAgICAgbmV3IERhdGUoYi51cGRhdGVkQXQpLmdldFRpbWUoKSAtCiAgICAgIG5ldyBEYXRlKGEudXBkYXRlZEF0KS5nZXRUaW1lKCksCiAgKQp9Cg=="
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, os
+
+          path = Path('src/services/drafts.service.ts')
+          text = path.read_text(encoding='utf-8')
+
+          old_union = "export type DraftType =\n  | 'work-order'\n  | 'offer'\n  | 'invoice'\n  | 'inventory-item'"
+          new_union = old_union + "\n  | 'delivery-note'\n  | 'incoming-invoice'\n  | 'customer'\n  | 'vehicle'\n  | 'employee'\n  | 'form'"
+          if old_union in text and "| 'form'" not in text:
+              text = text.replace(old_union, new_union, 1)
+
+          marker = "const LAST_SYNC_KEY =\n  'fersys-draft-last-sync-v1'\n"
+          if 'DRAFT_MANIFEST_KEY' not in text:
+              manifest = base64.b64decode(os.environ['MANIFEST_B64']).decode('utf-8')
+              if marker not in text:
+                  raise SystemExit('manifest marker missing')
+              text = text.replace(marker, marker + manifest, 1)
+
+          save_marker = "  await putLocal(\n    envelope,\n  )\n\n  window.dispatchEvent("
+          if 'rememberDraftManifest(\n    draftType,' not in text:
+              if save_marker not in text:
+                  raise SystemExit('save marker missing')
+              text = text.replace(
+                  save_marker,
+                  "  await putLocal(\n    envelope,\n  )\n\n  rememberDraftManifest(\n    draftType,\n    draftKey,\n    payload,\n    updatedAt,\n  )\n\n  window.dispatchEvent(",
+                  1,
+              )
+
+          delete_marker = "  await deleteLocal(\n    key,\n  )\n\n  window.dispatchEvent("
+          if 'forgetDraftManifest(\n    draftType,' not in text:
+              if delete_marker not in text:
+                  raise SystemExit('delete marker missing')
+              text = text.replace(
+                  delete_marker,
+                  "  await deleteLocal(\n    key,\n  )\n\n  forgetDraftManifest(\n    draftType,\n    draftKey,\n  )\n\n  window.dispatchEvent(",
+                  1,
+              )
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit service patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/drafts.service.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Track and recover unfinished FERSYS drafts"
+          git push
