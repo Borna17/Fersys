@@ -1,4 +1,5 @@
 import CroatianNavigationLabels from './components/CroatianNavigationLabels'
+import UniversalDraftProtection from './components/UniversalDraftProtection'
 import {
   IncomingInvoicesCloudBridge,
 } from './components/IncomingInvoicesCloudBridge'
@@ -17,6 +18,7 @@ function App() {
   return (
     <>
       <CroatianNavigationLabels />
+      <UniversalDraftProtection />
       <IncomingInvoicesCloudBridge />
       <WebPushForegroundListener />
       <AppRouter />
