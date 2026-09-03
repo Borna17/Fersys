@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 
 def read(path: str) -> str:
@@ -9,12 +10,14 @@ def write(path: str, text: str) -> None:
     Path(path).write_text(text, encoding='utf-8')
 
 
-def replace_once(path: str, old: str, new: str) -> None:
+def replace_once(path: str, old: str, new: str, *, required: bool = True) -> None:
     text = read(path)
     if new in text:
         return
     if old not in text:
-        raise SystemExit(f'Marker missing in {path}: {old[:120]!r}')
+        if required:
+            raise SystemExit(f'Marker missing in {path}: {old[:120]!r}')
+        return
     write(path, text.replace(old, new, 1))
 
 
@@ -24,8 +27,19 @@ def replace_all(path: str, old: str, new: str) -> None:
         write(path, text.replace(old, new))
 
 
-# Customer service: customer country is not mandatory, so do not destroy
-# alphanumeric foreign tax IDs. Keep legacy oib column in sync for compatibility.
+def regex_once(path: str, pattern: str, replacement: str, *, flags: int = 0) -> None:
+    text = read(path)
+    if re.search(pattern, text, flags) is None:
+        # Idempotency: if the characteristic replacement is already present,
+        # the caller should have chosen a replacement containing cleanTaxId/text mode.
+        if 'cleanTaxId' in replacement and 'cleanTaxId' in text:
+            return
+        raise SystemExit(f'Regex marker missing in {path}: {pattern[:120]!r}')
+    write(path, re.sub(pattern, replacement, text, count=1, flags=flags))
+
+
+# Customer service: customer country is not mandatory, so never destroy
+# alphanumeric foreign tax identifiers. tax_id is canonical, legacy oib mirrors it.
 path = 'src/services/customers.service.ts'
 replace_all(
     path,
@@ -34,8 +48,8 @@ replace_all(
 )
 replace_all(path, 'cleanOib || null', 'cleanTaxId || null')
 
-# New customer form: accept HR OIB and foreign PIB/JIB/etc. without pretending
-# that FERSYS has a national validator for every country.
+# New customer form: generic tax identifier. We intentionally do not pretend to
+# have an official national validator for every possible customer country.
 path = 'src/pages/CustomersPage.tsx'
 replace_once(
     path,
@@ -48,45 +62,33 @@ replace_once(
     "    if (cleanTaxId && cleanTaxId.length < 5) {\n      window.alert(\n        'Ako unosite porezni broj, unesite najmanje 5 znakova.',\n      )\n      return\n    }",
 )
 replace_all(path, 'oib: cleanOib,', 'oib: cleanTaxId,')
+replace_all(path, '<Field label="OIB (nije obavezno)">', '<Field label="Porezni broj (OIB / PIB / JIB) – nije obavezno">')
 replace_once(
     path,
-    '''                  <Field label="OIB (nije obavezno)">
-                    <input
-                      inputMode="numeric"
+    '''                      inputMode="numeric"
                       maxLength={11}
-                      value={oib}
-                      onChange={(event) =>
-                        setOib(
-                          event.target.value
-                            .replace(
-                              /\\D/g,
-                              '',
-                            )
-                            .slice(
-                              0,
-                              11,
-                            ),
-                        )
-                      }
-                      className={inputClass}
-                    />
-                  </Field>''',
-    '''                  <Field label="Porezni broj (OIB / PIB / JIB) – nije obavezno">
-                    <input
-                      inputMode="text"
+                      value={oib}''',
+    '''                      inputMode="text"
                       maxLength={32}
-                      value={oib}
-                      onChange={(event) =>
-                        setOib(
-                          event.target.value
-                            .toUpperCase()
-                            .replace(/\\s+/g, '')
-                            .slice(0, 32),
-                        )
-                      }
-                      className={inputClass}
-                    />
-                  </Field>''',
+                      value={oib}''',
+)
+regex_once(
+    path,
+    r'''(?P<indent>\s*)onChange=\{\(event\) =>\n(?P=indent)  setOib\(\n(?P=indent)    event\.target\.value\n(?P=indent)      \.replace\(\n(?P=indent)        /\\D/g,\n(?P=indent)        '',\n(?P=indent)      \)\n(?P=indent)      \.slice\(0, 11\),\n(?P=indent)  \)\n(?P=indent)\}''',
+    '''\g<indent>onChange={(event) =>
+\g<indent>  setOib(
+\g<indent>    event.target.value
+\g<indent>      .toUpperCase()
+\g<indent>      .replace(/\\s+/g, '')
+\g<indent>      .slice(0, 32),
+\g<indent>  )
+\g<indent>}''',
+)
+replace_all(path, 'placeholder="11 znamenki"', 'placeholder="OIB, PIB, JIB ili drugi porezni broj"')
+replace_all(
+    path,
+    "                      {oib\n                        ? `Uneseno ${oib.length}/11`\n                        : 'OIB možete ostaviti prazan.'}",
+    "                      {oib\n                        ? `Uneseno ${oib.length}/32 znakova`\n                        : 'Porezni broj možete ostaviti prazan.'}",
 )
 
 # Customer profile edit + relation matching: preserve foreign alphanumeric IDs.
@@ -136,52 +138,28 @@ replace_once(
 replace_all(path, 'oib: cleanOib,', 'oib: cleanTaxId,')
 replace_once(
     path,
-    '''                  <Field label="Porezni broj (OIB / PIB / JIB)">
-                    <input
-                      inputMode="numeric"
+    '''                      inputMode="numeric"
                       maxLength={11}
-                      value={editOib}
-                      onChange={(event) =>
-                        setEditOib(
-                          event.target
-                            .value
-                            .replace(
-                              /\\D/g,
-                              '',
-                            )
-                            .slice(
-                              0,
-                              11,
-                            ),
-                        )
-                      }
-                      className={
-                        inputClass
-                      }
-                    />
-                  </Field>''',
-    '''                  <Field label="Porezni broj (OIB / PIB / JIB)">
-                    <input
-                      inputMode="text"
+                      value={editOib}''',
+    '''                      inputMode="text"
                       maxLength={32}
-                      value={editOib}
-                      onChange={(event) =>
-                        setEditOib(
-                          event.target.value
-                            .toUpperCase()
-                            .replace(/\\s+/g, '')
-                            .slice(0, 32),
-                        )
-                      }
-                      className={
-                        inputClass
-                      }
-                    />
-                  </Field>''',
+                      value={editOib}''',
+)
+regex_once(
+    path,
+    r'''(?P<indent>\s*)onChange=\{\(event\) =>\n(?P=indent)  setEditOib\(\n(?P=indent)    event\.target\n(?P=indent)      \.value\n(?P=indent)      \.replace\(\n(?P=indent)        /\\D/g,\n(?P=indent)        '',\n(?P=indent)      \)\n(?P=indent)      \.slice\(\n(?P=indent)        0,\n(?P=indent)        11,\n(?P=indent)      \),\n(?P=indent)  \)\n(?P=indent)\}''',
+    '''\g<indent>onChange={(event) =>
+\g<indent>  setEditOib(
+\g<indent>    event.target.value
+\g<indent>      .toUpperCase()
+\g<indent>      .replace(/\\s+/g, '')
+\g<indent>      .slice(0, 32),
+\g<indent>  )
+\g<indent>}''',
 )
 
-# Company settings service: after a general company save, also align the
-# dedicated compliance row. This prevents country and fiscal settings drifting.
+# Company settings service: keep general company settings and the dedicated
+# compliance table synchronized so changing country cannot leave stale HR fiscal data.
 path = 'src/services/companySettings.service.ts'
 replace_once(
     path,
@@ -198,9 +176,6 @@ replace_once(
     data as CompanyRow,
   )
 
-  // Keep country/currency in the dedicated compliance table synchronized with
-  // general company settings. Changing away from HR automatically leaves the
-  // Croatian fiscal adapter OFF through updateCompanyComplianceSettings().
   const compliance = await getCompanyComplianceSettings()
   await updateCompanyComplianceSettings({
     ...compliance,
@@ -212,7 +187,7 @@ replace_once(
 }''',
 )
 
-# Invoice PDF: company tax label and currency follow the active company.
+# Invoice PDF: company tax label and money currency follow active company.
 path = 'src/utils/invoicePdf.ts'
 replace_once(
     path,
