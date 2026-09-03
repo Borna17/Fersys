@@ -1,0 +1,70 @@
+name: Fix edit work order draft flush
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-edit-work-order-draft-flush.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Patch edit work order autosave flush
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/EditWorkOrderPage.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          old_refs = """  const baselineRef = useRef('')\n  const saveSucceededRef = useRef(false)"""
+          new_refs = """  const baselineRef = useRef('')\n  const saveSucceededRef = useRef(false)\n  const pendingDraftRef = useRef<any>(null)\n  const pendingDraftDirtyRef = useRef(false)"""
+          if old_refs not in s:
+              raise SystemExit('refs anchor missing')
+          s = s.replace(old_refs, new_refs, 1)
+
+          old_ready = """        setDraftReady(true)"""
+          new_ready = """        setDraftReady(true)\n        if (!sameBase) {\n          setAutosaveState('saved')\n          setAutosaveText('Automatsko spremanje uključeno')\n        }"""
+          if old_ready not in s:
+              raise SystemExit('draft ready anchor missing')
+          s = s.replace(old_ready, new_ready, 1)
+
+          old_if = """    if (serialized === baselineRef.current) return\n\n    const timer = window.setTimeout(() => {\n      void (async () => {\n        try {\n          setAutosaveState('saving')\n          const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)\n          setAutosaveState(navigator.onLine ? 'saved' : 'offline')\n          setAutosaveText(formatDraftSavedAt(savedAt))\n        } catch (error) {\n          console.error('Autosave izmjena radnog naloga nije uspio:', error)\n          setAutosaveState('offline')\n          setAutosaveText('Nacrt izmjena čuva se lokalno.')\n        }\n      })()\n    }, 700)\n\n    return () => window.clearTimeout(timer)"""
+          new_if = """    if (serialized === baselineRef.current) return\n\n    pendingDraftRef.current = payload\n    pendingDraftDirtyRef.current = true\n    setAutosaveState('saving')\n    setAutosaveText('Automatsko spremanje...')\n\n    const timer = window.setTimeout(() => {\n      void (async () => {\n        try {\n          const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)\n          pendingDraftDirtyRef.current = false\n          setAutosaveState(navigator.onLine ? 'saved' : 'offline')\n          setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)\n        } catch (error) {\n          console.error('Autosave izmjena radnog naloga nije uspio:', error)\n          setAutosaveState('offline')\n          setAutosaveText('Nacrt izmjena čuva se lokalno.')\n        }\n      })()\n    }, 250)\n\n    return () => window.clearTimeout(timer)"""
+          if old_if not in s:
+              raise SystemExit('autosave block anchor missing')
+          s = s.replace(old_if, new_if, 1)
+
+          effect_anchor = """  ])\n\n    const durationMinutes = useMemo("""
+          flush_effect = """  ])\n\n  useEffect(() => {\n    if (!draftReady || !id) return\n\n    const flushPendingDraft = () => {\n      if (saveSucceededRef.current || !pendingDraftDirtyRef.current) return\n      const payload = pendingDraftRef.current\n      if (!payload) return\n\n      void saveUserDraft('work-order', `edit:${id}`, payload)\n        .then((savedAt) => {\n          pendingDraftDirtyRef.current = false\n          setAutosaveState(navigator.onLine ? 'saved' : 'offline')\n          setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)\n        })\n        .catch((error) => {\n          console.error('Prisilno spremanje nacrta radnog naloga nije uspjelo:', error)\n          setAutosaveState('offline')\n          setAutosaveText('Nacrt izmjena čuva se lokalno.')\n        })\n    }\n\n    const onVisibility = () => {\n      if (document.visibilityState === 'hidden') flushPendingDraft()\n    }\n\n    document.addEventListener('visibilitychange', onVisibility)\n    window.addEventListener('pagehide', flushPendingDraft)\n    window.addEventListener('beforeunload', flushPendingDraft)\n    window.addEventListener('popstate', flushPendingDraft)\n\n    return () => {\n      flushPendingDraft()\n      document.removeEventListener('visibilitychange', onVisibility)\n      window.removeEventListener('pagehide', flushPendingDraft)\n      window.removeEventListener('beforeunload', flushPendingDraft)\n      window.removeEventListener('popstate', flushPendingDraft)\n    }\n  }, [draftReady, id])\n\n  const durationMinutes = useMemo("""
+          if effect_anchor not in s:
+              raise SystemExit('flush effect anchor missing')
+          s = s.replace(effect_anchor, flush_effect, 1)
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/EditWorkOrderPage.tsx
+          git commit -m 'Flush edited work order drafts before exit'
+          git push
