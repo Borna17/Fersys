@@ -1547,7 +1547,7 @@ export function CustomerProfilePage() {
                   }
                 />
                 <InfoCard
-                  label="OIB"
+                  label="Porezni broj (OIB / PIB / JIB)"
                   value={
                     customer.oib ||
                     'Nije uneseno'
@@ -2280,7 +2280,7 @@ export function CustomerProfilePage() {
                     </Field>
                   )}
 
-                  <Field label="OIB">
+                  <Field label="Porezni broj (OIB / PIB / JIB)">
                     <input
                       inputMode="numeric"
                       maxLength={11}

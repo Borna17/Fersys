@@ -50,6 +50,12 @@ export type InvoicePdfData = {
   createdAt: string
   updatedAt: string
   paidAt?: string
+  complianceSnapshot?: {
+    practiceDocument?: boolean
+    countryCode?: string
+    operatingMode?: string
+    fiscalizationMode?: string
+  }
 }
 
 export type InvoicePdfSettings = {
@@ -614,6 +620,9 @@ export function buildInvoicePdfHtml(
       <section class="page">
         ${settings.showWatermark && settings.watermarkText
           ? `<div class="watermark">${esc(settings.watermarkText)}</div>`
+          : ''}
+        ${invoice.complianceSnapshot?.practiceDocument
+          ? `<div style="margin-bottom:12px;border:1px solid #f59e0b;border-radius:10px;padding:8px 12px;text-align:center;font-size:11px;font-weight:800;color:#92400e;background:#fffbeb">PROBNI DOKUMENT – NIJE FISKALIZIRAN I NIJE ZA SLUŽBENO IZDAVANJE</div>`
           : ''}
         ${headerHtml(invoice, settings, !first)}
         ${first ? customerAndMetaHtml(invoice, settings) : ''}

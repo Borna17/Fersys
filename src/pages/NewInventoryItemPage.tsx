@@ -152,6 +152,7 @@ type FormState = {
   purchasePrice: string
   salePrice: string
   vatRate: string
+  kpdCode: string
 }
 
 const INITIAL_FORM: FormState = {
@@ -185,6 +186,7 @@ const INITIAL_FORM: FormState = {
   purchasePrice: '0',
   salePrice: '0',
   vatRate: '25',
+  kpdCode: '',
 }
 
 const inputClassName =
@@ -358,6 +360,7 @@ export function NewInventoryItemPage() {
             String(existingItem.salePrice),
           vatRate:
             String(existingItem.vatRate),
+          kpdCode: existingItem.kpdCode,
         })
 
         setMainImage(existingItem.image)
@@ -670,6 +673,9 @@ export function NewInventoryItemPage() {
                 parseNumber(form.vatRate),
               )
             : 25,
+
+        kpdCode:
+          form.kpdCode.replace(/\D/g, '').slice(0, 6),
       }
 
       if (isEditMode && id) {
@@ -1343,6 +1349,26 @@ export function NewInventoryItemPage() {
                     inputMode="decimal"
                     className={inputClassName}
                   />
+                </label>
+
+                <label>
+                  <FieldLabel>KPD 2025 (za eRačun)</FieldLabel>
+                  <input
+                    value={form.kpdCode}
+                    onChange={(event) =>
+                      updateField(
+                        'kpdCode',
+                        event.target.value.replace(/\D/g, '').slice(0, 6),
+                      )
+                    }
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="6 znamenki"
+                    className={inputClassName}
+                  />
+                  <span className="mt-1 block text-[11px] leading-4 text-slate-500">
+                    Opcionalno za običan rad; koristi se za hrvatski B2B eRačun kada je potreban.
+                  </span>
                 </label>
               </div>
             </FormSection>

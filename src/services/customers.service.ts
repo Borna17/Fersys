@@ -15,6 +15,7 @@ type CustomerRow = {
   contact_person: string | null
   logo_data_url: string | null
   oib: string | null
+  tax_id: string | null
   phone: string | null
   email: string | null
   street: string | null
@@ -58,7 +59,7 @@ function mapCustomer(
     logo:
       row.logo_data_url ??
       undefined,
-    oib: row.oib ?? '',
+    oib: row.tax_id ?? row.oib ?? '',
     phone: row.phone ?? '',
     email: row.email ?? '',
     street: row.street ?? '',
@@ -201,6 +202,8 @@ export async function createCustomer(
             : null,
         oib:
           cleanOib || null,
+        tax_id:
+          cleanOib || null,
         phone:
           input.phone.trim() ||
           null,
@@ -239,7 +242,7 @@ export async function createCustomer(
       error.code === '23505'
     ) {
       throw new Error(
-        'Investitor s ovim OIB-om već postoji u vašoj tvrtki.',
+        'Investitor s ovim poreznim brojem (OIB / PIB / JIB) već postoji u vašoj tvrtki.',
       )
     }
 
@@ -282,6 +285,8 @@ export async function updateCustomer(
               null
             : null,
         oib:
+          cleanOib || null,
+        tax_id:
           cleanOib || null,
         phone:
           input.phone.trim() ||
@@ -329,7 +334,7 @@ export async function updateCustomer(
       error.code === '23505'
     ) {
       throw new Error(
-        'Drugi investitor s ovim OIB-om već postoji.',
+        'Drugi investitor s ovim poreznim brojem (OIB / PIB / JIB) već postoji.',
       )
     }
 
@@ -364,6 +369,7 @@ export async function deleteCustomer(
         deleted_at:
           new Date().toISOString(),
         oib: null,
+        tax_id: null,
       })
       .eq(
         'id',

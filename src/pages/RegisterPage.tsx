@@ -47,13 +47,13 @@ const REGISTRATION_COUNTRIES: Array<{
   currency: string
   taxIdLabel: string
 }> = [
-  { code: 'HR', label: 'Hrvatska', currency: 'EUR', taxIdLabel: 'OIB' },
-  { code: 'BA', label: 'Bosna i Hercegovina', currency: 'BAM', taxIdLabel: 'Porezni ID / JIB' },
-  { code: 'RS', label: 'Srbija', currency: 'RSD', taxIdLabel: 'PIB' },
-  { code: 'SI', label: 'Slovenija', currency: 'EUR', taxIdLabel: 'Davčna številka' },
-  { code: 'ME', label: 'Crna Gora', currency: 'EUR', taxIdLabel: 'PIB' },
-  { code: 'MK', label: 'Sjeverna Makedonija', currency: 'MKD', taxIdLabel: 'EDB' },
-  { code: 'XK', label: 'Kosovo', currency: 'EUR', taxIdLabel: 'Fiskalni broj' },
+  { code: 'HR', label: 'Hrvatska', currency: 'EUR', taxIdLabel: 'Porezni broj (OIB)' },
+  { code: 'BA', label: 'Bosna i Hercegovina', currency: 'BAM', taxIdLabel: 'Porezni broj (JIB)' },
+  { code: 'RS', label: 'Srbija', currency: 'RSD', taxIdLabel: 'Porezni broj (PIB)' },
+  { code: 'SI', label: 'Slovenija', currency: 'EUR', taxIdLabel: 'Porezni broj (davčna številka)' },
+  { code: 'ME', label: 'Crna Gora', currency: 'EUR', taxIdLabel: 'Porezni broj (PIB)' },
+  { code: 'MK', label: 'Sjeverna Makedonija', currency: 'MKD', taxIdLabel: 'Porezni broj (EDB)' },
+  { code: 'XK', label: 'Kosovo', currency: 'EUR', taxIdLabel: 'Porezni broj (fiskalni broj)' },
   { code: 'OTHER', label: 'Druga država', currency: 'EUR', taxIdLabel: 'Porezni broj' },
 ]
 

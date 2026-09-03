@@ -102,6 +102,7 @@ export interface InventoryItem {
   purchasePrice: number
   salePrice: number
   vatRate: number
+  kpdCode: string
 
   locationStocks: InventoryLocationStock[]
   relatedItemIds: string[]
@@ -144,6 +145,7 @@ export interface CreateInventoryItemInput {
   purchasePrice?: number
   salePrice?: number
   vatRate?: number
+  kpdCode?: string
 
   locationStocks?: Array<{
     locationId: string
@@ -198,6 +200,7 @@ type ItemRow = {
   purchase_price: number | string
   sale_price: number | string
   vat_rate: number | string
+  kpd_code: string | null
   related_item_ids: string[] | null
   created_at: string
   updated_at: string
@@ -388,6 +391,7 @@ function mapItem(
       ),
     vatRate:
       numberValue(row.vat_rate),
+    kpdCode: row.kpd_code ?? '',
     locationStocks: stocks,
     relatedItemIds:
       row.related_item_ids ?? [],
@@ -752,6 +756,8 @@ export async function createInventoryItem(
         input.salePrice ?? 0,
       vat_rate:
         input.vatRate ?? 25,
+      kpd_code:
+        input.kpdCode?.replace(/\D/g, '').slice(0, 6) || null,
       related_item_ids:
         input.relatedItemIds ?? [],
       created_by: userId,
@@ -1013,6 +1019,11 @@ export async function updateInventoryItem(
   ) {
     patch.vat_rate =
       updates.vatRate
+  }
+
+  if (updates.kpdCode !== undefined) {
+    patch.kpd_code =
+      updates.kpdCode.replace(/\D/g, '').slice(0, 6) || null
   }
 
   if (

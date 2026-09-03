@@ -37,6 +37,13 @@ import {
   type WorkingHours,
 } from '../services/companySettings.service'
 import { fileToCompressedDataUrl } from '../utils/imageUtils'
+import {
+  getTaxIdInputMode,
+  getTaxIdLabel,
+  getTaxIdMaxLength,
+  isValidTaxId,
+  normalizeTaxId,
+} from '../services/taxIdentity.service'
 import { removeLightBackgroundFromLogo } from '../utils/logoBackground'
 import { supabase } from '../lib/supabase'
 import { resetOnboarding } from '../services/onboarding.service'
@@ -215,7 +222,7 @@ export function SettingsPage() {
 
     const checks = [
       Boolean(settings.name.trim()),
-      settings.oib.replace(/\D/g, '').length === 11,
+      isValidTaxId(settings.country, settings.oib),
       Boolean(settings.address.trim() && settings.city.trim()),
       Boolean(settings.phone.trim() || settings.email.trim()),
       Boolean(settings.iban.trim()),
@@ -774,16 +781,14 @@ function CompanySettingsTab({
             />
 
             <TextField
-              label="OIB"
+              label={getTaxIdLabel(settings.country)}
               value={settings.oib}
-              inputMode="numeric"
-              maxLength={11}
+              inputMode={getTaxIdInputMode(settings.country)}
+              maxLength={getTaxIdMaxLength(settings.country)}
               onChange={(value) =>
                 updateField(
                   'oib',
-                  value
-                    .replace(/\D/g, '')
-                    .slice(0, 11),
+                  normalizeTaxId(settings.country, value),
                 )
               }
             />

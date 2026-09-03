@@ -329,7 +329,7 @@ export default function ModulesSettingsTab() {
                   <div>
                     <p className="text-sm font-black text-white">Hrvatska fiskalizacija</p>
                     <p className="mt-1 text-xs leading-5 text-slate-400">
-                      Odaberi OFF dok fiskalizaciju ne želiš koristiti. TEST će kasnije služiti za testno okruženje, a LIVE za produkcijsko slanje. U ovoj fazi FERSYS još ništa ne šalje Poreznoj.
+                      Odaberi OFF dok fiskalizaciju ne želiš koristiti. TEST će kasnije služiti za testno okruženje, a LIVE za produkcijsko slanje. FERSYS ovdje priprema podatke, ali ništa se ne šalje Poreznoj dok službeni certifikat/posrednik i produkcijski adapter nisu povezani i testirani.
                     </p>
                   </div>
                 </div>
@@ -376,7 +376,7 @@ export default function ModulesSettingsTab() {
                   </label>
 
                   <label className="space-y-2">
-                    <span className="text-[11px] font-black uppercase text-slate-500">OIB operatora</span>
+                    <span className="text-[11px] font-black uppercase text-slate-500">Porezni broj operatora (OIB)</span>
                     <input
                       value={compliance.fiscalization.operatorTaxId}
                       disabled={!canEdit || compliance.fiscalization.mode === 'OFF'}

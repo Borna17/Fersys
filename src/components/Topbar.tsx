@@ -43,6 +43,7 @@ import {
   type AppNotificationKind,
 } from '../services/notifications.service'
 import CompanyLogo from './CompanyLogo'
+import CompanySwitcher from './CompanySwitcher'
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
@@ -651,6 +652,7 @@ export default function Topbar() {
       </div>
 
       <div className="ml-7 flex shrink-0 items-center gap-3">
+        <CompanySwitcher />
         {visibleQuickActions.length >
           0 && (
           <div className="relative">

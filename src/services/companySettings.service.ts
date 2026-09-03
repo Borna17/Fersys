@@ -1,4 +1,9 @@
 import { supabase } from '../lib/supabase'
+import {
+  normalizeTaxCountryCode,
+  normalizeTaxId,
+  validateTaxId,
+} from './taxIdentity.service'
 
 export type WorkingDay = {
   enabled: boolean
@@ -123,6 +128,8 @@ type CompanyRow = {
 
   name: string
   oib: string | null
+  tax_id: string | null
+  country_code: string | null
   address: string | null
   city: string | null
   postal_code: string | null
@@ -325,7 +332,7 @@ function mapCompany(
     ownerId: row.owner_id,
 
     name: row.name,
-    oib: row.oib ?? '',
+    oib: row.tax_id ?? row.oib ?? '',
     address: row.address ?? '',
     city: row.city ?? '',
     postalCode: row.postal_code ?? '',
@@ -449,13 +456,23 @@ function createDatabasePayload(
   input: UpdateCompanySettingsInput,
   currentProfileSettings: Record<string, unknown> = {},
 ) {
+  const countryCode = normalizeTaxCountryCode(input.country)
+  const taxId = normalizeTaxId(countryCode, input.oib)
+
   return {
     name: input.name.trim(),
 
+    // Keep legacy OIB populated only for HR while tax_id is the canonical field.
     oib:
-      input.oib
-        .replace(/\D/g, '')
-        .slice(0, 11) || null,
+      countryCode === 'HR'
+        ? taxId || null
+        : null,
+
+    tax_id:
+      taxId || null,
+
+    country_code:
+      countryCode,
 
     address:
       input.address.trim() || null,
@@ -595,23 +612,17 @@ function createDatabasePayload(
 export async function getCompanySettings(): Promise<
   CompanySettings
 > {
-  const { data, error } = await supabase.rpc(
-    'get_current_company',
-  )
+  const companyId = await getCurrentCompanyId()
+
+  const { data: company, error } = await supabase
+    .from('companies')
+    .select('*')
+    .eq('id', companyId)
+    .single()
 
   if (error) {
     throw error
   }
-
-  const rows = Array.isArray(data)
-    ? data
-    : data
-      ? [data]
-      : []
-
-  const company = rows[0] as
-    | CompanyRow
-    | undefined
 
   if (!company) {
     throw new Error(
@@ -631,18 +642,15 @@ export async function updateCompanySettings(
     )
   }
 
-  const cleanOib = input.oib.replace(
-    /\D/g,
-    '',
-  )
-
-  if (
-    cleanOib.length > 0 &&
-    cleanOib.length !== 11
-  ) {
-    throw new Error(
-      'OIB tvrtke mora imati točno 11 znamenki.',
+  if (input.oib.trim()) {
+    const taxValidation = validateTaxId(
+      input.country,
+      input.oib,
     )
+
+    if (!taxValidation.valid) {
+      throw new Error(taxValidation.error)
+    }
   }
 
   const companyId =
