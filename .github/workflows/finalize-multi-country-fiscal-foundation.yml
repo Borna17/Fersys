@@ -1,0 +1,58 @@
+name: Finalize multi-country fiscal foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/finalize_multi_country_fiscal_foundation.py'
+      - '.github/workflows/finalize-multi-country-fiscal-foundation.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply idempotent source patch
+        run: python .github/scripts/finalize_multi_country_fiscal_foundation.py
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit verified changes
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/RegisterPage.tsx \
+                  src/services/companySettings.service.ts \
+                  src/pages/SettingsPage.tsx \
+                  src/components/Topbar.tsx \
+                  src/components/settings/ModulesSettingsTab.tsx \
+                  src/services/customers.service.ts \
+                  src/pages/CustomersPage.tsx \
+                  src/pages/CustomerProfilePage.tsx \
+                  src/services/inventory.service.ts \
+                  src/pages/NewInventoryItemPage.tsx
+          git commit -m "Finalize multi-country fiscalization foundation"
+          git push origin HEAD:main
