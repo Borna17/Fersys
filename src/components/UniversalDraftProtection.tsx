@@ -440,12 +440,16 @@ export default function UniversalDraftProtection() {
   }, [])
 
   const visibleEntries = useMemo(
-    () =>
-      entries.filter(
+    () => {
+      const currentRoute = `${window.location.pathname}${window.location.search}`
+
+      return entries.filter(
         (entry) =>
           entry.route &&
-          !entry.route.startsWith('/login'),
-      ),
+          !entry.route.startsWith('/login') &&
+          entry.route !== currentRoute,
+      )
+    },
     [entries],
   )
 
@@ -456,7 +460,7 @@ export default function UniversalDraftProtection() {
   return (
     <>
       {restoredMessage && (
-        <div className="fixed bottom-24 left-1/2 z-[120] -translate-x-1/2 rounded-2xl border border-emerald-400/25 bg-slate-950/95 px-4 py-3 text-sm font-bold text-emerald-200 shadow-2xl backdrop-blur sm:bottom-8">
+        <div className="fixed left-1/2 top-[5.35rem] z-[120] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-xl border border-emerald-400/25 bg-slate-950/95 px-3 py-2 text-xs font-bold text-emerald-200 shadow-xl backdrop-blur sm:bottom-8 sm:top-auto sm:text-sm">
           {restoredMessage}
         </div>
       )}
@@ -465,9 +469,9 @@ export default function UniversalDraftProtection() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 left-3 z-[115] flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-2xl border border-amber-400/25 bg-slate-950/95 px-4 py-3 text-left text-white shadow-2xl backdrop-blur sm:bottom-5 sm:left-5"
+          className="fixed left-3 top-[5.35rem] z-[115] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-xl border border-amber-400/25 bg-slate-950/95 px-3 py-2 text-left text-white shadow-xl backdrop-blur sm:bottom-5 sm:left-5 sm:top-auto sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3"
         >
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/15 text-amber-300 sm:h-10 sm:w-10 sm:rounded-xl">
             <FilePenLine size={20} />
           </span>
           <span className="min-w-0">
