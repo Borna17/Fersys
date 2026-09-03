@@ -1,0 +1,100 @@
+name: Apply edit work order autosave
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-edit-work-order-autosave.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Patch edit work order autosave
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/pages/EditWorkOrderPage.tsx')
+          text = path.read_text(encoding='utf-8-sig')
+
+          text = text.replace(
+          """  useEffect,\n  useMemo,\n  useState,\n}""",
+          """  useEffect,\n  useMemo,\n  useRef,\n  useState,\n}""", 1)
+
+          text = text.replace(
+          """import FersysLoader from '../components/FersysLoader'\nimport { SignaturePad } from '../components/SignaturePad'""",
+          """import DraftAutosaveBadge, {\n  type DraftAutosaveState,\n} from '../components/DraftAutosaveBadge'\nimport FersysLoader from '../components/FersysLoader'\nimport { SignaturePad } from '../components/SignaturePad'""", 1)
+
+          text = text.replace(
+          """import {\n  getEmployees,\n  type CompanyEmployee,\n} from '../services/employees.service'""",
+          """import {\n  deleteUserDraft,\n  formatDraftSavedAt,\n  loadUserDraft,\n  saveUserDraft,\n} from '../services/drafts.service'\nimport {\n  getEmployees,\n  type CompanyEmployee,\n} from '../services/employees.service'""", 1)
+
+          state_anchor = """  const [isUploading, setIsUploading] = useState(false)\n\n  useEffect(() => {"""
+          state_insert = """  const [isUploading, setIsUploading] = useState(false)\n\n  const [autosaveState, setAutosaveState] =\n    useState<DraftAutosaveState>('idle')\n  const [autosaveText, setAutosaveText] = useState('')\n  const [draftReady, setDraftReady] = useState(false)\n  const [baseUpdatedAt, setBaseUpdatedAt] = useState('')\n  const baselineRef = useRef('')\n  const saveSucceededRef = useRef(false)\n\n  useEffect(() => {"""
+          if state_anchor not in text:
+              raise SystemExit('state anchor missing')
+          text = text.replace(state_anchor, state_insert, 1)
+
+          load_anchor = """        setInvestorName(savedOrder.investorName)\n        setInvestorSignature(savedOrder.investorSignature)\n        setImages(savedOrder.images)"""
+          load_insert = """        setInvestorName(savedOrder.investorName)\n        setInvestorSignature(savedOrder.investorSignature)\n        setImages(savedOrder.images)\n        setBaseUpdatedAt(savedOrder.updatedAt)\n\n        const draftKey = `edit:${id}`\n        const draft = await loadUserDraft<any>('work-order', draftKey)\n        const value = draft?.payload ?? null\n        const sameBase =\n          value && value.baseUpdatedAt === savedOrder.updatedAt\n\n        if (sameBase) {\n          setCustomerId(value.customerId ?? savedOrder.customerId)\n          setCustomerName(value.customerName ?? savedOrder.customerName)\n          setCustomerContactPerson(value.customerContactPerson ?? savedOrder.customerContactPerson)\n          setCustomerPhone(value.customerPhone ?? savedOrder.customerPhone)\n          setCustomerEmail(value.customerEmail ?? savedOrder.customerEmail)\n          setCustomerOib(value.customerOib ?? savedOrder.customerOib)\n          setAddress(value.address ?? savedOrder.address)\n          setDate(value.date ?? savedOrder.date)\n          setArrivalTime(value.arrivalTime ?? savedOrder.arrivalTime)\n          setDepartureTime(value.departureTime ?? savedOrder.departureTime)\n          setStatus(value.status ?? savedOrder.status)\n          setPriority(value.priority ?? savedOrder.priority)\n          setTitle(value.title ?? savedOrder.title)\n          setDescription(value.description ?? savedOrder.description)\n          setAssignedWorkers(Array.isArray(value.assignedWorkers) ? value.assignedWorkers : savedOrder.assignedWorkers)\n          setMaterials(Array.isArray(value.materials) ? value.materials : savedOrder.materials)\n          setLabourPrice(value.labourPrice ?? (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)))\n          setDiscountRate(value.discountRate ?? String(savedOrder.discountRate ?? 0))\n          setVatRate(value.vatRate ?? String(savedOrder.vatRate))\n          setPriceNote(value.priceNote ?? savedOrder.priceNote)\n          setInvestorName(value.investorName ?? savedOrder.investorName)\n          setInvestorSignature(value.investorSignature ?? savedOrder.investorSignature)\n          setImages(Array.isArray(value.images) ? value.images : savedOrder.images)\n          setAutosaveState('restored')\n          setAutosaveText(`Vraćene nespremljene izmjene · ${formatDraftSavedAt(draft!.updatedAt)}`)\n        } else if (draft) {\n          // Server ima noviju verziju naloga. Stari nacrt ne smije pregaziti nove podatke.\n          await deleteUserDraft('work-order', draftKey)\n        }\n\n        baselineRef.current = JSON.stringify({\n          customerId: sameBase ? value.customerId ?? savedOrder.customerId : savedOrder.customerId,\n          customerName: sameBase ? value.customerName ?? savedOrder.customerName : savedOrder.customerName,\n          customerContactPerson: sameBase ? value.customerContactPerson ?? savedOrder.customerContactPerson : savedOrder.customerContactPerson,\n          customerPhone: sameBase ? value.customerPhone ?? savedOrder.customerPhone : savedOrder.customerPhone,\n          customerEmail: sameBase ? value.customerEmail ?? savedOrder.customerEmail : savedOrder.customerEmail,\n          customerOib: sameBase ? value.customerOib ?? savedOrder.customerOib : savedOrder.customerOib,\n          address: sameBase ? value.address ?? savedOrder.address : savedOrder.address,\n          date: sameBase ? value.date ?? savedOrder.date : savedOrder.date,\n          arrivalTime: sameBase ? value.arrivalTime ?? savedOrder.arrivalTime : savedOrder.arrivalTime,\n          departureTime: sameBase ? value.departureTime ?? savedOrder.departureTime : savedOrder.departureTime,\n          status: sameBase ? value.status ?? savedOrder.status : savedOrder.status,\n          priority: sameBase ? value.priority ?? savedOrder.priority : savedOrder.priority,\n          title: sameBase ? value.title ?? savedOrder.title : savedOrder.title,\n          description: sameBase ? value.description ?? savedOrder.description : savedOrder.description,\n          assignedWorkers: sameBase && Array.isArray(value.assignedWorkers) ? value.assignedWorkers : savedOrder.assignedWorkers,\n          materials: sameBase && Array.isArray(value.materials) ? value.materials : savedOrder.materials,\n          labourPrice: sameBase ? value.labourPrice ?? (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)) : (savedOrder.labourPrice === 0 ? '' : String(savedOrder.labourPrice)),\n          discountRate: sameBase ? value.discountRate ?? String(savedOrder.discountRate ?? 0) : String(savedOrder.discountRate ?? 0),\n          vatRate: sameBase ? value.vatRate ?? String(savedOrder.vatRate) : String(savedOrder.vatRate),\n          priceNote: sameBase ? value.priceNote ?? savedOrder.priceNote : savedOrder.priceNote,\n          investorName: sameBase ? value.investorName ?? savedOrder.investorName : savedOrder.investorName,\n          investorSignature: sameBase ? value.investorSignature ?? savedOrder.investorSignature : savedOrder.investorSignature,\n          images: sameBase && Array.isArray(value.images) ? value.images : savedOrder.images,\n        })\n        setDraftReady(true)"""
+          if load_anchor not in text:
+              raise SystemExit('load anchor missing')
+          text = text.replace(load_anchor, load_insert, 1)
+
+          duration_anchor = """  const durationMinutes = useMemo("""
+          autosave = """  useEffect(() => {\n    if (!draftReady || !id || saveSucceededRef.current) return\n\n    const payload = {\n      baseUpdatedAt, customerId, customerName, customerContactPerson,\n      customerPhone, customerEmail, customerOib, address, date,\n      arrivalTime, departureTime, status, priority, title, description,\n      assignedWorkers, materials, labourPrice, discountRate, vatRate,\n      priceNote, investorName, investorSignature, images,\n    }\n    const serialized = JSON.stringify({\n      customerId, customerName, customerContactPerson, customerPhone,\n      customerEmail, customerOib, address, date, arrivalTime, departureTime,\n      status, priority, title, description, assignedWorkers, materials,\n      labourPrice, discountRate, vatRate, priceNote, investorName,\n      investorSignature, images,\n    })\n\n    if (serialized === baselineRef.current) return\n\n    const timer = window.setTimeout(() => {\n      void (async () => {\n        try {\n          setAutosaveState('saving')\n          const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)\n          setAutosaveState(navigator.onLine ? 'saved' : 'offline')\n          setAutosaveText(formatDraftSavedAt(savedAt))\n        } catch (error) {\n          console.error('Autosave izmjena radnog naloga nije uspio:', error)\n          setAutosaveState('offline')\n          setAutosaveText('Nacrt izmjena čuva se lokalno.')\n        }\n      })()\n    }, 700)\n\n    return () => window.clearTimeout(timer)\n  }, [\n    draftReady, id, baseUpdatedAt, customerId, customerName,\n    customerContactPerson, customerPhone, customerEmail, customerOib,\n    address, date, arrivalTime, departureTime, status, priority, title,\n    description, assignedWorkers, materials, labourPrice, discountRate,\n    vatRate, priceNote, investorName, investorSignature, images,\n  ])\n\n  """ + duration_anchor
+          if duration_anchor not in text:
+              raise SystemExit('duration anchor missing')
+          text = text.replace(duration_anchor, autosave, 1)
+
+          success_anchor = """      navigate(`/work-orders/${saved.id}`, { replace: true })"""
+          success_insert = """      saveSucceededRef.current = true\n      try {\n        await deleteUserDraft('work-order', `edit:${id}`)\n      } catch (draftError) {\n        console.warn('Spremljen nalog, ali nacrt nije očišćen:', draftError)\n      }\n      navigate(`/work-orders/${saved.id}`, { replace: true })"""
+          if success_anchor not in text:
+              raise SystemExit('success anchor missing')
+          text = text.replace(success_anchor, success_insert, 1)
+
+          return_anchor = """  return (\n    <>\n      <form"""
+          return_insert = """  return (\n    <>\n      <DraftAutosaveBadge state={autosaveState} text={autosaveText} />\n      <form"""
+          if return_anchor not in text:
+              raise SystemExit('return anchor missing')
+          text = text.replace(return_anchor, return_insert, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Remove temporary DOM draft safety mount
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/App.tsx')
+          s = p.read_text(encoding='utf-8-sig')
+          s = s.replace("import EditWorkOrderDraftSafety from './components/EditWorkOrderDraftSafety'\n", '')
+          s = s.replace('      <EditWorkOrderDraftSafety />\n', '')
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit autosave
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/EditWorkOrderPage.tsx src/App.tsx
+          git commit -m 'Protect edited work orders with persistent autosave'
+          git push
