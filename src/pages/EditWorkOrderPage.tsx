@@ -157,6 +157,8 @@ export function EditWorkOrderPage() {
   const [baseUpdatedAt, setBaseUpdatedAt] = useState('')
   const baselineRef = useRef('')
   const saveSucceededRef = useRef(false)
+  const pendingDraftRef = useRef<any>(null)
+  const pendingDraftDirtyRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
@@ -293,6 +295,10 @@ export function EditWorkOrderPage() {
           images: sameBase && Array.isArray(value.images) ? value.images : savedOrder.images,
         })
         setDraftReady(true)
+        if (!sameBase) {
+          setAutosaveState('saved')
+          setAutosaveText('Automatsko spremanje uključeno')
+        }
       } catch (error) {
         if (!cancelled) {
           setLoadError(
@@ -332,20 +338,25 @@ export function EditWorkOrderPage() {
 
     if (serialized === baselineRef.current) return
 
+    pendingDraftRef.current = payload
+    pendingDraftDirtyRef.current = true
+    setAutosaveState('saving')
+    setAutosaveText('Automatsko spremanje...')
+
     const timer = window.setTimeout(() => {
       void (async () => {
         try {
-          setAutosaveState('saving')
           const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)
+          pendingDraftDirtyRef.current = false
           setAutosaveState(navigator.onLine ? 'saved' : 'offline')
-          setAutosaveText(formatDraftSavedAt(savedAt))
+          setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)
         } catch (error) {
           console.error('Autosave izmjena radnog naloga nije uspio:', error)
           setAutosaveState('offline')
           setAutosaveText('Nacrt izmjena čuva se lokalno.')
         }
       })()
-    }, 700)
+    }, 250)
 
     return () => window.clearTimeout(timer)
   }, [
@@ -356,7 +367,46 @@ export function EditWorkOrderPage() {
     vatRate, priceNote, investorName, investorSignature, images,
   ])
 
-    const durationMinutes = useMemo(
+  useEffect(() => {
+    if (!draftReady || !id) return
+
+    const flushPendingDraft = () => {
+      if (saveSucceededRef.current || !pendingDraftDirtyRef.current) return
+      const payload = pendingDraftRef.current
+      if (!payload) return
+
+      void saveUserDraft('work-order', `edit:${id}`, payload)
+        .then((savedAt) => {
+          pendingDraftDirtyRef.current = false
+          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)
+        })
+        .catch((error) => {
+          console.error('Prisilno spremanje nacrta radnog naloga nije uspjelo:', error)
+          setAutosaveState('offline')
+          setAutosaveText('Nacrt izmjena čuva se lokalno.')
+        })
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') flushPendingDraft()
+    }
+
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('pagehide', flushPendingDraft)
+    window.addEventListener('beforeunload', flushPendingDraft)
+    window.addEventListener('popstate', flushPendingDraft)
+
+    return () => {
+      flushPendingDraft()
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('pagehide', flushPendingDraft)
+      window.removeEventListener('beforeunload', flushPendingDraft)
+      window.removeEventListener('popstate', flushPendingDraft)
+    }
+  }, [draftReady, id])
+
+  const durationMinutes = useMemo(
     () => calculateDuration(arrivalTime, departureTime),
     [arrivalTime, departureTime],
   )
