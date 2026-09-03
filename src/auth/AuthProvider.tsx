@@ -18,6 +18,10 @@ import type {
 
 import { supabase } from '../lib/supabase'
 import {
+  createDefaultCompanyComplianceSettings,
+  normalizeCompanyCountryCode,
+} from '../services/companyCompliance.service'
+import {
   parseEmployeePermissions,
   resolvePermissions,
   type CompanyRole,
@@ -68,6 +72,91 @@ async function ensureCompanyForCurrentUser(): Promise<void> {
 
   if (error) {
     throw error
+  }
+
+  const { data: userData } = await supabase.auth.getUser()
+  const metadata = userData.user?.user_metadata ?? {}
+  const rawCountryCode = metadata.company_country_code
+
+  // Legacy accounts do not carry registration-country metadata. Leave their
+  // existing company settings untouched; current legacy companies are HR.
+  if (!rawCountryCode) {
+    return
+  }
+
+  const countryCode = normalizeCompanyCountryCode(rawCountryCode)
+  const countryName =
+    typeof metadata.company_country === 'string' && metadata.company_country.trim()
+      ? metadata.company_country.trim()
+      : countryCode
+  const taxId =
+    typeof metadata.company_tax_id === 'string'
+      ? metadata.company_tax_id.trim()
+      : ''
+
+  const { data: companyId, error: companyIdError } = await supabase.rpc(
+    'current_company_id',
+  )
+
+  if (companyIdError || !companyId) {
+    if (companyIdError) throw companyIdError
+    return
+  }
+
+  const { data: company, error: readError } = await supabase
+    .from('companies')
+    .select('country, currency, oib, profile_settings')
+    .eq('id', String(companyId))
+    .single()
+
+  if (readError) {
+    throw readError
+  }
+
+  const currentProfile =
+    company?.profile_settings &&
+    typeof company.profile_settings === 'object' &&
+    !Array.isArray(company.profile_settings)
+      ? company.profile_settings as Record<string, unknown>
+      : {}
+
+  // Registration country is applied only when compliance has not yet been
+  // initialized, so later owner changes in Settings are never overwritten.
+  if (currentProfile.compliance) {
+    return
+  }
+
+  const defaults = createDefaultCompanyComplianceSettings(countryCode)
+  const compliance = {
+    ...defaults,
+    operatingMode: 'BUSINESS' as const,
+  }
+
+  const { error: updateError } = await supabase
+    .from('companies')
+    .update({
+      country: countryName,
+      currency: compliance.currency,
+      oib: countryCode === 'HR' ? taxId : company?.oib,
+      profile_settings: {
+        ...currentProfile,
+        compliance,
+        registration: {
+          countryCode,
+          countryName,
+          taxId,
+          taxIdLabel:
+            typeof metadata.company_tax_id_label === 'string'
+              ? metadata.company_tax_id_label
+              : compliance.taxIdLabel,
+          configuredAt: new Date().toISOString(),
+        },
+      },
+    })
+    .eq('id', String(companyId))
+
+  if (updateError) {
+    throw updateError
   }
 }
 

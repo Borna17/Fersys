@@ -5,6 +5,7 @@ import type {
 import {
   Building2,
   CheckCircle2,
+  Globe2,
   Eye,
   KeyRound,
   EyeOff,
@@ -37,6 +38,25 @@ import {
 } from '../legal/legalConfig'
 
 const MIN_PASSWORD_LENGTH = 14
+
+type RegistrationCountryCode = 'HR' | 'BA' | 'RS' | 'SI' | 'ME' | 'MK' | 'XK' | 'OTHER'
+
+const REGISTRATION_COUNTRIES: Array<{
+  code: RegistrationCountryCode
+  label: string
+  currency: string
+  taxIdLabel: string
+}> = [
+  { code: 'HR', label: 'Hrvatska', currency: 'EUR', taxIdLabel: 'OIB' },
+  { code: 'BA', label: 'Bosna i Hercegovina', currency: 'BAM', taxIdLabel: 'Porezni ID / JIB' },
+  { code: 'RS', label: 'Srbija', currency: 'RSD', taxIdLabel: 'PIB' },
+  { code: 'SI', label: 'Slovenija', currency: 'EUR', taxIdLabel: 'Davčna številka' },
+  { code: 'ME', label: 'Crna Gora', currency: 'EUR', taxIdLabel: 'PIB' },
+  { code: 'MK', label: 'Sjeverna Makedonija', currency: 'MKD', taxIdLabel: 'EDB' },
+  { code: 'XK', label: 'Kosovo', currency: 'EUR', taxIdLabel: 'Fiskalni broj' },
+  { code: 'OTHER', label: 'Druga država', currency: 'EUR', taxIdLabel: 'Porezni broj' },
+]
+
 
 function getPasswordError(
   password: string,
@@ -222,6 +242,11 @@ export function RegisterPage() {
     setCompanyOib,
   ] = useState('')
 
+  const [
+    companyCountryCode,
+    setCompanyCountryCode,
+  ] = useState<RegistrationCountryCode>('HR')
+
   const [email, setEmail] =
     useState('')
 
@@ -282,6 +307,14 @@ export function RegisterPage() {
     navigate,
   ])
 
+  const selectedCountry = useMemo(
+    () =>
+      REGISTRATION_COUNTRIES.find(
+        (country) => country.code === companyCountryCode,
+      ) ?? REGISTRATION_COUNTRIES[0],
+    [companyCountryCode],
+  )
+
   const passwordError =
     useMemo(
       () =>
@@ -333,12 +366,25 @@ export function RegisterPage() {
       return
     }
 
-    const normalizedCompanyOib =
-      companyOib.replace(/\D/g, '')
+    const normalizedCompanyTaxId =
+      companyOib.trim().toUpperCase().replace(/\s+/g, '')
 
-    if (!/^\d{11}$/.test(normalizedCompanyOib)) {
+    if (
+      companyCountryCode === 'HR' &&
+      !/^\d{11}$/.test(normalizedCompanyTaxId)
+    ) {
       setError(
         'OIB tvrtke ili obrta mora sadržavati točno 11 znamenki.',
+      )
+      return
+    }
+
+    if (
+      companyCountryCode !== 'HR' &&
+      normalizedCompanyTaxId.length < 5
+    ) {
+      setError(
+        `Unesi ispravan ${selectedCountry.taxIdLabel} za odabranu državu.`,
       )
       return
     }
@@ -402,7 +448,17 @@ export function RegisterPage() {
                 company_name:
                   companyName.trim(),
                 company_oib:
-                  normalizedCompanyOib,
+                  companyCountryCode === 'HR' ? normalizedCompanyTaxId : '',
+                company_tax_id:
+                  normalizedCompanyTaxId,
+                company_country_code:
+                  companyCountryCode,
+                company_country:
+                  selectedCountry.label,
+                company_currency:
+                  selectedCountry.currency,
+                company_tax_id_label:
+                  selectedCountry.taxIdLabel,
                 account_type:
                   'owner',
                 legal_version:
@@ -584,27 +640,53 @@ export function RegisterPage() {
                 </div>
 
                 <Field
-                  label="OIB tvrtke ili obrta"
-                  icon={
-                    <Building2
-                      size={19}
-                    />
-                  }
+                  label="Država sjedišta tvrtke"
+                  icon={<Globe2 size={19} />}
+                >
+                  <select
+                    value={companyCountryCode}
+                    onChange={(event) => {
+                      setCompanyCountryCode(
+                        event.target.value as RegistrationCountryCode,
+                      )
+                      setCompanyOib('')
+                    }}
+                    className="auth-input"
+                  >
+                    {REGISTRATION_COUNTRIES.map((country) => (
+                      <option key={country.code} value={country.code}>
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <p className="-mt-2 text-xs leading-5 text-slate-500">
+                  FERSYS prema državi sjedišta automatski postavlja valutu i osnovna porezna/fiskalna pravila. Hrvatska je zadano odabrana.
+                </p>
+
+                <Field
+                  label={`${selectedCountry.taxIdLabel} tvrtke ili obrta`}
+                  icon={<Building2 size={19} />}
                 >
                   <input
                     type="text"
-                    inputMode="numeric"
+                    inputMode={companyCountryCode === 'HR' ? 'numeric' : 'text'}
                     autoComplete="off"
                     value={companyOib}
                     onChange={(event) =>
                       setCompanyOib(
-                        event.target.value
-                          .replace(/\D/g, '')
-                          .slice(0, 11),
+                        companyCountryCode === 'HR'
+                          ? event.target.value.replace(/\D/g, '').slice(0, 11)
+                          : event.target.value.slice(0, 32),
                       )
                     }
-                    placeholder="11 znamenki OIB-a"
-                    maxLength={11}
+                    placeholder={
+                      companyCountryCode === 'HR'
+                        ? '11 znamenki OIB-a'
+                        : `Unesi ${selectedCountry.taxIdLabel}`
+                    }
+                    maxLength={companyCountryCode === 'HR' ? 11 : 32}
                     className="auth-input"
                   />
                 </Field>
