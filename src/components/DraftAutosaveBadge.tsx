@@ -4,6 +4,7 @@ import {
   RotateCcw,
   Trash2,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 
 export type DraftAutosaveState =
   | 'idle'
@@ -21,12 +22,28 @@ export default function DraftAutosaveBadge({
   text: string
   onDiscard?: () => void
 }) {
-  if (
-    state === 'idle' &&
-    !text
-  ) {
-    return null
-  }
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    if (state === 'idle' && !text) {
+      setVisible(false)
+      return
+    }
+
+    setVisible(true)
+
+    if (state === 'saved') {
+      const timer = window.setTimeout(() => setVisible(false), 1400)
+      return () => window.clearTimeout(timer)
+    }
+
+    if (state === 'restored' && !onDiscard) {
+      const timer = window.setTimeout(() => setVisible(false), 3500)
+      return () => window.clearTimeout(timer)
+    }
+  }, [state, text, onDiscard])
+
+  if (!visible) return null
 
   const Icon =
     state === 'offline'
@@ -35,29 +52,34 @@ export default function DraftAutosaveBadge({
         ? RotateCcw
         : CheckCircle2
 
+  const message =
+    state === 'saving'
+      ? 'Automatsko spremanje...'
+      : state === 'saved'
+        ? 'Automatski spremljeno'
+        : text
+
   return (
-    <div className="fixed bottom-4 right-4 z-[90] flex max-w-[calc(100vw-2rem)] items-center gap-3 rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-3 text-sm shadow-2xl backdrop-blur-xl">
+    <div className="fixed left-1/2 top-[5.35rem] z-[90] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl md:bottom-4 md:left-auto md:right-4 md:top-auto md:max-w-sm md:translate-x-0 md:text-sm">
       <Icon
-        size={18}
+        size={16}
         className={
           state === 'offline'
-            ? 'text-amber-400'
+            ? 'shrink-0 text-amber-400'
             : state === 'restored'
-              ? 'text-violet-400'
-              : 'text-emerald-400'
+              ? 'shrink-0 text-violet-400'
+              : 'shrink-0 text-emerald-400'
         }
       />
 
       <div className="min-w-0">
-        <p className="truncate font-bold text-white">
-          {state === 'saving'
-            ? 'Automatsko spremanje...'
-            : text}
+        <p className="truncate font-semibold text-white">
+          {message}
         </p>
 
         {state === 'offline' && (
-          <p className="text-xs text-slate-400">
-            Spremljeno lokalno. Cloud će se sinkronizirati kad se internet vrati.
+          <p className="mt-0.5 max-w-[70vw] text-[11px] leading-4 text-slate-400 md:max-w-xs">
+            Spremljeno lokalno. Sinkronizirat će se kad se internet vrati.
           </p>
         )}
       </div>
@@ -66,10 +88,11 @@ export default function DraftAutosaveBadge({
         <button
           type="button"
           onClick={onDiscard}
-          className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-red-500/10 hover:text-red-400"
+          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-red-500/10 hover:text-red-400"
           title="Odbaci nedovršeni nacrt"
+          aria-label="Odbaci nedovršeni nacrt"
         >
-          <Trash2 size={15} />
+          <Trash2 size={14} />
         </button>
       )}
     </div>
