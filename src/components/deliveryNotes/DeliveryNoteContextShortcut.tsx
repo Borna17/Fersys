@@ -7,6 +7,9 @@ import {
   useNavigate,
 } from 'react-router'
 
+const SAVED_DOCUMENT_ID =
+  '[0-9a-f-]{20,}'
+
 export default function DeliveryNoteContextShortcut() {
   const location =
     useLocation()
@@ -14,19 +17,33 @@ export default function DeliveryNoteContextShortcut() {
   const navigate =
     useNavigate()
 
+  /*
+   * Shortcut smije postojati samo na već spremljenom dokumentu.
+   * Rute poput /offers/new i /work-orders/new prije su pogrešno
+   * tretirale "new" kao ID dokumenta i prekrivale glavni Spremi gumb.
+   */
   const workOrder =
     location.pathname.match(
-      /^\/work-orders\/([^/]+)$/,
+      new RegExp(
+        `^/work-orders/(${SAVED_DOCUMENT_ID})$`,
+        'i',
+      ),
     )
 
   const offer =
     location.pathname.match(
-      /^\/offers\/([^/]+)$/,
+      new RegExp(
+        `^/offers/(${SAVED_DOCUMENT_ID})$`,
+        'i',
+      ),
     )
 
   const customer =
     location.pathname.match(
-      /^\/customers\/([^/]+)$/,
+      new RegExp(
+        `^/customers/(${SAVED_DOCUMENT_ID})$`,
+        'i',
+      ),
     )
 
   let path = ''
@@ -65,17 +82,18 @@ export default function DeliveryNoteContextShortcut() {
       onClick={() =>
         navigate(path)
       }
-      className="fixed bottom-24 right-4 z-[65] inline-flex min-h-12 items-center gap-2 rounded-2xl border border-blue-400/20 bg-blue-600 px-4 text-sm font-black text-white shadow-2xl shadow-blue-950/40 transition active:scale-[0.98] md:bottom-7 md:right-7"
+      className="fixed right-[-0.45rem] top-[68%] z-[58] inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-l-2xl rounded-r-none border border-r-0 border-blue-400/20 bg-blue-600 p-0 text-white shadow-xl shadow-blue-950/35 transition active:scale-[0.96] sm:right-3 sm:w-auto sm:min-w-12 sm:translate-y-0 sm:gap-2 sm:rounded-2xl sm:border-r sm:px-3 md:bottom-7 md:right-7 md:top-auto"
       title={label}
+      aria-label={label}
     >
       <PackagePlus
         size={18}
       />
-      <span className="hidden sm:inline">
+      <span className="hidden sm:inline text-sm font-black">
         {label}
       </span>
       <FileText
-        size={16}
+        size={15}
         className="sm:hidden"
       />
     </button>
