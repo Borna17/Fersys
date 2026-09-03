@@ -1,4 +1,4 @@
-﻿import html2canvas from 'html2canvas'
+import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
 
 import {
@@ -25,6 +25,7 @@ import {
 
 type PdfPage = {
   materials: WorkOrderMaterial[]
+  materialStartIndex: number
   photos: WorkOrderImage[]
   first: boolean
   last: boolean
@@ -480,6 +481,7 @@ function materialsHtml(
   materials: WorkOrderMaterial[],
   branding: WorkOrderBranding,
   appearance: DocumentAppearance,
+  startIndex = 0,
 ) {
   if (!materials.length) return ''
 
@@ -496,7 +498,7 @@ function materialsHtml(
             (material, index) => `
               <article class="material-row">
                 <div class="material-index">
-                  ${String(index + 1).padStart(2, '0')}
+                  ${String(startIndex + index + 1).padStart(2, '0')}
                 </div>
 
                 <div class="material-main">
@@ -750,168 +752,132 @@ function paginate(
 ): PdfPage[] {
   const compact = appearance.density === 'compact'
   const firstMaterialLimit = compact ? 8 : 6
-
-  // Nastavne A4 stranice imaju znatno viÅ¡e slobodnog prostora od prve.
-  // Do 15 stavki materijala stane sigurno u postojeÄ‡i layout, pa ne
-  // stvaramo novu stranicu samo zato Å¡to je prethodni limit bio 10/13.
-  const nextMaterialLimit = 15
+  const continuationBudget = compact ? 820 : 810
+  const sectionHeadingHeight = compact ? 27 : 31
+  const materialRowHeight = compact ? 38 : 43
+  const photoGap = compact ? 10 : 12
+  const captionHeight = 21
 
   const pages: PdfPage[] = []
+  const descriptionLength = order.description.trim().length
 
-  const firstMaterials = order.materials.slice(
-    0,
-    firstMaterialLimit,
-  )
-
+  const firstMaterials = order.materials.slice(0, firstMaterialLimit)
   let materialIndex = firstMaterials.length
 
-  const descriptionLength =
-    order.description.trim().length
-
-  /*
-   * Procjena koliko fotografija STVARNO stane na prvu stranicu.
-   * Kalibrirano prema stvarnom RN-2026-015:
-   * 3 stavke materijala + kratak opis imaju mjesta za 2 fotografije.
-   */
   let maxFirstPhotos = 0
-
   if (
     order.images.length > 0 &&
     materialIndex === order.materials.length
   ) {
-    if (
-      firstMaterials.length <= 3 &&
-      descriptionLength <= 650
-    ) {
+    if (firstMaterials.length <= 3 && descriptionLength <= 650) {
       maxFirstPhotos = 2
-    } else if (
-      firstMaterials.length <= 4 &&
-      descriptionLength <= 420
-    ) {
+    } else if (firstMaterials.length <= 4 && descriptionLength <= 420) {
       maxFirstPhotos = 1
     }
   }
 
-  function remainingPagesAfterFirst(
-    firstPhotoCount: number,
-  ) {
-    const remaining =
-      Math.max(
-        0,
-        order.images.length -
-          firstPhotoCount,
-      )
-
-    if (remaining === 0) {
-      return 1
-    }
-
-    const photoPages =
-      Math.ceil(remaining / 4)
-
-    const lastPhotoCount =
-      remaining % 4 || 4
-
-    const needsSeparateFinalPage =
-      lastPhotoCount >= 3
-
-    return (
-      photoPages +
-      (needsSeparateFinalPage
-        ? 1
-        : 0)
-    )
-  }
-
-  /*
-   * Biramo raspored s najmanje stranica.
-   * Ako dva rasporeda daju isti broj stranica,
-   * prednost ima više fotografija na prvoj stranici.
-   */
-  let firstPhotoCount = 0
-  let bestRemainingPages =
-    remainingPagesAfterFirst(0)
-
-  for (
-    let candidate = 1;
-    candidate <= maxFirstPhotos;
-    candidate += 1
-  ) {
-    const candidatePages =
-      remainingPagesAfterFirst(
-        candidate,
-      )
-
-    if (
-      candidatePages <
-        bestRemainingPages ||
-      candidatePages ===
-        bestRemainingPages
-    ) {
-      firstPhotoCount = candidate
-      bestRemainingPages =
-        candidatePages
-    }
-  }
-
-  const firstPhotos =
-    order.images.slice(
-      0,
-      firstPhotoCount,
-    )
-
-  let photoIndex =
-    firstPhotos.length
+  const firstPhotos = order.images.slice(0, maxFirstPhotos)
+  let photoIndex = firstPhotos.length
 
   pages.push({
     materials: firstMaterials,
+    materialStartIndex: 0,
     photos: firstPhotos,
     first: true,
     last: false,
     showTotals: false,
   })
 
-  while (
-    materialIndex <
-    order.materials.length
-  ) {
-    const materials =
-      order.materials.slice(
-        materialIndex,
-        materialIndex +
-          nextMaterialLimit,
-      )
+  function materialBlockHeight(count: number) {
+    return count <= 0
+      ? 0
+      : sectionHeadingHeight + count * materialRowHeight
+  }
 
-    materialIndex +=
-      materials.length
+  function photoBlockHeight(count: number, finalPage = false) {
+    if (count <= 0) return 0
+
+    let imageHeight: number
+    if (finalPage) {
+      imageHeight = compact ? 195 : 210
+    } else if (count === 1) {
+      imageHeight = compact ? 395 : 425
+    } else if (count === 2) {
+      imageHeight = compact ? 300 : 325
+    } else {
+      imageHeight = compact ? 250 : 270
+    }
+
+    const rows = count === 1 ? 1 : Math.ceil(count / 2)
+    return (
+      sectionHeadingHeight +
+      rows * (imageHeight + captionHeight) +
+      Math.max(0, rows - 1) * photoGap
+    )
+  }
+
+  const value = totals(order)
+  const hasTotals =
+    value.materialPrice !== 0 ||
+    value.labourPrice !== 0 ||
+    value.vatAmount !== 0 ||
+    value.totalPrice !== 0 ||
+    Boolean(order.priceNote)
+
+  const finalBlockHeight =
+    (appearance.showSignature ? (compact ? 145 : 165) : 0) +
+    (hasTotals ? (compact ? 155 : 175) : 0) +
+    18
+
+  /*
+   * Materijal zadržava logičan redoslijed, ali nakon zadnje stavke
+   * nastavna stranica više ne ostaje prazna. Ako ima mjesta, odmah
+   * se popunjava s 1-2 sljedeće fotografije.
+   */
+  while (materialIndex < order.materials.length) {
+    const startIndex = materialIndex
+    const remainingMaterials = order.materials.length - materialIndex
+    const maxRows = Math.max(
+      1,
+      Math.min(
+        15,
+        Math.floor(
+          (continuationBudget - sectionHeadingHeight) / materialRowHeight,
+        ),
+      ),
+    )
+
+    const materialCount = Math.min(remainingMaterials, maxRows)
+    const materials = order.materials.slice(
+      materialIndex,
+      materialIndex + materialCount,
+    )
+    materialIndex += materials.length
+
+    let photos: WorkOrderImage[] = []
+    if (
+      materialIndex === order.materials.length &&
+      photoIndex < order.images.length
+    ) {
+      const freeHeight =
+        continuationBudget - materialBlockHeight(materials.length)
+
+      for (
+        let candidate = Math.min(2, order.images.length - photoIndex);
+        candidate >= 1;
+        candidate -= 1
+      ) {
+        if (photoBlockHeight(candidate) <= freeHeight) {
+          photos = order.images.slice(photoIndex, photoIndex + candidate)
+          photoIndex += photos.length
+          break
+        }
+      }
+    }
 
     pages.push({
       materials,
-      photos: [],
-      first: false,
-      last: false,
-      showTotals: false,
-    })
-  }
-
-  /*
-   * Sve preostale fotografije idu po 4 na A4 (2x2).
-   */
-  while (
-    photoIndex <
-    order.images.length
-  ) {
-    const photos =
-      order.images.slice(
-        photoIndex,
-        photoIndex + 4,
-      )
-
-    photoIndex +=
-      photos.length
-
-    pages.push({
-      materials: [],
+      materialStartIndex: startIndex,
       photos,
       first: false,
       last: false,
@@ -919,50 +885,93 @@ function paginate(
     })
   }
 
-  const last =
-    pages[pages.length - 1]
-
   /*
-   * Ako zadnja foto-stranica ima samo 1 ili 2 slike,
-   * završni dio ide NA ISTU stranicu ispod njih.
-   * Kod 3 ili 4 slike ostavljamo fotografije pune veličine
-   * i završni dio ide na novu stranicu.
+   * Foto stranice biraju raspored prema stvarno raspoloživom prostoru.
+   * Zadnja foto stranica može nositi i završni blok kad sve stane bez
+   * gubitka čitljivosti, umjesto da se otvara gotovo prazna nova A4.
    */
-  const canShareWithFinal =
-    !last.first &&
-    last.materials.length === 0 &&
-    last.photos.length >= 1 &&
-    last.photos.length <= 2
+  while (photoIndex < order.images.length) {
+    const remainingPhotos = order.images.length - photoIndex
+    let finalCount = 0
 
-  const canFinishWithoutPhotos =
-    order.images.length === 0 &&
-    pages.length === 1 &&
-    firstMaterials.length <= 3 &&
-    descriptionLength <= 420
+    for (
+      let candidate = Math.min(4, remainingPhotos);
+      candidate >= 1;
+      candidate -= 1
+    ) {
+      if (
+        candidate === remainingPhotos &&
+        photoBlockHeight(candidate, true) + finalBlockHeight <=
+          continuationBudget
+      ) {
+        finalCount = candidate
+        break
+      }
+    }
 
-  if (
-    canShareWithFinal ||
-    canFinishWithoutPhotos
-  ) {
-    last.showTotals = true
-    last.last = true
-  } else {
+    if (finalCount > 0) {
+      const photos = order.images.slice(photoIndex, photoIndex + finalCount)
+      photoIndex += photos.length
+      pages.push({
+        materials: [],
+        materialStartIndex: materialIndex,
+        photos,
+        first: false,
+        last: true,
+        showTotals: true,
+      })
+      break
+    }
+
+    const count = Math.min(4, remainingPhotos)
+    const photos = order.images.slice(photoIndex, photoIndex + count)
+    photoIndex += photos.length
     pages.push({
       materials: [],
-      photos: [],
+      materialStartIndex: materialIndex,
+      photos,
       first: false,
-      last: true,
-      showTotals: true,
+      last: false,
+      showTotals: false,
     })
   }
 
-  pages.forEach(
-    (page, index) => {
-      page.last =
-        index ===
-        pages.length - 1
-    },
-  )
+  if (photoIndex >= order.images.length) {
+    const last = pages[pages.length - 1]
+    if (!last.last) {
+      const usedHeight =
+        materialBlockHeight(last.materials.length) +
+        photoBlockHeight(last.photos.length, true)
+
+      const canFinishOnLast =
+        !last.first &&
+        usedHeight + finalBlockHeight <= continuationBudget
+
+      const canFinishOnFirst =
+        last.first &&
+        order.images.length === 0 &&
+        firstMaterials.length <= 3 &&
+        descriptionLength <= 420
+
+      if (canFinishOnLast || canFinishOnFirst) {
+        last.showTotals = true
+        last.last = true
+      } else {
+        pages.push({
+          materials: [],
+          materialStartIndex: materialIndex,
+          photos: [],
+          first: false,
+          last: true,
+          showTotals: true,
+        })
+      }
+    }
+  }
+
+  pages.forEach((page, index) => {
+    page.last = index === pages.length - 1
+  })
 
   return pages
 }
@@ -1445,10 +1454,13 @@ function css(
       height: ${compact ? 195 : 210}px;
     }
 
-    /* Zadnja stranica s 1-2 slike + cijena/potpis/pečat. */
+    /* Završna stranica smanjuje fotografije samo koliko je potrebno
+       da cijene/potpis/pečat stanu ispod njih. */
     .final-pdf-page .photos-1 .photo-card img,
-    .final-pdf-page .photos-2 .photo-card img {
-      height: ${compact ? 205 : 220}px;
+    .final-pdf-page .photos-2 .photo-card img,
+    .final-pdf-page .photos-3 .photo-card img,
+    .final-pdf-page .photos-4 .photo-card img {
+      height: ${compact ? 195 : 210}px;
     }
 
     .photo-card figcaption {
@@ -1582,6 +1594,7 @@ function pageHtml(
           page.materials,
           branding,
           appearance,
+          page.materialStartIndex,
         )}
 
         ${photosHtml(
