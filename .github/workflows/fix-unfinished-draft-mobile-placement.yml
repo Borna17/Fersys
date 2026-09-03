@@ -1,0 +1,66 @@
+name: Fix unfinished draft mobile placement
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-unfinished-draft-mobile-placement.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Patch unfinished draft placement
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/components/UniversalDraftProtection.tsx')
+          s = p.read_text(encoding='utf-8')
+
+          old = """  const visibleEntries = useMemo(\n    () =>\n      entries.filter(\n        (entry) =>\n          entry.route &&\n          !entry.route.startsWith('/login'),\n      ),\n    [entries],\n  )\n"""
+          new = """  const visibleEntries = useMemo(\n    () => {\n      const currentRoute = `${window.location.pathname}${window.location.search}`\n\n      return entries.filter(\n        (entry) =>\n          entry.route &&\n          !entry.route.startsWith('/login') &&\n          entry.route !== currentRoute,\n      )\n    },\n    [entries],\n  )\n"""
+          if old not in s:
+              raise SystemExit('visibleEntries anchor missing')
+          s = s.replace(old, new, 1)
+
+          s = s.replace(
+            'className="fixed bottom-24 left-1/2 z-[120] -translate-x-1/2 rounded-2xl border border-emerald-400/25 bg-slate-950/95 px-4 py-3 text-sm font-bold text-emerald-200 shadow-2xl backdrop-blur sm:bottom-8"',
+            'className="fixed left-1/2 top-[5.35rem] z-[120] max-w-[calc(100vw-1.5rem)] -translate-x-1/2 rounded-xl border border-emerald-400/25 bg-slate-950/95 px-3 py-2 text-xs font-bold text-emerald-200 shadow-xl backdrop-blur sm:bottom-8 sm:top-auto sm:text-sm"',
+            1,
+          )
+
+          s = s.replace(
+            'className="fixed bottom-20 left-3 z-[115] flex max-w-[calc(100vw-1.5rem)] items-center gap-3 rounded-2xl border border-amber-400/25 bg-slate-950/95 px-4 py-3 text-left text-white shadow-2xl backdrop-blur sm:bottom-5 sm:left-5"',
+            'className="fixed left-3 top-[5.35rem] z-[115] flex max-w-[calc(100vw-1.5rem)] items-center gap-2 rounded-xl border border-amber-400/25 bg-slate-950/95 px-3 py-2 text-left text-white shadow-xl backdrop-blur sm:bottom-5 sm:left-5 sm:top-auto sm:gap-3 sm:rounded-2xl sm:px-4 sm:py-3"',
+            1,
+          )
+
+          s = s.replace(
+            'className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-400/15 text-amber-300"',
+            'className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-amber-400/15 text-amber-300 sm:h-10 sm:w-10 sm:rounded-xl"',
+            1,
+          )
+
+          p.write_text(s, encoding='utf-8')
+          PY
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/UniversalDraftProtection.tsx
+          git commit -m 'Keep unfinished draft notice clear of mobile actions'
+          git push
