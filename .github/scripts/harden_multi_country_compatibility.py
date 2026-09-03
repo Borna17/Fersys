@@ -29,13 +29,21 @@ def replace_all(path: str, old: str, new: str) -> None:
 
 def regex_once(path: str, pattern: str, replacement: str, *, flags: int = 0) -> None:
     text = read(path)
-    if re.search(pattern, text, flags) is None:
+    match = re.search(pattern, text, flags)
+    if match is None:
         # Idempotency: if the characteristic replacement is already present,
         # the caller should have chosen a replacement containing cleanTaxId/text mode.
         if 'cleanTaxId' in replacement and 'cleanTaxId' in text:
             return
         raise SystemExit(f'Regex marker missing in {path}: {pattern[:120]!r}')
-    write(path, re.sub(pattern, replacement, text, count=1, flags=flags))
+
+    def render(found: re.Match[str]) -> str:
+        rendered = replacement
+        for name, value in found.groupdict().items():
+            rendered = rendered.replace(f'\\g<{name}>', value or '')
+        return rendered
+
+    write(path, re.sub(pattern, render, text, count=1, flags=flags))
 
 
 # Customer service: customer country is not mandatory, so never destroy
