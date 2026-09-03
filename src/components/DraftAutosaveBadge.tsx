@@ -107,9 +107,9 @@ export default function DraftAutosaveBadge({
     <div
       className="fixed left-1/2 top-[5.35rem] z-[90] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 touch-pan-y select-none items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl md:bottom-4 md:left-auto md:right-4 md:top-auto md:max-w-sm md:translate-x-0 md:text-sm"
       style={{
-        transform: `translateX(calc(-50% + ${dragX}px))`,
+        translate: `${dragX}px 0`,
         opacity: dragOpacity,
-        transition: dragging ? 'none' : 'transform 160ms ease, opacity 160ms ease',
+        transition: dragging ? 'none' : 'translate 160ms ease, opacity 160ms ease',
       }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
