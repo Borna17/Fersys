@@ -5,6 +5,12 @@ export type DraftType =
   | 'offer'
   | 'invoice'
   | 'inventory-item'
+  | 'delivery-note'
+  | 'incoming-invoice'
+  | 'customer'
+  | 'vehicle'
+  | 'employee'
+  | 'form'
 
 export type DraftRecord<T> = {
   draftType: DraftType
@@ -43,6 +49,213 @@ const IDENTITY_CACHE_KEY =
   'fersys-draft-identity-v2'
 const LAST_SYNC_KEY =
   'fersys-draft-last-sync-v1'
+
+const DRAFT_MANIFEST_KEY =
+  'fersys-draft-manifest-v1'
+
+export type DraftManifestEntry = {
+  draftType: DraftType
+  draftKey: string
+  label: string
+  route: string
+  updatedAt: string
+}
+
+function draftMeta(
+  draftType: DraftType,
+  draftKey: string,
+  payload: unknown,
+): { label: string; route: string } {
+  const source =
+    payload && typeof payload === 'object'
+      ? (payload as Record<string, unknown>)
+      : null
+
+  const meta =
+    source?.__draftMeta &&
+    typeof source.__draftMeta === 'object'
+      ? (source.__draftMeta as Record<string, unknown>)
+      : null
+
+  const explicitLabel =
+    typeof meta?.label === 'string'
+      ? meta.label.trim()
+      : ''
+  const explicitRoute =
+    typeof meta?.route === 'string'
+      ? meta.route.trim()
+      : ''
+
+  if (explicitLabel && explicitRoute) {
+    return {
+      label: explicitLabel,
+      route: explicitRoute,
+    }
+  }
+
+  const editId =
+    draftKey.startsWith('edit:')
+      ? draftKey.slice(5)
+      : ''
+
+  switch (draftType) {
+    case 'work-order':
+      return {
+        label: editId
+          ? 'Uređivanje radnog naloga'
+          : 'Novi radni nalog',
+        route: editId
+          ? `/work-orders/${editId}/edit`
+          : '/work-orders/new',
+      }
+    case 'offer':
+      return {
+        label: editId
+          ? 'Uređivanje ponude'
+          : 'Nova ponuda',
+        route: editId
+          ? `/offers/${editId}/edit`
+          : '/offers/new',
+      }
+    case 'invoice':
+      return {
+        label: editId
+          ? 'Uređivanje računa'
+          : 'Novi račun',
+        route: editId
+          ? `/invoices/${editId}/edit`
+          : '/invoices/new',
+      }
+    case 'inventory-item':
+      return {
+        label: editId
+          ? 'Uređivanje artikla'
+          : 'Novi artikl',
+        route: editId
+          ? `/inventory/${editId}/edit`
+          : '/inventory/new',
+      }
+    case 'delivery-note':
+      return {
+        label: editId
+          ? 'Uređivanje otpremnice'
+          : 'Nova otpremnica',
+        route: editId
+          ? `/delivery-notes/new?edit=${encodeURIComponent(editId)}`
+          : '/delivery-notes/new',
+      }
+    case 'incoming-invoice':
+      return {
+        label: editId
+          ? 'Uređivanje ulaznog računa'
+          : 'Novi ulazni račun',
+        route: editId
+          ? `/incoming-invoices/${editId}/edit`
+          : '/incoming-invoices/new',
+      }
+    case 'customer':
+      return {
+        label: editId
+          ? 'Uređivanje investitora'
+          : 'Novi investitor',
+        route: editId
+          ? `/customers/${editId}`
+          : '/customers',
+      }
+    case 'vehicle':
+      return {
+        label: editId
+          ? 'Uređivanje vozila'
+          : 'Novo vozilo',
+        route: editId
+          ? `/vehicles/${editId}`
+          : '/vehicles',
+      }
+    case 'employee':
+      return {
+        label: editId
+          ? 'Uređivanje zaposlenika'
+          : 'Novi zaposlenik',
+        route: '/settings/employees',
+      }
+    default:
+      return {
+        label: explicitLabel || 'Nedovršeni unos',
+        route: explicitRoute || '/dashboard',
+      }
+  }
+}
+
+function readDraftManifest(): DraftManifestEntry[] {
+  try {
+    const raw = localStorage.getItem(DRAFT_MANIFEST_KEY)
+    if (!raw) return []
+    const value = JSON.parse(raw) as DraftManifestEntry[]
+    return Array.isArray(value) ? value : []
+  } catch {
+    return []
+  }
+}
+
+function writeDraftManifest(entries: DraftManifestEntry[]) {
+  try {
+    localStorage.setItem(
+      DRAFT_MANIFEST_KEY,
+      JSON.stringify(entries),
+    )
+  } catch {
+    // Manifest je pomoćni prikaz; IndexedDB nacrt ostaje glavni izvor sigurnosti.
+  }
+}
+
+function rememberDraftManifest(
+  draftType: DraftType,
+  draftKey: string,
+  payload: unknown,
+  updatedAt: string,
+) {
+  const meta = draftMeta(draftType, draftKey, payload)
+  const next: DraftManifestEntry = {
+    draftType,
+    draftKey,
+    label: meta.label,
+    route: meta.route,
+    updatedAt,
+  }
+
+  const current = readDraftManifest().filter(
+    (entry) =>
+      !(
+        entry.draftType === draftType &&
+        entry.draftKey === draftKey
+      ),
+  )
+
+  writeDraftManifest([next, ...current].slice(0, 100))
+}
+
+function forgetDraftManifest(
+  draftType: DraftType,
+  draftKey: string,
+) {
+  writeDraftManifest(
+    readDraftManifest().filter(
+      (entry) =>
+        !(
+          entry.draftType === draftType &&
+          entry.draftKey === draftKey
+        ),
+    ),
+  )
+}
+
+export function getDraftManifestEntries() {
+  return readDraftManifest().sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() -
+      new Date(a.updatedAt).getTime(),
+  )
+}
 
 function localKey(
   identity: Identity,
@@ -551,6 +764,13 @@ export async function saveUserDraft<T>(
     envelope,
   )
 
+  rememberDraftManifest(
+    draftType,
+    draftKey,
+    payload,
+    updatedAt,
+  )
+
   window.dispatchEvent(
     new Event(
       'fersys:draft-sync-change',
@@ -746,6 +966,11 @@ export async function deleteUserDraft(
 
   await deleteLocal(
     key,
+  )
+
+  forgetDraftManifest(
+    draftType,
+    draftKey,
   )
 
   window.dispatchEvent(
