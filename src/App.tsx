@@ -4,6 +4,7 @@ import {
   IncomingInvoicesCloudBridge,
 } from './components/IncomingInvoicesCloudBridge'
 import WebPushForegroundListener from './components/WebPushForegroundListener'
+import WorkOrderEditQuantityTextFix from './components/WorkOrderEditQuantityTextFix'
 import {
   WorkOrderShareAction,
 } from './components/WorkOrderShareAction'
@@ -21,6 +22,7 @@ function App() {
       <UniversalDraftProtection />
       <IncomingInvoicesCloudBridge />
       <WebPushForegroundListener />
+      <WorkOrderEditQuantityTextFix />
       <AppRouter />
       <WorkOrderShareAction />
     </>
