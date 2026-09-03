@@ -66,7 +66,7 @@ export type AiAssistantResponse = {
 }
 
 const AI_FUNCTION_SLUG =
-  'dynamic-handler-v3'
+  'dynamic-handler-v4'
 const AI_TIMEOUT_MS = 45_000
 const AUDIO_TIMEOUT_MS = 60_000
 
