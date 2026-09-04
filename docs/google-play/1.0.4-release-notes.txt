@@ -1,0 +1,8 @@
+FERSYS 1.0.4
+
+• Poboljšani radni nalozi i uređivanje materijala.
+• Ispravljeno polje Količina i uklonjeni neželjeni znakovi/spinneri pri unosu.
+• Poboljšani mobilni prikaz i stabilnost aplikacije.
+• Poboljšani PDF dokumenti, obavijesti i tijek rada.
+• Dodatne sigurnosne i višekorisničke dorade.
+• Priprema za buduću fiskalizaciju i eRačun ostaje isključena dok se ne dovrši službeno testiranje.
