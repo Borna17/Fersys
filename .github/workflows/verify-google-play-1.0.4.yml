@@ -1,0 +1,63 @@
+name: Verify Google Play 1.0.4
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/verify-google-play-1.0.4.yml'
+      - 'android/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'capacitor.config.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production web build
+        run: npm run build
+
+      - name: Verify Android release identity
+        shell: bash
+        run: |
+          grep -q 'applicationId "com.fersys.app"' android/app/build.gradle
+          grep -q 'versionCode 5' android/app/build.gradle
+          grep -q 'versionName "1.0.4"' android/app/build.gradle
+          grep -q 'targetSdkVersion = 36' android/variables.gradle
+          echo 'Android identity OK: com.fersys.app / 1.0.4 (5) / targetSdk 36'
+
+      - name: Capacitor Android sync
+        run: npx cap sync android
+
+      - name: Verify release safety switches
+        shell: bash
+        run: |
+          if grep -R "HR_FISCAL_LIVE_ENABLED=true" -n src supabase . --exclude-dir=node_modules --exclude-dir=.git; then
+            echo 'LIVE fiscalization flag must not be hardcoded.'
+            exit 1
+          fi
+          if grep -R "HR_FISCAL_TRANSPORT_ENABLED=true" -n src supabase . --exclude-dir=node_modules --exclude-dir=.git; then
+            echo 'Fiscal transport flag must not be hardcoded.'
+            exit 1
+          fi
+          echo 'Fiscalization remains safely disabled by default.'
+
+      - name: Release summary
+        run: |
+          echo 'FERSYS 1.0.4 source verification passed.'
+          echo 'Signed Google Play AAB still requires the existing Play upload keystore and Firebase google-services.json at release-build time.'
