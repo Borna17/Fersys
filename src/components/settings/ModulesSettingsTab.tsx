@@ -166,6 +166,8 @@ export default function ModulesSettingsTab() {
         businessPremiseCode: '',
         deviceCode: '',
         operatorTaxId: '',
+        vatRegistered: false,
+        sequenceScope: 'P',
       },
     })
   }
@@ -346,6 +348,44 @@ export default function ModulesSettingsTab() {
                       <option value="OFF">Isključena</option>
                       <option value="TEST">Testni način</option>
                       <option value="LIVE">Produkcija (priprema)</option>
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-[11px] font-black uppercase text-slate-500">U sustavu PDV-a</span>
+                    <select
+                      value={compliance.fiscalization.vatRegistered ? 'YES' : 'NO'}
+                      disabled={!canEdit || compliance.fiscalization.mode === 'OFF'}
+                      onChange={(event) => setCompliance({
+                        ...compliance,
+                        fiscalization: {
+                          ...compliance.fiscalization,
+                          vatRegistered: event.target.value === 'YES',
+                        },
+                      })}
+                      className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-bold text-white outline-none focus:border-blue-500 disabled:opacity-50"
+                    >
+                      <option value="NO">Ne</option>
+                      <option value="YES">Da</option>
+                    </select>
+                  </label>
+
+                  <label className="space-y-2">
+                    <span className="text-[11px] font-black uppercase text-slate-500">Slijed brojeva računa</span>
+                    <select
+                      value={compliance.fiscalization.sequenceScope}
+                      disabled={!canEdit || compliance.fiscalization.mode === 'OFF'}
+                      onChange={(event) => setCompliance({
+                        ...compliance,
+                        fiscalization: {
+                          ...compliance.fiscalization,
+                          sequenceScope: event.target.value === 'N' ? 'N' : 'P',
+                        },
+                      })}
+                      className="h-11 w-full rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm font-bold text-white outline-none focus:border-blue-500 disabled:opacity-50"
+                    >
+                      <option value="P">P — poslovni prostor</option>
+                      <option value="N">N — naplatni uređaj</option>
                     </select>
                   </label>
 

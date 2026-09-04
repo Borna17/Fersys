@@ -20,6 +20,8 @@ export type CompanyFiscalizationSettings = {
   businessPremiseCode: string
   deviceCode: string
   operatorTaxId: string
+  vatRegistered: boolean
+  sequenceScope: 'P' | 'N'
   certificateConfigured: boolean
 }
 
@@ -114,6 +116,8 @@ export function createDefaultCompanyComplianceSettings(
       businessPremiseCode: '',
       deviceCode: '',
       operatorTaxId: '',
+      vatRegistered: false,
+      sequenceScope: 'P',
       certificateConfigured: false,
     },
   }
@@ -151,6 +155,8 @@ export function parseCompanyComplianceSettings(
       businessPremiseCode: text(fiscal.businessPremiseCode),
       deviceCode: text(fiscal.deviceCode),
       operatorTaxId: text(fiscal.operatorTaxId),
+      vatRegistered: fiscal.vatRegistered === true,
+      sequenceScope: fiscal.sequenceScope === 'N' ? 'N' : 'P',
       certificateConfigured: Boolean(fiscal.certificateConfigured),
     },
   }
@@ -177,7 +183,7 @@ export async function getCompanyComplianceSettings(): Promise<CompanyComplianceS
     supabase
       .from('company_fiscal_settings')
       .select(
-        'operating_mode,fiscal_mode,provider,business_premise_code,device_code,operator_tax_id,certificate_configured',
+        'operating_mode,fiscal_mode,provider,business_premise_code,device_code,operator_tax_id,vat_registered,sequence_scope,certificate_configured',
       )
       .eq('company_id', companyId)
       .maybeSingle(),
@@ -211,6 +217,14 @@ export async function getCompanyComplianceSettings(): Promise<CompanyComplianceS
         text(fiscal?.business_premise_code) || fallback.fiscalization.businessPremiseCode,
       deviceCode: text(fiscal?.device_code) || fallback.fiscalization.deviceCode,
       operatorTaxId: text(fiscal?.operator_tax_id) || fallback.fiscalization.operatorTaxId,
+      vatRegistered:
+        typeof fiscal?.vat_registered === 'boolean'
+          ? fiscal.vat_registered
+          : fallback.fiscalization.vatRegistered,
+      sequenceScope:
+        fiscal?.sequence_scope === 'N' || fiscal?.sequence_scope === 'P'
+          ? fiscal.sequence_scope
+          : fallback.fiscalization.sequenceScope,
       certificateConfigured:
         typeof fiscal?.certificate_configured === 'boolean'
           ? fiscal.certificate_configured
@@ -274,6 +288,8 @@ export async function updateCompanyComplianceSettings(
       business_premise_code: normalized.fiscalization.businessPremiseCode,
       device_code: normalized.fiscalization.deviceCode,
       operator_tax_id: normalized.fiscalization.operatorTaxId,
+      vat_registered: normalized.fiscalization.vatRegistered,
+      sequence_scope: normalized.fiscalization.sequenceScope,
       certificate_configured: normalized.fiscalization.certificateConfigured,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id' })

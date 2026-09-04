@@ -178,6 +178,9 @@ export async function createCustomer(
       .toUpperCase()
       .replace(/\s+/g, '')
       .slice(0, 32)
+  const legacyOib = /^\d{11}$/.test(cleanTaxId)
+    ? cleanTaxId
+    : null
 
   const { data, error } =
     await supabase
@@ -202,7 +205,7 @@ export async function createCustomer(
               null
             : null,
         oib:
-          cleanTaxId || null,
+          legacyOib,
         tax_id:
           cleanTaxId || null,
         phone:
@@ -265,6 +268,9 @@ export async function updateCustomer(
       .toUpperCase()
       .replace(/\s+/g, '')
       .slice(0, 32)
+  const legacyOib = /^\d{11}$/.test(cleanTaxId)
+    ? cleanTaxId
+    : null
 
   const { data, error } =
     await supabase
@@ -287,7 +293,7 @@ export async function updateCustomer(
               null
             : null,
         oib:
-          cleanTaxId || null,
+          legacyOib,
         tax_id:
           cleanTaxId || null,
         phone:
