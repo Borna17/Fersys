@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/scripts/finalize_fiscal_pdf_and_invoice.py'
       - '.github/scripts/harden_multi_country_compatibility.py'
+      - '.github/scripts/harden_hr_fiscal_profile.py'
       - '.github/workflows/finalize-multi-country-fiscal-foundation.yml'
 
 permissions:
@@ -26,6 +27,7 @@ jobs:
         run: |
           python .github/scripts/finalize_fiscal_pdf_and_invoice.py
           python .github/scripts/harden_multi_country_compatibility.py
+          python .github/scripts/harden_hr_fiscal_profile.py
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -48,10 +50,12 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/services/companySettings.service.ts \
+                  src/services/companyCompliance.service.ts \
                   src/services/customers.service.ts \
+                  src/components/settings/ModulesSettingsTab.tsx \
                   src/pages/CustomersPage.tsx \
                   src/pages/CustomerProfilePage.tsx \
                   src/utils/invoicePdf.ts
-          git commit -m "Harden multi-country fiscalization compatibility"
+          git commit -m "Harden HR fiscal company profile"
           git pull --rebase origin main
           git push origin HEAD:main
