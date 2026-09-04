@@ -30,5 +30,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # This verifies that the browser-side fiscal gateway changes remain
+      # compatible with the complete React/TypeScript application.
       - name: Build application
         run: npm run build
