@@ -10,8 +10,77 @@ export type FiscalizationGatewayState = {
   mode: 'OFF' | 'TEST' | 'LIVE'
   provider: string
   certificateConfigured: boolean
+  serverGatewayAvailable: boolean
+  productionTransportReady: boolean
   canSubmit: boolean
   reason: string
+}
+
+export type FiscalizationSubmissionResult = {
+  ok: boolean
+  code: string
+  message: string
+  environment?: 'TEST' | 'LIVE'
+  channel?: 'F1' | 'E_INVOICE' | 'NONE'
+  adapterVersion?: string
+  jir?: string
+  zki?: string
+  externalId?: string
+}
+
+function normalizeSubmissionResult(
+  value: unknown,
+): FiscalizationSubmissionResult | null {
+  if (!value || typeof value !== 'object') return null
+
+  const data = value as Record<string, unknown>
+  const code =
+    typeof data.code === 'string' ? data.code : ''
+  const message =
+    typeof data.message === 'string'
+      ? data.message
+      : ''
+
+  if (!code && !message) return null
+
+  const environment =
+    data.environment === 'TEST' ||
+    data.environment === 'LIVE'
+      ? data.environment
+      : undefined
+
+  const channel =
+    data.channel === 'F1' ||
+    data.channel === 'E_INVOICE' ||
+    data.channel === 'NONE'
+      ? data.channel
+      : undefined
+
+  return {
+    ok: data.ok === true,
+    code: code || 'FISCALIZATION_ERROR',
+    message:
+      message ||
+      'Fiskalizacijski server nije vratio opis greške.',
+    environment,
+    channel,
+    adapterVersion:
+      typeof data.adapterVersion === 'string'
+        ? data.adapterVersion
+        : undefined,
+    jir:
+      typeof data.jir === 'string'
+        ? data.jir
+        : undefined,
+    zki:
+      typeof data.zki === 'string'
+        ? data.zki
+        : undefined,
+    externalId:
+      typeof data.externalId === 'string'
+        ? data.externalId
+        : undefined,
+  }
 }
 
 export async function getFiscalizationGatewayState(): Promise<FiscalizationGatewayState> {
@@ -34,20 +103,32 @@ export async function getFiscalizationGatewayState(): Promise<FiscalizationGatew
 
   if (error) throw error
 
-  const certificateConfigured = Boolean(fiscalRow?.certificate_configured)
+  const certificateConfigured = Boolean(
+    fiscalRow?.certificate_configured,
+  )
 
-  // Važno: certifikat sam po sebi nije dovoljan. Adapter prema Poreznoj / ovlaštenom
-  // informacijskom posredniku mora biti implementiran i proći testnu provjeru.
-  const providerAdapterImplemented = false
-  const canSubmit = enabled && certificateConfigured && providerAdapterImplemented
+  // Server-side gateway exists and owns all future certificate/signing work.
+  // Production transport remains deliberately locked until the official
+  // Porezna TEST XML/SOAP adapter is implemented and verified with a real
+  // certificate. The browser must never receive a private key or certificate
+  // password and can never invent JIR/ZKI values.
+  const serverGatewayAvailable = true
+  const productionTransportReady = false
+  const canSubmit =
+    enabled &&
+    certificateConfigured &&
+    serverGatewayAvailable &&
+    productionTransportReady
 
   let reason = ''
   if (!enabled) {
     reason = 'Fiskalizacija za aktivnu tvrtku nije uključena.'
   } else if (!certificateConfigured) {
-    reason = 'Nije povezan fiskalni certifikat ili ovlašteni posrednik.'
-  } else if (!providerAdapterImplemented) {
-    reason = 'Produkcijski adapter za slanje Poreznoj još nije aktiviran i certificiran.'
+    reason =
+      'Nije povezan službeni fiskalni certifikat na sigurnom FERSYS serveru.'
+  } else if (!productionTransportReady) {
+    reason =
+      'Sigurni server gateway je postavljen, ali Porezna TEST/LIVE XML/SOAP adapter još nije verificiran.'
   }
 
   return {
@@ -56,16 +137,91 @@ export async function getFiscalizationGatewayState(): Promise<FiscalizationGatew
     mode: compliance.fiscalization.mode,
     provider: compliance.fiscalization.provider,
     certificateConfigured,
+    serverGatewayAvailable,
+    productionTransportReady,
     canSubmit,
     reason,
   }
 }
 
-export async function submitInvoiceFiscalization(_invoiceId: string): Promise<never> {
+async function readFunctionError(
+  error: unknown,
+): Promise<FiscalizationSubmissionResult | null> {
+  if (!error || typeof error !== 'object') return null
+
+  const context = (
+    error as {
+      context?: unknown
+    }
+  ).context
+
+  if (
+    typeof Response !== 'undefined' &&
+    context instanceof Response
+  ) {
+    try {
+      const payload = await context.clone().json()
+      return normalizeSubmissionResult(payload)
+    } catch {
+      return null
+    }
+  }
+
+  return null
+}
+
+export async function submitInvoiceFiscalization(
+  invoiceId: string,
+): Promise<FiscalizationSubmissionResult> {
+  const cleanInvoiceId = invoiceId.trim()
+  if (!cleanInvoiceId) {
+    throw new Error('Nedostaje ID računa za fiskalizaciju.')
+  }
+
   const state = await getFiscalizationGatewayState()
 
-  throw new Error(
-    state.reason ||
-      'Produkcijsko slanje fiskalizacije nije aktivirano. Potrebno je povezati službeni certifikat/posrednika i proći testnu provjeru prije slanja stvarnih računa.',
+  if (!state.enabled) {
+    throw new Error(state.reason)
+  }
+
+  // Even before the real transport is enabled, invoking the authenticated
+  // server boundary gives us one authoritative readiness/audit path. It still
+  // refuses to submit until server secrets + the verified Porezna adapter are
+  // available.
+  const { data, error } = await supabase.functions.invoke(
+    'hr-fiscalization',
+    {
+      body: {
+        invoiceId: cleanInvoiceId,
+      },
+    },
   )
+
+  if (error) {
+    const serverError = await readFunctionError(error)
+    if (serverError) {
+      throw new Error(serverError.message)
+    }
+
+    throw new Error(
+      error.message ||
+        state.reason ||
+        'Fiskalizacijski server nije dostupan.',
+    )
+  }
+
+  const result = normalizeSubmissionResult(data)
+  if (!result) {
+    throw new Error(
+      'Fiskalizacijski server vratio je neispravan odgovor.',
+    )
+  }
+
+  if (!result.ok) {
+    throw new Error(result.message)
+  }
+
+  // A successful result may only contain real values returned by the server
+  // provider adapter. Client-side JIR/ZKI generation is intentionally absent.
+  return result
 }
