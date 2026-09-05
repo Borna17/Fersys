@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 
+// Release parity patch v1.0.4 / build 5.
 function read(path) {
   return fs.readFileSync(path, 'utf8')
 }
