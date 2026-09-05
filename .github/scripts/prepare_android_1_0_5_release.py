@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Release verification trigger: 2026-09-06
 
 def replace_once(path: str, old: str, new: str) -> None:
     file = Path(path)
