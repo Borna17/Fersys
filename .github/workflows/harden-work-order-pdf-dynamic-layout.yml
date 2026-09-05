@@ -32,16 +32,13 @@ jobs:
           from pathlib import Path
           path = Path('src/utils/workOrderPdf.ts')
           text = path.read_text(encoding='utf-8')
-          unused = '''function materialsContainer(page: HTMLElement) {
-  return page.querySelector(
-    '[data-pdf-block="materials"] .materials',
-  ) as HTMLElement | null
-}
-
-'''
-          if unused not in text:
+          start = text.find('function materialsContainer(page: HTMLElement) {')
+          if start < 0:
               raise SystemExit('Expected unused helper was not found')
-          path.write_text(text.replace(unused, '', 1), encoding='utf-8')
+          end = text.find('\nfunction insertionAnchor(', start)
+          if end < 0:
+              raise SystemExit('Could not find end of unused helper')
+          path.write_text(text[:start] + text[end + 1:], encoding='utf-8')
           PY
 
       - name: Verify dynamic layout safeguards
