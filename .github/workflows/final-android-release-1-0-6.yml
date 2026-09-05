@@ -1,0 +1,188 @@
+name: Final Android 1.0.6 release gate
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/layouts/AppLayout.tsx'
+      - 'src/components/MobileNotificationBell.tsx'
+      - 'src/components/AppUpdatePrompt.tsx'
+      - 'src/services/appUpdate.service.ts'
+      - 'src/pages/NewWorkOrderPage.tsx'
+      - 'src/services/drafts.service.ts'
+      - 'src/utils/workOrderPdf.ts'
+      - 'src/auth/AuthProvider.tsx'
+      - 'android/app/build.gradle'
+      - 'capacitor.config.ts'
+      - '.github/workflows/final-android-release-1-0-6.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-final-android-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Verify source release invariants
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def text(path):
+              return Path(path).read_text(encoding='utf-8')
+
+          layout = text('src/layouts/AppLayout.tsx')
+          bell = text('src/components/MobileNotificationBell.tsx')
+          prompt = text('src/components/AppUpdatePrompt.tsx')
+          update_service = text('src/services/appUpdate.service.ts')
+          work_order = text('src/pages/NewWorkOrderPage.tsx')
+          drafts = text('src/services/drafts.service.ts')
+          pdf = text('src/utils/workOrderPdf.ts')
+          auth = text('src/auth/AuthProvider.tsx')
+          gradle = text('android/app/build.gradle')
+          capacitor = text('capacitor.config.ts')
+
+          errors = []
+
+          # Android release identity
+          if 'versionCode 8' not in gradle or 'versionName "1.0.6"' not in gradle:
+              errors.append('Android release is not 1.0.6 / code 8.')
+          if "appId: 'com.fersys.app'" not in capacitor or "webDir: 'dist'" not in capacitor:
+              errors.append('Capacitor appId/webDir is not the expected production configuration.')
+
+          # Mobile header parity: bell left, title center, logo/profile right.
+          header_start = layout.find('<header className="sticky top-0')
+          header_end = layout.find('</header>', header_start)
+          mobile_header = layout[header_start:header_end] if header_start >= 0 and header_end >= 0 else ''
+          if not mobile_header:
+              errors.append('Mobile header could not be located.')
+          else:
+              bell_pos = mobile_header.find('<MobileNotificationBell />')
+              title_pos = mobile_header.find('{pageTitle}')
+              logo_pos = mobile_header.find('<CompanyLogo')
+              if min(bell_pos, title_pos, logo_pos) < 0 or not (bell_pos < title_pos < logo_pos):
+                  errors.append('Mobile header order is not bell-left / title-center / company-logo-right.')
+              if mobile_header.count('<MobileNotificationBell />') != 1:
+                  errors.append('Mobile header must contain exactly one notification bell.')
+              if 'flex items-center justify-start' not in mobile_header:
+                  errors.append('Notification bell is not left aligned.')
+          if 'absolute left-0 top-[calc(100%+0.65rem)]' not in bell:
+              errors.append('Notification center panel is not left anchored.')
+          if 'aria-label="Centar obavijesti"' not in bell:
+              errors.append('Notification center accessibility marker is missing.')
+
+          # In-app update prompt must be native Android aware and based on real build code.
+          for required in [
+              '<AppUpdatePrompt />',
+              "Capacitor.getPlatform() !== 'android'",
+              "App.addListener('appStateChange'",
+              'Ažuriraj na Trgovini Play',
+          ]:
+              if required not in layout + prompt:
+                  errors.append(f'Update prompt invariant missing: {required}')
+          for required in [
+              'const info = await App.getInfo()',
+              'release.latestVersionCode > installedVersionCode',
+              ".from('app_release_channel')",
+          ]:
+              if required not in update_service:
+                  errors.append(f'Update service invariant missing: {required}')
+
+          # Unfinished work order must survive abrupt native WebView termination.
+          for required in [
+              "'fersys_emergency_new_work_order_v1'",
+              'localStorage.setItem(',
+              'EMERGENCY_DRAFT_KEY',
+              'await loadUserDraft<any>',
+              'await saveUserDraft(',
+              '}, 350)',
+              "await deleteUserDraft(\n          'work-order',\n          'new',",
+              'localStorage.removeItem(EMERGENCY_DRAFT_KEY)',
+              'Nastavljen nedovršeni radni nalog',
+          ]:
+              if required not in work_order:
+                  errors.append(f'Work-order draft safety invariant missing: {required}')
+          for required in [
+              "const DB_NAME = 'fersys-user-drafts'",
+              'indexedDB.open(',
+              ".from(\n        'user_drafts',",
+          ]:
+              if required not in drafts:
+                  errors.append(f'Draft persistence layer invariant missing: {required}')
+
+          # PDF must use rendered dimensions as final authority and hard-fail rather than crop.
+          for required in [
+              'function pageOverflows(page: HTMLElement)',
+              'async function reflowRenderedPdfPages(',
+              "browser's rendered dimensions are the source of truth",
+              'moveLastMaterialRowForward(',
+              'tryPullFirstMaterialBackward(',
+              'Automatski raspored PDF-a nije uspio smjestiti sav sadržaj bez rezanja.',
+              'PDF materijal nije potpun',
+          ]:
+              if required not in pdf:
+                  errors.append(f'PDF dynamic reflow invariant missing: {required}')
+
+          # Startup must not be allowed to spin forever.
+          if 'AUTH_REQUEST_TIMEOUT_MS' not in auth or 'withTimeout' not in auth:
+              errors.append('Auth startup timeout safeguard is missing.')
+
+          if errors:
+              print('\n'.join(f'ERROR: {item}' for item in errors))
+              raise SystemExit(1)
+
+          print('All final source release invariants verified.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production web bundle
+        run: npm run build
+
+      - name: Sync exact production bundle into Android
+        run: npx cap sync android
+
+      - name: Verify Android copied assets contain final features
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          root = Path('android/app/src/main/assets/public')
+          if not root.exists():
+              raise SystemExit('Android public assets were not created by Capacitor sync.')
+
+          chunks = []
+          for path in root.rglob('*'):
+              if path.is_file() and path.suffix.lower() in {'.js', '.html', '.css'}:
+                  try:
+                      chunks.append(path.read_text(encoding='utf-8', errors='ignore'))
+                  except Exception:
+                      pass
+          bundle = '\n'.join(chunks)
+
+          required = [
+              'Centar obavijesti',
+              'Ažuriraj na Trgovini Play',
+              'Nastavljen nedovršeni radni nalog',
+              'fersys_emergency_new_work_order_v1',
+              'Automatski raspored PDF-a nije uspio smjestiti sav sadržaj bez rezanja.',
+          ]
+          missing = [item for item in required if item not in bundle]
+          if missing:
+              raise SystemExit('Android copied bundle is missing final features: ' + ', '.join(missing))
+
+          print('Android copied assets contain every required final feature.')
+          PY
+
+      - name: Final release summary
+        run: |
+          echo 'FERSYS Android 1.0.6 / versionCode 8 passed the final source, production-build and Capacitor-asset gate.'
