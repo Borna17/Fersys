@@ -63,3 +63,5 @@ jobs:
           git add src/utils/workOrderPdf.ts
           git commit -m 'Make work order PDF layout self-adjusting'
           git push
+
+# Triggered after the workflow existed on main so the verification run is guaranteed.
