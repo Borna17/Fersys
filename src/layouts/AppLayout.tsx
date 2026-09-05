@@ -610,10 +610,10 @@ export default function AppLayout() {
           <Topbar />
         </div>
 
-        <header className="sticky top-0 z-30 flex min-h-16 items-center justify-between border-b border-slate-800/80 bg-slate-950/95 px-4 py-2 backdrop-blur-xl md:hidden">
-          <MobileNotificationBell />
+        <header className="sticky top-0 z-30 grid min-h-16 grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center border-b border-slate-800/80 bg-slate-950/95 px-3 py-2 backdrop-blur-xl md:hidden">
+          <div className="h-11" aria-hidden="true" />
 
-          <div className="min-w-0 flex-1 px-3 text-center">
+          <div className="min-w-0 px-2 text-center">
             <p className="truncate text-[10px] font-black uppercase tracking-[0.25em] text-blue-400">
               FERSYS
             </p>
@@ -623,12 +623,15 @@ export default function AppLayout() {
             </h1>
           </div>
 
-          <div
-            ref={
-              profileMenuRef
-            }
-            className="relative"
-          >
+          <div className="flex items-center justify-end gap-2">
+            <MobileNotificationBell />
+
+            <div
+              ref={
+                profileMenuRef
+              }
+              className="relative"
+            >
             <button
               type="button"
               onClick={() =>
@@ -815,6 +818,7 @@ export default function AppLayout() {
                 </div>
               </div>
             )}
+            </div>
           </div>
         </header>
 

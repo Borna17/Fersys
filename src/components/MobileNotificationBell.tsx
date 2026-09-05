@@ -211,7 +211,7 @@ export default function MobileNotificationBell() {
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Centar obavijesti" className="absolute left-0 top-[calc(100%+0.65rem)] w-[min(22rem,calc(100vw-1.5rem-var(--fersys-safe-left)-var(--fersys-safe-right)))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/70">
+        <div role="dialog" aria-label="Centar obavijesti" className="absolute right-0 top-[calc(100%+0.65rem)] w-[min(22rem,calc(100vw-1.5rem-var(--fersys-safe-left)-var(--fersys-safe-right)))] overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/70">
           <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
             <div>
               <p className="font-black text-white">Centar obavijesti</p>
