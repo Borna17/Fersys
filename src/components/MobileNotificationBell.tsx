@@ -193,7 +193,7 @@ export default function MobileNotificationBell() {
   if (!visible) return null
 
   return (
-    <div ref={panelRef} className="fersys-mobile-fixed-top fixed z-[85] md:hidden">
+    <div ref={panelRef} className="relative z-[45] md:hidden">
       <button
         type="button"
         onClick={() => setOpen((current) => !current)}

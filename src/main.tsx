@@ -29,7 +29,6 @@ import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
-const MobileNotificationBell = lazy(() => import('./components/MobileNotificationBell'))
 const DocumentFlowOrchestrator = lazy(() => import('./components/DocumentFlowOrchestrator'))
 const FirstTenMinutes = lazy(() => import('./components/FirstTenMinutes'))
 const FirstStepsControlCenter = lazy(() => import('./components/FirstStepsControlCenter'))
@@ -109,9 +108,6 @@ function DeferredEnhancements() {
 
   return (
     <Suspense fallback={null}>
-      {/* Na mobitelu je ovo jedino zvonce: obavijesti + Što traži pažnju. */}
-      {isMobile && <MobileNotificationBell />}
-
       {!isMobile && ready && (
         <>
           <DocumentFlowOrchestrator />

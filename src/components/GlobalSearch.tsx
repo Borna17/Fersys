@@ -865,7 +865,7 @@ export default function GlobalSearch() {
         onClick={() =>
           setOpen(true)
         }
-        className="fixed left-4 top-[calc(0.65rem+env(safe-area-inset-top))] z-[38] grid h-11 w-11 place-items-center rounded-2xl text-slate-400 transition active:bg-slate-800 active:text-white md:hidden"
+        className="hidden"
         aria-label="Pretraži FERSYS"
       >
         <Search size={21} />
