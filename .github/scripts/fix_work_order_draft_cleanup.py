@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# Patch finalized work orders so successful database saves immediately stop being drafts.
 path = Path('src/pages/NewWorkOrderPage.tsx')
 text = path.read_text(encoding='utf-8')
 
