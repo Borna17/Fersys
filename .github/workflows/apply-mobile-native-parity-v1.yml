@@ -1,0 +1,52 @@
+name: Apply mobile/native parity v1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/apply-mobile-native-parity-v1.mjs'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/apply-mobile-native-parity-v1.mjs
+      - run: npm run build
+      - run: npx cap sync android
+      - name: Verify current web assets are copied into Android
+        shell: bash
+        run: |
+          grep -q 'versionCode 5' android/app/build.gradle
+          grep -q 'versionName "1.0.4"' android/app/build.gradle
+          grep -q 'MobileNotificationBell' src/layouts/AppLayout.tsx
+          if grep -q "lazy(() => import('./components/MobileNotificationBell'))" src/main.tsx; then
+            echo 'Old lazy mobile bell mount is still present.'
+            exit 1
+          fi
+          grep -R -q 'Centar obavijesti' android/app/src/main/assets/public || {
+            echo 'Android assets do not contain the current notification center.'
+            exit 1
+          }
+      - name: Commit verified mobile/native parity
+        shell: bash
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/layouts/AppLayout.tsx src/main.tsx src/components/MobileNotificationBell.tsx src/components/GlobalSearch.tsx android/app/build.gradle
+          if git diff --cached --quiet; then
+            echo 'No changes to commit.'
+            exit 0
+          fi
+          git commit -m "Keep Android mobile UI in parity with web"
+          git push
