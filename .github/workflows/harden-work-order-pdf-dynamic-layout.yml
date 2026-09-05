@@ -1,0 +1,65 @@
+name: Harden work order PDF dynamic layout
+
+on:
+  push:
+    paths:
+      - '.github/scripts/harden_work_order_pdf_dynamic_layout.py'
+      - '.github/workflows/harden-work-order-pdf-dynamic-layout.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply rendered-height PDF reflow
+        run: python .github/scripts/harden_work_order_pdf_dynamic_layout.py
+
+      - name: Verify dynamic layout safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('src/utils/workOrderPdf.ts').read_text(encoding='utf-8')
+          required = [
+              'reflowRenderedPdfPages',
+              'pageOverflows',
+              'tryPullFirstMaterialBackward',
+              'data-material-row',
+              'data-pdf-block="materials"',
+              'actualRows !== order.materials.length',
+              'await reflowRenderedPdfPages(',
+          ]
+          missing = [item for item in required if item not in text]
+          if missing:
+              raise SystemExit(f'Missing PDF safeguards: {missing}')
+          print('Dynamic PDF layout safeguards verified.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit hardened PDF source
+        run: |
+          if git diff --quiet -- src/utils/workOrderPdf.ts; then
+            echo 'No generated PDF source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/utils/workOrderPdf.ts
+          git commit -m 'Make work order PDF layout self-adjusting'
+          git push
