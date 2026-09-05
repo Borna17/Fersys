@@ -69,6 +69,8 @@ const inputClass =
 
 const FINALIZED_DRAFT_KEY =
   'fersys_finalized_work_order_draft_id'
+const EMERGENCY_DRAFT_KEY =
+  'fersys_emergency_new_work_order_v1'
 
 function calculateDuration(
   arrival: string,
@@ -500,16 +502,53 @@ export function NewWorkOrderPage() {
         if (finalizedOrderId) {
           await deleteUserDraft('work-order', 'new')
           localStorage.removeItem(FINALIZED_DRAFT_KEY)
+          localStorage.removeItem(EMERGENCY_DRAFT_KEY)
 
           if (!cancelled) setDraftReady(true)
           return
         }
 
-        const draft =
+        let draft =
           await loadUserDraft<any>(
             'work-order',
             'new',
           )
+
+        try {
+          const emergencyRaw =
+            localStorage.getItem(EMERGENCY_DRAFT_KEY)
+
+          if (emergencyRaw) {
+            const emergency = JSON.parse(emergencyRaw) as {
+              payload?: Record<string, unknown>
+              updatedAt?: string
+            }
+
+            const emergencyUpdatedAt =
+              new Date(emergency.updatedAt ?? 0).getTime()
+            const regularUpdatedAt =
+              draft ? new Date(draft.updatedAt).getTime() : 0
+
+            if (
+              emergency.payload &&
+              emergencyUpdatedAt >= regularUpdatedAt
+            ) {
+              draft = {
+                draftType: 'work-order',
+                draftKey: 'new',
+                payload: emergency.payload,
+                updatedAt:
+                  emergency.updatedAt ?? new Date().toISOString(),
+                source: 'local',
+              }
+            }
+          }
+        } catch (emergencyError) {
+          console.warn(
+            '[FERSYS] Sigurnosni nacrt radnog naloga nije moguće pročitati:',
+            emergencyError,
+          )
+        }
 
         if (
           cancelled ||
@@ -1019,15 +1058,66 @@ export function NewWorkOrderPage() {
     const hasContent =
       Boolean(
         customerId ||
+        customerSearch.trim() ||
+        address.trim() ||
+        arrivalTime ||
+        departureTime ||
         title.trim() ||
         description.trim() ||
+        assignedWorkers.length ||
         materials.length ||
         images.length ||
+        investorName.trim() ||
         investorSignature,
       )
 
     if (!hasContent) {
+      localStorage.removeItem(EMERGENCY_DRAFT_KEY)
       return
+    }
+
+    const draftPayload = {
+      customerId,
+      customerName,
+      customerContactPerson,
+      customerPhone,
+      customerEmail,
+      customerOib,
+      address,
+      date,
+      arrivalTime,
+      departureTime,
+      status,
+      priority,
+      title,
+      description,
+      assignedWorkers,
+      materials,
+      labourPrice,
+      discountRate,
+      vatRate,
+      priceNote,
+      investorName,
+      investorSignature,
+      images,
+      selectedTemplateId,
+    }
+
+    // Native WebView može biti ugašen prije IndexedDB/cloud autosavea.
+    // Zato svaku promjenu odmah zapisujemo i sinkrono u localStorage.
+    try {
+      localStorage.setItem(
+        EMERGENCY_DRAFT_KEY,
+        JSON.stringify({
+          payload: draftPayload,
+          updatedAt: new Date().toISOString(),
+        }),
+      )
+    } catch (emergencyError) {
+      console.warn(
+        '[FERSYS] Sigurnosni lokalni nacrt nije moguće zapisati:',
+        emergencyError,
+      )
     }
 
     const timer =
@@ -1040,32 +1130,7 @@ export function NewWorkOrderPage() {
               await saveUserDraft(
                 'work-order',
                 'new',
-                {
-                  customerId,
-                  customerName,
-                  customerContactPerson,
-                  customerPhone,
-                  customerEmail,
-                  customerOib,
-                  address,
-                  date,
-                  arrivalTime,
-                  departureTime,
-                  status,
-                  priority,
-                  title,
-                  description,
-                  assignedWorkers,
-                  materials,
-                  labourPrice,
-                  discountRate,
-                  vatRate,
-                  priceNote,
-                  investorName,
-                  investorSignature,
-                  images,
-                  selectedTemplateId,
-                },
+                draftPayload,
               )
 
             setAutosaveState(
@@ -1092,7 +1157,7 @@ export function NewWorkOrderPage() {
             )
           }
         })()
-      }, 1200)
+      }, 350)
 
     return () => {
       window.clearTimeout(timer)
@@ -1138,6 +1203,7 @@ export function NewWorkOrderPage() {
       'work-order',
       'new',
     )
+    localStorage.removeItem(EMERGENCY_DRAFT_KEY)
 
     window.location.reload()
   }
@@ -1894,6 +1960,9 @@ export function NewWorkOrderPage() {
         )
         localStorage.removeItem(
           FINALIZED_DRAFT_KEY,
+        )
+        localStorage.removeItem(
+          EMERGENCY_DRAFT_KEY,
         )
       } catch (draftCleanupError) {
         // Sam nalog je već spremljen; pomoćni marker ostaje kao sigurnosni
