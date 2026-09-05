@@ -35,14 +35,15 @@ jobs:
           gradle = Path('android/app/build.gradle').read_text(encoding='utf-8')
           required_layout = [
               'grid-cols-[5.5rem_minmax(0,1fr)_5.5rem]',
+              'flex items-center justify-start',
               '<MobileNotificationBell />',
-              'flex items-center justify-end gap-2',
+              'flex items-center justify-end',
           ]
           missing = [x for x in required_layout if x not in layout]
           if missing:
               raise SystemExit(f'Missing mobile header safeguards: {missing}')
-          if 'absolute right-0 top-[calc(100%+0.65rem)]' not in bell:
-              raise SystemExit('Notification panel is not right-anchored')
+          if 'absolute left-0 top-[calc(100%+0.65rem)]' not in bell:
+              raise SystemExit('Notification panel is not left-anchored')
           if 'versionCode 7' not in gradle or 'versionName "1.0.5"' not in gradle:
               raise SystemExit('Android version was not advanced to 1.0.5 / code 7')
           print('Mobile release safeguards verified.')
@@ -63,5 +64,6 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/layouts/AppLayout.tsx src/components/MobileNotificationBell.tsx android/app/build.gradle
-          git commit -m 'Prepare Android 1.0.5 release'
-          git push
+          git commit -m 'Align Android mobile header with web layout'
+          git pull --rebase origin main
+          git push origin main
