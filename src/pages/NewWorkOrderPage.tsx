@@ -1879,10 +1879,30 @@ export function NewWorkOrderPage() {
         })
       }
 
+      // Nalog je uspješno spremljen u bazu; od ovog trenutka više nije nacrt.
+      // Očisti lokalni/cloud nacrt i manifest odmah, prije navigacije, kako
+      // se spremljeni nalog ne bi prikazivao kao "nedovršen".
       localStorage.setItem(
         FINALIZED_DRAFT_KEY,
         createdOrder.id,
       )
+
+      try {
+        await deleteUserDraft(
+          'work-order',
+          'new',
+        )
+        localStorage.removeItem(
+          FINALIZED_DRAFT_KEY,
+        )
+      } catch (draftCleanupError) {
+        // Sam nalog je već spremljen; pomoćni marker ostaje kao sigurnosni
+        // fallback da se nacrt očisti pri idućem otvaranju novog naloga.
+        console.warn(
+          '[FERSYS] Radni nalog je spremljen, ali čišćenje nacrta nije uspjelo:',
+          draftCleanupError,
+        )
+      }
 
       navigate(
         `/work-orders/${createdOrder.id}`,
