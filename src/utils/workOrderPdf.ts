@@ -751,7 +751,44 @@ function paginate(
   appearance: DocumentAppearance,
 ): PdfPage[] {
   const compact = appearance.density === 'compact'
-  const firstMaterialLimit = compact ? 8 : 6
+  const descriptionLength = order.description.trim().length
+  const descriptionVisualLines = order.description
+    .split(/\r?\n/)
+    .reduce(
+      (total, line) =>
+        total +
+        Math.max(
+          1,
+          Math.ceil(
+            line.trim().length / (compact ? 78 : 72),
+          ),
+        ),
+      0,
+    )
+
+  /*
+   * Prva stranica nema fiksno raspoloživ prostor za materijal: opis radova
+   * može imati nekoliko redaka ili cijeli zapis intervencije. Stari fiksni
+   * limit 6/8 stavki znao je nacrtati redove ispod A4 ruba; .pdf-page ima
+   * overflow:hidden pa su stavke između stranica doslovno nestale.
+   *
+   * Materijal zato kreće konzervativnije ovisno o stvarnoj količini teksta.
+   * Bolje je ranije otvoriti nastavnu stranicu nego ikad odrezati stavku.
+   * Nastavne stranice i dalje koriste puni raspoloživi A4 prostor.
+   */
+  const firstMaterialLimit =
+    descriptionVisualLines >= 22 || descriptionLength >= 1000
+      ? 0
+      : descriptionVisualLines >= 16 || descriptionLength >= 760
+        ? 1
+        : descriptionVisualLines >= 12 || descriptionLength >= 560
+          ? 2
+          : descriptionVisualLines >= 8 || descriptionLength >= 360
+            ? 3
+            : compact
+              ? 7
+              : 5
+
   const continuationBudget = compact ? 820 : 810
   const sectionHeadingHeight = compact ? 27 : 31
   const materialRowHeight = compact ? 38 : 43
@@ -759,7 +796,6 @@ function paginate(
   const captionHeight = 21
 
   const pages: PdfPage[] = []
-  const descriptionLength = order.description.trim().length
 
   const firstMaterials = order.materials.slice(0, firstMaterialLimit)
   let materialIndex = firstMaterials.length
@@ -1284,6 +1320,8 @@ function css(
         28px minmax(0,1fr) 68px 82px 58px 88px;
       min-height: ${compact ? 38 : 43}px;
       align-items: center;
+      page-break-inside: avoid;
+      break-inside: avoid;
       column-gap: ${compact ? 8 : 10}px;
       padding: ${compact ? '4px 0' : '5px 0'};
       border-bottom: 1px solid ${border};
