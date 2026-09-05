@@ -1,0 +1,67 @@
+name: Prepare Android 1.0.5 release
+
+on:
+  push:
+    paths:
+      - '.github/scripts/prepare_android_1_0_5_release.py'
+      - '.github/workflows/prepare-android-1-0-5-release.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply release polish
+        run: python .github/scripts/prepare_android_1_0_5_release.py
+
+      - name: Verify mobile notification placement and version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          layout = Path('src/layouts/AppLayout.tsx').read_text(encoding='utf-8')
+          bell = Path('src/components/MobileNotificationBell.tsx').read_text(encoding='utf-8')
+          gradle = Path('android/app/build.gradle').read_text(encoding='utf-8')
+          required_layout = [
+              'grid-cols-[5.5rem_minmax(0,1fr)_5.5rem]',
+              '<MobileNotificationBell />',
+              'flex items-center justify-end gap-2',
+          ]
+          missing = [x for x in required_layout if x not in layout]
+          if missing:
+              raise SystemExit(f'Missing mobile header safeguards: {missing}')
+          if 'absolute right-0 top-[calc(100%+0.65rem)]' not in bell:
+              raise SystemExit('Notification panel is not right-anchored')
+          if 'versionCode 7' not in gradle or 'versionName "1.0.5"' not in gradle:
+              raise SystemExit('Android version was not advanced to 1.0.5 / code 7')
+          print('Mobile release safeguards verified.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web bundle
+        run: npm run build
+
+      - name: Commit prepared release source
+        run: |
+          if git diff --quiet -- src/layouts/AppLayout.tsx src/components/MobileNotificationBell.tsx android/app/build.gradle; then
+            echo 'No release source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/layouts/AppLayout.tsx src/components/MobileNotificationBell.tsx android/app/build.gradle
+          git commit -m 'Prepare Android 1.0.5 release'
+          git push
