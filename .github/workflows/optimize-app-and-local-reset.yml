@@ -1,0 +1,81 @@
+name: Optimize app startup and local reset
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/optimize_app_and_add_local_reset.py'
+      - '.github/workflows/optimize-app-and-local-reset.yml'
+      - 'src/components/settings/LocalAppResetCard.tsx'
+      - 'src/services/localAppReset.service.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Apply startup and reset optimization
+        run: python .github/scripts/optimize_app_and_add_local_reset.py
+
+      - name: Verify expected safeguards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          checks = {
+              'src/auth/AuthProvider.tsx': [
+                  'AUTH_REQUEST_TIMEOUT_MS',
+                  'Provjera pristupa korisnika',
+                  'Teži bootstrap tvrtke više ne blokira svaki ulazak',
+                  'now - lastFocusRefreshAt < 30_000',
+              ],
+              'src/main.tsx': [
+                  '30 * 60 * 1000',
+                  'now - lastUpdateCheckAt < 60_000',
+              ],
+              'src/pages/SettingsPage.tsx': [
+                  'LocalAppResetCard',
+                  '<LocalAppResetCard />',
+              ],
+              'src/services/localAppReset.service.ts': [
+                  'resetLocalFersysApp',
+                  'unregisterServiceWorkers',
+                  'deleteIndexedDbDatabases',
+              ],
+          }
+          for file_name, required in checks.items():
+              text = Path(file_name).read_text(encoding='utf-8')
+              missing = [item for item in required if item not in text]
+              if missing:
+                  raise SystemExit(f'{file_name} missing {missing}')
+          print('Optimization safeguards verified.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit optimized source
+        run: |
+          if git diff --quiet -- src/auth/AuthProvider.tsx src/main.tsx src/pages/SettingsPage.tsx; then
+            echo 'No generated source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/auth/AuthProvider.tsx src/main.tsx src/pages/SettingsPage.tsx
+          git commit -m 'Optimize startup and add local app reset'
+          git push
