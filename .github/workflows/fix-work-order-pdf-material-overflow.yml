@@ -63,3 +63,5 @@ jobs:
           git add src/utils/workOrderPdf.ts
           git commit -m 'Prevent work order PDF material rows from being clipped'
           git push
+
+# Trigger: 2026-09-05 material rows must never be clipped between A4 pages.
