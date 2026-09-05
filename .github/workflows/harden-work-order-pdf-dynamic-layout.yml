@@ -26,6 +26,24 @@ jobs:
       - name: Apply rendered-height PDF reflow
         run: python .github/scripts/harden_work_order_pdf_dynamic_layout.py
 
+      - name: Remove unused generated helper
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/utils/workOrderPdf.ts')
+          text = path.read_text(encoding='utf-8')
+          unused = '''function materialsContainer(page: HTMLElement) {
+  return page.querySelector(
+    '[data-pdf-block="materials"] .materials',
+  ) as HTMLElement | null
+}
+
+'''
+          if unused not in text:
+              raise SystemExit('Expected unused helper was not found')
+          path.write_text(text.replace(unused, '', 1), encoding='utf-8')
+          PY
+
       - name: Verify dynamic layout safeguards
         run: |
           python - <<'PY'
@@ -63,5 +81,3 @@ jobs:
           git add src/utils/workOrderPdf.ts
           git commit -m 'Make work order PDF layout self-adjusting'
           git push
-
-# Triggered after the workflow existed on main so the verification run is guaranteed.
