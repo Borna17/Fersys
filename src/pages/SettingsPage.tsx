@@ -29,6 +29,7 @@ import { useNavigate } from 'react-router'
 import FersysLoader from '../components/FersysLoader'
 import ModulesSettingsTab from '../components/settings/ModulesSettingsTab'
 import WeatherMorningSettingsCard from '../components/settings/WeatherMorningSettingsCard'
+import LocalAppResetCard from '../components/settings/LocalAppResetCard'
 import {
   defaultWorkingHours,
   getCompanySettings,
@@ -1855,6 +1856,8 @@ function SecuritySettingsTab({
             Ponovno pokreni tutorijal
           </button>
         </SettingsCard>
+
+        <LocalAppResetCard />
 
         <SettingsCard
           icon={<ShieldCheck className="text-emerald-400" />}

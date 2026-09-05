@@ -45,8 +45,9 @@ function registerWebServiceWorker() {
       if (!registration) return
       activeRegistration = registration
       void registration.update()
-      window.setTimeout(() => void registration.update(), 1_500)
-      window.setInterval(() => void registration.update(), 5 * 60 * 1000)
+      // Nema potrebe provjeravati novu verziju svake 1.5 s / 5 min.
+      // Rjeđa provjera smanjuje mrežne pozive i nepotrebne SW cikluse.
+      window.setInterval(() => void registration.update(), 30 * 60 * 1000)
     },
     onNeedRefresh() {
       void updateServiceWorker(true)
@@ -62,8 +63,15 @@ function registerWebServiceWorker() {
     window.location.reload()
   })
 
+  let lastUpdateCheckAt = 0
+
   const checkForUpdate = () => {
     if (document.visibilityState !== 'visible' || !navigator.onLine) return
+
+    const now = Date.now()
+    if (now - lastUpdateCheckAt < 60_000) return
+    lastUpdateCheckAt = now
+
     if (activeRegistration) {
       void activeRegistration.update()
       return

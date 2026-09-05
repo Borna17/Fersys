@@ -65,6 +65,27 @@ const SUPER_ADMIN_EMAILS = new Set([
 const AuthContext =
   createContext<AuthContextValue | null>(null)
 
+const AUTH_REQUEST_TIMEOUT_MS = 10_000
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  label: string,
+  timeoutMs = AUTH_REQUEST_TIMEOUT_MS,
+): Promise<T> {
+  let timer = 0
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => {
+      reject(new Error(`${label} traje predugo. Provjeri internet vezu i pokušaj ponovno.`))
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 async function ensureCompanyForCurrentUser(): Promise<void> {
   const { error } = await supabase.rpc(
     'bootstrap_company_for_current_user',
@@ -233,7 +254,10 @@ export function AuthProvider({
         }
 
         const nextMembership =
-          await getCurrentMembership()
+          await withTimeout(
+            getCurrentMembership(),
+            'Provjera pristupa korisnika',
+          )
 
         if (nextMembership?.companyId) {
           sessionStorage.setItem('fersys_active_company_id', nextMembership.companyId)
@@ -255,7 +279,10 @@ export function AuthProvider({
     async function loadInitialSession(): Promise<void> {
       try {
         const { data, error } =
-          await supabase.auth.getSession()
+          await withTimeout(
+            supabase.auth.getSession(),
+            'Učitavanje korisničke sesije',
+          )
 
         if (!isMounted) return
         if (error) throw error
@@ -350,14 +377,34 @@ export function AuthProvider({
           setIsAccessLoading(true)
         }
 
-        await ensureCompanyForCurrentUser()
+        // Postojeći korisnik prvo dobiva pristup iz jedne kratke RPC provjere.
+        // Teži bootstrap tvrtke više ne blokira svaki ulazak u aplikaciju.
+        let nextMembership = await withTimeout(
+          getCurrentMembership(),
+          'Provjera pristupa korisnika',
+        )
+
+        if (!nextMembership) {
+          await withTimeout(
+            ensureCompanyForCurrentUser(),
+            'Priprema tvrtke',
+            12_000,
+          )
+          nextMembership = await withTimeout(
+            getCurrentMembership(),
+            'Provjera pristupa nakon pripreme tvrtke',
+          )
+        } else {
+          // Jednokratne postavke tvrtke dovrši u pozadini. Ako servis trenutačno
+          // nije dostupan, korisniku s valjanim članstvom ne blokiramo aplikaciju.
+          void ensureCompanyForCurrentUser().catch((error) => {
+            console.warn('Pozadinska priprema tvrtke nije uspjela:', error)
+          })
+        }
 
         void supabase.functions
           .invoke('company-registration-notify')
           .catch(() => undefined)
-
-        const nextMembership =
-          await getCurrentMembership()
 
         if (!isCancelled) {
           preparedUserIdRef.current = userId
@@ -418,12 +465,15 @@ export function AuthProvider({
       )
       .subscribe()
 
+    let lastFocusRefreshAt = 0
+
     function refreshOnFocus() {
-      if (
-        document.visibilityState === 'visible'
-      ) {
-        void refreshAccess()
-      }
+      if (document.visibilityState !== 'visible') return
+
+      const now = Date.now()
+      if (now - lastFocusRefreshAt < 30_000) return
+      lastFocusRefreshAt = now
+      void refreshAccess()
     }
 
     document.addEventListener(
