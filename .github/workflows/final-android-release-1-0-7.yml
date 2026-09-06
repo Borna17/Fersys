@@ -1,0 +1,68 @@
+name: Final Android 1.0.7 parity gate
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'vite.config.*'
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'scripts/prepare-android-release.mjs'
+      - 'scripts/fersys-release-check.mjs'
+      - 'android/app/build.gradle'
+      - '.github/workflows/final-android-release-1-0-7.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-android-parity:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Build, sync and byte-verify Android web assets
+        run: node scripts/prepare-android-release.mjs
+
+      - name: Verify embedded release proof
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs = require('node:fs')
+          const proofPath = 'android/app/src/main/assets/public/fersys-release-proof.json'
+          if (!fs.existsSync(proofPath)) throw new Error('Release proof is missing from Android assets.')
+          const proof = JSON.parse(fs.readFileSync(proofPath, 'utf8'))
+          if (proof.versionName !== '1.0.7' || proof.versionCode !== 9) {
+            throw new Error(`Wrong release identity in proof: ${proof.versionName} / ${proof.versionCode}`)
+          }
+          if (proof.gitCommit !== process.env.GITHUB_SHA) {
+            throw new Error(`Android bundle source ${proof.gitCommit} does not match workflow source ${process.env.GITHUB_SHA}`)
+          }
+          if (!proof.verifiedFiles || proof.verifiedFiles < 1) {
+            throw new Error('No dist files were verified.')
+          }
+          console.log(`Verified FERSYS ${proof.versionName} / code ${proof.versionCode}`)
+          console.log(`Source commit: ${proof.gitCommit}`)
+          console.log(`Byte-verified files: ${proof.verifiedFiles}`)
+          NODE
+
+      - name: Release gate summary
+        run: |
+          echo 'FERSYS Android 1.0.7 / code 9 uses the exact current main source.'
+          echo 'The Android web assets were checked byte-for-byte against the fresh Vite dist build.'
