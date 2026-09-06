@@ -13,7 +13,8 @@
     "android:add": "npx cap add android",
     "android:open": "npx cap open android",
     "android:run": "npm run build && npx cap sync android && npx cap run android",
-    "android:bundle": "npm run build && npx cap sync android && cd android && gradlew.bat bundleRelease",
+    "android:prepare-release": "node scripts/prepare-android-release.mjs",
+    "android:bundle": "node scripts/prepare-android-release.mjs && cd android && gradlew.bat bundleRelease",
     "android:clean": "cd android && gradlew.bat clean"
   },
   "dependencies": {
