@@ -96,8 +96,8 @@ try {
   console.log('[2/6] Building current React/Vite production source...')
   run('npm', ['run', 'build'])
 
-  console.log('[3/6] Running FERSYS production QA...')
-  run('node', ['scripts/fersys-release-check.mjs'])
+  console.log('[3/6] Running Android-specific production QA...')
+  run('node', ['scripts/android-release-check.mjs'])
 
   console.log('[4/6] Copying the exact dist bundle into Android...')
   run('npx', ['cap', 'sync', 'android'])
