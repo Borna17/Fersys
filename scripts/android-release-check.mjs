@@ -98,7 +98,7 @@ if (exists('dist')) {
 }
 
 const featureChecks = [
-  ['src/layouts/AppLayout.tsx', 'Centar obavijesti'],
+  ['src/layouts/AppLayout.tsx', 'MobileNotificationBell'],
   ['src/pages/NewWorkOrderPage.tsx', 'fersys_emergency_new_work_order_v1'],
   ['src/utils/workOrderPdf.ts', 'Automatski raspored PDF-a nije uspio smjestiti sav sadržaj bez rezanja.'],
 ]
