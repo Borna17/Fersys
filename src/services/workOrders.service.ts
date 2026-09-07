@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
 import { getWorkOrderImagesForDisplay } from './workOrderImages.service'
 import { captureCurrentWeatherSnapshot } from './weather.service'
@@ -851,6 +852,7 @@ export async function updateWorkOrder(
 export async function deleteWorkOrder(
   workOrderId: string,
 ): Promise<void> {
+  await assertDeletePermission('workOrders.delete')
   const { error } = await supabase
     .from('work_orders')
     .delete()

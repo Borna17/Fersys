@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
 import type {
   Customer,
@@ -367,6 +368,7 @@ export async function updateCustomer(
 export async function deleteCustomer(
   customerId: string,
 ): Promise<void> {
+  await assertDeletePermission('customers.delete')
   const companyId =
     await getCurrentCompanyId()
 

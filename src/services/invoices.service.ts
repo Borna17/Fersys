@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 import {
   getCompanyComplianceSettings,
   isCroatianFiscalizationEnabled,
@@ -238,6 +239,7 @@ export async function updateInvoice<T extends InvoiceCloudShape>(invoice: T): Pr
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  await assertDeletePermission('invoices.delete')
   const companyId = await getCurrentCompanyId()
 
   const { error } = await supabase

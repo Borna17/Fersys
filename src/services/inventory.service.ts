@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 
 export type InventoryUnit =
   | 'kom'
@@ -1062,6 +1063,7 @@ export async function updateInventoryItem(
 export async function deleteInventoryItem(
   itemId: string,
 ): Promise<void> {
+  await assertDeletePermission('inventory.delete')
   const {
     error,
   } = await supabase

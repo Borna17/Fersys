@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 
 export type IncomingInvoiceDocument = {
   id: string
@@ -111,6 +112,7 @@ export async function upsertIncomingInvoice(invoice: IncomingInvoiceRecord) {
 }
 
 export async function deleteIncomingInvoice(invoiceId: string) {
+  await assertDeletePermission('incomingInvoices.delete')
   const companyId = await getCurrentCompanyId()
   const { error } = await supabase
     .from('incoming_invoices')

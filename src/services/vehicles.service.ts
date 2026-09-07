@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 
 import type {
   Vehicle,
@@ -549,6 +550,7 @@ export async function updateVehicle(
 export async function deleteVehicle(
   id: string,
 ) {
+  await assertDeletePermission('vehicles.delete')
   const companyId =
     await getCompanyId()
 

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
 
 import type {
@@ -971,6 +972,7 @@ export async function duplicateOffer(
 export async function deleteOffer(
   offerId: string,
 ): Promise<void> {
+  await assertDeletePermission('offers.delete')
   const { error } = await supabase
     .from('offers')
     .delete()
@@ -984,6 +986,7 @@ export async function deleteOffer(
 export async function deleteMultipleOffers(
   offerIds: string[],
 ): Promise<void> {
+  await assertDeletePermission('offers.delete')
   const uniqueIds = Array.from(
     new Set(offerIds),
   )

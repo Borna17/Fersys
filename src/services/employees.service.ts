@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { assertDeletePermission } from './permissionGuard.service'
 
 export type CompanyRole =
   | 'owner'
@@ -571,6 +572,7 @@ export async function cancelInvitation(
 export async function deleteInvitation(
   invitationId: string,
 ): Promise<void> {
+  await assertDeletePermission('employees.delete')
   const companyId =
     await getCurrentCompanyId()
 
