@@ -1,0 +1,42 @@
+name: Apply personal settings and delete permissions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-personal-settings-delete-permissions.yml'
+      - 'scripts/apply-personal-settings-delete-permissions.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply source changes
+        run: node scripts/apply-personal-settings-delete-permissions.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit applied source
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/auth/permissions.ts src/pages/EmployeesPage.tsx src/components/Sidebar.tsx
+          git commit -m "Add personal settings and granular delete permissions"
+          git push origin main
