@@ -1,0 +1,33 @@
+name: Fix shared calendar workflow marker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-shared-calendar-workflow.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix final submit marker
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('.github/workflows/add-shared-calendar-team-schedule.yml')
+          s = p.read_text()
+          old = "          rep(\"                  Spremi termin\", \"                  {editingEventId ? 'Spremi izmjene' : 'Spremi termin'}\", 'submit label')"
+          new = "          rep(\"                    : 'Spremi termin'}\", \"                    : (editingEventId ? 'Spremi izmjene' : 'Spremi termin')}\", 'submit label')"
+          if old not in s:
+              raise SystemExit('old submit marker not found')
+          p.write_text(s.replace(old, new, 1))
+          PY
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add .github/workflows/add-shared-calendar-team-schedule.yml
+          git commit -m "Fix shared calendar submit label marker [skip ci]"
+          git push
