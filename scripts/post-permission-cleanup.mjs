@@ -1,14 +1,8 @@
 import fs from 'node:fs'
 
-function stripLine(source, code) {
-  return source.replace(
-    new RegExp(`^[\\t ]*${code.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\r?$`, 'gm'),
-    '',
-  )
-}
-
-const removals = {
+const rules = {
   'src/pages/CalendarPage.tsx': [
+    "const canManageCalendar = can('calendar.manage')",
     "const canDeleteCalendar = can('calendar.delete')",
   ],
   'src/pages/CustomerProfilePage.tsx': [
@@ -19,24 +13,22 @@ const removals = {
     "const canManageIncomingInvoices = can('incomingInvoices.manage')",
   ],
   'src/pages/VehicleDetailsPage.tsx': [
+    "const { can } = useAuth()",
     "const canManageVehicles = can('vehicles.manage')",
     "const canDeleteVehicles = can('vehicles.delete')",
+    "import { useAuth } from '../auth/AuthProvider'",
   ],
 }
 
-for (const [path, lines] of Object.entries(removals)) {
+for (const [path, fragments] of Object.entries(rules)) {
   if (!fs.existsSync(path)) continue
-  let source = fs.readFileSync(path, 'utf8')
-  for (const line of lines) source = stripLine(source, line)
-
-  if (path === 'src/pages/VehicleDetailsPage.tsx') {
-    source = source.replace(/^\s*const \{ can \} = useAuth\(\)\r?\n/m, '')
-    if (!source.includes('useAuth(')) {
-      source = source.replace(/^import \{ useAuth \} from '\.\.\/auth\/AuthProvider'\r?\n/m, '')
-    }
-  }
-
-  fs.writeFileSync(path, source)
+  const source = fs.readFileSync(path, 'utf8')
+  const newline = source.includes('\r\n') ? '\r\n' : '\n'
+  const output = source
+    .split(/\r?\n/)
+    .filter((line) => !fragments.some((fragment) => line.includes(fragment)))
+    .join(newline)
+  fs.writeFileSync(path, output)
 }
 
 console.log('Permission cleanup post-processing complete.')
