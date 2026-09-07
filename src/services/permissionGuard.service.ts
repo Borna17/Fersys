@@ -13,8 +13,9 @@ type AccessRow = {
   permissions: unknown
 }
 
-export async function assertDeletePermission(
+export async function assertPermission(
   permission: PermissionKey,
+  message = 'Nemaš dopuštenje za ovu radnju. Vlasnik tvrtke može uključiti ovu ovlast u postavkama zaposlenika.',
 ): Promise<void> {
   const { data, error } = await supabase.rpc('get_current_user_access')
   if (error) throw error
@@ -30,6 +31,15 @@ export async function assertDeletePermission(
   )
 
   if (!resolved[permission]) {
-    throw new Error('Nemaš dopuštenje za brisanje ovog zapisa. Vlasnik tvrtke može uključiti ovu ovlast u postavkama zaposlenika.')
+    throw new Error(message)
   }
+}
+
+export async function assertDeletePermission(
+  permission: PermissionKey,
+): Promise<void> {
+  return assertPermission(
+    permission,
+    'Nemaš dopuštenje za brisanje ovog zapisa. Vlasnik tvrtke može uključiti ovu ovlast u postavkama zaposlenika.',
+  )
 }
