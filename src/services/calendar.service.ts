@@ -24,7 +24,9 @@ export type CalendarEvent = {
   startTime: string
   endTime: string
   location: string
+  contactPhone: string
   workers: string
+  assignedUserIds: string[]
   description: string
   status: CalendarStatus
   source: CalendarSource
@@ -41,7 +43,9 @@ export type CreateCalendarEventInput = {
   startTime: string
   endTime: string
   location?: string
+  contactPhone?: string
   workers?: string
+  assignedUserIds?: string[]
   description?: string
   status?: CalendarStatus
   source?: CalendarSource
@@ -59,7 +63,9 @@ type CalendarEventRow = {
   start_time: string
   end_time: string
   location: string | null
+  contact_phone: string | null
   workers: string | null
+  assigned_user_ids: string[] | null
   description: string | null
   status: CalendarStatus
   source: CalendarSource
@@ -68,9 +74,7 @@ type CalendarEventRow = {
   updated_at: string
 }
 
-function mapCalendarEvent(
-  row: CalendarEventRow,
-): CalendarEvent {
+function mapCalendarEvent(row: CalendarEventRow): CalendarEvent {
   return {
     id: row.id,
     companyId: row.company_id,
@@ -82,150 +86,78 @@ function mapCalendarEvent(
     startTime: row.start_time.slice(0, 5),
     endTime: row.end_time.slice(0, 5),
     location: row.location ?? '',
+    contactPhone: row.contact_phone ?? '',
     workers: row.workers ?? '',
+    assignedUserIds: row.assigned_user_ids ?? [],
     description: row.description ?? '',
     status: row.status,
     source: row.source,
-    googleEventId:
-      row.google_event_id ?? '',
+    googleEventId: row.google_event_id ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
 async function getCurrentCompanyId() {
-  const { data, error } = await supabase.rpc(
-    'current_company_id',
-  )
-
-  if (error) {
-    throw error
-  }
-
-  if (!data) {
-    throw new Error(
-      'Prijavljeni korisnik nije povezan s tvrtkom.',
-    )
-  }
-
+  const { data, error } = await supabase.rpc('current_company_id')
+  if (error) throw error
+  if (!data) throw new Error('Prijavljeni korisnik nije povezan s tvrtkom.')
   return String(data)
 }
 
-export async function getCalendarEvents(
-  dateFrom?: string,
-  dateTo?: string,
-): Promise<CalendarEvent[]> {
+export async function getCalendarEvents(dateFrom?: string, dateTo?: string): Promise<CalendarEvent[]> {
   let query = supabase
     .from('calendar_events')
     .select('*')
-    .order('event_date', {
-      ascending: true,
-    })
-    .order('start_time', {
-      ascending: true,
-    })
+    .order('event_date', { ascending: true })
+    .order('start_time', { ascending: true })
 
-  if (dateFrom) {
-    query = query.gte(
-      'event_date',
-      dateFrom,
-    )
-  }
-
-  if (dateTo) {
-    query = query.lte(
-      'event_date',
-      dateTo,
-    )
-  }
+  if (dateFrom) query = query.gte('event_date', dateFrom)
+  if (dateTo) query = query.lte('event_date', dateTo)
 
   const { data, error } = await query
-
-  if (error) {
-    throw error
-  }
-
-  return (
-    (data ?? []) as CalendarEventRow[]
-  ).map(mapCalendarEvent)
+  if (error) throw error
+  return ((data ?? []) as CalendarEventRow[]).map(mapCalendarEvent)
 }
 
-export async function createCalendarEvent(
-  input: CreateCalendarEventInput,
-): Promise<CalendarEvent> {
+export async function createCalendarEvent(input: CreateCalendarEventInput): Promise<CalendarEvent> {
   await assertPermission('calendar.manage')
-  if (!input.title.trim()) {
-    throw new Error(
-      'Naziv termina je obavezan.',
-    )
+  if (!input.title.trim()) throw new Error('Naziv termina je obavezan.')
+  if (!input.date) throw new Error('Datum termina je obavezan.')
+  if (!input.startTime || !input.endTime || input.endTime <= input.startTime) {
+    throw new Error('Vrijeme završetka mora biti nakon početka.')
   }
 
-  if (!input.date) {
-    throw new Error(
-      'Datum termina je obavezan.',
-    )
-  }
-
-  if (
-    !input.startTime ||
-    !input.endTime ||
-    input.endTime <= input.startTime
-  ) {
-    throw new Error(
-      'Vrijeme završetka mora biti nakon početka.',
-    )
-  }
-
-  const companyId =
-    await getCurrentCompanyId()
-
-  const {
-    data: {
-      user,
-    },
-    error: userError,
-  } = await supabase.auth.getUser()
-
-  if (userError) {
-    throw userError
-  }
+  const companyId = await getCurrentCompanyId()
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError) throw userError
 
   const { data, error } = await supabase
     .from('calendar_events')
     .insert({
       company_id: companyId,
       created_by: user?.id ?? null,
-      customer_id:
-        input.customerId || null,
+      customer_id: input.customerId || null,
       title: input.title.trim(),
-      customer_name:
-        input.customer?.trim() || null,
+      customer_name: input.customer?.trim() || null,
       event_date: input.date,
       start_time: input.startTime,
       end_time: input.endTime,
-      location:
-        input.location?.trim() || null,
-      workers:
-        input.workers?.trim() || null,
-      description:
-        input.description?.trim() || null,
-      status:
-        input.status ?? 'Zakazano',
-      source:
-        input.source ?? 'manual',
-      google_event_id:
-        input.googleEventId || null,
+      location: input.location?.trim() || null,
+      contact_phone: input.contactPhone?.trim() || null,
+      workers: input.workers?.trim() || null,
+      assigned_user_ids: input.assignedUserIds ?? [],
+      description: input.description?.trim() || null,
+      status: input.status ?? 'Zakazano',
+      source: input.source ?? 'manual',
+      google_event_id: input.googleEventId || null,
     })
     .select('*')
     .single()
 
-  if (error) {
-    throw error
-  }
-
-  return mapCalendarEvent(
-    data as CalendarEventRow,
-  )
+  if (error) throw error
+  window.dispatchEvent(new Event('fersys:notifications-refresh'))
+  return mapCalendarEvent(data as CalendarEventRow)
 }
 
 export async function updateCalendarEvent(
@@ -233,71 +165,22 @@ export async function updateCalendarEvent(
   updates: Partial<CreateCalendarEventInput>,
 ): Promise<CalendarEvent> {
   await assertPermission('calendar.manage')
-  const payload: Record<string, unknown> =
-    {}
+  const payload: Record<string, unknown> = {}
 
-  if (updates.customerId !== undefined) {
-    payload.customer_id =
-      updates.customerId || null
-  }
-
-  if (updates.title !== undefined) {
-    payload.title = updates.title.trim()
-  }
-
-  if (updates.customer !== undefined) {
-    payload.customer_name =
-      updates.customer.trim() || null
-  }
-
-  if (updates.date !== undefined) {
-    payload.event_date = updates.date
-  }
-
-  if (
-    updates.startTime !== undefined
-  ) {
-    payload.start_time =
-      updates.startTime
-  }
-
-  if (
-    updates.endTime !== undefined
-  ) {
-    payload.end_time = updates.endTime
-  }
-
-  if (updates.location !== undefined) {
-    payload.location =
-      updates.location.trim() || null
-  }
-
-  if (updates.workers !== undefined) {
-    payload.workers =
-      updates.workers.trim() || null
-  }
-
-  if (
-    updates.description !== undefined
-  ) {
-    payload.description =
-      updates.description.trim() || null
-  }
-
-  if (updates.status !== undefined) {
-    payload.status = updates.status
-  }
-
-  if (updates.source !== undefined) {
-    payload.source = updates.source
-  }
-
-  if (
-    updates.googleEventId !== undefined
-  ) {
-    payload.google_event_id =
-      updates.googleEventId || null
-  }
+  if (updates.customerId !== undefined) payload.customer_id = updates.customerId || null
+  if (updates.title !== undefined) payload.title = updates.title.trim()
+  if (updates.customer !== undefined) payload.customer_name = updates.customer.trim() || null
+  if (updates.date !== undefined) payload.event_date = updates.date
+  if (updates.startTime !== undefined) payload.start_time = updates.startTime
+  if (updates.endTime !== undefined) payload.end_time = updates.endTime
+  if (updates.location !== undefined) payload.location = updates.location.trim() || null
+  if (updates.contactPhone !== undefined) payload.contact_phone = updates.contactPhone.trim() || null
+  if (updates.workers !== undefined) payload.workers = updates.workers.trim() || null
+  if (updates.assignedUserIds !== undefined) payload.assigned_user_ids = updates.assignedUserIds
+  if (updates.description !== undefined) payload.description = updates.description.trim() || null
+  if (updates.status !== undefined) payload.status = updates.status
+  if (updates.source !== undefined) payload.source = updates.source
+  if (updates.googleEventId !== undefined) payload.google_event_id = updates.googleEventId || null
 
   const { data, error } = await supabase
     .from('calendar_events')
@@ -306,27 +189,15 @@ export async function updateCalendarEvent(
     .select('*')
     .single()
 
-  if (error) {
-    throw error
-  }
-
-  return mapCalendarEvent(
-    data as CalendarEventRow,
-  )
+  if (error) throw error
+  window.dispatchEvent(new Event('fersys:notifications-refresh'))
+  return mapCalendarEvent(data as CalendarEventRow)
 }
 
-export async function deleteCalendarEvent(
-  eventId: string,
-): Promise<void> {
+export async function deleteCalendarEvent(eventId: string): Promise<void> {
   await assertDeletePermission('calendar.delete')
-  const { error } = await supabase
-    .from('calendar_events')
-    .delete()
-    .eq('id', eventId)
-
-  if (error) {
-    throw error
-  }
+  const { error } = await supabase.from('calendar_events').delete().eq('id', eventId)
+  if (error) throw error
 }
 
 export async function hasCalendarConflict(
@@ -344,58 +215,24 @@ export async function hasCalendarConflict(
     .gt('end_time', startTime)
     .limit(1)
 
-  if (excludeEventId) {
-    query = query.neq(
-      'id',
-      excludeEventId,
-    )
-  }
-
-  const { data, error } =
-    await query.maybeSingle()
-
-  if (error) {
-    throw error
-  }
-
-  return data
-    ? mapCalendarEvent(
-        data as CalendarEventRow,
-      )
-    : null
+  if (excludeEventId) query = query.neq('id', excludeEventId)
+  const { data, error } = await query.maybeSingle()
+  if (error) throw error
+  return data ? mapCalendarEvent(data as CalendarEventRow) : null
 }
 
 export async function saveGoogleImportedEvent(
-  input: CreateCalendarEventInput & {
-    googleEventId: string
-  },
+  input: CreateCalendarEventInput & { googleEventId: string },
 ): Promise<CalendarEvent> {
-  const { data: existing, error } =
-    await supabase
-      .from('calendar_events')
-      .select('*')
-      .eq(
-        'google_event_id',
-        input.googleEventId,
-      )
-      .maybeSingle()
+  const { data: existing, error } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .eq('google_event_id', input.googleEventId)
+    .maybeSingle()
 
-  if (error) {
-    throw error
-  }
-
+  if (error) throw error
   if (existing) {
-    return updateCalendarEvent(
-      String(existing.id),
-      {
-        ...input,
-        source: 'google',
-      },
-    )
+    return updateCalendarEvent(String(existing.id), { ...input, source: 'google' })
   }
-
-  return createCalendarEvent({
-    ...input,
-    source: 'google',
-  })
+  return createCalendarEvent({ ...input, source: 'google' })
 }
