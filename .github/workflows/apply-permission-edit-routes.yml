@@ -1,0 +1,42 @@
+name: Apply permission edit routes
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-permission-edit-routes.yml'
+      - 'scripts/fix-permission-edit-routes.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fix invoice edit routes
+        run: node scripts/fix-permission-edit-routes.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit route fix
+        run: |
+          if git diff --quiet -- src/router/AppRouter.tsx; then
+            echo "No route changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/router/AppRouter.tsx
+          git commit -m "Require manage permission for invoice editing"
+          git push origin main
