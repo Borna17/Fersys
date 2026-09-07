@@ -1,0 +1,26 @@
+name: Verify final FERSYS AI build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/services/businessReminders.service.ts'
+      - 'src/services/aiBusinessIntelligence.service.ts'
+      - 'src/services/weather.service.ts'
+      - '.github/workflows/verify-ai-final.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
