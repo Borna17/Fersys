@@ -7,6 +7,7 @@ on:
       - '.github/workflows/apply-permission-cleanup.yml'
       - 'scripts/apply-permission-cleanup.mjs'
       - 'scripts/fix-permission-cleanup-runner.mjs'
+      - 'scripts/post-permission-cleanup.mjs'
   workflow_dispatch:
 
 permissions:
@@ -26,6 +27,9 @@ jobs:
 
       - name: Apply permission cleanup
         run: node scripts/apply-permission-cleanup.mjs
+
+      - name: Post-process generated source
+        run: node scripts/post-permission-cleanup.mjs
 
       - name: Install dependencies
         run: npm ci
