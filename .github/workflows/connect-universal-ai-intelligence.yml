@@ -1,0 +1,55 @@
+name: Connect universal FERSYS AI intelligence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/connect-universal-ai-intelligence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Connect intelligence layer and build
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/services/aiAssistant.service.ts'
+          let s = fs.readFileSync(path, 'utf8')
+          if (!s.includes("from './aiBusinessIntelligence.service'")) {
+            s = s.replace(
+              "import { supabase } from '../lib/supabase'\n",
+              "import { supabase } from '../lib/supabase'\nimport { tryBusinessIntelligenceQuestion } from './aiBusinessIntelligence.service'\n",
+            )
+          }
+          const marker = "  const pureNavigation = /^(otvori|pronađi|pronadi|nađi|nadi|pokaži|pokazi|pregledaj)\\b/i.test(cleanMessage)"
+          if (!s.includes('const intelligence = await tryBusinessIntelligenceQuestion')) {
+            if (!s.includes(marker)) throw new Error('AI navigation marker missing')
+            s = s.replace(
+              marker,
+              "  try {\n    const intelligence = await tryBusinessIntelligenceQuestion(cleanMessage)\n    if (intelligence) return intelligence\n  } catch (error) {\n    console.error('FERSYS AI business intelligence:', error)\n  }\n\n" + marker,
+            )
+          }
+          fs.writeFileSync(path, s)
+          NODE
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiAssistant.service.ts
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Connect universal AI business intelligence [skip ci]"
+          git push
