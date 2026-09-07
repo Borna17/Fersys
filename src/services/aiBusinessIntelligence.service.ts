@@ -6,7 +6,7 @@ import { getWorkOrders } from './workOrders.service'
 import { getOffers } from './offers.service'
 import { getInvoices } from './invoices.service'
 import { getVehicles, getVehicleExpenses, getVehicleServices } from './vehicles.service'
-import { getTodayWeatherForCurrentLocation } from './weather.service'
+import { getTodayHourlyWeatherForCurrentLocation } from './weather.service'
 
 export type BusinessIntelligenceAnswer = {
   message: string
@@ -104,18 +104,22 @@ export async function tryBusinessIntelligenceQuestion(
   const n = normalize(rawMessage)
 
   if (/\b(vrijeme|vremenska|prognoza|kisa|snijeg|temperatura)\b/.test(n)) {
-    const weather = await getTodayWeatherForCurrentLocation()
-    const details = [
-      `Trenutačno: ${weather.temperatureC.toFixed(1)} °C, ${weather.condition.toLocaleLowerCase('hr-HR')}.`,
-      weather.minC !== null && weather.maxC !== null
-        ? `Danas: ${weather.minC.toFixed(1)}–${weather.maxC.toFixed(1)} °C.`
-        : '',
-      weather.precipitationProbabilityPct !== null
-        ? `Najveća vjerojatnost oborina danas: ${weather.precipitationProbabilityPct}%.`
-        : '',
-      weather.windKmh !== null ? `Vjetar: oko ${weather.windKmh.toFixed(0)} km/h.` : '',
-    ].filter(Boolean)
-    return answer(details.join('\n'))
+    const weather = await getTodayHourlyWeatherForCurrentLocation()
+    const timeline = weather.hours.filter((_, index) => index % 2 === 0).slice(0, 8).map((point) => {
+      const clock = point.time.slice(11, 16)
+      const rain = point.precipitationProbabilityPct >= 20 ? ' · oborine ' + point.precipitationProbabilityPct + '%' : ''
+      return '• ' + clock + ': ' + point.temperatureC.toFixed(0) + ' °C · ' + point.condition + rain + ' · vjetar ' + point.windKmh.toFixed(0) + ' km/h'
+    })
+    const rainSummary = weather.rainWindows.length
+      ? 'Moguće oborine: ' + weather.rainWindows.map((window) => window.from.slice(11,16) + '–' + window.to.slice(11,16) + ' (do ' + window.maxProbabilityPct + '%)').join(', ') + '.'
+      : 'Prema satnoj prognozi nema izraženog razdoblja oborina do kraja dana.'
+    return answer([
+      'Trenutačno: ' + weather.temperatureC.toFixed(1) + ' °C, ' + weather.condition.toLocaleLowerCase('hr-HR') + '.',
+      weather.minC !== null && weather.maxC !== null ? 'Danas: ' + weather.minC.toFixed(1) + '–' + weather.maxC.toFixed(1) + ' °C.' : '',
+      rainSummary,
+      timeline.length ? 'Prognoza kroz ostatak dana:' : '',
+      ...timeline,
+    ].filter(Boolean).join('\n'))
   }
 
   if (/(prikazi|pokazi|izlistaj|navedi|svi|sve).*(investitor|kupac|klijent)/.test(n)) {
