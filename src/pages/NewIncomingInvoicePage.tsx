@@ -38,6 +38,7 @@ import {
   downloadDocument,
   saveDocument,
 } from '../utils/documentStorage'
+import { addVehicleExpense } from '../services/vehicles.service'
 import { scopedStorageKey } from '../utils/scopedLocalStorage'
 
 type Status =
@@ -235,6 +236,12 @@ export function NewIncomingInvoicePage() {
   const [aiConfidence, setAiConfidence] = useState<
     number | null
   >(null)
+  const [aiVehicleMatch, setAiVehicleMatch] = useState<{
+    vehicleId: string
+    registration: string
+    category: 'Gorivo' | 'Servis' | 'Registracija' | 'Osiguranje' | 'Gume' | 'Cestarina' | 'Ostalo'
+    confidence: number
+  } | null>(null)
 
   useEffect(() => {
     if (!incomingInvoiceId) return
@@ -360,6 +367,25 @@ export function NewIncomingInvoicePage() {
       setNote((current) =>
         current.trim() ? current : result.note,
       )
+    }
+
+    const vehicleConfidence = Number(result.vehicleMatchConfidence ?? 0)
+    if (result.vehicleId && result.vehicleRegistration && result.vehicleExpenseCategory && vehicleConfidence >= 0.9) {
+      setAiVehicleMatch({
+        vehicleId: result.vehicleId,
+        registration: result.vehicleRegistration,
+        category: result.vehicleExpenseCategory,
+        confidence: vehicleConfidence,
+      })
+      if (result.vehicleExpenseCategory === 'Gorivo') setCategory('Gorivo')
+      if (['Servis', 'Gume', 'Registracija', 'Osiguranje'].includes(result.vehicleExpenseCategory)) setCategory('Servis i održavanje')
+      setNote((current) => {
+        const vehicleNote = 'Vozilo: ' + result.vehicleRegistration
+        if (current.includes(vehicleNote)) return current
+        return [current.trim(), vehicleNote].filter(Boolean).join(' · ')
+      })
+    } else {
+      setAiVehicleMatch(null)
     }
 
     setAiWarnings(result.warnings ?? [])
@@ -497,6 +523,22 @@ export function NewIncomingInvoicePage() {
 
     try {
       await upsertIncomingInvoice(saved as IncomingInvoiceRecord)
+
+      // AI vehicle expense auto-link: only on a newly created invoice and only
+      // after an exact registered-vehicle match with >= 90% confidence.
+      if (!editing && aiVehicleMatch && aiVehicleMatch.confidence >= 0.9 && saved.totalAmount > 0) {
+        try {
+          await addVehicleExpense(aiVehicleMatch.vehicleId, {
+            expenseDate: saved.invoiceDate || today,
+            category: aiVehicleMatch.category,
+            description: [saved.supplierName, saved.invoiceNumber ? 'račun ' + saved.invoiceNumber : '', aiVehicleMatch.registration].filter(Boolean).join(' · '),
+            amount: saved.totalAmount,
+            mileage: null,
+          })
+        } catch (vehicleError) {
+          console.error('AI nije mogao automatski povezati trošak s vozilom:', vehicleError)
+        }
+      }
     } catch (error) {
       console.error('Ulazni račun se nije mogao spremiti u bazu:', error)
       window.alert('Račun se nije mogao spremiti u bazu. Pokušaj ponovno.')
