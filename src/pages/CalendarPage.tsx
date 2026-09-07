@@ -14,6 +14,8 @@ import {
   Link2,
   LoaderCircle,
   MapPin,
+  Pencil,
+  Phone,
   Plus,
   RefreshCw,
   Trash2,
@@ -34,6 +36,7 @@ import {
   type CalendarEvent,
   type CalendarStatus,
 } from '../services/calendar.service'
+import { getEmployees, type CompanyEmployee } from '../services/employees.service'
 
 type EventForm = {
   title: string
@@ -42,7 +45,9 @@ type EventForm = {
   startTime: string
   endTime: string
   location: string
+  contactPhone: string
   workers: string
+  assignedUserIds: string[]
   description: string
   status: CalendarStatus
 }
@@ -150,7 +155,9 @@ function emptyForm(
     startTime: '08:00',
     endTime: '09:00',
     location: '',
+    contactPhone: '',
     workers: '',
+    assignedUserIds: [],
     description: '',
     status: 'Zakazano',
   }
@@ -320,6 +327,8 @@ export function CalendarPage() {
     useState<EventForm>(
       emptyForm(),
     )
+  const [editingEventId, setEditingEventId] = useState('')
+  const [employees, setEmployees] = useState<CompanyEmployee[]>([])
 
   const [
     googleAccessToken,
@@ -374,6 +383,12 @@ export function CalendarPage() {
   useEffect(() => {
     void loadEvents()
   }, [currentMonth])
+
+  useEffect(() => {
+    void getEmployees()
+      .then((items) => setEmployees(items.filter((item) => item.status === 'active')))
+      .catch((loadError) => console.warn('Calendar employees:', loadError))
+  }, [])
 
   useEffect(() => {
     document.body.style.overflow =
@@ -538,10 +553,32 @@ export function CalendarPage() {
   function openNew(
     date = selectedDate,
   ) {
+    setEditingEventId('')
     setForm(
       emptyForm(date),
     )
     setSelectedDate(date)
+    setMessage('')
+    setError('')
+    setIsModalOpen(true)
+  }
+
+  function openEdit(calendarEvent: CalendarEvent) {
+    setEditingEventId(calendarEvent.id)
+    setForm({
+      title: calendarEvent.title,
+      customer: calendarEvent.customer,
+      date: calendarEvent.date,
+      startTime: calendarEvent.startTime,
+      endTime: calendarEvent.endTime,
+      location: calendarEvent.location,
+      contactPhone: calendarEvent.contactPhone,
+      workers: calendarEvent.workers,
+      assignedUserIds: calendarEvent.assignedUserIds,
+      description: calendarEvent.description,
+      status: calendarEvent.status,
+    })
+    setSelectedDate(calendarEvent.date)
     setMessage('')
     setError('')
     setIsModalOpen(true)
@@ -579,6 +616,7 @@ export function CalendarPage() {
           form.date,
           form.startTime,
           form.endTime,
+          editingEventId || undefined,
         )
 
       if (conflict) {
@@ -588,46 +626,40 @@ export function CalendarPage() {
         return
       }
 
-      const saved =
-        await createCalendarEvent(
-          {
-            title:
-              form.title,
-            customer:
-              form.customer,
-            date: form.date,
-            startTime:
-              form.startTime,
-            endTime:
-              form.endTime,
-            location:
-              form.location,
-            workers:
-              form.workers,
-            description:
-              form.description,
-            status:
-              form.status,
-            source: 'manual',
-          },
-        )
+      const payload = {
+        title: form.title,
+        customer: form.customer,
+        date: form.date,
+        startTime: form.startTime,
+        endTime: form.endTime,
+        location: form.location,
+        contactPhone: form.contactPhone,
+        workers: form.workers,
+        assignedUserIds: form.assignedUserIds,
+        description: form.description,
+        status: form.status,
+        source: 'manual' as const,
+      }
 
-      setEvents((current) =>
-        [...current, saved].sort(
-          (a, b) =>
-            `${a.date} ${a.startTime}`.localeCompare(
-              `${b.date} ${b.startTime}`,
-            ),
-        ),
-      )
+      const saved = editingEventId
+        ? await updateCalendarEvent(editingEventId, payload)
+        : await createCalendarEvent(payload)
+
+      setEvents((current) => {
+        const next = editingEventId
+          ? current.map((item) => item.id === saved.id ? saved : item)
+          : [...current, saved]
+        return next.sort((a, b) =>
+          `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`),
+        )
+      })
 
       setSelectedDate(
         form.date,
       )
       setIsModalOpen(false)
-      setMessage(
-        'Termin je spremljen.',
-      )
+      setEditingEventId('')
+      setMessage(editingEventId ? 'Termin je izmijenjen. Svi s pristupom kalendaru dobit će obavijest.' : 'Termin je spremljen. Svi s pristupom kalendaru dobit će obavijest.')
     } catch (saveError) {
       setError(
         saveError instanceof Error
@@ -888,7 +920,9 @@ export function CalendarPage() {
                     location:
                       event.location ??
                       '',
+                    contactPhone: '',
                     workers: '',
+                    assignedUserIds: [],
                     description:
                       event.description ??
                       '',
@@ -969,6 +1003,9 @@ export function CalendarPage() {
                 description: [
                   calendarEvent.customer
                     ? `Investitor: ${calendarEvent.customer}`
+                    : '',
+                  calendarEvent.contactPhone
+                    ? `Telefon: ${calendarEvent.contactPhone}`
                     : '',
                   calendarEvent.workers
                     ? `Radnici: ${calendarEvent.workers}`
@@ -1459,15 +1496,15 @@ export function CalendarPage() {
                           />
                         )}
                         {calendarEvent.location && (
+                          <InfoLine icon={<MapPin size={14} />} text={calendarEvent.location} />
+                        )}
+                        {calendarEvent.contactPhone && (
+                          <InfoLine icon={<Phone size={14} />} text={calendarEvent.contactPhone} />
+                        )}
+                        {calendarEvent.assignedUserIds.length > 0 && (
                           <InfoLine
-                            icon={
-                              <MapPin
-                                size={14}
-                              />
-                            }
-                            text={
-                              calendarEvent.location
-                            }
+                            icon={<Users size={14} />}
+                            text={`Na teren: ${calendarEvent.assignedUserIds.map((userId) => employees.find((employee) => employee.userId === userId)?.fullName).filter(Boolean).join(', ') || 'Dodijeljeni članovi tima'}`}
                           />
                         )}
                         {calendarEvent.workers && (
@@ -1500,7 +1537,7 @@ export function CalendarPage() {
                         </p>
                       )}
 
-                      <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                      <div className="mt-4 grid grid-cols-[1fr_auto_auto] gap-2">
                         <button
                           type="button"
                           disabled={
@@ -1522,6 +1559,16 @@ export function CalendarPage() {
                           {calendarEvent.googleEventId
                             ? 'Na Googleu'
                             : 'Pošalji na Google'}
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isSaving}
+                          onClick={() => openEdit(calendarEvent)}
+                          className="grid h-10 w-10 place-items-center rounded-xl bg-violet-500/10 text-violet-300 disabled:opacity-50"
+                          aria-label="Uredi termin"
+                        >
+                          <Pencil size={15} />
                         </button>
 
                         <button
@@ -1561,10 +1608,10 @@ export function CalendarPage() {
             <div className="flex shrink-0 items-center justify-between border-b border-slate-800 px-4 py-4 sm:px-6">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-violet-400">
-                  NOVI TERMIN
+                  {editingEventId ? 'UREDI TERMIN' : 'NOVI TERMIN'}
                 </p>
                 <h2 className="mt-1 text-xl font-black text-white">
-                  Dodaj u kalendar
+                  {editingEventId ? 'Izmijeni termin' : 'Dodaj u kalendar'}
                 </h2>
               </div>
 
@@ -1696,29 +1743,26 @@ export function CalendarPage() {
                     />
                   </Field>
 
-                  <Field label="Lokacija">
+                  <Field label="Lokacija / adresa">
                     <input
-                      value={
-                        form.location
-                      }
-                      onChange={(
-                        event,
-                      ) =>
-                        setForm(
-                          (current) => ({
-                            ...current,
-                            location:
-                              event.target
-                                .value,
-                          }),
-                        )
-                      }
-                      placeholder="Adresa ili mjesto"
+                      value={form.location}
+                      onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}
+                      placeholder="Ulica, kućni broj, mjesto"
                       className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-white outline-none focus:border-violet-500"
                     />
                   </Field>
 
-                  <Field label="Radnici">
+                  <Field label="Telefon kontakta">
+                    <input
+                      type="tel"
+                      value={form.contactPhone}
+                      onChange={(event) => setForm((current) => ({ ...current, contactPhone: event.target.value }))}
+                      placeholder="091 234 5678"
+                      className="h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-white outline-none focus:border-violet-500"
+                    />
+                  </Field>
+
+                  <Field label="Radnici / dodatna napomena">
                     <input
                       value={
                         form.workers
@@ -1740,6 +1784,35 @@ export function CalendarPage() {
                     />
                   </Field>
                 </div>
+
+                <Field label="Tko ide na teren">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {employees.length === 0 ? (
+                      <p className="text-xs text-slate-500">Nema aktivnih zaposlenika za odabir.</p>
+                    ) : employees.map((employee) => {
+                      const checked = form.assignedUserIds.includes(employee.userId)
+                      return (
+                        <label key={employee.userId} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-3 ${checked ? 'border-violet-500/50 bg-violet-500/10' : 'border-slate-700 bg-slate-800'}`}>
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => setForm((current) => ({
+                              ...current,
+                              assignedUserIds: checked
+                                ? current.assignedUserIds.filter((id) => id !== employee.userId)
+                                : [...current.assignedUserIds, employee.userId],
+                            }))}
+                            className="h-4 w-4 accent-violet-600"
+                          />
+                          <span className="min-w-0">
+                            <span className="block truncate text-sm font-bold text-white">{employee.fullName}</span>
+                            <span className="block text-[10px] uppercase text-slate-500">{employee.role}</span>
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                </Field>
 
                 <Field label="Status">
                   <select
@@ -1834,7 +1907,7 @@ export function CalendarPage() {
                   )}
                   {isSaving
                     ? 'Spremanje...'
-                    : 'Spremi termin'}
+                    : (editingEventId ? 'Spremi izmjene' : 'Spremi termin')}
                 </button>
               </div>
             </form>
