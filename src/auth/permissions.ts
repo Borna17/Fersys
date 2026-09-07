@@ -18,31 +18,41 @@ export type PermissionKey =
 
   | 'customers.view'
   | 'customers.manage'
+  | 'customers.delete'
 
   | 'workOrders.view'
   | 'workOrders.manage'
   | 'workOrders.viewPrices'
+  | 'workOrders.delete'
 
   | 'offers.view'
   | 'offers.manage'
   | 'offers.viewPrices'
+  | 'offers.delete'
 
   | 'invoices.view'
+  | 'invoices.delete'
   | 'incomingInvoices.view'
+  | 'incomingInvoices.delete'
 
   | 'finance.view'
 
   | 'inventory.view'
   | 'inventory.manage'
   | 'inventory.viewCosts'
+  | 'inventory.delete'
+  | 'deliveryNotes.delete'
 
   | 'vehicles.view'
   | 'vehicles.manage'
+  | 'vehicles.delete'
 
   | 'calendar.view'
+  | 'calendar.delete'
 
   | 'employees.view'
   | 'employees.manage'
+  | 'employees.delete'
 
   | 'ai.use'
 
@@ -70,31 +80,41 @@ export const allPermissions:
 
   'customers.view',
   'customers.manage',
+  'customers.delete',
 
   'workOrders.view',
   'workOrders.manage',
   'workOrders.viewPrices',
+  'workOrders.delete',
 
   'offers.view',
   'offers.manage',
   'offers.viewPrices',
+  'offers.delete',
 
   'invoices.view',
+  'invoices.delete',
   'incomingInvoices.view',
+  'incomingInvoices.delete',
 
   'finance.view',
 
   'inventory.view',
   'inventory.manage',
   'inventory.viewCosts',
+  'inventory.delete',
+  'deliveryNotes.delete',
 
   'vehicles.view',
   'vehicles.manage',
+  'vehicles.delete',
 
   'calendar.view',
+  'calendar.delete',
 
   'employees.view',
   'employees.manage',
+  'employees.delete',
 
   'ai.use',
 
@@ -150,7 +170,10 @@ Record<
    */
   admin:
     createPermissions(
-      allPermissions,
+      allPermissions.filter(
+        (permission) =>
+          !permission.endsWith('.delete'),
+      ),
     ),
 
   /*
@@ -365,6 +388,9 @@ Record<
   'customers.manage':
     'Dodavanje i uređivanje investitora',
 
+  'customers.delete':
+    'Brisanje investitora',
+
   'workOrders.view':
     'Pregled radnih naloga',
 
@@ -373,6 +399,9 @@ Record<
 
   'workOrders.viewPrices':
     'Pregled cijena radnih naloga',
+
+  'workOrders.delete':
+    'Brisanje radnih naloga',
 
   'offers.view':
     'Pregled ponuda',
@@ -383,11 +412,20 @@ Record<
   'offers.viewPrices':
     'Pregled cijena ponuda',
 
+  'offers.delete':
+    'Brisanje ponuda',
+
   'invoices.view':
     'Računi',
 
+  'invoices.delete':
+    'Brisanje izlaznih računa',
+
   'incomingInvoices.view':
     'Ulazni računi',
+
+  'incomingInvoices.delete':
+    'Brisanje ulaznih računa',
 
   'finance.view':
     'Financije',
@@ -401,20 +439,35 @@ Record<
   'inventory.viewCosts':
     'Pregled nabavnih cijena',
 
+  'inventory.delete':
+    'Brisanje artikala skladišta',
+
+  'deliveryNotes.delete':
+    'Brisanje otpremnica',
+
   'vehicles.view':
     'Pregled vozila',
 
   'vehicles.manage':
     'Dodavanje i uređivanje vozila',
 
+  'vehicles.delete':
+    'Brisanje vozila',
+
   'calendar.view':
     'Kalendar',
+
+  'calendar.delete':
+    'Brisanje događaja iz kalendara',
 
   'employees.view':
     'Pregled zaposlenika',
 
   'employees.manage':
     'Upravljanje zaposlenicima',
+
+  'employees.delete':
+    'Uklanjanje zaposlenika',
 
   'ai.use':
     'AI pomoćnik',

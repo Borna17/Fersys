@@ -685,12 +685,29 @@ function SidebarFooter({
         </NavLink>
       )}
 
+      <NavLink
+        to="/account"
+        title={!expanded ? 'Moje postavke' : undefined}
+        className={({ isActive }) =>
+          `mb-3 flex h-12 items-center rounded-xl transition ${
+            expanded ? 'gap-3 px-4' : 'justify-center'
+          } ${
+            isActive
+              ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
+              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+          }`
+        }
+      >
+        <Settings size={21} className="shrink-0" />
+        {expanded && <span className="text-sm font-semibold">Moje postavke</span>}
+      </NavLink>
+
       {showSettings && (
         <NavLink
           to="/settings"
           title={
             !expanded
-              ? 'Postavke'
+              ? 'Postavke firme'
               : undefined
           }
           className={({
@@ -714,7 +731,7 @@ function SidebarFooter({
 
           {expanded && (
             <span className="text-sm font-semibold">
-              Postavke
+              Postavke firme
             </span>
           )}
         </NavLink>

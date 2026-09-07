@@ -89,7 +89,9 @@ const permissionGroups: Array<{
       'dashboard.view',
       'customers.view',
       'customers.manage',
+      'customers.delete',
       'calendar.view',
+      'calendar.delete',
     ],
   },
   {
@@ -100,6 +102,7 @@ const permissionGroups: Array<{
       'workOrders.view',
       'workOrders.manage',
       'workOrders.viewPrices',
+      'workOrders.delete',
     ],
   },
   {
@@ -110,8 +113,11 @@ const permissionGroups: Array<{
       'offers.view',
       'offers.manage',
       'offers.viewPrices',
+      'offers.delete',
       'invoices.view',
+      'invoices.delete',
       'incomingInvoices.view',
+      'incomingInvoices.delete',
       'finance.view',
     ],
   },
@@ -123,6 +129,8 @@ const permissionGroups: Array<{
       'inventory.view',
       'inventory.manage',
       'inventory.viewCosts',
+      'inventory.delete',
+      'deliveryNotes.delete',
     ],
   },
   {
@@ -132,6 +140,7 @@ const permissionGroups: Array<{
     permissions: [
       'vehicles.view',
       'vehicles.manage',
+      'vehicles.delete',
     ],
   },
   {
@@ -141,6 +150,7 @@ const permissionGroups: Array<{
     permissions: [
       'employees.view',
       'employees.manage',
+      'employees.delete',
       'ai.use',
       'settings.manage',
     ],
