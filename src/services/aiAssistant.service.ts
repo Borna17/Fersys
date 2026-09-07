@@ -230,6 +230,8 @@ function compactContext(
       context.invoices,
     locale:
       context.locale,
+    operations:
+      context.operations,
   }
 }
 

@@ -1,6 +1,11 @@
 import { getCustomers } from './customers.service'
 import { getOffers } from './offers.service'
 import { getInvoices } from './invoices.service'
+import { listIncomingInvoices } from './incomingInvoices.service'
+import { getVehicles } from './vehicles.service'
+import { getInventoryItems, getInventoryMovements } from './inventory.service'
+import { getCalendarEvents } from './calendar.service'
+import { getEmployees } from './employees.service'
 import {
   getWorkOrders,
   type CloudWorkOrder,
@@ -67,6 +72,14 @@ export type AiRuntimeContext = {
     sourceOfferId: string
     sourceWorkOrderId: string
   }>
+  operations: {
+    employees: Array<Record<string, unknown>>
+    calendar: Array<Record<string, unknown>>
+    inventory: Array<Record<string, unknown>>
+    inventoryMovements: Array<Record<string, unknown>>
+    vehicles: Array<Record<string, unknown>>
+    incomingInvoices: Array<Record<string, unknown>>
+  }
 }
 
 export type LocalAiResolution =
@@ -221,11 +234,23 @@ Promise<AiRuntimeContext> {
     workOrders,
     offers,
     invoices,
+    employees,
+    calendarEvents,
+    inventoryItems,
+    inventoryMovements,
+    vehicles,
+    incomingInvoices,
   ] = await Promise.all([
     getCustomers(),
     getWorkOrders(),
     getOffers(),
     getInvoices<any>(),
+    getEmployees(),
+    getCalendarEvents(),
+    getInventoryItems(),
+    getInventoryMovements(),
+    getVehicles(),
+    listIncomingInvoices(),
   ])
 
   return {
@@ -329,6 +354,26 @@ Promise<AiRuntimeContext> {
       sourceOfferId: String(invoice.sourceOfferId ?? ''),
       sourceWorkOrderId: String(invoice.sourceWorkOrderId ?? ''),
     })),
+    operations: {
+      employees: employees.slice(0, 120).map((employee: any) => ({
+        id: String(employee.id ?? ''), fullName: String(employee.fullName ?? ''), role: String(employee.role ?? ''), status: String(employee.status ?? ''), phone: String(employee.phone ?? ''), email: String(employee.email ?? ''),
+      })),
+      calendar: calendarEvents.slice(0, 160).map((event: any) => ({
+        id: String(event.id ?? ''), title: String(event.title ?? ''), date: String(event.date ?? ''), startTime: String(event.startTime ?? ''), endTime: String(event.endTime ?? ''), status: String(event.status ?? ''), type: String(event.type ?? ''), customerName: String(event.customerName ?? ''), workOrderId: String(event.workOrderId ?? ''),
+      })),
+      inventory: inventoryItems.slice(0, 200).map((item: any) => ({
+        id: String(item.id ?? ''), name: String(item.name ?? ''), sku: String(item.sku ?? ''), unit: String(item.unit ?? ''), quantity: Number(item.quantity ?? 0), minimumQuantity: Number(item.minimumQuantity ?? 0), purchasePrice: Number(item.purchasePrice ?? 0), sellingPrice: Number(item.sellingPrice ?? 0),
+      })),
+      inventoryMovements: inventoryMovements.slice(0, 200).map((movement: any) => ({
+        id: String(movement.id ?? ''), itemId: String(movement.itemId ?? ''), type: String(movement.type ?? ''), quantity: Number(movement.quantity ?? 0), reference: String(movement.reference ?? ''), employeeName: String(movement.employeeName ?? ''), createdAt: String(movement.createdAt ?? ''),
+      })),
+      vehicles: vehicles.slice(0, 80).map((vehicle: any) => ({
+        id: String(vehicle.id ?? ''), registration: String(vehicle.registration ?? ''), make: String(vehicle.make ?? ''), model: String(vehicle.model ?? ''), mileage: Number(vehicle.mileage ?? 0), status: String(vehicle.status ?? ''), nextServiceDate: String(vehicle.nextServiceDate ?? ''), nextServiceMileage: Number(vehicle.nextServiceMileage ?? 0), registrationExpiresOn: String(vehicle.registrationExpiresOn ?? ''), insuranceExpiresOn: String(vehicle.insuranceExpiresOn ?? ''),
+      })),
+      incomingInvoices: incomingInvoices.slice(0, 120).map((invoice: any) => ({
+        id: String(invoice.id ?? ''), supplierName: String(invoice.supplierName ?? ''), supplierOib: String(invoice.supplierOib ?? ''), invoiceNumber: String(invoice.invoiceNumber ?? ''), invoiceDate: String(invoice.invoiceDate ?? ''), dueDate: String(invoice.dueDate ?? ''), category: String(invoice.category ?? ''), status: String(invoice.status ?? ''), totalAmount: Number(invoice.totalAmount ?? 0), note: String(invoice.note ?? ''),
+      })),
+    },
   }
 }
 
