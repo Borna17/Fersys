@@ -1,0 +1,78 @@
+name: Finalize FERSYS AI operations intelligence
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-fersys-ai-operations-intelligence.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Connect hourly weather and proactive business warnings
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          // AI weather: report the rest of today's forecast, not only current conditions.
+          const biPath = 'src/services/aiBusinessIntelligence.service.ts'
+          let bi = fs.readFileSync(biPath, 'utf8')
+          bi = bi.replace(
+            "import { getTodayWeatherForCurrentLocation } from './weather.service'",
+            "import { getTodayHourlyWeatherForCurrentLocation } from './weather.service'",
+          )
+          const oldWeather = `  if (/\\b(vrijeme|vremenska|prognoza|kisa|snijeg|temperatura)\\b/.test(n)) {\n    const weather = await getTodayWeatherForCurrentLocation()\n    const details = [\n      \`Trenutačno: \${weather.temperatureC.toFixed(1)} °C, \${weather.condition.toLocaleLowerCase('hr-HR')}.\`,\n      weather.minC !== null && weather.maxC !== null\n        ? \`Danas: \${weather.minC.toFixed(1)}–\${weather.maxC.toFixed(1)} °C.\`\n        : '',\n      weather.precipitationProbabilityPct !== null\n        ? \`Najveća vjerojatnost oborina danas: \${weather.precipitationProbabilityPct}%.\`\n        : '',\n      weather.windKmh !== null ? \`Vjetar: oko \${weather.windKmh.toFixed(0)} km/h.\` : '',\n    ].filter(Boolean)\n    return answer(details.join('\\n'))\n  }`
+          const newWeather = `  if (/\\b(vrijeme|vremenska|prognoza|kisa|snijeg|temperatura)\\b/.test(n)) {\n    const weather = await getTodayHourlyWeatherForCurrentLocation()\n    const timeline = weather.hours\n      .filter((_, index) => index % 2 === 0)\n      .slice(0, 8)\n      .map((point) => {\n        const clock = point.time.slice(11, 16)\n        const rain = point.precipitationProbabilityPct >= 20\n          ? \` · oborine \${point.precipitationProbabilityPct}%\`\n          : ''\n        return \`• \${clock}: \${point.temperatureC.toFixed(0)} °C · \${point.condition}\${rain} · vjetar \${point.windKmh.toFixed(0)} km/h\`\n      })\n    const rain = weather.rainWindows.length\n      ? 'Moguće oborine: ' + weather.rainWindows.map((window) => \`\${window.from.slice(11,16)}–\${window.to.slice(11,16)} (do \${window.maxProbabilityPct}%)\`).join(', ') + '.'\n      : 'Prema satnoj prognozi nema izraženog razdoblja oborina do kraja dana.'\n    const details = [\n      \`Trenutačno: \${weather.temperatureC.toFixed(1)} °C, \${weather.condition.toLocaleLowerCase('hr-HR')}.\`,\n      weather.minC !== null && weather.maxC !== null ? \`Danas: \${weather.minC.toFixed(1)}–\${weather.maxC.toFixed(1)} °C.\` : '',\n      rain,\n      timeline.length ? 'Prognoza kroz ostatak dana:' : '',\n      ...timeline,\n    ].filter(Boolean)\n    return answer(details.join('\\n'))\n  }`
+          if (bi.includes(oldWeather)) bi = bi.replace(oldWeather, newWeather)
+          else if (!bi.includes('getTodayHourlyWeatherForCurrentLocation')) throw new Error('Weather BI block marker missing')
+          fs.writeFileSync(biPath, bi)
+
+          // Proactive reminders: inventory shortages + meaningful workload decline.
+          const reminderPath = 'src/services/businessReminders.service.ts'
+          let r = fs.readFileSync(reminderPath, 'utf8')
+          if (!r.includes("from './inventory.service'")) {
+            r = r.replace(
+              "import { getWorkOrders } from './workOrders.service'",
+              "import { getWorkOrders } from './workOrders.service'\nimport { getInventoryItems } from './inventory.service'",
+            )
+          }
+          r = r.replace(
+            "    invoices,\n  ] = await Promise.all([",
+            "    invoices,\n    inventoryItems,\n  ] = await Promise.all([",
+          )
+          r = r.replace(
+            "    getInvoices<ReminderInvoice>(),\n  ])",
+            "    getInvoices<ReminderInvoice>(),\n    getInventoryItems(),\n  ])",
+          )
+          const dedupeMarker = `  const deduped = new Map<\n    string,\n    AppNotification\n  >()`
+          if (!r.includes('smart:inventory:low-stock:')) {
+            if (!r.includes(dedupeMarker)) throw new Error('Reminder dedupe marker missing')
+            const proactive = `  const inventoryMode = getMode(pref, 'inventory')\n  if (inventoryMode !== 'off') {\n    const lowStock = inventoryItems\n      .filter((item) => item.quantity <= item.minimumQuantity)\n      .sort((a, b) => (a.quantity - a.minimumQuantity) - (b.quantity - b.minimumQuantity))\n    if (lowStock.length) {\n      result.push(makeNotification({\n        id: \`smart:inventory:low-stock:\${currentDate}\`,\n        title: \`Skladište · \${lowStock.length} artikala traži pažnju\`,\n        description: lowStock.slice(0, 5).map((item) => \`\${item.name} \${item.quantity} \${item.unit} / min \${item.minimumQuantity}\`).join(' · '),\n        route: '/inventory',\n        kind: 'inventory',\n        silent: inventoryMode === 'silent',\n      }, readKeys))\n    }\n  }\n\n  const systemMode = getMode(pref, 'system')\n  if (systemMode !== 'off') {\n    const currentStart = new Date(\`\${currentDate}T12:00:00\`)\n    currentStart.setDate(currentStart.getDate() - 13)\n    const previousStart = new Date(currentStart)\n    previousStart.setDate(previousStart.getDate() - 14)\n    const previousEnd = new Date(currentStart)\n    previousEnd.setDate(previousEnd.getDate() - 1)\n    const iso = (date) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Zagreb' }).format(date)\n    const currentCount = orders.filter((order) => order.date >= iso(currentStart) && order.date <= currentDate).length\n    const previousCount = orders.filter((order) => order.date >= iso(previousStart) && order.date <= iso(previousEnd)).length\n    if (previousCount >= 6 && currentCount <= previousCount * 0.7) {\n      const drop = Math.round((1 - currentCount / previousCount) * 100)\n      result.push(makeNotification({\n        id: \`smart:system:workload-drop:\${currentDate}\`,\n        title: \`AI upozorenje · manje posla u zadnja 2 tjedna\`,\n        description: \`Broj radnih naloga pao je oko \${drop}%: \${currentCount} prema \${previousCount} u prethodnom razdoblju.\`,\n        route: '/dashboard',\n        kind: 'system',\n        silent: systemMode === 'silent',\n      }, readKeys))\n    }\n  }\n\n`
+            r = r.replace(dedupeMarker, proactive + dedupeMarker)
+          }
+          fs.writeFileSync(reminderPath, r)
+          NODE
+
+          npm ci
+          npm run build
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiBusinessIntelligence.service.ts src/services/businessReminders.service.ts
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Add hourly weather and proactive AI warnings [skip ci]"
+          git push
