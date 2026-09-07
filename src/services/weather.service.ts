@@ -20,6 +20,23 @@ export type DailyWeather = {
   longitude: number
 }
 
+export type HourlyWeatherPoint = {
+  time: string
+  temperatureC: number
+  condition: string
+  precipitationProbabilityPct: number
+  windKmh: number
+}
+
+export type TodayHourlyWeather = DailyWeather & {
+  hours: HourlyWeatherPoint[]
+  rainWindows: Array<{
+    from: string
+    to: string
+    maxProbabilityPct: number
+  }>
+}
+
 type Coordinates = {
   latitude: number
   longitude: number
@@ -68,11 +85,6 @@ function apiConfig() {
     }
   }
 
-  /*
-   * FERSYS je trenutno u evaluation/testing fazi. Open-Meteo free endpoint
-   * koristi se samo dok se ne postavi komercijalni API ključ. Prije javnog
-   * komercijalnog puštanja obavezno postaviti VITE_OPEN_METEO_API_KEY.
-   */
   return {
     baseUrl: 'https://api.open-meteo.com/v1/forecast',
     apiKey: '',
@@ -88,6 +100,7 @@ async function fetchWeather(coords: Coordinates) {
   url.searchParams.set('timezone', 'auto')
   url.searchParams.set('current', 'temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m')
   url.searchParams.set('daily', 'temperature_2m_max,temperature_2m_min,precipitation_probability_max')
+  url.searchParams.set('hourly', 'temperature_2m,precipitation_probability,weather_code,wind_speed_10m')
   url.searchParams.set('forecast_days', '1')
 
   if (config.apiKey) {
@@ -101,6 +114,53 @@ async function fetchWeather(coords: Coordinates) {
   }
 
   return response.json() as Promise<any>
+}
+
+function dailyWeather(data: any, coords: Coordinates): DailyWeather {
+  const current = data.current ?? {}
+  const daily = data.daily ?? {}
+
+  return {
+    temperatureC: Number(current.temperature_2m ?? 0),
+    minC: Number.isFinite(Number(daily.temperature_2m_min?.[0]))
+      ? Number(daily.temperature_2m_min[0])
+      : null,
+    maxC: Number.isFinite(Number(daily.temperature_2m_max?.[0]))
+      ? Number(daily.temperature_2m_max[0])
+      : null,
+    condition: weatherLabel(Number(current.weather_code ?? -1)),
+    precipitationProbabilityPct: Number.isFinite(Number(daily.precipitation_probability_max?.[0]))
+      ? Number(daily.precipitation_probability_max[0])
+      : null,
+    windKmh: Number.isFinite(Number(current.wind_speed_10m))
+      ? Number(current.wind_speed_10m)
+      : null,
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+  }
+}
+
+function buildRainWindows(hours: HourlyWeatherPoint[]) {
+  const result: TodayHourlyWeather['rainWindows'] = []
+  let start = -1
+
+  for (let index = 0; index <= hours.length; index += 1) {
+    const rainy = index < hours.length && hours[index].precipitationProbabilityPct >= 40
+
+    if (rainy && start < 0) start = index
+
+    if (!rainy && start >= 0) {
+      const slice = hours.slice(start, index)
+      result.push({
+        from: slice[0].time,
+        to: slice[slice.length - 1].time,
+        maxProbabilityPct: Math.max(...slice.map((point) => point.precipitationProbabilityPct)),
+      })
+      start = -1
+    }
+  }
+
+  return result
 }
 
 export async function captureCurrentWeatherSnapshot(): Promise<WeatherSnapshot> {
@@ -127,25 +187,32 @@ export async function captureCurrentWeatherSnapshot(): Promise<WeatherSnapshot> 
 export async function getTodayWeatherForCurrentLocation(): Promise<DailyWeather> {
   const coords = await getCurrentDeviceCoordinates()
   const data = await fetchWeather(coords)
-  const current = data.current ?? {}
-  const daily = data.daily ?? {}
+  return dailyWeather(data, coords)
+}
+
+export async function getTodayHourlyWeatherForCurrentLocation(): Promise<TodayHourlyWeather> {
+  const coords = await getCurrentDeviceCoordinates()
+  const data = await fetchWeather(coords)
+  const hourly = data.hourly ?? {}
+  const times: string[] = Array.isArray(hourly.time) ? hourly.time : []
+  const now = new Date()
+
+  const points = times.map((time, index) => ({
+    time,
+    temperatureC: Number(hourly.temperature_2m?.[index] ?? 0),
+    condition: weatherLabel(Number(hourly.weather_code?.[index] ?? -1)),
+    precipitationProbabilityPct: Number(hourly.precipitation_probability?.[index] ?? 0),
+    windKmh: Number(hourly.wind_speed_10m?.[index] ?? 0),
+  }))
+
+  const future = points.filter((point) => {
+    const value = new Date(point.time)
+    return Number.isNaN(value.getTime()) || value.getTime() >= now.getTime() - 60 * 60 * 1000
+  })
 
   return {
-    temperatureC: Number(current.temperature_2m ?? 0),
-    minC: Number.isFinite(Number(daily.temperature_2m_min?.[0]))
-      ? Number(daily.temperature_2m_min[0])
-      : null,
-    maxC: Number.isFinite(Number(daily.temperature_2m_max?.[0]))
-      ? Number(daily.temperature_2m_max[0])
-      : null,
-    condition: weatherLabel(Number(current.weather_code ?? -1)),
-    precipitationProbabilityPct: Number.isFinite(Number(daily.precipitation_probability_max?.[0]))
-      ? Number(daily.precipitation_probability_max[0])
-      : null,
-    windKmh: Number.isFinite(Number(current.wind_speed_10m))
-      ? Number(current.wind_speed_10m)
-      : null,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
+    ...dailyWeather(data, coords),
+    hours: future,
+    rainWindows: buildRainWindows(future),
   }
 }
