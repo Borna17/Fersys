@@ -27,7 +27,12 @@ export type AiRuntimeContext = {
     name: string
     type: Customer['type']
     oib: string
+    phone: string
+    email: string
+    street: string
     city: string
+    postalCode: string
+    contactPerson: string
   }>
   workOrders: Array<{
     id: string
@@ -38,6 +43,8 @@ export type AiRuntimeContext = {
     date: string
     status: CloudWorkOrder['status']
     priority: CloudWorkOrder['priority']
+    createdAt: string
+    updatedAt: string
   }>
   offers: Array<{
     id: string
@@ -278,7 +285,12 @@ Promise<AiRuntimeContext> {
         name: customer.name,
         type: customer.type,
         oib: customer.oib,
+        phone: customer.phone,
+        email: customer.email,
+        street: customer.street,
         city: customer.city,
+        postalCode: customer.postalCode,
+        contactPerson: customer.contactPerson ?? '',
       })),
     workOrders: workOrders
       .slice(0, 120)
@@ -291,6 +303,8 @@ Promise<AiRuntimeContext> {
         date: order.date,
         status: order.status,
         priority: order.priority,
+        createdAt: String((order as any).createdAt ?? ''),
+        updatedAt: String((order as any).updatedAt ?? ''),
       })),
     offers: offers
       .slice(0, 120)
