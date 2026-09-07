@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/apply-permission-cleanup.yml'
       - 'scripts/apply-permission-cleanup.mjs'
+      - 'scripts/fix-permission-cleanup-runner.mjs'
   workflow_dispatch:
 
 permissions:
@@ -19,6 +20,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Fix cleanup runner matcher
+        run: node scripts/fix-permission-cleanup-runner.mjs
 
       - name: Apply permission cleanup
         run: node scripts/apply-permission-cleanup.mjs
