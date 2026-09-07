@@ -1,3 +1,4 @@
+import { assertPermission, assertDeletePermission } from './permissionGuard.service'
 import { supabase } from '../lib/supabase'
 
 export type CalendarStatus =
@@ -152,6 +153,7 @@ export async function getCalendarEvents(
 export async function createCalendarEvent(
   input: CreateCalendarEventInput,
 ): Promise<CalendarEvent> {
+  await assertPermission('calendar.manage')
   if (!input.title.trim()) {
     throw new Error(
       'Naziv termina je obavezan.',
@@ -230,6 +232,7 @@ export async function updateCalendarEvent(
   eventId: string,
   updates: Partial<CreateCalendarEventInput>,
 ): Promise<CalendarEvent> {
+  await assertPermission('calendar.manage')
   const payload: Record<string, unknown> =
     {}
 
@@ -315,6 +318,7 @@ export async function updateCalendarEvent(
 export async function deleteCalendarEvent(
   eventId: string,
 ): Promise<void> {
+  await assertDeletePermission('calendar.delete')
   const { error } = await supabase
     .from('calendar_events')
     .delete()

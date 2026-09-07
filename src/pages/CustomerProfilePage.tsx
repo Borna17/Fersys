@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthProvider'
 import {
   useEffect,
   useMemo,
@@ -300,6 +301,7 @@ function CustomerAvatar({
 
 export function CustomerProfilePage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
   const { id } = useParams()
 
   const [customer, setCustomer] =
@@ -479,9 +481,15 @@ export function CustomerProfilePage() {
           offers,
           invoices,
         ] = await Promise.all([
-          getWorkOrders(),
-          getOffers(),
-          getInvoices<CustomerInvoice>(),
+          can('workOrders.view')
+            ? getWorkOrders()
+            : Promise.resolve([] as CloudWorkOrder[]),
+          can('offers.view')
+            ? getOffers()
+            : Promise.resolve([] as Offer[]),
+          can('invoices.view')
+            ? getInvoices<CustomerInvoice>()
+            : Promise.resolve([] as CustomerInvoice[]),
         ])
 
         if (cancelled) return
@@ -1490,7 +1498,11 @@ export function CustomerProfilePage() {
 
         <nav className="fersys-scrollbar-hidden overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 p-2">
           <div className="flex min-w-max gap-1">
-            {tabs.map((tab) => (
+            {tabs.filter((tab) =>
+              tab.id === 'work-orders' ? can('workOrders.view') :
+              tab.id === 'offers' ? can('offers.view') :
+              tab.id === 'invoices' ? can('invoices.view') : true,
+            ).map((tab) => (
               <button
                 key={tab.id}
                 type="button"

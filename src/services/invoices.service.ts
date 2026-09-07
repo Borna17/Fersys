@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { assertDeletePermission } from './permissionGuard.service'
+import { assertDeletePermission, assertPermission } from './permissionGuard.service'
 import {
   getCompanyComplianceSettings,
   isCroatianFiscalizationEnabled,
@@ -185,6 +185,7 @@ export async function getInvoices<T extends InvoiceCloudShape>(): Promise<T[]> {
 }
 
 export async function createInvoice<T extends InvoiceCloudShape>(invoice: T): Promise<T> {
+  await assertPermission('invoices.manage')
   const companyId = await getCurrentCompanyId()
   const prepared = await preparePayload(invoice)
 
@@ -215,6 +216,7 @@ export async function createInvoice<T extends InvoiceCloudShape>(invoice: T): Pr
 }
 
 export async function updateInvoice<T extends InvoiceCloudShape>(invoice: T): Promise<T> {
+  await assertPermission('invoices.manage')
   const companyId = await getCurrentCompanyId()
   const prepared = await preparePayload(invoice)
 

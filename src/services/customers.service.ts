@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { assertDeletePermission } from './permissionGuard.service'
+import { assertDeletePermission, assertPermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
 import type {
   Customer,
@@ -166,6 +166,7 @@ export async function getCustomerById(
 export async function createCustomer(
   input: CustomerInput,
 ): Promise<Customer> {
+  await assertPermission('customers.manage')
   await assertCanCreate(
     'customers',
   )
@@ -263,6 +264,7 @@ export async function updateCustomer(
   customerId: string,
   input: CustomerInput,
 ): Promise<Customer> {
+  await assertPermission('customers.manage')
   const cleanTaxId =
     input.oib
       .trim()

@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthProvider'
 import {
   Download,
   Eye,
@@ -166,6 +167,8 @@ function icon(
 export function IncomingInvoicesPage() {
   const navigate =
     useNavigate()
+  const { can } = useAuth()
+  const canDeleteIncomingInvoices = can('incomingInvoices.delete')
 
   const [
     invoices,
@@ -365,6 +368,10 @@ export function IncomingInvoicesPage() {
     invoice:
       IncomingInvoice,
   ) {
+    if (!canDeleteIncomingInvoices) {
+      window.alert('Nemaš dopuštenje za brisanje ulaznih računa.')
+      return
+    }
     if (
       !window.confirm(
         `Želiš li obrisati račun ${invoice.invoiceNumber}?`,

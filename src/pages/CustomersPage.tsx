@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthProvider'
 import {
   useEffect,
   useMemo,
@@ -114,6 +115,8 @@ function CustomerTypeIcon({
 
 export function CustomersPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+  const canManageCustomers = can('customers.manage')
 
   const [customers, setCustomers] =
     useState<Customer[]>([])
@@ -363,6 +366,11 @@ export function CustomersPage() {
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault()
+
+    if (!canManageCustomers) {
+      window.alert('Nemaš dopuštenje za dodavanje investitora.')
+      return
+    }
 
     if (isSaving) return
 

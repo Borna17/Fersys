@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthProvider'
 import {
   useEffect,
   useMemo,
@@ -191,6 +192,9 @@ function history(
 
 export function InvoicesPage() {
   const navigate = useNavigate()
+  const { can } = useAuth()
+  const canManageInvoices = can('invoices.manage')
+  const canDeleteInvoices = can('invoices.delete')
 
   const [invoices, setInvoices] =
     useState<Invoice[]>([])
@@ -473,6 +477,10 @@ export function InvoicesPage() {
   async function markPaid(
     invoice: Invoice,
   ) {
+    if (!canManageInvoices) {
+      window.alert('Nemaš dopuštenje za uređivanje računa.')
+      return
+    }
     const now =
       new Date().toISOString()
 
@@ -522,6 +530,10 @@ export function InvoicesPage() {
   async function removeInvoice(
     invoice: Invoice,
   ) {
+    if (!canDeleteInvoices) {
+      window.alert('Nemaš dopuštenje za brisanje računa.')
+      return
+    }
     if (
       !window.confirm(
         `Trajno obrisati račun ${invoice.invoiceNumber}?`,
@@ -551,6 +563,10 @@ export function InvoicesPage() {
   async function duplicateInvoice(
     invoice: Invoice,
   ) {
+    if (!canManageInvoices) {
+      window.alert('Nemaš dopuštenje za izradu računa.')
+      return
+    }
     navigate(
       `/invoices/new?duplicate=${invoice.id}`,
     )

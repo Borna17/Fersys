@@ -1,3 +1,4 @@
+import { useAuth } from '../auth/AuthProvider'
 import {
   CalendarClock,
   CarFront,
@@ -139,6 +140,8 @@ CreateVehicleInput = {
 export function VehiclesPage() {
   const navigate =
     useNavigate()
+  const { can } = useAuth()
+  const canManageVehicles = can('vehicles.manage')
 
   const [
     searchParams,
@@ -300,6 +303,11 @@ export function VehiclesPage() {
     event: FormEvent,
   ) {
     event.preventDefault()
+
+    if (!canManageVehicles) {
+      setError('Nemaš dopuštenje za dodavanje vozila.')
+      return
+    }
 
     try {
       setIsSaving(true)

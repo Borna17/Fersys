@@ -31,8 +31,10 @@ export type PermissionKey =
   | 'offers.delete'
 
   | 'invoices.view'
+  | 'invoices.manage'
   | 'invoices.delete'
   | 'incomingInvoices.view'
+  | 'incomingInvoices.manage'
   | 'incomingInvoices.delete'
 
   | 'finance.view'
@@ -48,6 +50,7 @@ export type PermissionKey =
   | 'vehicles.delete'
 
   | 'calendar.view'
+  | 'calendar.manage'
   | 'calendar.delete'
 
   | 'employees.view'
@@ -93,8 +96,10 @@ export const allPermissions:
   'offers.delete',
 
   'invoices.view',
+  'invoices.manage',
   'invoices.delete',
   'incomingInvoices.view',
+  'incomingInvoices.manage',
   'incomingInvoices.delete',
 
   'finance.view',
@@ -110,6 +115,7 @@ export const allPermissions:
   'vehicles.delete',
 
   'calendar.view',
+  'calendar.manage',
   'calendar.delete',
 
   'employees.view',
@@ -208,6 +214,7 @@ Record<
       'vehicles.manage',
 
       'calendar.view',
+      'calendar.manage',
 
       'employees.view',
 
@@ -253,6 +260,7 @@ Record<
       'inventory.manage',
 
       'calendar.view',
+      'calendar.manage',
 
       'ai.use',
     ]),
@@ -316,7 +324,9 @@ Record<
       'offers.viewPrices',
 
       'invoices.view',
+      'invoices.manage',
       'incomingInvoices.view',
+      'incomingInvoices.manage',
 
       'finance.view',
 
@@ -416,13 +426,19 @@ Record<
     'Brisanje ponuda',
 
   'invoices.view':
-    'Računi',
+    'Pregled izlaznih računa',
+
+  'invoices.manage':
+    'Izrada i uređivanje izlaznih računa',
 
   'invoices.delete':
     'Brisanje izlaznih računa',
 
   'incomingInvoices.view':
-    'Ulazni računi',
+    'Pregled ulaznih računa',
+
+  'incomingInvoices.manage':
+    'Izrada i uređivanje ulaznih računa',
 
   'incomingInvoices.delete':
     'Brisanje ulaznih računa',
@@ -455,7 +471,10 @@ Record<
     'Brisanje vozila',
 
   'calendar.view':
-    'Kalendar',
+    'Pregled kalendara',
+
+  'calendar.manage':
+    'Dodavanje i uređivanje događaja',
 
   'calendar.delete':
     'Brisanje događaja iz kalendara',

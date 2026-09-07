@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase'
-import { assertDeletePermission } from './permissionGuard.service'
+import { assertDeletePermission, assertPermission } from './permissionGuard.service'
 
 export type IncomingInvoiceDocument = {
   id: string
@@ -74,6 +74,7 @@ export async function listIncomingInvoices(): Promise<IncomingInvoiceRecord[]> {
 }
 
 export async function upsertIncomingInvoice(invoice: IncomingInvoiceRecord) {
+  await assertPermission('incomingInvoices.manage')
   const companyId = await getCurrentCompanyId()
   const { data: authData, error: authError } = await supabase.auth.getUser()
   if (authError) throw authError
