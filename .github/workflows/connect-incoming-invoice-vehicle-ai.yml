@@ -1,0 +1,74 @@
+name: Connect scanned invoices with vehicle costs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/connect-incoming-invoice-vehicle-ai.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Patch vehicle expense linkage and build
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/pages/NewIncomingInvoicePage.tsx'
+          let s = fs.readFileSync(path, 'utf8')
+
+          if (!s.includes("from '../services/vehicles.service'")) {
+            s = s.replace(
+              "import {\n  deleteDocument,\n  downloadDocument,\n  saveDocument,\n} from '../utils/documentStorage'",
+              "import {\n  deleteDocument,\n  downloadDocument,\n  saveDocument,\n} from '../utils/documentStorage'\nimport { addVehicleExpense } from '../services/vehicles.service'",
+            )
+          }
+
+          if (!s.includes('const [aiVehicleMatch, setAiVehicleMatch]')) {
+            s = s.replace(
+              "  const [aiConfidence, setAiConfidence] = useState<\n    number | null\n  >(null)\n",
+              "  const [aiConfidence, setAiConfidence] = useState<\n    number | null\n  >(null)\n  const [aiVehicleMatch, setAiVehicleMatch] = useState<{\n    vehicleId: string\n    registration: string\n    category: 'Gorivo' | 'Servis' | 'Registracija' | 'Osiguranje' | 'Gume' | 'Cestarina' | 'Ostalo'\n    confidence: number\n  } | null>(null)\n",
+            )
+          }
+
+          const applyMarker = "    setAiWarnings(result.warnings ?? [])\n"
+          if (!s.includes('result.vehicleMatchConfidence')) {
+            if (!s.includes(applyMarker)) throw new Error('apply AI marker missing')
+            s = s.replace(
+              applyMarker,
+              `    const vehicleConfidence = Number(result.vehicleMatchConfidence ?? 0)\n    if (result.vehicleId && result.vehicleRegistration && result.vehicleExpenseCategory && vehicleConfidence >= 0.9) {\n      setAiVehicleMatch({\n        vehicleId: result.vehicleId,\n        registration: result.vehicleRegistration,\n        category: result.vehicleExpenseCategory,\n        confidence: vehicleConfidence,\n      })\n      if (result.vehicleExpenseCategory === 'Gorivo') setCategory('Gorivo')\n      if (['Servis', 'Gume', 'Registracija', 'Osiguranje'].includes(result.vehicleExpenseCategory)) setCategory('Servis i održavanje')\n      setNote((current) => {\n        const vehicleNote = 'Vozilo: ' + result.vehicleRegistration\n        if (current.includes(vehicleNote)) return current\n        return [current.trim(), vehicleNote].filter(Boolean).join(' · ')\n      })\n    } else {\n      setAiVehicleMatch(null)\n    }\n\n` + applyMarker,
+            )
+          }
+
+          const saveMarker = "      await upsertIncomingInvoice(saved as IncomingInvoiceRecord)\n"
+          if (!s.includes('AI vehicle expense auto-link')) {
+            if (!s.includes(saveMarker)) throw new Error('save marker missing')
+            s = s.replace(
+              saveMarker,
+              saveMarker + `\n      // AI vehicle expense auto-link: only on a newly created invoice and only\n      // after an exact registered-vehicle match with >= 90% confidence.\n      if (!editing && aiVehicleMatch && aiVehicleMatch.confidence >= 0.9 && saved.totalAmount > 0) {\n        try {\n          await addVehicleExpense(aiVehicleMatch.vehicleId, {\n            expenseDate: saved.invoiceDate || today,\n            category: aiVehicleMatch.category,\n            description: [saved.supplierName, saved.invoiceNumber ? 'račun ' + saved.invoiceNumber : '', aiVehicleMatch.registration].filter(Boolean).join(' · '),\n            amount: saved.totalAmount,\n            mileage: null,\n          })\n        } catch (vehicleError) {\n          console.error('AI nije mogao automatski povezati trošak s vozilom:', vehicleError)\n        }\n      }\n`,
+            )
+          }
+
+          fs.writeFileSync(path, s)
+          NODE
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/NewIncomingInvoicePage.tsx
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Auto-link scanned vehicle invoices to vehicle costs [skip ci]"
+          git push
