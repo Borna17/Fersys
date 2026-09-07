@@ -1,0 +1,42 @@
+name: Apply permission cleanup
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-permission-cleanup.yml'
+      - 'scripts/apply-permission-cleanup.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply permission cleanup
+        run: node scripts/apply-permission-cleanup.mjs
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit applied source
+        run: |
+          if git diff --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/auth/permissions.ts src/router/AppRouter.tsx src/services/permissionGuard.service.ts src/services/customers.service.ts src/services/invoices.service.ts src/services/incomingInvoices.service.ts src/services/calendar.service.ts src/services/vehicles.service.ts src/pages/CustomersPage.tsx src/pages/InvoicesPage.tsx src/pages/IncomingInvoicesPage.tsx src/pages/CalendarPage.tsx src/pages/VehiclesPage.tsx src/pages/VehicleDetailsPage.tsx src/pages/CustomerProfilePage.tsx
+          git commit -m "Complete granular permission cleanup"
+          git push origin main
