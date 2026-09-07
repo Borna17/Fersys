@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase'
+import { tryBusinessIntelligenceQuestion } from './aiBusinessIntelligence.service'
 import {
   buildAiRuntimeContext,
   resolveLocalAiNavigation,
@@ -243,6 +244,13 @@ export async function askAiAssistant(
     throw new Error(
       'Upiši ili izgovori poruku.',
     )
+  }
+
+  try {
+    const intelligence = await tryBusinessIntelligenceQuestion(cleanMessage)
+    if (intelligence) return intelligence
+  } catch (error) {
+    console.error('FERSYS AI business intelligence:', error)
   }
 
   const pureNavigation = /^(otvori|pronađi|pronadi|nađi|nadi|pokaži|pokazi|pregledaj)\b/i.test(cleanMessage) && !/\b(napravi|kreiraj|izradi|dodaj|unesi|stvori|pretvori|novi|novu|novog|dolazak|odlazak|opis|materijal|danas|jučer|jucer|sutra|zadnj|prv)\b/i.test(cleanMessage) && cleanMessage.split(/\s+/).length <= 8
