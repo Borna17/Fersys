@@ -1,0 +1,91 @@
+name: Connect AI to all FERSYS modules
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/connect-ai-to-all-fersys-modules.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Expand authoritative AI runtime context
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/services/aiContext.service.ts'
+          let s = fs.readFileSync(path, 'utf8')
+
+          const extraImports = [
+            "import { getEmployees } from './employees.service'",
+            "import { getCalendarEvents } from './calendar.service'",
+            "import { getInventoryItems, getInventoryMovements } from './inventory.service'",
+            "import { getVehicles } from './vehicles.service'",
+            "import { listIncomingInvoices } from './incomingInvoices.service'",
+          ]
+          const anchor = "import { getInvoices } from './invoices.service'"
+          for (const line of extraImports) {
+            if (!s.includes(line)) s = s.replace(anchor, anchor + '\n' + line)
+          }
+
+          if (!s.includes('  operations: {')) {
+            s = s.replace(
+              "  invoices: Array<{\n    id: string\n    invoiceNumber: string\n    customerName: string\n    issueDate: string\n    status: string\n    createdAt: string\n    updatedAt: string\n    sourceOfferId: string\n    sourceWorkOrderId: string\n  }>\n}",
+              "  invoices: Array<{\n    id: string\n    invoiceNumber: string\n    customerName: string\n    issueDate: string\n    status: string\n    createdAt: string\n    updatedAt: string\n    sourceOfferId: string\n    sourceWorkOrderId: string\n  }>\n  operations: {\n    employees: Array<Record<string, unknown>>\n    calendar: Array<Record<string, unknown>>\n    inventory: Array<Record<string, unknown>>\n    inventoryMovements: Array<Record<string, unknown>>\n    vehicles: Array<Record<string, unknown>>\n    incomingInvoices: Array<Record<string, unknown>>\n  }\n}",
+            )
+          }
+
+          if (!s.includes('    employees,\n    calendarEvents,')) {
+            s = s.replace(
+              "    invoices,\n  ] = await Promise.all([",
+              "    invoices,\n    employees,\n    calendarEvents,\n    inventoryItems,\n    inventoryMovements,\n    vehicles,\n    incomingInvoices,\n  ] = await Promise.all([",
+            )
+            s = s.replace(
+              "    getInvoices<any>(),\n  ])",
+              "    getInvoices<any>(),\n    getEmployees(),\n    getCalendarEvents(),\n    getInventoryItems(),\n    getInventoryMovements(),\n    getVehicles(),\n    listIncomingInvoices(),\n  ])",
+            )
+          }
+
+          if (!s.includes('    operations: {\n      employees:')) {
+            const end = "    invoices: invoices.slice(0, 120).map((invoice: any) => ({\n      id: String(invoice.id ?? ''),\n      invoiceNumber: String(invoice.invoiceNumber ?? ''),\n      customerName: String(invoice.customerName ?? invoice.customer?.name ?? ''),\n      issueDate: String(invoice.issueDate ?? ''),\n      status: String(invoice.status ?? ''),\n      createdAt: String(invoice.createdAt ?? ''),\n      updatedAt: String(invoice.updatedAt ?? ''),\n      sourceOfferId: String(invoice.sourceOfferId ?? ''),\n      sourceWorkOrderId: String(invoice.sourceWorkOrderId ?? ''),\n    })),\n"
+            if (!s.includes(end)) throw new Error('Invoice context marker missing')
+            const operations = `    operations: {\n      employees: employees.slice(0, 120).map((employee: any) => ({\n        id: String(employee.id ?? ''), fullName: String(employee.fullName ?? ''), role: String(employee.role ?? ''), status: String(employee.status ?? ''), phone: String(employee.phone ?? ''), email: String(employee.email ?? ''),\n      })),\n      calendar: calendarEvents.slice(0, 160).map((event: any) => ({\n        id: String(event.id ?? ''), title: String(event.title ?? ''), date: String(event.date ?? ''), startTime: String(event.startTime ?? ''), endTime: String(event.endTime ?? ''), status: String(event.status ?? ''), type: String(event.type ?? ''), customerName: String(event.customerName ?? ''), workOrderId: String(event.workOrderId ?? ''),\n      })),\n      inventory: inventoryItems.slice(0, 200).map((item: any) => ({\n        id: String(item.id ?? ''), name: String(item.name ?? ''), sku: String(item.sku ?? ''), unit: String(item.unit ?? ''), quantity: Number(item.quantity ?? 0), minimumQuantity: Number(item.minimumQuantity ?? 0), purchasePrice: Number(item.purchasePrice ?? 0), sellingPrice: Number(item.sellingPrice ?? 0),\n      })),\n      inventoryMovements: inventoryMovements.slice(0, 200).map((movement: any) => ({\n        id: String(movement.id ?? ''), itemId: String(movement.itemId ?? ''), type: String(movement.type ?? ''), quantity: Number(movement.quantity ?? 0), reference: String(movement.reference ?? ''), employeeName: String(movement.employeeName ?? ''), createdAt: String(movement.createdAt ?? ''),\n      })),\n      vehicles: vehicles.slice(0, 80).map((vehicle: any) => ({\n        id: String(vehicle.id ?? ''), registration: String(vehicle.registration ?? ''), make: String(vehicle.make ?? ''), model: String(vehicle.model ?? ''), mileage: Number(vehicle.mileage ?? 0), status: String(vehicle.status ?? ''), nextServiceDate: String(vehicle.nextServiceDate ?? ''), nextServiceMileage: Number(vehicle.nextServiceMileage ?? 0), registrationExpiresOn: String(vehicle.registrationExpiresOn ?? ''), insuranceExpiresOn: String(vehicle.insuranceExpiresOn ?? ''),\n      })),\n      incomingInvoices: incomingInvoices.slice(0, 120).map((invoice: any) => ({\n        id: String(invoice.id ?? ''), supplierName: String(invoice.supplierName ?? ''), supplierOib: String(invoice.supplierOib ?? ''), invoiceNumber: String(invoice.invoiceNumber ?? ''), invoiceDate: String(invoice.invoiceDate ?? ''), dueDate: String(invoice.dueDate ?? ''), category: String(invoice.category ?? ''), status: String(invoice.status ?? ''), totalAmount: Number(invoice.totalAmount ?? 0), note: String(invoice.note ?? ''),\n      })),\n    },\n`
+            s = s.replace(end, end + operations)
+          }
+
+          fs.writeFileSync(path, s)
+
+          const assistantPath = 'src/services/aiAssistant.service.ts'
+          let a = fs.readFileSync(assistantPath, 'utf8')
+          if (!a.includes('    operations:\n      context.operations,')) {
+            a = a.replace(
+              "    locale:\n      context.locale,\n  }",
+              "    locale:\n      context.locale,\n    operations:\n      context.operations,\n  }",
+            )
+          }
+          fs.writeFileSync(assistantPath, a)
+          NODE
+
+          npm ci
+          npm run build
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiContext.service.ts src/services/aiAssistant.service.ts
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Connect AI runtime to FERSYS operational modules [skip ci]"
+          git push
