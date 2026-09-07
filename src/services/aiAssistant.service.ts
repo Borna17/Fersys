@@ -23,6 +23,8 @@ export type AiActionType =
   | 'create_customer'
   | 'create_work_order'
   | 'create_offer'
+  | 'create_invoice'
+  | 'convert_document'
   | 'create_vehicle'
   | 'update_vehicle_mileage'
   | 'add_vehicle_service'
@@ -32,11 +34,15 @@ export type AiActionType =
   | 'none'
 
 export type AiClientActionType =
+  | 'navigate'
   | 'open_customer'
   | 'open_offer'
   | 'open_work_order'
+  | 'open_invoice'
   | 'create_work_order'
   | 'create_offer'
+  | 'create_invoice'
+  | 'convert_document'
   | 'create_vehicle'
   | 'update_vehicle_mileage'
   | 'add_vehicle_service'
@@ -59,16 +65,47 @@ export type AiProposedAction = {
   warnings: string[]
 }
 
+export type AiWorkingState = {
+  kind: 'draft' | 'entity'
+  documentType: 'customer' | 'offer' | 'work_order' | 'invoice'
+  id?: string
+  number?: string
+  customerId?: string
+  customerName?: string
+  payload?: Record<string, unknown>
+  sourceType?: string
+  sourceId?: string
+}
+
 export type AiAssistantResponse = {
   message: string
   proposedAction: AiProposedAction | null
   clientAction: AiClientAction | null
+  workingState?: AiWorkingState | null
+  clearWorkingState?: boolean
 }
 
 const AI_FUNCTION_SLUG =
-  'dynamic-handler-v4'
+  'dynamic-handler-v5'
 const AI_TIMEOUT_MS = 45_000
 const AUDIO_TIMEOUT_MS = 60_000
+const AI_WORKING_STATE_STORAGE_KEY = 'fersys_ai_working_state_v2'
+
+function readWorkingState(): AiWorkingState | null {
+  try {
+    const raw = localStorage.getItem(AI_WORKING_STATE_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return isRecord(parsed) ? parsed as AiWorkingState : null
+  } catch { return null }
+}
+
+function persistWorkingState(value: unknown, clear = false) {
+  try {
+    if (clear) { localStorage.removeItem(AI_WORKING_STATE_STORAGE_KEY); return }
+    if (isRecord(value)) localStorage.setItem(AI_WORKING_STATE_STORAGE_KEY, JSON.stringify(value))
+  } catch { /* optional persistence */ }
+}
 
 async function withTimeout<T>(
   promise: Promise<T>,
@@ -132,6 +169,8 @@ function parseResponse(
     )
   }
 
+  persistWorkingState(data.workingState, data.clearWorkingState === true)
+
   return {
     message: data.message.trim(),
     proposedAction:
@@ -142,6 +181,8 @@ function parseResponse(
       isRecord(data.clientAction)
         ? (data.clientAction as AiClientAction)
         : null,
+    workingState: isRecord(data.workingState) ? data.workingState as AiWorkingState : null,
+    clearWorkingState: data.clearWorkingState === true,
   }
 }
 
@@ -184,6 +225,10 @@ function compactContext(
       context.workOrders,
     offers:
       context.offers,
+    invoices:
+      context.invoices,
+    locale:
+      context.locale,
   }
 }
 
@@ -200,25 +245,13 @@ export async function askAiAssistant(
     )
   }
 
-  try {
-    const local =
-      await resolveLocalAiNavigation(
-        cleanMessage,
-      )
+  const pureNavigation = /^(otvori|pronađi|pronadi|nađi|nadi|pokaži|pokazi|pregledaj)\b/i.test(cleanMessage) && !/\b(napravi|kreiraj|izradi|dodaj|unesi|stvori|pretvori|novi|novu|novog|dolazak|odlazak|opis|materijal|danas|jučer|jucer|sutra|zadnj|prv)\b/i.test(cleanMessage) && cleanMessage.split(/\s+/).length <= 8
 
-    if (local.handled) {
-      return {
-        message: local.message,
-        proposedAction: null,
-        clientAction:
-          local.clientAction,
-      }
-    }
-  } catch (error) {
-    console.error(
-      'Lokalni FERSYS AI resolver:',
-      error,
-    )
+  if (pureNavigation) {
+    try {
+      const local = await resolveLocalAiNavigation(cleanMessage)
+      if (local.handled) return { message: local.message, proposedAction: null, clientAction: local.clientAction }
+    } catch (error) { console.error('Lokalni FERSYS AI resolver:', error) }
   }
 
   let context:
@@ -250,6 +283,7 @@ export async function askAiAssistant(
           context
             ? compactContext(context)
             : null,
+        workingState: readWorkingState(),
       },
       AI_TIMEOUT_MS,
       'FERSYS AI trenutačno obrađuje zahtjev dulje nego inače. Provjeri internet i pokušaj ponovno.',
@@ -265,6 +299,7 @@ export async function confirmAiAction(
     await invokeAi(
       {
         confirmAction: action,
+        workingState: readWorkingState(),
       },
       AI_TIMEOUT_MS,
       'Radnja se nije dovršila na vrijeme. Provjeri je li zapis već napravljen prije ponovnog pokušaja.',

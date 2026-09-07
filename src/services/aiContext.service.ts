@@ -1,5 +1,6 @@
 import { getCustomers } from './customers.service'
 import { getOffers } from './offers.service'
+import { getInvoices } from './invoices.service'
 import {
   getWorkOrders,
   type CloudWorkOrder,
@@ -45,6 +46,19 @@ export type AiRuntimeContext = {
     description: string
     date: string
     status: Offer['status']
+    createdAt: string
+    updatedAt: string
+  }>
+  invoices: Array<{
+    id: string
+    invoiceNumber: string
+    customerName: string
+    issueDate: string
+    status: string
+    createdAt: string
+    updatedAt: string
+    sourceOfferId: string
+    sourceWorkOrderId: string
   }>
 }
 
@@ -199,10 +213,12 @@ Promise<AiRuntimeContext> {
     customers,
     workOrders,
     offers,
+    invoices,
   ] = await Promise.all([
     getCustomers(),
     getWorkOrders(),
     getOffers(),
+    getInvoices<any>(),
   ])
 
   return {
@@ -285,7 +301,20 @@ Promise<AiRuntimeContext> {
         description: offer.description,
         date: offer.date,
         status: offer.status,
+        createdAt: String((offer as any).createdAt ?? ''),
+        updatedAt: String((offer as any).updatedAt ?? ''),
       })),
+    invoices: invoices.slice(0, 120).map((invoice: any) => ({
+      id: String(invoice.id ?? ''),
+      invoiceNumber: String(invoice.invoiceNumber ?? ''),
+      customerName: String(invoice.customerName ?? invoice.customer?.name ?? ''),
+      issueDate: String(invoice.issueDate ?? ''),
+      status: String(invoice.status ?? ''),
+      createdAt: String(invoice.createdAt ?? ''),
+      updatedAt: String(invoice.updatedAt ?? ''),
+      sourceOfferId: String(invoice.sourceOfferId ?? ''),
+      sourceWorkOrderId: String(invoice.sourceWorkOrderId ?? ''),
+    })),
   }
 }
 

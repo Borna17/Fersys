@@ -30,6 +30,7 @@ import {
   type AiProposedAction,
 } from '../services/aiAssistant.service'
 import { updateOfferStatus } from '../services/offers.service'
+import { prepareDocumentConversion, type FlowDocumentType } from '../services/documentFlow.service'
 import { updateWorkOrderQuickStatus } from '../services/quickStatus.service'
 import type { OfferStatus } from '../types/offers'
 import type { CloudWorkOrderStatus } from '../services/workOrders.service'
@@ -108,7 +109,7 @@ function createMessage(
 }
 
 const welcomeText =
-  'Bok! Piši ili govori prirodno, kao u razgovoru. Razumijem investitore/kupce, radne naloge, ponude i kalendar. Možeš reći npr. „napravi investitora Marko Horvat”, „napravi mu nalog sutra u 8”, „stavi zadnju ponudu na prihvaćeno” ili „koji nalozi kasne”. Sve što mijenja podatke prvo traži tvoju potvrdu.'
+  'Bok! Govori prirodno. Povezujem investitore, ponude, radne naloge i račune, razumijem danas/jučer, prvi/zadnji dokument i mogu nastaviti isti nacrt kroz više poruka. Ako nešto važno nedostaje, pitat ću samo za to.'
 
 const AI_CONVERSATION_STORAGE_KEY =
   'fersys_ai_assistant_conversation_v1'
@@ -318,6 +319,12 @@ export function AiAssistantPage() {
 
     const payload = action.payload
 
+    if (action.type === 'navigate') {
+      const route = String(payload.route ?? '').trim()
+      if (route.startsWith('/')) navigate(route)
+      return
+    }
+
     if (action.type === 'open_customer') {
       const customerId =
         String(payload.customerId ?? '').trim()
@@ -348,6 +355,12 @@ export function AiAssistantPage() {
       return
     }
 
+    if (action.type === 'open_invoice') {
+      const invoiceId = String(payload.invoiceId ?? '').trim()
+      if (invoiceId) navigate('/invoices/' + invoiceId)
+      return
+    }
+
     if (action.type === 'create_work_order') {
       sessionStorage.setItem(
         'fersys_ai_work_order_prefill',
@@ -366,6 +379,23 @@ export function AiAssistantPage() {
       return
     }
 
+
+    if (action.type === 'create_invoice') {
+      sessionStorage.setItem('fersys_invoice_prefill', JSON.stringify(payload))
+      navigate('/invoices/new')
+      return
+    }
+
+    if (action.type === 'convert_document') {
+      const sourceType = String(payload.sourceType ?? '') as FlowDocumentType
+      const sourceId = String(payload.sourceId ?? '').trim()
+      const targetType = String(payload.targetType ?? '') as FlowDocumentType
+      if (sourceId && ['offer','work_order','delivery_note','invoice'].includes(sourceType) && ['offer','work_order','delivery_note','invoice'].includes(targetType)) {
+        const result = await prepareDocumentConversion(sourceType, sourceId, targetType, true)
+        navigate(result.route)
+      }
+      return
+    }
 
     if (
       action.type ===
