@@ -1,0 +1,105 @@
+name: Finalize FERSYS AI v5
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-fersys-ai-v5.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Integrate AI v5 business brain
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+
+          function mustReplace(path, from, to, label) {
+            let s = fs.readFileSync(path, 'utf8')
+            if (!s.includes(from)) throw new Error(label + ' marker missing in ' + path)
+            s = s.replace(from, to)
+            fs.writeFileSync(path, s)
+          }
+
+          // 1. aiAssistant.service: v5, invoices, working state, and safe local-navigation gate.
+          const assistant = 'src/services/aiAssistant.service.ts'
+          let a = fs.readFileSync(assistant, 'utf8')
+          a = a.replace("  | 'create_offer'\n  | 'create_vehicle'", "  | 'create_offer'\n  | 'create_invoice'\n  | 'convert_document'\n  | 'create_vehicle'")
+          a = a.replace("export type AiClientActionType =\n", "export type AiClientActionType =\n  | 'navigate'\n")
+          a = a.replace("  | 'open_work_order'\n  | 'create_work_order'", "  | 'open_work_order'\n  | 'open_invoice'\n  | 'create_work_order'")
+          a = a.replace("  | 'create_offer'\n  | 'create_vehicle'", "  | 'create_offer'\n  | 'create_invoice'\n  | 'convert_document'\n  | 'create_vehicle'")
+          if (!a.includes('export type AiWorkingState')) {
+            a = a.replace("export type AiAssistantResponse = {\n", `export type AiWorkingState = {\n  kind: 'draft' | 'entity'\n  documentType: 'customer' | 'offer' | 'work_order' | 'invoice'\n  id?: string\n  number?: string\n  customerId?: string\n  customerName?: string\n  payload?: Record<string, unknown>\n  sourceType?: string\n  sourceId?: string\n}\n\nexport type AiAssistantResponse = {\n`)
+            a = a.replace("  clientAction: AiClientAction | null\n}", "  clientAction: AiClientAction | null\n  workingState?: AiWorkingState | null\n  clearWorkingState?: boolean\n}")
+          }
+          a = a.replace("const AI_FUNCTION_SLUG =\n  'dynamic-handler-v4'", "const AI_FUNCTION_SLUG =\n  'dynamic-handler-v5'")
+          if (!a.includes('AI_WORKING_STATE_STORAGE_KEY')) {
+            a = a.replace("const AUDIO_TIMEOUT_MS = 60_000\n", `const AUDIO_TIMEOUT_MS = 60_000\nconst AI_WORKING_STATE_STORAGE_KEY = 'fersys_ai_working_state_v2'\n\nfunction readWorkingState(): AiWorkingState | null {\n  try {\n    const raw = localStorage.getItem(AI_WORKING_STATE_STORAGE_KEY)\n    if (!raw) return null\n    const parsed = JSON.parse(raw)\n    return isRecord(parsed) ? parsed as AiWorkingState : null\n  } catch {\n    return null\n  }\n}\n\nfunction persistWorkingState(value: unknown, clear = false) {\n  try {\n    if (clear) {\n      localStorage.removeItem(AI_WORKING_STATE_STORAGE_KEY)\n      return\n    }\n    if (isRecord(value)) {\n      localStorage.setItem(AI_WORKING_STATE_STORAGE_KEY, JSON.stringify(value))\n    }\n  } catch {\n    // AI nastavlja bez trajne radne memorije ako storage nije dostupan.\n  }\n}\n`)
+          }
+          a = a.replace("  return {\n    message: data.message.trim(),\n    proposedAction:", "  persistWorkingState(data.workingState, data.clearWorkingState === true)\n\n  return {\n    message: data.message.trim(),\n    proposedAction:")
+          a = a.replace("    clientAction:\n      isRecord(data.clientAction)\n        ? (data.clientAction as AiClientAction)\n        : null,\n  }", "    clientAction:\n      isRecord(data.clientAction)\n        ? (data.clientAction as AiClientAction)\n        : null,\n    workingState: isRecord(data.workingState) ? data.workingState as AiWorkingState : null,\n    clearWorkingState: data.clearWorkingState === true,\n  }")
+          a = a.replace("    offers:\n      context.offers,\n  }", "    offers:\n      context.offers,\n    invoices:\n      context.invoices,\n    locale:\n      context.locale,\n  }")
+          const localStart = `  try {\n    const local =\n      await resolveLocalAiNavigation(\n        cleanMessage,\n      )\n\n    if (local.handled) {\n      return {\n        message: local.message,\n        proposedAction: null,\n        clientAction:\n          local.clientAction,\n      }\n    }\n  } catch (error) {\n    console.error(\n      'Lokalni FERSYS AI resolver:',\n      error,\n    )\n  }`
+          const localSafe = `  // Lokalni resolver koristimo samo za kratku, čistu navigaciju.\n  // Složene naredbe (napravi nalog, odaberi investitora, datum, opis...)\n  // moraju cijele do AI v5 kako jedna riječ \"otvori\" ne bi ukrala namjeru.\n  const pureNavigation =\n    /^(otvori|pronađi|pronadi|nađi|nadi|pokaži|pokazi|pregledaj)\\b/i.test(cleanMessage) &&\n    !/\\b(napravi|kreiraj|izradi|dodaj|unesi|stvori|pretvori|novi|novu|novog|dolazak|odlazak|opis|materijal|iz nje|iz njega|iz toga|danas|jučer|jucer|sutra|zadnj|prv)\\b/i.test(cleanMessage) &&\n    cleanMessage.split(/\\s+/).length <= 8\n\n  if (pureNavigation) {\n    try {\n      const local = await resolveLocalAiNavigation(cleanMessage)\n      if (local.handled) {\n        return { message: local.message, proposedAction: null, clientAction: local.clientAction }\n      }\n    } catch (error) {\n      console.error('Lokalni FERSYS AI resolver:', error)\n    }\n  }`
+          if (a.includes(localStart)) a = a.replace(localStart, localSafe)
+          a = a.replace("        context:\n          context\n            ? compactContext(context)\n            : null,\n      },", "        context:\n          context\n            ? compactContext(context)\n            : null,\n        workingState: readWorkingState(),\n      },")
+          a = a.replace("      {\n        confirmAction: action,\n      },", "      {\n        confirmAction: action,\n        workingState: readWorkingState(),\n      },")
+          fs.writeFileSync(assistant, a)
+
+          // 2. aiContext: add invoice context and richer record timing.
+          const contextPath = 'src/services/aiContext.service.ts'
+          let c = fs.readFileSync(contextPath, 'utf8')
+          if (!c.includes("from './invoices.service'")) {
+            c = c.replace("import { getOffers } from './offers.service'", "import { getOffers } from './offers.service'\nimport { getInvoices } from './invoices.service'")
+          }
+          if (!c.includes('  invoices: Array<{')) {
+            c = c.replace("  offers: Array<{\n    id: string\n    offerNumber: string\n    customerName: string\n    description: string\n    date: string\n    status: Offer['status']\n  }>\n}", `  offers: Array<{\n    id: string\n    offerNumber: string\n    customerName: string\n    description: string\n    date: string\n    status: Offer['status']\n    createdAt: string\n    updatedAt: string\n  }>\n  invoices: Array<{\n    id: string\n    invoiceNumber: string\n    customerName: string\n    issueDate: string\n    status: string\n    createdAt: string\n    updatedAt: string\n    sourceOfferId: string\n    sourceWorkOrderId: string\n  }>\n}`)
+          }
+          c = c.replace("    offers,\n  ] = await Promise.all([", "    offers,\n    invoices,\n  ] = await Promise.all([")
+          c = c.replace("    getOffers(),\n  ])", "    getOffers(),\n    getInvoices<any>(),\n  ])")
+          c = c.replace("        status: offer.status,\n      })),\n  }", `        status: offer.status,\n        createdAt: String((offer as any).createdAt ?? ''),\n        updatedAt: String((offer as any).updatedAt ?? ''),\n      })),\n    invoices: invoices\n      .slice(0, 120)\n      .map((invoice: any) => ({\n        id: String(invoice.id ?? ''),\n        invoiceNumber: String(invoice.invoiceNumber ?? ''),\n        customerName: String(invoice.customerName ?? invoice.customer?.name ?? ''),\n        issueDate: String(invoice.issueDate ?? ''),\n        status: String(invoice.status ?? ''),\n        createdAt: String(invoice.createdAt ?? ''),\n        updatedAt: String(invoice.updatedAt ?? ''),\n        sourceOfferId: String(invoice.sourceOfferId ?? ''),\n        sourceWorkOrderId: String(invoice.sourceWorkOrderId ?? ''),\n      })),\n  }`)
+          fs.writeFileSync(contextPath, c)
+
+          // 3. AI page: support invoice/open/navigate/document conversion and better wording.
+          const page = 'src/pages/AiAssistantPage.tsx'
+          let p = fs.readFileSync(page, 'utf8')
+          if (!p.includes("prepareDocumentConversion")) {
+            p = p.replace("import { updateOfferStatus } from '../services/offers.service'", "import { updateOfferStatus } from '../services/offers.service'\nimport { prepareDocumentConversion, type FlowDocumentType } from '../services/documentFlow.service'")
+          }
+          p = p.replace("const welcomeText =\n  'Bok! Piši ili govori prirodno, kao u razgovoru. Razumijem investitore/kupce, radne naloge, ponude i kalendar. Možeš reći npr. „napravi investitora Marko Horvat”, „napravi mu nalog sutra u 8”, „stavi zadnju ponudu na prihvaćeno” ili „koji nalozi kasne”. Sve što mijenja podatke prvo traži tvoju potvrdu.'", "const welcomeText =\n  'Bok! Govori prirodno. Mogu povezati investitore, ponude, radne naloge i račune, razumjeti danas/jučer, prvi/zadnji dokument i nastaviti nacrt kroz više poruka. Reci npr. „napravi radni nalog za Horvata, dolazak 8, odlazak 13”, „iz zadnje ponude danas napravi nalog” ili „napravi račun iz tog naloga”. Ako nešto važno nedostaje, pitat ću samo za to.'")
+          const actionMarker = "    const payload = action.payload\n\n"
+          if (!p.includes("action.type === 'navigate'")) {
+            p = p.replace(actionMarker, actionMarker + `    if (action.type === 'navigate') {\n      const route = String(payload.route ?? '').trim()\n      if (route.startsWith('/')) navigate(route)\n      return\n    }\n\n`)
+          }
+          if (!p.includes("action.type === 'open_invoice'")) {
+            p = p.replace("    if (action.type === 'create_work_order') {", `    if (action.type === 'open_invoice') {\n      const invoiceId = String(payload.invoiceId ?? '').trim()\n      if (invoiceId) navigate('/invoices/' + invoiceId)\n      return\n    }\n\n    if (action.type === 'create_work_order') {`)
+          }
+          if (!p.includes("action.type === 'create_invoice'")) {
+            p = p.replace("    if (action.type === 'change_offer_status'", `    if (action.type === 'create_invoice') {\n      sessionStorage.setItem('fersys_invoice_prefill', JSON.stringify(payload))\n      navigate('/invoices/new')\n      return\n    }\n\n    if (action.type === 'convert_document') {\n      const sourceType = String(payload.sourceType ?? '') as FlowDocumentType\n      const sourceId = String(payload.sourceId ?? '').trim()\n      const targetType = String(payload.targetType ?? '') as FlowDocumentType\n      if (sourceId && ['offer','work_order','delivery_note','invoice'].includes(sourceType) && ['offer','work_order','delivery_note','invoice'].includes(targetType)) {\n        const result = await prepareDocumentConversion(sourceType, sourceId, targetType, true)\n        navigate(result.route)\n      }\n      return\n    }\n\n    if (action.type === 'change_offer_status'`)
+          }
+          fs.writeFileSync(page, p)
+          NODE
+
+          npm ci
+          npm run build
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiAssistant.service.ts src/services/aiContext.service.ts src/pages/AiAssistantPage.tsx
+          if git diff --cached --quiet; then
+            echo "No client changes needed"
+            exit 0
+          fi
+          git commit -m "Finalize FERSYS AI v5 business workflow [skip ci]"
+          git push
