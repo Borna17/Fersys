@@ -1,0 +1,99 @@
+name: Add shared calendar team schedule
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/add-shared-calendar-team-schedule.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Add team assignments, phone and editing to calendar
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CalendarPage.tsx')
+          s = p.read_text(encoding='utf-8-sig')
+
+          def rep(old, new, label):
+              global s
+              if old not in s:
+                  raise SystemExit(f'Marker missing: {label}')
+              s = s.replace(old, new, 1)
+
+          rep("  MapPin,\n  Plus,", "  MapPin,\n  Pencil,\n  Phone,\n  Plus,", 'icons')
+          rep("} from '../services/calendar.service'\n", "} from '../services/calendar.service'\nimport { getEmployees, type CompanyEmployee } from '../services/employees.service'\n", 'employee import')
+
+          rep("  location: string\n  workers: string\n  description: string", "  location: string\n  contactPhone: string\n  workers: string\n  assignedUserIds: string[]\n  description: string", 'form type')
+          rep("    location: '',\n    workers: '',\n    description: '',", "    location: '',\n    contactPhone: '',\n    workers: '',\n    assignedUserIds: [],\n    description: '',", 'empty form')
+
+          rep("  const [form, setForm] =\n    useState<EventForm>(\n      emptyForm(),\n    )\n", "  const [form, setForm] =\n    useState<EventForm>(\n      emptyForm(),\n    )\n  const [editingEventId, setEditingEventId] = useState('')\n  const [employees, setEmployees] = useState<CompanyEmployee[]>([])\n", 'state')
+
+          rep("  useEffect(() => {\n    void loadEvents()\n  }, [currentMonth])\n", "  useEffect(() => {\n    void loadEvents()\n  }, [currentMonth])\n\n  useEffect(() => {\n    void getEmployees()\n      .then((items) => setEmployees(items.filter((item) => item.status === 'active')))\n      .catch((loadError) => console.warn('Calendar employees:', loadError))\n  }, [])\n", 'employee load')
+
+          rep("  function openNew(\n    date = selectedDate,\n  ) {\n    setForm(\n      emptyForm(date),\n    )", "  function openNew(\n    date = selectedDate,\n  ) {\n    setEditingEventId('')\n    setForm(\n      emptyForm(date),\n    )", 'open new')
+
+          anchor = "    setIsModalOpen(true)\n  }\n\n  async function saveEvent("
+          insert = "    setIsModalOpen(true)\n  }\n\n  function openEdit(calendarEvent: CalendarEvent) {\n    setEditingEventId(calendarEvent.id)\n    setForm({\n      title: calendarEvent.title,\n      customer: calendarEvent.customer,\n      date: calendarEvent.date,\n      startTime: calendarEvent.startTime,\n      endTime: calendarEvent.endTime,\n      location: calendarEvent.location,\n      contactPhone: calendarEvent.contactPhone,\n      workers: calendarEvent.workers,\n      assignedUserIds: calendarEvent.assignedUserIds,\n      description: calendarEvent.description,\n      status: calendarEvent.status,\n    })\n    setSelectedDate(calendarEvent.date)\n    setMessage('')\n    setError('')\n    setIsModalOpen(true)\n  }\n\n  async function saveEvent("
+          rep(anchor, insert, 'open edit')
+
+          rep("          form.endTime,\n        )", "          form.endTime,\n          editingEventId || undefined,\n        )", 'conflict edit')
+
+          old_save = "      const saved =\n        await createCalendarEvent(\n          {\n            title:\n              form.title,\n            customer:\n              form.customer,\n            date: form.date,\n            startTime:\n              form.startTime,\n            endTime:\n              form.endTime,\n            location:\n              form.location,\n            workers:\n              form.workers,\n            description:\n              form.description,\n            status:\n              form.status,\n            source: 'manual',\n          },\n        )\n\n      setEvents((current) =>\n        [...current, saved].sort(\n          (a, b) =>\n            `${a.date} ${a.startTime}`.localeCompare(\n              `${b.date} ${b.startTime}`,\n            ),\n        ),\n      )"
+          new_save = "      const payload = {\n        title: form.title,\n        customer: form.customer,\n        date: form.date,\n        startTime: form.startTime,\n        endTime: form.endTime,\n        location: form.location,\n        contactPhone: form.contactPhone,\n        workers: form.workers,\n        assignedUserIds: form.assignedUserIds,\n        description: form.description,\n        status: form.status,\n        source: 'manual' as const,\n      }\n\n      const saved = editingEventId\n        ? await updateCalendarEvent(editingEventId, payload)\n        : await createCalendarEvent(payload)\n\n      setEvents((current) => {\n        const next = editingEventId\n          ? current.map((item) => item.id === saved.id ? saved : item)\n          : [...current, saved]\n        return next.sort((a, b) =>\n          `${a.date} ${a.startTime}`.localeCompare(`${b.date} ${b.startTime}`),\n        )\n      })"
+          rep(old_save, new_save, 'save create/update')
+          rep("      setMessage(\n        'Termin je spremljen.',\n      )", "      setEditingEventId('')\n      setMessage(editingEventId ? 'Termin je izmijenjen. Svi s pristupom kalendaru dobit će obavijest.' : 'Termin je spremljen. Svi s pristupom kalendaru dobit će obavijest.')", 'save message')
+
+          rep("                    location:\n                      event.location ??\n                      '',\n                    workers: '',", "                    location:\n                      event.location ??\n                      '',\n                    contactPhone: '',\n                    workers: '',\n                    assignedUserIds: [],", 'google input')
+
+          rep("                  calendarEvent.workers\n                    ? `Radnici: ${calendarEvent.workers}`\n                    : '',", "                  calendarEvent.contactPhone\n                    ? `Telefon: ${calendarEvent.contactPhone}`\n                    : '',\n                  calendarEvent.workers\n                    ? `Radnici: ${calendarEvent.workers}`\n                    : '',", 'google description phone')
+
+          old_loc = "                        {calendarEvent.location && (\n                          <InfoLine\n                            icon={\n                              <MapPin\n                                size={14}\n                              />\n                            }\n                            text={\n                              calendarEvent.location\n                            }\n                          />\n                        )}\n                        {calendarEvent.workers && ("
+          new_loc = "                        {calendarEvent.location && (\n                          <InfoLine\n                            icon={<MapPin size={14} />}\n                            text={calendarEvent.location}\n                          />\n                        )}\n                        {calendarEvent.contactPhone && (\n                          <InfoLine\n                            icon={<Phone size={14} />}\n                            text={calendarEvent.contactPhone}\n                          />\n                        )}\n                        {calendarEvent.assignedUserIds.length > 0 && (\n                          <InfoLine\n                            icon={<Users size={14} />}\n                            text={`Na teren: ${calendarEvent.assignedUserIds.map((userId) => employees.find((employee) => employee.userId === userId)?.fullName).filter(Boolean).join(', ') || 'Dodijeljeni članovi tima'}`}\n                          />\n                        )}\n                        {calendarEvent.workers && ("
+          rep(old_loc, new_loc, 'display details')
+
+          rep("                      <div className=\"mt-4 grid grid-cols-[1fr_auto] gap-2\">", "                      <div className=\"mt-4 grid grid-cols-[1fr_auto_auto] gap-2\">", 'buttons grid')
+          rep("                        <button\n                          type=\"button\"\n                          disabled={\n                            isSaving\n                          }\n                          onClick={() =>\n                            void removeEvent(", "                        <button\n                          type=\"button\"\n                          disabled={isSaving}\n                          onClick={() => openEdit(calendarEvent)}\n                          className=\"grid h-10 w-10 place-items-center rounded-xl bg-violet-500/10 text-violet-300 disabled:opacity-50\"\n                          aria-label=\"Uredi termin\"\n                        >\n                          <Pencil size={15} />\n                        </button>\n\n                        <button\n                          type=\"button\"\n                          disabled={\n                            isSaving\n                          }\n                          onClick={() =>\n                            void removeEvent(", 'edit button')
+
+          rep("                  NOVI TERMIN\n", "                  {editingEventId ? 'UREDI TERMIN' : 'NOVI TERMIN'}\n", 'modal eyebrow')
+          rep("                  Dodaj u kalendar\n", "                  {editingEventId ? 'Izmijeni termin' : 'Dodaj u kalendar'}\n", 'modal heading')
+
+          old_fields = "                  <Field label=\"Lokacija\">\n                    <input\n                      value={\n                        form.location\n                      }\n                      onChange={(\n                        event,\n                      ) =>\n                        setForm(\n                          (current) => ({\n                            ...current,\n                            location:\n                              event.target\n                                .value,\n                          }),\n                        )\n                      }\n                      placeholder=\"Adresa ili mjesto\"\n                      className=\"h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-white outline-none focus:border-violet-500\"\n                    />\n                  </Field>\n\n                  <Field label=\"Radnici\">"
+          new_fields = "                  <Field label=\"Lokacija / adresa\">\n                    <input\n                      value={form.location}\n                      onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))}\n                      placeholder=\"Ulica, kućni broj, mjesto\"\n                      className=\"h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-white outline-none focus:border-violet-500\"\n                    />\n                  </Field>\n\n                  <Field label=\"Telefon kontakta\">\n                    <input\n                      type=\"tel\"\n                      value={form.contactPhone}\n                      onChange={(event) => setForm((current) => ({ ...current, contactPhone: event.target.value }))}\n                      placeholder=\"091 234 5678\"\n                      className=\"h-12 w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 text-white outline-none focus:border-violet-500\"\n                    />\n                  </Field>\n\n                  <Field label=\"Radnici / dodatna napomena\">"
+          rep(old_fields, new_fields, 'phone field')
+
+          marker = "                <Field label=\"Status\">"
+          team_block = "                <Field label=\"Tko ide na teren\">\n                  <div className=\"grid gap-2 sm:grid-cols-2\">\n                    {employees.length === 0 ? (\n                      <p className=\"text-xs text-slate-500\">Nema aktivnih zaposlenika za odabir.</p>\n                    ) : employees.map((employee) => {\n                      const checked = form.assignedUserIds.includes(employee.userId)\n                      return (\n                        <label key={employee.userId} className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl border px-3 ${checked ? 'border-violet-500/50 bg-violet-500/10' : 'border-slate-700 bg-slate-800'}`}>\n                          <input\n                            type=\"checkbox\"\n                            checked={checked}\n                            onChange={() => setForm((current) => ({\n                              ...current,\n                              assignedUserIds: checked\n                                ? current.assignedUserIds.filter((id) => id !== employee.userId)\n                                : [...current.assignedUserIds, employee.userId],\n                            }))}\n                            className=\"h-4 w-4 accent-violet-600\"\n                          />\n                          <span className=\"min-w-0\">\n                            <span className=\"block truncate text-sm font-bold text-white\">{employee.fullName}</span>\n                            <span className=\"block text-[10px] uppercase text-slate-500\">{employee.role}</span>\n                          </span>\n                        </label>\n                      )\n                    })}\n                  </div>\n                </Field>\n\n                <Field label=\"Status\">"
+          rep(marker, team_block, 'team assignment')
+
+          rep("                  Spremi termin", "                  {editingEventId ? 'Spremi izmjene' : 'Spremi termin'}", 'submit label')
+
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Commit verified calendar upgrade
+        shell: bash
+        run: |
+          git config user.name "FERSYS Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add src/pages/CalendarPage.tsx
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add shared team calendar assignments and editing [skip ci]"
+          git push
