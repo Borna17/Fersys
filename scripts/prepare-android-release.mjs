@@ -4,8 +4,8 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 const root = process.cwd()
-const EXPECTED_VERSION_CODE = 9
-const EXPECTED_VERSION_NAME = '1.0.7'
+const EXPECTED_VERSION_CODE = 10
+const EXPECTED_VERSION_NAME = '1.0.8'
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
