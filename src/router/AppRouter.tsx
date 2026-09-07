@@ -319,10 +319,10 @@ function RouterContent() {
           <Route path="/ai" element={<Guard permission="ai.use" feature="ai"><AiAssistantPage /></Guard>} />
           <Route path="/invoices" element={<Guard permission="invoices.view" feature="invoices"><InvoicesPage /></Guard>} />
           <Route path="/invoices/new" element={<Guard permission="invoices.manage" feature="invoices"><NewInvoicePage /></Guard>} />
-          <Route path="/invoices/:invoiceId/edit" element={<Guard permission="invoices.view" feature="invoices"><NewInvoicePage /></Guard>} />
+          <Route path="/invoices/:invoiceId/edit" element={<Guard permission="invoices.manage" feature="invoices"><NewInvoicePage /></Guard>} />
           <Route path="/incoming-invoices" element={<Guard permission="incomingInvoices.view" feature="incoming_invoices"><IncomingInvoicesPage /></Guard>} />
           <Route path="/incoming-invoices/new" element={<Guard permission="incomingInvoices.manage" feature="incoming_invoices"><NewIncomingInvoicePage /></Guard>} />
-          <Route path="/incoming-invoices/:incomingInvoiceId/edit" element={<Guard permission="incomingInvoices.view" feature="incoming_invoices"><NewIncomingInvoicePage /></Guard>} />
+          <Route path="/incoming-invoices/:incomingInvoiceId/edit" element={<Guard permission="incomingInvoices.manage" feature="incoming_invoices"><NewIncomingInvoicePage /></Guard>} />
           <Route path="/inventory" element={<Guard permission="inventory.view" feature="inventory"><InventoryPage /></Guard>} />
           <Route path="/inventory/delivery-notes" element={<Guard permission="inventory.view" feature="inventory"><DeliveryNotesPage /></Guard>} />
           <Route path="/inventory/delivery-notes/new" element={<Guard permission="inventory.manage" feature="inventory"><NewDeliveryNotePage /></Guard>} />
