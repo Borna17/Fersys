@@ -2,8 +2,10 @@ import fs from 'node:fs'
 
 const rules = {
   'src/pages/CalendarPage.tsx': [
+    "const { can } = useAuth()",
     "const canManageCalendar = can('calendar.manage')",
     "const canDeleteCalendar = can('calendar.delete')",
+    "import { useAuth } from '../auth/AuthProvider'",
   ],
   'src/pages/CustomerProfilePage.tsx': [
     "const canManageCustomers = can('customers.manage')",
