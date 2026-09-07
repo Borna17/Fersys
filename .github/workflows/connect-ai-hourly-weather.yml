@@ -1,0 +1,47 @@
+name: Connect hourly weather to FERSYS AI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/connect-ai-hourly-weather.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Use hourly weather in AI
+        run: |
+          node <<'NODE'
+          const fs = require('fs')
+          const path = 'src/services/aiBusinessIntelligence.service.ts'
+          let s = fs.readFileSync(path, 'utf8')
+          s = s.replace(
+            "import { getTodayWeatherForCurrentLocation } from './weather.service'",
+            "import { getTodayHourlyWeatherForCurrentLocation } from './weather.service'",
+          )
+          const start = s.indexOf("  if (/\\b(vrijeme|vremenska|prognoza|kisa|snijeg|temperatura)\\b/.test(n)) {")
+          const next = s.indexOf("\n\n  if (/(prikazi|pokazi|izlistaj|navedi|svi|sve).*(investitor|kupac|klijent)/", start)
+          if (start < 0 || next < 0) throw new Error('Weather block not found')
+          const block = `  if (/\\b(vrijeme|vremenska|prognoza|kisa|snijeg|temperatura)\\b/.test(n)) {\n    const weather = await getTodayHourlyWeatherForCurrentLocation()\n    const timeline = weather.hours.filter((_, index) => index % 2 === 0).slice(0, 8).map((point) => {\n      const clock = point.time.slice(11, 16)\n      const rain = point.precipitationProbabilityPct >= 20 ? ' · oborine ' + point.precipitationProbabilityPct + '%' : ''\n      return '• ' + clock + ': ' + point.temperatureC.toFixed(0) + ' °C · ' + point.condition + rain + ' · vjetar ' + point.windKmh.toFixed(0) + ' km/h'\n    })\n    const rainSummary = weather.rainWindows.length\n      ? 'Moguće oborine: ' + weather.rainWindows.map((window) => window.from.slice(11,16) + '–' + window.to.slice(11,16) + ' (do ' + window.maxProbabilityPct + '%)').join(', ') + '.'\n      : 'Prema satnoj prognozi nema izraženog razdoblja oborina do kraja dana.'\n    return answer([\n      'Trenutačno: ' + weather.temperatureC.toFixed(1) + ' °C, ' + weather.condition.toLocaleLowerCase('hr-HR') + '.',\n      weather.minC !== null && weather.maxC !== null ? 'Danas: ' + weather.minC.toFixed(1) + '–' + weather.maxC.toFixed(1) + ' °C.' : '',\n      rainSummary,\n      timeline.length ? 'Prognoza kroz ostatak dana:' : '',\n      ...timeline,\n    ].filter(Boolean).join('\\n'))\n  }`
+          s = s.slice(0, start) + block + s.slice(next)
+          fs.writeFileSync(path, s)
+          NODE
+          npm ci
+          npm run build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/aiBusinessIntelligence.service.ts
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Use hourly weather in FERSYS AI [skip ci]"
+          git push
