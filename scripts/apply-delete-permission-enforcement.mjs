@@ -22,19 +22,24 @@ for (const [path, permission] of Object.entries(mappings)) {
   if (!/export async function delete[A-Za-z0-9_]+\s*\(/.test(source)) continue
 
   const nl = source.includes('\r\n') ? '\r\n' : '\n'
-  const importLine = `import { assertDeletePermission } from './permissionGuard.service'`
-  if (!source.includes(importLine)) {
-    const firstImportEnd = source.indexOf(nl)
-    source = source.slice(0, firstImportEnd + nl.length) + importLine + nl + source.slice(firstImportEnd + nl.length)
-  }
+  const guard = `await assertDeletePermission('${permission}')`
+  const functionRegex = /export async function (delete[A-Za-z0-9_]+)\s*\([^)]*\)(?:\s*:\s*[^\{]+)?\s*\{/g
+  let patched = false
 
-  const functionRegex = /export async function (delete[A-Za-z0-9_]+)\s*\([\s\S]*?\)\s*:\s*Promise<[^>]+>\s*\{/g
-  source = source.replace(functionRegex, (match) => {
-    const guard = `await assertDeletePermission('${permission}')`
-    const tail = source.slice(source.indexOf(match), source.indexOf(match) + match.length + 220)
+  source = source.replace(functionRegex, (match, _functionName, offset) => {
+    const tail = source.slice(offset, offset + match.length + 260)
     if (tail.includes(guard)) return match
+    patched = true
     return `${match}${nl}  ${guard}`
   })
+
+  if (patched || source.includes(guard)) {
+    const importLine = `import { assertDeletePermission } from './permissionGuard.service'`
+    if (!source.includes(importLine)) {
+      const firstImportEnd = source.indexOf(nl)
+      source = source.slice(0, firstImportEnd + nl.length) + importLine + nl + source.slice(firstImportEnd + nl.length)
+    }
+  }
 
   fs.writeFileSync(path, source)
 }
