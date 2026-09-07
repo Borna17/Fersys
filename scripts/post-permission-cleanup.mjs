@@ -1,27 +1,41 @@
 import fs from 'node:fs'
 
+function stripLine(source, code) {
+  return source.replace(
+    new RegExp(`^[\\t ]*${code.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\r?$`, 'gm'),
+    '',
+  )
+}
+
 const removals = {
   'src/pages/CalendarPage.tsx': [
-    "  const canManageCalendar = can('calendar.manage')\n",
-    "  const canDeleteCalendar = can('calendar.delete')\n",
+    "const canDeleteCalendar = can('calendar.delete')",
   ],
   'src/pages/CustomerProfilePage.tsx': [
-    "  const canManageCustomers = can('customers.manage')\n",
-    "  const canDeleteCustomers = can('customers.delete')\n",
+    "const canManageCustomers = can('customers.manage')",
+    "const canDeleteCustomers = can('customers.delete')",
   ],
   'src/pages/IncomingInvoicesPage.tsx': [
-    "  const canManageIncomingInvoices = can('incomingInvoices.manage')\n",
+    "const canManageIncomingInvoices = can('incomingInvoices.manage')",
   ],
   'src/pages/VehicleDetailsPage.tsx': [
-    "  const canManageVehicles = can('vehicles.manage')\n",
-    "  const canDeleteVehicles = can('vehicles.delete')\n",
+    "const canManageVehicles = can('vehicles.manage')",
+    "const canDeleteVehicles = can('vehicles.delete')",
   ],
 }
 
 for (const [path, lines] of Object.entries(removals)) {
   if (!fs.existsSync(path)) continue
   let source = fs.readFileSync(path, 'utf8')
-  for (const line of lines) source = source.replace(line, '')
+  for (const line of lines) source = stripLine(source, line)
+
+  if (path === 'src/pages/VehicleDetailsPage.tsx') {
+    source = source.replace(/^\s*const \{ can \} = useAuth\(\)\r?\n/m, '')
+    if (!source.includes('useAuth(')) {
+      source = source.replace(/^import \{ useAuth \} from '\.\.\/auth\/AuthProvider'\r?\n/m, '')
+    }
+  }
+
   fs.writeFileSync(path, source)
 }
 
