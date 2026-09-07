@@ -8,6 +8,7 @@ on:
       - 'scripts/apply-permission-cleanup.mjs'
       - 'scripts/fix-permission-cleanup-runner.mjs'
       - 'scripts/post-permission-cleanup.mjs'
+      - 'scripts/fix-permission-edit-routes.mjs'
   workflow_dispatch:
 
 permissions:
@@ -30,6 +31,9 @@ jobs:
 
       - name: Post-process generated source
         run: node scripts/post-permission-cleanup.mjs
+
+      - name: Fix invoice edit routes
+        run: node scripts/fix-permission-edit-routes.mjs
 
       - name: Install dependencies
         run: npm ci
