@@ -241,6 +241,9 @@ export function NewIncomingInvoicePage() {
     registration: string
     category: 'Gorivo' | 'Servis' | 'Registracija' | 'Osiguranje' | 'Gume' | 'Cestarina' | 'Ostalo'
     confidence: number
+    fuelLiters: number
+    fuelUnitPrice: number
+    mileage: number
   } | null>(null)
 
   useEffect(() => {
@@ -376,6 +379,9 @@ export function NewIncomingInvoicePage() {
         registration: result.vehicleRegistration,
         category: result.vehicleExpenseCategory,
         confidence: vehicleConfidence,
+        fuelLiters: Math.max(0, Number(result.fuelLiters ?? 0)),
+        fuelUnitPrice: Math.max(0, Number(result.fuelUnitPrice ?? 0)),
+        mileage: Math.max(0, Math.round(Number(result.vehicleMileage ?? 0))),
       })
       if (result.vehicleExpenseCategory === 'Gorivo') setCategory('Gorivo')
       if (['Servis', 'Gume', 'Registracija', 'Osiguranje'].includes(result.vehicleExpenseCategory)) setCategory('Servis i održavanje')
@@ -533,7 +539,11 @@ export function NewIncomingInvoicePage() {
             category: aiVehicleMatch.category,
             description: [saved.supplierName, saved.invoiceNumber ? 'račun ' + saved.invoiceNumber : '', aiVehicleMatch.registration].filter(Boolean).join(' · '),
             amount: saved.totalAmount,
-            mileage: null,
+            mileage: aiVehicleMatch.mileage > 0 ? aiVehicleMatch.mileage : null,
+            fuelLiters: aiVehicleMatch.category === 'Gorivo' && aiVehicleMatch.fuelLiters > 0 ? aiVehicleMatch.fuelLiters : null,
+            fuelUnitPrice: aiVehicleMatch.category === 'Gorivo' && aiVehicleMatch.fuelUnitPrice > 0 ? aiVehicleMatch.fuelUnitPrice : null,
+            sourceInvoiceId: saved.id,
+            sourceInvoiceNumber: saved.invoiceNumber,
           })
         } catch (vehicleError) {
           console.error('AI nije mogao automatski povezati trošak s vozilom:', vehicleError)

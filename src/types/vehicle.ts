@@ -69,5 +69,9 @@ export type VehicleExpense = {
   description: string
   amount: number
   mileage: number | null
+  fuelLiters: number | null
+  fuelUnitPrice: number | null
+  sourceInvoiceId: string
+  sourceInvoiceNumber: string
   createdAt: string
 }

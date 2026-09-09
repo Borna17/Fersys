@@ -59,6 +59,10 @@ type ExpenseRow = {
   description: string | null
   amount: number
   mileage: number | null
+  fuel_liters: number | null
+  fuel_unit_price: number | null
+  source_invoice_id: string | null
+  source_invoice_number: string | null
   created_at: string
 }
 
@@ -102,6 +106,10 @@ export type CreateExpenseInput = {
   description?: string
   amount: number
   mileage?: number | null
+  fuelLiters?: number | null
+  fuelUnitPrice?: number | null
+  sourceInvoiceId?: string
+  sourceInvoiceNumber?: string
 }
 
 function mapVehicle(
@@ -172,6 +180,10 @@ function mapExpense(
     description: row.description ?? '',
     amount: Number(row.amount ?? 0),
     mileage: row.mileage,
+    fuelLiters: row.fuel_liters === null ? null : Number(row.fuel_liters),
+    fuelUnitPrice: row.fuel_unit_price === null ? null : Number(row.fuel_unit_price),
+    sourceInvoiceId: row.source_invoice_id ?? '',
+    sourceInvoiceNumber: row.source_invoice_number ?? '',
     createdAt: row.created_at,
   }
 }
@@ -782,6 +794,14 @@ export async function addVehicleExpense(
         mileage:
           input.mileage ??
           null,
+        fuel_liters:
+          input.fuelLiters ?? null,
+        fuel_unit_price:
+          input.fuelUnitPrice ?? null,
+        source_invoice_id:
+          input.sourceInvoiceId?.trim() || null,
+        source_invoice_number:
+          input.sourceInvoiceNumber?.trim() || null,
       })
       .select('*')
       .single()

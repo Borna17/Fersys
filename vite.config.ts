@@ -24,8 +24,8 @@ export default defineConfig({
       ],
 
       manifest: {
-        name: 'FERSYS',
-        short_name: 'FERSYS',
+        name: 'FERSYS Business',
+        short_name: 'FERSYS Business',
         description:
           'Poslovna aplikacija za upravljanje investitorima, radnim nalozima, ponudama, računima, skladištem, zaposlenicima i kalendarom.',
         id: '/',

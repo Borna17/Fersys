@@ -50,6 +50,9 @@ export type IncomingInvoiceAiResult = {
   vehicleExpenseCategory?: IncomingInvoiceVehicleExpenseCategory
   vehicleMatchConfidence?: number
   vehicleMatchReason?: string
+  fuelLiters?: number
+  fuelUnitPrice?: number
+  vehicleMileage?: number
 }
 
 type VehicleLinkResult = {
@@ -58,6 +61,9 @@ type VehicleLinkResult = {
   expenseCategory?: IncomingInvoiceVehicleExpenseCategory
   confidence?: number
   reason?: string
+  fuelLiters?: number
+  fuelUnitPrice?: number
+  mileage?: number
 }
 
 function arrayBufferToBase64(
@@ -160,5 +166,8 @@ export async function analyzeIncomingInvoice(
       Number(vehicle?.confidence ?? 0),
     vehicleMatchReason:
       vehicle?.reason ?? '',
+    fuelLiters: Math.max(0, Number(vehicle?.fuelLiters ?? 0)),
+    fuelUnitPrice: Math.max(0, Number(vehicle?.fuelUnitPrice ?? 0)),
+    vehicleMileage: Math.max(0, Math.round(Number(vehicle?.mileage ?? 0))),
   }
 }

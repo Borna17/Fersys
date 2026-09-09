@@ -119,9 +119,22 @@ export default function ConnectionStatusNotice() {
 
     if (!navigator.onLine) {
       handleOffline()
+    } else {
+      void syncPendingUserDrafts().catch((error) => {
+        console.warn('Početna sinkronizacija nacrta nije uspjela:', error)
+      })
     }
 
+    const syncInterval = window.setInterval(() => {
+      if (navigator.onLine && document.visibilityState === 'visible') {
+        void syncPendingUserDrafts().catch((error) => {
+          console.warn('Periodična sinkronizacija nacrta nije uspjela:', error)
+        })
+      }
+    }, 2 * 60 * 1000)
+
     return () => {
+      window.clearInterval(syncInterval)
       clearOnlineTimer()
       window.removeEventListener(
         'offline',

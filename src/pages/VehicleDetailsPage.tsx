@@ -1036,8 +1036,18 @@ export function VehicleDetailsPage() {
                       </span>
 
                       <span className="text-sm text-slate-300">
-                        {expense.description ||
-                          '—'}
+                        {expense.description || '—'}
+                        {expense.category === 'Gorivo' && expense.fuelLiters !== null && (
+                          <span className="mt-1 block text-xs text-slate-500">
+                            {expense.fuelLiters.toLocaleString('hr-HR', { maximumFractionDigits: 2 })} L
+                            {expense.fuelUnitPrice !== null
+                              ? ` · ${money(expense.fuelUnitPrice)}/L`
+                              : ''}
+                            {expense.mileage !== null
+                              ? ` · ${mileage(expense.mileage)}`
+                              : ''}
+                          </span>
+                        )}
                       </span>
 
                       <strong className="text-right text-sm text-white">
