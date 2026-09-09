@@ -1,0 +1,86 @@
+name: Finalize FERSYS Business larger app icon
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/finalize-fersys-business-large-icon.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-icon:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Enlarge master icon safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          if command -v magick >/dev/null 2>&1; then
+            IMG=magick
+          elif command -v convert >/dev/null 2>&1; then
+            IMG=convert
+          else
+            echo 'ImageMagick is not available.' >&2
+            exit 1
+          fi
+
+          # Crop the central 820x820 area and return it to 1024x1024.
+          # This makes the FERSYS symbol about 25% larger while preserving the existing branded background.
+          $IMG public/fersys-app-icon-1024.png -crop 820x820+102+102 +repage -resize 1024x1024 /tmp/fersys-app-icon-1024.png
+          mv /tmp/fersys-app-icon-1024.png public/fersys-app-icon-1024.png
+
+          $IMG public/fersys-app-icon-1024.png -resize 512x512 public/fersys-android-icon-512.png
+          $IMG public/fersys-app-icon-1024.png -resize 512x512 public/pwa-512x512.png
+          $IMG public/fersys-app-icon-1024.png -resize 512x512 public/pwa-maskable-512x512.png
+          $IMG public/fersys-app-icon-1024.png -resize 192x192 public/pwa-192x192.png
+          $IMG public/fersys-app-icon-1024.png -resize 180x180 public/apple-touch-icon.png
+
+      - name: Generate Android launcher assets
+        run: |
+          rm -rf assets
+          mkdir -p assets
+          cp public/fersys-app-icon-1024.png assets/icon.png
+          npx @capacitor/assets@3.0.5 generate --android \
+            --iconBackgroundColor "#10143D" \
+            --iconBackgroundColorDark "#10143D" \
+            --splashBackgroundColor "#10143D" \
+            --splashBackgroundColorDark "#10143D"
+
+      - name: Verify FERSYS Business naming
+        run: |
+          grep -q 'FERSYS Business' public/manifest.webmanifest
+          grep -q 'FERSYS Business' android/app/src/main/res/values/strings.xml
+          grep -q 'FERSYS Business' capacitor.config.ts
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Commit final app icon assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/fersys-app-icon-1024.png public/fersys-android-icon-512.png public/pwa-192x192.png public/pwa-512x512.png public/pwa-maskable-512x512.png public/apple-touch-icon.png android/app/src/main/res
+          if git diff --cached --quiet; then
+            echo 'No icon changes to commit.'
+            exit 0
+          fi
+          git commit -m "Enlarge FERSYS Business app icon [skip ci]"
+          git push origin main
