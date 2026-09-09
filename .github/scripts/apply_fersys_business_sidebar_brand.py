@@ -1,30 +1,8 @@
 from pathlib import Path
+import re
 
 path = Path('src/components/Sidebar.tsx')
 text = path.read_text(encoding='utf-8')
-
-old = '''function Brand({
-  expanded,
-}: {
-  expanded: boolean
-}) {
-  return (
-    <div className="flex items-center gap-3">
-      <img
-        src={fersysIcon}
-        alt="FERSYS"
-        className="h-11 w-11 shrink-0 object-contain"
-      />
-
-      {expanded && (
-        <span className="text-2xl font-black tracking-[0.08em] text-slate-50">
-          FERSYS
-        </span>
-      )}
-    </div>
-  )
-}
-'''
 
 new = '''function Brand({
   expanded,
@@ -49,10 +27,13 @@ new = '''function Brand({
     </div>
   )
 }
+
 '''
 
-if old not in text:
-    raise SystemExit('Expected Brand block not found; refusing to modify Sidebar.tsx')
+pattern = r'function Brand\(\{[\s\S]*?\n\}\n\n(?=function UserCard\()'
+updated, count = re.subn(pattern, new, text, count=1)
+if count != 1:
+    raise SystemExit(f'Expected exactly one Brand block, found {count}; refusing to modify Sidebar.tsx')
 
-path.write_text(text.replace(old, new, 1), encoding='utf-8')
+path.write_text(updated, encoding='utf-8')
 print('Updated Sidebar Brand to FERSYS Business horizontal logo.')
