@@ -40,3 +40,5 @@ jobs:
           git add src/components/Sidebar.tsx
           git commit -m "Use FERSYS Business logo in app sidebar [skip ci]"
           git push
+
+# Triggered after workflow registration.
