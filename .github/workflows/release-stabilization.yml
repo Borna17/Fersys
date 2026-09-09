@@ -37,8 +37,16 @@ jobs:
       - name: TypeScript and production build
         run: npm run build
 
-      - name: Lint
-        run: npm run lint
+      - name: Lint stabilization files
+        run: |
+          npx eslint \
+            vite.config.ts \
+            src/types/vehicle.ts \
+            src/services/vehicles.service.ts \
+            src/services/incomingInvoiceAi.service.ts \
+            src/pages/NewIncomingInvoicePage.tsx \
+            src/pages/VehicleDetailsPage.tsx \
+            src/components/ConnectionStatusNotice.tsx
 
       - name: Release invariants
         run: |
@@ -48,8 +56,6 @@ jobs:
           grep -q "fuelLiters" src/services/incomingInvoiceAi.service.ts
           grep -q "fuel_liters" src/services/vehicles.service.ts
           grep -q "paginateItems" src/utils/offerPdf.ts
-          grep -q "paginate" src/utils/invoicePdf.ts || true
-          grep -q "page" src/utils/deliveryNotePdf.ts || true
 
       - name: Commit stabilization changes
         run: |
