@@ -211,7 +211,7 @@ buildDeliveryNotePdfHtml(
     min-height: 1123px;
     padding: 50px 56px 44px;
     background: ${appearance.backgroundColor};
-    overflow: hidden;
+    overflow: visible;
   }
 
   .accent {
@@ -762,19 +762,102 @@ async function htmlToBlob(
         compress: true,
       })
 
-    pdf.addImage(
-      canvas.toDataURL(
-        'image/jpeg',
-        0.92,
-      ),
-      'JPEG',
-      0,
-      0,
-      210,
-      297,
-      undefined,
-      'FAST',
-    )
+    const a4PageHeightPx =
+      canvas.width * (297 / 210)
+    const pageRect =
+      page.getBoundingClientRect()
+    const canvasScaleY =
+      canvas.height / Math.max(1, page.scrollHeight)
+    const safeBreaks =
+      Array.from(
+        page.querySelectorAll(
+          'tr, .note, .signatures, .info-grid',
+        ),
+      )
+        .map((element) => {
+          const rect =
+            (element as HTMLElement).getBoundingClientRect()
+          return Math.round(
+            (rect.bottom - pageRect.top) * canvasScaleY,
+          )
+        })
+        .filter((value) =>
+          value > 0 && value < canvas.height,
+        )
+        .sort((a, b) => a - b)
+
+    let startY = 0
+    let outputPage = 0
+
+    while (startY < canvas.height - 2) {
+      const naturalEnd =
+        Math.min(
+          canvas.height,
+          startY + a4PageHeightPx,
+        )
+      let endY = naturalEnd
+
+      if (naturalEnd < canvas.height) {
+        const minUsefulEnd =
+          startY + a4PageHeightPx * 0.62
+        const candidates =
+          safeBreaks.filter(
+            (value) =>
+              value >= minUsefulEnd &&
+              value <= naturalEnd - 12,
+          )
+        if (candidates.length) {
+          endY = candidates[candidates.length - 1]
+        }
+      }
+
+      if (endY <= startY + 10) {
+        endY = naturalEnd
+      }
+
+      const sliceHeight =
+        Math.max(1, Math.round(endY - startY))
+      const slice =
+        document.createElement('canvas')
+      slice.width = canvas.width
+      slice.height = sliceHeight
+      const context = slice.getContext('2d')
+      if (!context) {
+        throw new Error('PDF stranicu nije moguće pripremiti.')
+      }
+      context.fillStyle = '#ffffff'
+      context.fillRect(0, 0, slice.width, slice.height)
+      context.drawImage(
+        canvas,
+        0,
+        Math.round(startY),
+        canvas.width,
+        sliceHeight,
+        0,
+        0,
+        canvas.width,
+        sliceHeight,
+      )
+
+      if (outputPage > 0) {
+        pdf.addPage('a4', 'portrait')
+      }
+      const renderedHeightMm =
+        Math.min(297, sliceHeight * (210 / canvas.width))
+      pdf.addImage(
+        slice.toDataURL('image/jpeg', 0.92),
+        'JPEG',
+        0,
+        0,
+        210,
+        renderedHeightMm,
+        undefined,
+        'FAST',
+      )
+
+      outputPage += 1
+      startY = endY
+    }
 
     return pdf.output(
       'blob',
