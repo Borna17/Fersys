@@ -21,7 +21,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -41,4 +41,4 @@ jobs:
           git commit -m "Use FERSYS Business logo in app sidebar [skip ci]"
           git push
 
-# Triggered after workflow registration.
+# Retry with robust sidebar patch.
