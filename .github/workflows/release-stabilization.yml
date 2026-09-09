@@ -46,7 +46,8 @@ jobs:
             src/services/incomingInvoiceAi.service.ts \
             src/pages/NewIncomingInvoicePage.tsx \
             src/pages/VehicleDetailsPage.tsx \
-            src/components/ConnectionStatusNotice.tsx
+            src/components/ConnectionStatusNotice.tsx \
+            src/utils/deliveryNotePdf.ts
 
       - name: Release invariants
         run: |
@@ -56,15 +57,18 @@ jobs:
           grep -q "fuelLiters" src/services/incomingInvoiceAi.service.ts
           grep -q "fuel_liters" src/services/vehicles.service.ts
           grep -q "paginateItems" src/utils/offerPdf.ts
+          grep -q "paginateItems" src/utils/invoicePdf.ts
+          grep -q "safeBreaks" src/utils/deliveryNotePdf.ts
+          grep -q "canvasScaleY" src/utils/deliveryNotePdf.ts
 
       - name: Commit stabilization changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add vite.config.ts src/types/vehicle.ts src/services/vehicles.service.ts src/services/incomingInvoiceAi.service.ts src/pages/NewIncomingInvoicePage.tsx src/pages/VehicleDetailsPage.tsx src/components/ConnectionStatusNotice.tsx
+          git add vite.config.ts src/types/vehicle.ts src/services/vehicles.service.ts src/services/incomingInvoiceAi.service.ts src/pages/NewIncomingInvoicePage.tsx src/pages/VehicleDetailsPage.tsx src/components/ConnectionStatusNotice.tsx src/utils/deliveryNotePdf.ts
           if git diff --cached --quiet; then
             echo "No stabilization changes to commit."
             exit 0
           fi
-          git commit -m "Stabilize offline sync AI fuel linking and PWA branding [skip ci]"
+          git commit -m "Harden release offline sync AI fuel linking and PDF pagination [skip ci]"
           git push origin HEAD:release-stabilization-1.0.8-11
