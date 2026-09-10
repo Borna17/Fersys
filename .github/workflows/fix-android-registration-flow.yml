@@ -1,0 +1,41 @@
+name: Fix Android registration flow
+on:
+  push:
+    branches: [fix-android-registration-flow]
+    paths:
+      - '.github/scripts/fix_android_registration_flow.py'
+      - '.github/workflows/fix-android-registration-flow.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-android-registration-flow
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apply registration fix
+        run: python .github/scripts/fix_android_registration_flow.py
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Lint changed app files
+        run: npx eslint src/pages/RegisterPage.tsx src/router/AppRouter.tsx
+      - name: Verify flow
+        run: |
+          grep -q "!captchaToken && !isNativeApp()" src/pages/RegisterPage.tsx
+          grep -q "Čeka se potvrda FERSYS administracije" src/router/AppRouter.tsx
+          grep -q "company-registration-notify" src/auth/AuthProvider.tsx
+      - name: Commit fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/RegisterPage.tsx src/router/AppRouter.tsx
+          git commit -m 'Fix Android registration and pending approval flow [skip ci]'
+          git push origin HEAD:fix-android-registration-flow
