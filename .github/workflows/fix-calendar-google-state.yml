@@ -1,0 +1,80 @@
+name: Fix calendar Google state
+
+on:
+  push:
+    branches:
+      - fix-calendar-google-state
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-calendar-google-state
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Patch calendar Google state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/pages/CalendarPage.tsx')
+          s = p.read_text()
+
+          old = "const GOOGLE_SCOPE =\n  'https://www.googleapis.com/auth/calendar.events'\n"
+          new = "const GOOGLE_SCOPE =\n  'https://www.googleapis.com/auth/calendar.events'\n\nconst GOOGLE_TOKEN_KEY =\n  'fersys_google_calendar_access_token'\n\nconst GOOGLE_TOKEN_EXPIRY_KEY =\n  'fersys_google_calendar_access_token_expires_at'\n\nfunction getStoredGoogleAccessToken() {\n  const token = window.localStorage.getItem(GOOGLE_TOKEN_KEY) ?? ''\n  const expiresAt = Number(window.localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY) ?? 0)\n\n  if (!token || !expiresAt || Date.now() >= expiresAt) {\n    window.localStorage.removeItem(GOOGLE_TOKEN_KEY)\n    window.localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY)\n    return ''\n  }\n\n  return token\n}\n"
+          if old not in s:
+              raise SystemExit('GOOGLE_SCOPE anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = "  const [\n    googleAccessToken,\n    setGoogleAccessToken,\n  ] = useState('')"
+          new = "  const [\n    googleAccessToken,\n    setGoogleAccessToken,\n  ] = useState(() =>\n    getStoredGoogleAccessToken(),\n  )"
+          if old not in s:
+              raise SystemExit('googleAccessToken state anchor not found')
+          s = s.replace(old, new, 1)
+
+          anchor = "  useEffect(() => {\n    void getEmployees()\n      .then((items) => setEmployees(items.filter((item) => item.status === 'active')))\n      .catch((loadError) => console.warn('Calendar employees:', loadError))\n  }, [])\n"
+          addition = anchor + "\n  useEffect(() => {\n    const syncStoredGoogleToken = () => {\n      setGoogleAccessToken(\n        getStoredGoogleAccessToken(),\n      )\n    }\n\n    syncStoredGoogleToken()\n    window.addEventListener(\n      'fersys:google-calendar-connected',\n      syncStoredGoogleToken,\n    )\n    window.addEventListener(\n      'focus',\n      syncStoredGoogleToken,\n    )\n\n    return () => {\n      window.removeEventListener(\n        'fersys:google-calendar-connected',\n        syncStoredGoogleToken,\n      )\n      window.removeEventListener(\n        'focus',\n        syncStoredGoogleToken,\n      )\n    }\n  }, [])\n"
+          if anchor not in s:
+              raise SystemExit('employee effect anchor not found')
+          s = s.replace(anchor, addition, 1)
+
+          old = "    setGoogleAccessToken('')\n    setMessage(\n      'Google Kalendar je odspojen.',\n    )"
+          new = "    window.localStorage.removeItem(\n      GOOGLE_TOKEN_KEY,\n    )\n    window.localStorage.removeItem(\n      GOOGLE_TOKEN_EXPIRY_KEY,\n    )\n    setGoogleAccessToken('')\n    setMessage(\n      'Google Kalendar je odspojen.',\n    )"
+          if old not in s:
+              raise SystemExit('disconnect anchor not found')
+          s = s.replace(old, new, 1)
+
+          old = "      setError(\n        saveError instanceof Error\n          ? saveError.message\n          : 'Termin nije moguće spremiti.',\n      )"
+          new = "      const message =\n        saveError instanceof Error\n          ? saveError.message\n          : typeof saveError === 'object' &&\n              saveError !== null &&\n              'message' in saveError\n            ? String(\n                (saveError as { message?: unknown }).message ??\n                  'Termin nije moguće spremiti.',\n              )\n            : 'Termin nije moguće spremiti.'\n\n      setError(message)"
+          if old not in s:
+              raise SystemExit('save error anchor not found')
+          s = s.replace(old, new, 1)
+
+          p.write_text(s)
+          PY
+      - name: TypeScript
+        run: npm run typecheck --if-present
+      - name: Build
+        run: npm run build
+      - name: Lint calendar
+        run: npx eslint src/pages/CalendarPage.tsx src/components/GoogleCalendarOAuthBridge.tsx
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/CalendarPage.tsx
+          git commit -m "Fix Google Calendar connection state [skip ci]"
+          git push origin HEAD:fix-calendar-google-state
