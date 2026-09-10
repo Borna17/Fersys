@@ -99,15 +99,31 @@ function draftMeta(
       : ''
 
   switch (draftType) {
-    case 'work-order':
+    case 'work-order': {
+      const customerName =
+        typeof source?.customerName === 'string'
+          ? source.customerName.trim()
+          : typeof source?.investorName === 'string'
+            ? source.investorName.trim()
+            : ''
+      const title =
+        typeof source?.title === 'string'
+          ? source.title.trim()
+          : ''
+      const detail =
+        [customerName, title]
+          .filter(Boolean)
+          .join(' · ')
+
       return {
         label: editId
-          ? 'Uređivanje radnog naloga'
-          : 'Novi radni nalog',
+          ? `Uređivanje radnog naloga${detail ? ` · ${detail}` : ''}`
+          : `Novi radni nalog${detail ? ` · ${detail}` : ''}`,
         route: editId
           ? `/work-orders/${editId}/edit`
           : '/work-orders/new',
       }
+    }
     case 'offer':
       return {
         label: editId
@@ -255,6 +271,113 @@ export function getDraftManifestEntries() {
       new Date(b.updatedAt).getTime() -
       new Date(a.updatedAt).getTime(),
   )
+}
+
+export async function refreshDraftManifestFromCloud():
+Promise<DraftManifestEntry[]> {
+  const localEntries =
+    getDraftManifestEntries()
+
+  if (!navigator.onLine) {
+    return localEntries
+  }
+
+  try {
+    const identity =
+      await getIdentity()
+
+    const { data, error } =
+      await supabase
+        .from('user_drafts')
+        .select('draft_type,draft_key,payload,updated_at,expires_at')
+        .eq('company_id', identity.companyId)
+        .eq('user_id', identity.userId)
+        .gt('expires_at', new Date().toISOString())
+        .order('updated_at', { ascending: false })
+
+    if (error) {
+      throw error
+    }
+
+    const cloudEntries: DraftManifestEntry[] = []
+
+    for (const row of data ?? []) {
+      const draftType =
+        String(row.draft_type ?? '') as DraftType
+      const draftKey =
+        String(row.draft_key ?? '')
+      const updatedAt =
+        String(row.updated_at ?? '')
+
+      if (!draftKey || !updatedAt) {
+        continue
+      }
+
+      const payload = row.payload
+      const meta =
+        draftMeta(draftType, draftKey, payload)
+
+      cloudEntries.push({
+        draftType,
+        draftKey,
+        label: meta.label,
+        route: meta.route,
+        updatedAt,
+      })
+
+      // Cloud is also copied back into IndexedDB. After one successful online
+      // refresh the same unfinished work can therefore be reopened offline.
+      await putLocal({
+        key: localKey(identity, draftType, draftKey),
+        companyId: identity.companyId,
+        userId: identity.userId,
+        draftType,
+        draftKey,
+        payload,
+        updatedAt,
+        syncState: 'synced',
+      })
+    }
+
+    const merged =
+      new Map<string, DraftManifestEntry>()
+
+    for (const entry of [
+      ...localEntries,
+      ...cloudEntries,
+    ]) {
+      const key =
+        `${entry.draftType}:${entry.draftKey}`
+      const existing =
+        merged.get(key)
+
+      if (
+        !existing ||
+        new Date(entry.updatedAt).getTime() >=
+          new Date(existing.updatedAt).getTime()
+      ) {
+        merged.set(key, entry)
+      }
+    }
+
+    const entries =
+      Array.from(merged.values())
+        .sort(
+          (a, b) =>
+            new Date(b.updatedAt).getTime() -
+            new Date(a.updatedAt).getTime(),
+        )
+        .slice(0, 100)
+
+    writeDraftManifest(entries)
+    return entries
+  } catch (error) {
+    console.warn(
+      '[FERSYS] Cloud popis nedovršenih unosa nije moguće osvježiti:',
+      error,
+    )
+    return localEntries
+  }
 }
 
 function localKey(

@@ -14,6 +14,7 @@ import {
 import {
   deleteUserDraft,
   getDraftManifestEntries,
+  refreshDraftManifestFromCloud,
   loadUserDraft,
   saveUserDraft,
   type DraftManifestEntry,
@@ -256,15 +257,51 @@ export default function UniversalDraftProtection() {
   }
 
   useEffect(() => {
-    refresh()
+    let disposed = false
+    let cloudRefreshRunning = false
+
+    const refreshCloud = async () => {
+      if (cloudRefreshRunning || !navigator.onLine) {
+        refresh()
+        return
+      }
+
+      cloudRefreshRunning = true
+      try {
+        const next =
+          await refreshDraftManifestFromCloud()
+        if (!disposed) {
+          setEntries(next)
+        }
+      } finally {
+        cloudRefreshRunning = false
+      }
+    }
+
+    void refreshCloud()
+
     const onChange = () => refresh()
+    const onOnline = () => void refreshCloud()
+    const onFocus = () => void refreshCloud()
+
     window.addEventListener('fersys:draft-sync-change', onChange)
     window.addEventListener('storage', onChange)
-    const timer = window.setInterval(refresh, 2500)
+    window.addEventListener('online', onOnline)
+    window.addEventListener('focus', onFocus)
+
+    const localTimer =
+      window.setInterval(refresh, 2500)
+    const cloudTimer =
+      window.setInterval(() => void refreshCloud(), 60 * 1000)
+
     return () => {
+      disposed = true
       window.removeEventListener('fersys:draft-sync-change', onChange)
       window.removeEventListener('storage', onChange)
-      window.clearInterval(timer)
+      window.removeEventListener('online', onOnline)
+      window.removeEventListener('focus', onFocus)
+      window.clearInterval(localTimer)
+      window.clearInterval(cloudTimer)
     }
   }, [])
 
