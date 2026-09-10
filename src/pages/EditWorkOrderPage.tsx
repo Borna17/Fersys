@@ -695,25 +695,31 @@ export function EditWorkOrderPage() {
 
       if (images.length > 0) {
         /*
-         * UreÄ‘ivanje naloga ne smije Äekati upload fotografija u galeriju.
-         * Sam nalog je veÄ‡ spremljen; galerija se sinkronizira u pozadini.
+         * Metapodaci naloga su već spremljeni malim zahtjevom. Fotografije
+         * zatim sinkroniziramo odvojeno u Storage. Postojeće slike se samo
+         * provjere po ID-u, a šalju se isključivo nove. Nacrt se ne briše dok
+         * ovaj korak ne završi, tako da nova fotografija ne može nestati ako
+         * mobilna veza pukne usred uploada.
          */
-        void syncWorkOrderImagesToCustomerGallery({
-          workOrderId:
-            saved.id,
-          orderNumber:
-            saved.orderNumber,
-          customerId,
-          workDate: date,
-          title:
-            title.trim(),
-          images,
-        }).catch((galleryError) => {
+        try {
+          await syncWorkOrderImagesToCustomerGallery({
+            workOrderId: saved.id,
+            orderNumber: saved.orderNumber,
+            customerId,
+            workDate: date,
+            title: title.trim(),
+            images,
+          })
+        } catch (galleryError) {
           console.warn(
-            '[FERSYS] Pozadinska sinkronizacija fotografija ureÄ‘enog radnog naloga nije uspjela; realtime sinkronizacija Ä‡e pokuÅ¡ati ponovno:',
+            '[FERSYS] Radni nalog je spremljen, ali sinkronizacija fotografija nije završila:',
             galleryError,
           )
-        })
+          alert(
+            'Podaci radnog naloga su spremljeni, ali jedna ili više fotografija još nisu prenesene. Nacrt je sačuvan pa pokušajte ponovno kada veza bude stabilna.',
+          )
+          return
+        }
       }
 
       saveSucceededRef.current = true

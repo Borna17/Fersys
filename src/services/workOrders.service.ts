@@ -517,7 +517,7 @@ export async function getWorkOrders(): Promise<
   )
 }
 
-export async function getWorkOrderById(
+async function getWorkOrderMetadataById(
   workOrderId: string,
 ): Promise<CloudWorkOrder | null> {
   const { data, error } = await supabase.rpc(
@@ -537,16 +537,28 @@ export async function getWorkOrderById(
     : data
 
   if (!row) {
+    return null
+  }
+
+  return mapWorkOrder(
+    row as WorkOrderRow,
+  )
+}
+
+export async function getWorkOrderById(
+  workOrderId: string,
+): Promise<CloudWorkOrder | null> {
+  const order =
+    await getWorkOrderMetadataById(
+      workOrderId,
+    )
+
+  if (!order) {
     workOrderVersionById.delete(
       workOrderId,
     )
     return null
   }
-
-  const order =
-    mapWorkOrder(
-      row as WorkOrderRow,
-    )
 
   const hydratedImages =
     await getWorkOrderImagesForDisplay(
@@ -687,8 +699,10 @@ export async function updateWorkOrder(
       workOrderId,
     )
 
+  // Za spremanje trebamo samo metapodatke. Ne preuzimamo ponovno sve
+  // fotografije iz Storagea jer bi veliki nalog nepotrebno čekao 12+ downloada.
   const existing =
-    await getWorkOrderById(workOrderId)
+    await getWorkOrderMetadataById(workOrderId)
 
   if (!existing) {
     throw new Error(
@@ -816,9 +830,12 @@ export async function updateWorkOrder(
     supabase
       .from('work_orders')
       .update({
-        ...createDatabasePayload(
-          completeInput,
-        ),
+        ...createDatabasePayload({
+          ...completeInput,
+          // Fotografije se čuvaju u Storage/customer_photos, ne kao Base64 u
+          // work_orders JSONB. Time update ostaje malen i pouzdan i s 12 slika.
+          images: [],
+        }),
         updated_at: now,
       })
       .eq('id', workOrderId)
