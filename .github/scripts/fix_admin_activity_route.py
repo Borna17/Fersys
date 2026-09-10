@@ -4,7 +4,7 @@ path = Path('src/router/AppRouter.tsx')
 text = path.read_text()
 
 import_anchor = "const AdminDashboardPage = lazy(\n  () => import('../admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),\n)\n"
-activity_import = "const AdminActivityPage = lazy(\n  () => import('../admin/AdminActivityPage'),\n)\n"
+activity_import = "const AdminActivityPage = lazy(\n  () => import('../admin/AdminActivityPage').then((module) => ({ default: module.AdminActivityPage })),\n)\n"
 
 if "const AdminActivityPage = lazy(" not in text:
     if import_anchor not in text:
