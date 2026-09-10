@@ -1,0 +1,64 @@
+name: Fix draft logout isolation
+
+on:
+  push:
+    branches:
+      - fix-draft-logout-isolation
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-draft-logout-isolation
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Patch draft isolation
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/services/drafts.service.ts')
+          s = p.read_text()
+          old = "export async function refreshDraftManifestFromCloud():\nPromise<DraftManifestEntry[]> {\n  const localEntries =\n    getDraftManifestEntries()\n\n  if (!navigator.onLine) {\n    return localEntries\n  }\n"
+          new = "export async function refreshDraftManifestFromCloud():\nPromise<DraftManifestEntry[]> {\n  const sessionUserId =\n    await getSessionUserId()\n  const cachedIdentity =\n    readCachedIdentity()\n\n  if (!sessionUserId) {\n    writeDraftManifest([])\n    return []\n  }\n\n  const sameCachedUser =\n    !cachedIdentity ||\n    cachedIdentity.userId ===\n      sessionUserId\n\n  const localEntries =\n    sameCachedUser\n      ? getDraftManifestEntries()\n      : []\n\n  if (!sameCachedUser) {\n    writeDraftManifest([])\n  }\n\n  if (!navigator.onLine) {\n    return localEntries\n  }\n"
+          if old not in s:
+              raise SystemExit('draft cloud refresh anchor not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+
+          p = Path('src/components/UniversalDraftProtection.tsx')
+          s = p.read_text()
+          old = "  const visibleEntries = useMemo(\n    () => {\n      const currentRoute = `${window.location.pathname}${window.location.search}`\n\n      return entries.filter(\n"
+          new = "  const visibleEntries = useMemo(\n    () => {\n      const currentPath =\n        window.location.pathname\n      const currentRoute =\n        `${currentPath}${window.location.search}`\n\n      // Nedovršeni unosi pripadaju prijavljenom korisniku.\n      // Na loginu i ostalim javnim stranicama ne smijemo prikazivati\n      // sadržaj ili oznake prethodno prijavljenog računa.\n      if (isPublicOrAdmin(currentPath)) {\n        return []\n      }\n\n      return entries.filter(\n"
+          if old not in s:
+              raise SystemExit('visible entries anchor not found')
+          s = s.replace(old, new, 1)
+          p.write_text(s)
+          PY
+      - name: TypeScript
+        run: npm run typecheck --if-present
+      - name: Build
+        run: npm run build
+      - name: Lint changed files
+        run: npx eslint src/services/drafts.service.ts src/components/UniversalDraftProtection.tsx
+      - name: Commit fix
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/drafts.service.ts src/components/UniversalDraftProtection.tsx
+          git commit -m "Isolate unfinished drafts between sessions [skip ci]"
+          git push origin HEAD:fix-draft-logout-isolation
