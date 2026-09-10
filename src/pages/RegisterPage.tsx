@@ -548,7 +548,10 @@ export function RegisterPage() {
             </h1>
 
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Nova tvrtka postaje aktivna nakon provjere FERSYS administratora.
+              Nakon potvrde e-maila i odobrenja FERSYS administracije počinje 7 dana besplatnog Business pristupa.
+            </p>
+            <p className="mt-2 text-xs font-bold text-emerald-300">
+              Bez kartice · bez automatske naplate · trial se može administrativno produžiti bez kartice
             </p>
           </div>
 

@@ -491,8 +491,12 @@ export function LoginPage() {
                   to="/register"
                   className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-2xl border border-violet-400/25 bg-violet-500/10 px-5 py-3 text-sm font-bold text-violet-200 transition hover:bg-violet-500/15"
                 >
-                  Registriraj svoju tvrtku
+                  Započni 7 dana besplatno
                 </Link>
+
+                <p className="mt-2 text-xs font-semibold text-emerald-300/90">
+                  Bez kartice · puni Business pristup · bez automatske naplate
+                </p>
               </div>
             </div>
 

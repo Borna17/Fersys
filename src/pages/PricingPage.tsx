@@ -177,18 +177,26 @@ export function PricingPage() {
               </p>
 
               <p className="mt-1 text-sm leading-6 text-violet-200/70">
-                Trial traje {TRIAL_DAYS} dana i uključuje Business funkcije.
+                Trial traje {TRIAL_DAYS} dana i uključuje puni Business pristup bez kartice i bez automatske naplate.
                 {trialDaysRemaining > 0
                   ? ` Preostalo ti je još ${trialDaysRemaining} dana.`
                   : ''}
+              </p>
+              <p className="mt-2 text-xs font-semibold text-violet-200/60">
+                Ako FERSYS administracija produži trial, kartica i dalje nije potrebna. Paket se odabire tek za nastavak korištenja nakon isteka triala.
               </p>
             </div>
           )}
 
           {!isTrialing && (
-            <p className="mt-5 text-sm text-slate-500">
-              Novi korisnici dobivaju {TRIAL_DAYS} dana besplatnog {plans[TRIAL_PLAN_ID].name} paketa.
-            </p>
+            <div className="mx-auto mt-5 max-w-2xl rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-sm font-black text-emerald-300">
+                {TRIAL_DAYS} dana besplatno · bez kartice · bez automatske naplate
+              </p>
+              <p className="mt-1 text-xs leading-5 text-emerald-200/70">
+                Novi korisnici nakon odobrenja dobivaju puni {plans[TRIAL_PLAN_ID].name} pristup. Plaćeni paket odabire se tek nakon isteka triala.
+              </p>
+            </div>
           )}
         </div>
       </header>
@@ -310,26 +318,18 @@ export function PricingPage() {
 
                 <button
                   type="button"
-                  disabled={
-                    isCurrent
-                  }
+                  disabled={true}
                   className={`mt-6 min-h-12 w-full rounded-2xl px-5 text-sm font-black transition active:scale-[0.99] ${
                     isCurrent
                       ? 'cursor-default border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
-                      : plan.id === 'pro'
-                        ? 'bg-gradient-to-r from-violet-600 to-blue-600 text-white shadow-lg shadow-violet-950/30 hover:brightness-110'
-                        : plan.id === 'business'
-                          ? 'bg-blue-600 text-white hover:bg-blue-500'
-                          : 'border border-slate-700 bg-slate-800 text-white hover:bg-slate-700'
+                      : 'cursor-not-allowed border border-slate-700 bg-slate-800 text-slate-400 opacity-80'
                   }`}
                 >
                   {isCurrent
                     ? 'Trenutni paket'
-                    : plan.id === 'pro'
-                      ? 'Odaberi FERSYS Pro'
-                      : yearly
-                        ? 'Odaberi godišnje'
-                        : 'Odaberi mjesečno'}
+                    : isTrialing
+                      ? 'Odabir nakon triala'
+                      : 'Plaćanje još nije aktivirano'}
                 </button>
 
                 <div className="mt-7 space-y-3">
