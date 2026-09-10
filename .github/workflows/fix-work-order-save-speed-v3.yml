@@ -1,0 +1,68 @@
+name: Fix work order save and speed v3
+
+on:
+  push:
+    branches: [fix-work-order-save-speed-v3]
+    paths:
+      - '.github/scripts/fix_work_order_save_speed.py'
+      - '.github/workflows/fix-work-order-save-speed-v3.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    if: ${{ github.actor != 'github-actions[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Apply patch
+        run: python .github/scripts/fix_work_order_save_speed.py
+
+      - name: TypeScript and production build
+        run: npm run build
+
+      - name: Lint changed app files
+        run: npx eslint src/services/workOrders.service.ts src/pages/EditWorkOrderPage.tsx
+
+      - name: Verify no Base64 images are written by update
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          s=Path('src/services/workOrders.service.ts').read_text()
+          assert 'await getWorkOrderMetadataById(workOrderId)' in s
+          marker='...createDatabasePayload({\n          ...completeInput,'
+          assert marker in s
+          pos=s.index(marker)
+          assert 'images: []' in s[pos:pos+500]
+          p=Path('src/pages/EditWorkOrderPage.tsx').read_text()
+          assert 'await syncWorkOrderImagesToCustomerGallery' in p
+          assert 'Nacrt je sačuvan' in p
+          print('Save path verified')
+          PY
+
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/workOrders.service.ts src/pages/EditWorkOrderPage.tsx
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+            exit 0
+          fi
+          git commit -m "Fix large work order edits and speed up saves [skip ci]"
+          git push origin HEAD:fix-work-order-save-speed-v3
