@@ -478,7 +478,17 @@ export default function UniversalDraftProtection() {
 
   const visibleEntries = useMemo(
     () => {
-      const currentRoute = `${window.location.pathname}${window.location.search}`
+      const currentPath =
+        window.location.pathname
+      const currentRoute =
+        `${currentPath}${window.location.search}`
+
+      // Nedovršeni unosi pripadaju prijavljenom korisniku.
+      // Na loginu i ostalim javnim stranicama ne smijemo prikazivati
+      // sadržaj ili oznake prethodno prijavljenog računa.
+      if (isPublicOrAdmin(currentPath)) {
+        return []
+      }
 
       return entries.filter(
         (entry) =>

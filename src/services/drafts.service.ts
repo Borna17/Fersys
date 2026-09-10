@@ -275,8 +275,29 @@ export function getDraftManifestEntries() {
 
 export async function refreshDraftManifestFromCloud():
 Promise<DraftManifestEntry[]> {
+  const sessionUserId =
+    await getSessionUserId()
+  const cachedIdentity =
+    readCachedIdentity()
+
+  if (!sessionUserId) {
+    writeDraftManifest([])
+    return []
+  }
+
+  const sameCachedUser =
+    !cachedIdentity ||
+    cachedIdentity.userId ===
+      sessionUserId
+
   const localEntries =
-    getDraftManifestEntries()
+    sameCachedUser
+      ? getDraftManifestEntries()
+      : []
+
+  if (!sameCachedUser) {
+    writeDraftManifest([])
+  }
 
   if (!navigator.onLine) {
     return localEntries
