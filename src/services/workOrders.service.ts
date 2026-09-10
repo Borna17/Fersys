@@ -636,7 +636,10 @@ export async function createWorkOrder(
       company_id: companyId,
       order_number: orderNumber,
       created_by: user?.id ?? null,
-      ...createDatabasePayload(input),
+      ...createDatabasePayload({
+        ...input,
+        images: [],
+      }),
     })
     .select('*')
     .single()
@@ -786,8 +789,7 @@ export async function updateWorkOrder(
       existing.totalPrice,
 
     priceNote:
-      input.priceNote ??
-      existing.priceNote,
+      input.priceNote ?? existing.priceNote,
 
     investorName:
       input.investorName ??
@@ -807,12 +809,19 @@ export async function updateWorkOrder(
       input.priority ?? existing.priority,
   }
 
-  let query = supabase
-    .from('work_orders')
-    .update(
-      createDatabasePayload(completeInput),
-    )
-    .eq('id', workOrderId)
+  const now =
+    new Date().toISOString()
+
+  let query =
+    supabase
+      .from('work_orders')
+      .update({
+        ...createDatabasePayload(
+          completeInput,
+        ),
+        updated_at: now,
+      })
+      .eq('id', workOrderId)
 
   if (expectedUpdatedAt) {
     query = query.eq(
@@ -821,42 +830,47 @@ export async function updateWorkOrder(
     )
   }
 
-  const { data, error } = await query
-    .select('*')
-    .maybeSingle()
+  const {
+    data,
+    error,
+  } =
+    await query
+      .select('*')
+      .maybeSingle()
 
   if (error) {
     throw error
   }
 
-  /*
-   * Ako UPDATE nije vratio red, updated_at više nije isti: drugi uređaj je
-   * spremio nalog između našeg čitanja i našeg UPDATE-a. To je atomska zaštita
-   * od race conditiona.
-   */
   if (!data) {
     throw new WorkOrderConflictError()
   }
 
-  const saved =
+  const updated =
     mapWorkOrder(data as WorkOrderRow)
 
   workOrderVersionById.set(
-    saved.id,
-    saved.updatedAt,
+    updated.id,
+    updated.updatedAt,
   )
 
-  return saved
+  return updated
 }
 
 export async function deleteWorkOrder(
   workOrderId: string,
 ): Promise<void> {
-  await assertDeletePermission('workOrders.delete')
-  const { error } = await supabase
-    .from('work_orders')
-    .delete()
-    .eq('id', workOrderId)
+  await assertDeletePermission(
+    'work_orders.delete',
+  )
+
+  const {
+    error,
+  } =
+    await supabase
+      .from('work_orders')
+      .delete()
+      .eq('id', workOrderId)
 
   if (error) {
     throw error
