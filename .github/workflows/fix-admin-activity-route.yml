@@ -1,0 +1,42 @@
+name: Fix admin activity route
+
+on:
+  push:
+    branches:
+      - fix-admin-activity-route
+    paths:
+      - '.github/workflows/fix-admin-activity-route.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-admin-activity-route
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Add admin activity route
+        run: python .github/scripts/fix_admin_activity_route.py
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Verify route
+        run: |
+          grep -q "const AdminActivityPage = lazy(" src/router/AppRouter.tsx
+          grep -q 'path="/admin/activity" element={<AdminActivityPage />}' src/router/AppRouter.tsx
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/router/AppRouter.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix admin activity route [skip ci]"
+          git push origin HEAD:fix-admin-activity-route
