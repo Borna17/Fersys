@@ -636,7 +636,10 @@ export async function createWorkOrder(
       company_id: companyId,
       order_number: orderNumber,
       created_by: user?.id ?? null,
-      ...createDatabasePayload(input),
+      ...createDatabasePayload({
+        ...input,
+        images: [],
+      }),
     })
     .select('*')
     .single()
