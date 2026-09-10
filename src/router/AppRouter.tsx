@@ -218,7 +218,7 @@ function ProtectedRoute({ children }: RouteWrapperProps) {
     )
   }
   if (membership?.role === 'owner' && membership.status === 'inactive') {
-    return <AccessDeniedPage title="Registracija čeka potvrdu" description="Tvoja prijava je zaprimljena. FERSYS administrator mora potvrditi tvrtku prije prvog korištenja. Dobit ćeš pristup čim prijava bude odobrena." />
+    return <AccessDeniedPage title="Čeka se potvrda FERSYS administracije" description="E-mail je potvrđen i tvoja registracija je uspješno zaprimljena. FERSYS administracija pregledat će prijavu u što kraćem roku. Dobit ćeš pristup čim tvrtka bude odobrena." />
   }
   if (membership?.role === 'owner' && membership.status === 'blocked') {
     return <AccessDeniedPage title="Registracija nije odobrena" description="Za dodatne informacije obrati se FERSYS podršci." />

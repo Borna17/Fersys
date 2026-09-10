@@ -30,6 +30,7 @@ import {
 } from '../components/security/FersysTurnstile'
 import { useAuth } from '../auth/AuthProvider'
 import { supabase } from '../lib/supabase'
+import { isNativeApp } from '../lib/platform'
 import {
   LegalConsentBlock,
 } from '../legal/LegalConsentBlock'
@@ -420,7 +421,7 @@ export function RegisterPage() {
       return
     }
 
-    if (!captchaToken) {
+    if (!captchaToken && !isNativeApp()) {
       setError(
         'Potvrdi sigurnosnu provjeru prije registracije.',
       )
@@ -441,7 +442,7 @@ export function RegisterPage() {
               normalizedEmail,
             password,
             options: {
-              captchaToken,
+              ...(captchaToken ? { captchaToken } : {}),
               data: {
                 full_name:
                   fullName.trim(),
@@ -506,7 +507,7 @@ export function RegisterPage() {
       }
 
       setSuccess(
-        'Registracija je zaprimljena. Provjeri e-mail i potvrdi račun. Nakon potvrde FERSYS administrator će pregledati prijavu i aktivirati tvrtku.',
+        'Registracija je zaprimljena. Provjeri e-mail i potvrdi svoju e-mail adresu. Nakon potvrde prijava čeka odobrenje FERSYS administracije i bit će pregledana u što kraćem roku.',
       )
 
       setPassword('')
