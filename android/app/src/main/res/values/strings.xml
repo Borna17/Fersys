@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">FERSYS Business</string>
     <string name="title_activity_main">FERSYS Business</string>
-    <string name="package_name">hr.fersys.app</string>
-    <string name="custom_url_scheme">hr.fersys.app</string>
+    <string name="package_name">com.fersys.app</string>
+    <string name="custom_url_scheme">com.fersys.app</string>
 </resources>
