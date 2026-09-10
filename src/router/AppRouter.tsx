@@ -43,6 +43,9 @@ const AppLayout = lazy(() => import('../layouts/AppLayout'))
 const AdminDashboardPage = lazy(
   () => import('../admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),
 )
+const AdminActivityPage = lazy(
+  () => import('../admin/AdminActivityPage').then((module) => ({ default: module.AdminActivityPage })),
+)
 const AdminCompaniesPage = lazy(
   () => import('../admin/AdminCompaniesPage').then((module) => ({ default: module.AdminCompaniesPage })),
 )
@@ -296,6 +299,7 @@ function RouterContent() {
 
         <Route element={<ProtectedRoute><AdminGuard><AdminLayout /></AdminGuard></ProtectedRoute>}>
           <Route path="/admin" element={<AdminDashboardPage />} />
+          <Route path="/admin/activity" element={<AdminActivityPage />} />
           <Route path="/admin/companies" element={<AdminCompaniesPage />} />
           <Route path="/admin/companies/:companyId" element={<AdminCompanyDetailsPage />} />
           <Route path="/admin/audit" element={<AdminAuditPage />} />
