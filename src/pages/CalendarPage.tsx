@@ -104,6 +104,25 @@ declare global {
 const GOOGLE_SCOPE =
   'https://www.googleapis.com/auth/calendar.events'
 
+const GOOGLE_TOKEN_KEY =
+  'fersys_google_calendar_access_token'
+
+const GOOGLE_TOKEN_EXPIRY_KEY =
+  'fersys_google_calendar_access_token_expires_at'
+
+function getStoredGoogleAccessToken() {
+  const token = window.localStorage.getItem(GOOGLE_TOKEN_KEY) ?? ''
+  const expiresAt = Number(window.localStorage.getItem(GOOGLE_TOKEN_EXPIRY_KEY) ?? 0)
+
+  if (!token || !expiresAt || Date.now() >= expiresAt) {
+    window.localStorage.removeItem(GOOGLE_TOKEN_KEY)
+    window.localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY)
+    return ''
+  }
+
+  return token
+}
+
 const weekDays = [
   'Pon',
   'Uto',
@@ -333,7 +352,9 @@ export function CalendarPage() {
   const [
     googleAccessToken,
     setGoogleAccessToken,
-  ] = useState('')
+  ] = useState(() =>
+    getStoredGoogleAccessToken(),
+  )
   const [
     isGoogleLoading,
     setIsGoogleLoading,
@@ -388,6 +409,35 @@ export function CalendarPage() {
     void getEmployees()
       .then((items) => setEmployees(items.filter((item) => item.status === 'active')))
       .catch((loadError) => console.warn('Calendar employees:', loadError))
+  }, [])
+
+  useEffect(() => {
+    const syncStoredGoogleToken = () => {
+      setGoogleAccessToken(
+        getStoredGoogleAccessToken(),
+      )
+    }
+
+    syncStoredGoogleToken()
+    window.addEventListener(
+      'fersys:google-calendar-connected',
+      syncStoredGoogleToken,
+    )
+    window.addEventListener(
+      'focus',
+      syncStoredGoogleToken,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'fersys:google-calendar-connected',
+        syncStoredGoogleToken,
+      )
+      window.removeEventListener(
+        'focus',
+        syncStoredGoogleToken,
+      )
+    }
   }, [])
 
   useEffect(() => {
@@ -661,11 +711,19 @@ export function CalendarPage() {
       setEditingEventId('')
       setMessage(editingEventId ? 'Termin je izmijenjen. Svi s pristupom kalendaru dobit će obavijest.' : 'Termin je spremljen. Svi s pristupom kalendaru dobit će obavijest.')
     } catch (saveError) {
-      setError(
+      const message =
         saveError instanceof Error
           ? saveError.message
-          : 'Termin nije moguće spremiti.',
-      )
+          : typeof saveError === 'object' &&
+              saveError !== null &&
+              'message' in saveError
+            ? String(
+                (saveError as { message?: unknown }).message ??
+                  'Termin nije moguće spremiti.',
+              )
+            : 'Termin nije moguće spremiti.'
+
+      setError(message)
     } finally {
       setIsSaving(false)
     }
@@ -800,6 +858,12 @@ export function CalendarPage() {
       )
     }
 
+    window.localStorage.removeItem(
+      GOOGLE_TOKEN_KEY,
+    )
+    window.localStorage.removeItem(
+      GOOGLE_TOKEN_EXPIRY_KEY,
+    )
     setGoogleAccessToken('')
     setMessage(
       'Google Kalendar je odspojen.',
