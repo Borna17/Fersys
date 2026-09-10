@@ -36,10 +36,15 @@ export async function assertPermission(
 }
 
 export async function assertDeletePermission(
-  permission: PermissionKey,
+  permission: PermissionKey | 'work_orders.delete',
 ): Promise<void> {
+  const normalizedPermission: PermissionKey =
+    permission === 'work_orders.delete'
+      ? 'workOrders.delete'
+      : permission
+
   return assertPermission(
-    permission,
+    normalizedPermission,
     'Nemaš dopuštenje za brisanje ovog zapisa. Vlasnik tvrtke može uključiti ovu ovlast u postavkama zaposlenika.',
   )
 }
