@@ -6,6 +6,7 @@ on:
       - fix-admin-activity-route
     paths:
       - '.github/workflows/fix-admin-activity-route.yml'
+      - '.github/scripts/fix_admin_activity_route.py'
 
 permissions:
   contents: write
