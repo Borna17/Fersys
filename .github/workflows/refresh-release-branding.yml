@@ -1,0 +1,66 @@
+name: Refresh release branding
+on:
+  push:
+    branches: [improve-trial-onboarding]
+    paths:
+      - '.github/workflows/refresh-release-branding.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: improve-trial-onboarding
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Refresh notification branding and Android identifiers
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          sw = Path('public/firebase-messaging-sw.js')
+          text = sw.read_text()
+          text = text.replace("'/pwa-192x192.png'", "'/fersys-android-icon-512.png'")
+          sw.write_text(text)
+
+          push = Path('supabase/functions/push-notifications/index.ts')
+          text = push.read_text()
+          text = text.replace("'/pwa-192x192.png'", "'/fersys-android-icon-512.png'")
+          push.write_text(text)
+
+          strings = Path('android/app/src/main/res/values/strings.xml')
+          text = strings.read_text()
+          text = text.replace('<string name="package_name">hr.fersys.app</string>', '<string name="package_name">com.fersys.app</string>')
+          text = text.replace('<string name="custom_url_scheme">hr.fersys.app</string>', '<string name="custom_url_scheme">com.fersys.app</string>')
+          strings.write_text(text)
+
+          manifest = Path('android/app/src/main/AndroidManifest.xml')
+          text = manifest.read_text()
+          marker = '        android:theme="@style/AppTheme">'
+          replacement = '''        android:theme="@style/AppTheme">\n        <meta-data\n            android:name="com.google.firebase.messaging.default_notification_icon"\n            android:resource="@mipmap/ic_launcher" />'''
+          if 'com.google.firebase.messaging.default_notification_icon' not in text:
+              text = text.replace(marker, replacement)
+          manifest.write_text(text)
+          PY
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Verify branding
+        run: |
+          grep -q "fersys-android-icon-512.png" public/firebase-messaging-sw.js
+          grep -q "fersys-android-icon-512.png" supabase/functions/push-notifications/index.ts
+          grep -q '<string name="package_name">com.fersys.app</string>' android/app/src/main/res/values/strings.xml
+          grep -q 'default_notification_icon' android/app/src/main/AndroidManifest.xml
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/firebase-messaging-sw.js supabase/functions/push-notifications/index.ts android/app/src/main/res/values/strings.xml android/app/src/main/AndroidManifest.xml
+          git commit -m 'Refresh notification branding before mobile release [skip ci]'
+          git push origin HEAD:improve-trial-onboarding
