@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
-import { RefreshCw, Wrench } from 'lucide-react'
+import { Navigation, Phone, Play, RefreshCw, Wrench } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
-import { getWorkOrders, type CloudWorkOrder } from '../services/workOrders.service'
+import { getWorkOrders, updateWorkOrder, type CloudWorkOrder } from '../services/workOrders.service'
 
 function todayKey() {
   const now = new Date()
@@ -13,6 +13,7 @@ export default function FieldTodayPanel() {
   const navigate = useNavigate()
   const [orders, setOrders] = useState<CloudWorkOrder[]>([])
   const [loading, setLoading] = useState(false)
+  const [busyId, setBusyId] = useState('')
 
   async function load() {
     try {
@@ -35,6 +36,18 @@ export default function FieldTodayPanel() {
   if (location.pathname !== '/dashboard') return null
   const next = todayOrders[0]
 
+  async function markStarted(order: CloudWorkOrder) {
+    try {
+      setBusyId(order.id)
+      const updated = await updateWorkOrder(order.id, { status: 'U tijeku' })
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item))
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Status nije moguće promijeniti.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
   return (
     <section className="mx-auto mt-4 w-full max-w-[1700px]">
       <div className="rounded-[1.75rem] border border-blue-500/20 bg-slate-900 p-4 sm:p-5">
@@ -56,7 +69,37 @@ export default function FieldTodayPanel() {
               <p className="mt-1 text-sm text-slate-400">{next.customerName}{next.arrivalTime ? ` · ${next.arrivalTime}` : ''}</p>
               {next.address && <p className="mt-2 text-xs text-slate-500">{next.address}</p>}
             </div>
-            <button type="button" onClick={() => navigate(`/work-orders/${next.id}`)} className="mt-3 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-3 text-sm font-black text-violet-300"><Wrench size={17} />Otvori nalog</button>
+            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <button
+                type="button"
+                disabled={!next.address}
+                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(next.address)}`, '_blank', 'noopener,noreferrer')}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-blue-600 px-3 text-sm font-black text-white disabled:opacity-40"
+              >
+                <Navigation size={17} />
+                Navigacija
+              </button>
+              <a
+                href={next.customerPhone ? `tel:${next.customerPhone}` : undefined}
+                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-3 text-sm font-black text-slate-200 ${!next.customerPhone ? 'pointer-events-none opacity-40' : ''}`}
+              >
+                <Phone size={17} />
+                Nazovi
+              </a>
+              <button
+                type="button"
+                disabled={busyId === next.id || next.status === 'U tijeku'}
+                onClick={() => void markStarted(next)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 text-sm font-black text-emerald-300 disabled:opacity-50"
+              >
+                <Play size={17} />
+                {next.status === 'U tijeku' ? 'U tijeku' : 'Krenuo sam'}
+              </button>
+              <button type="button" onClick={() => navigate(`/work-orders/${next.id}`)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-3 text-sm font-black text-violet-300">
+                <Wrench size={17} />
+                Otvori nalog
+              </button>
+            </div>
           </div>
         )}
       </div>
