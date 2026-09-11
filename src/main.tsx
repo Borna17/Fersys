@@ -18,6 +18,7 @@ import {
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
+import FieldTodayPanel from './components/FieldTodayPanel'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import ConnectionStatusNotice from './components/ConnectionStatusNotice'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
@@ -46,8 +47,6 @@ function registerWebServiceWorker() {
       if (!registration) return
       activeRegistration = registration
       void registration.update()
-      // Nema potrebe provjeravati novu verziju svake 1.5 s / 5 min.
-      // Rjeđa provjera smanjuje mrežne pozive i nepotrebne SW cikluse.
       window.setInterval(() => void registration.update(), 30 * 60 * 1000)
     },
     onNeedRefresh() {
@@ -133,6 +132,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <App />
       <AppLanguageRuntime />
+      <FieldTodayPanel />
       <ActivityTracker />
       <AdminTrialMessagePolish />
       <ConnectionStatusNotice />
