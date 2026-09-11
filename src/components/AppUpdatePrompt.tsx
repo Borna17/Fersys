@@ -3,9 +3,9 @@ import { Browser } from '@capacitor/browser'
 import { Capacitor } from '@capacitor/core'
 import { Download, RefreshCw, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { checkForAndroidAppUpdate, type AppUpdateCheck } from '../services/appUpdate.service'
+import { checkForAppUpdate, type AppUpdateCheck } from '../services/appUpdate.service'
 
-const SNOOZE_PREFIX = 'fersys_update_snooze_v2:'
+const SNOOZE_PREFIX = 'fersys_update_snooze_v3:'
 const CHECK_INTERVAL_MS = 30 * 60 * 1000
 const SNOOZE_MS = 12 * 60 * 60 * 1000
 
@@ -18,14 +18,14 @@ export default function AppUpdatePrompt() {
     checkingRef.current = true
 
     try {
-      const result = await checkForAndroidAppUpdate()
+      const result = await checkForAppUpdate()
       if (!result.available || !result.release) {
         setUpdate(null)
         return
       }
 
       if (!result.required) {
-        const key = SNOOZE_PREFIX + result.release.latestVersionCode
+        const key = `${SNOOZE_PREFIX}${result.release.platform}:${result.release.latestVersionCode}`
         const until = Number(localStorage.getItem(key) ?? 0)
         if (Date.now() < until) {
           setUpdate(null)
@@ -42,7 +42,9 @@ export default function AppUpdatePrompt() {
   }, [])
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return
+    if (!Capacitor.isNativePlatform()) return
+    const platform = Capacitor.getPlatform()
+    if (platform !== 'android' && platform !== 'ios') return
 
     void check()
     const timer = window.setInterval(() => void check(), CHECK_INTERVAL_MS)
@@ -67,25 +69,31 @@ export default function AppUpdatePrompt() {
 
   if (!update?.available || !update.release) return null
   const release = update.release
+  const isAndroid = release.platform === 'android'
 
   async function openStore() {
-    const marketUrl = 'market://details?id=com.fersys.app'
-    try {
-      window.location.href = marketUrl
-      window.setTimeout(() => {
-        if (document.visibilityState === 'visible') {
-          void Browser.open({ url: release.storeUrl })
-        }
-      }, 1200)
-    } catch {
-      await Browser.open({ url: release.storeUrl })
+    if (isAndroid) {
+      const marketUrl = 'market://details?id=com.fersys.app'
+      try {
+        window.location.href = marketUrl
+        window.setTimeout(() => {
+          if (document.visibilityState === 'visible') {
+            void Browser.open({ url: release.storeUrl })
+          }
+        }, 1200)
+      } catch {
+        await Browser.open({ url: release.storeUrl })
+      }
+      return
     }
+
+    await Browser.open({ url: release.storeUrl })
   }
 
   function later() {
     if (update?.required) return
     localStorage.setItem(
-      SNOOZE_PREFIX + release.latestVersionCode,
+      `${SNOOZE_PREFIX}${release.platform}:${release.latestVersionCode}`,
       String(Date.now() + SNOOZE_MS),
     )
     setUpdate(null)
@@ -117,7 +125,7 @@ export default function AppUpdatePrompt() {
 
           <button type="button" onClick={() => void openStore()} className="mt-3 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-black text-white active:scale-[0.98]">
             <Download size={17} />
-            Ažuriraj na Trgovini Play
+            {isAndroid ? 'Ažuriraj na Trgovini Play' : 'Ažuriraj na App Storeu'}
           </button>
         </div>
       </div>
