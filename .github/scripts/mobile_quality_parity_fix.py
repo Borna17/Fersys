@@ -15,6 +15,10 @@ end = text.find(end_marker, start)
 if start < 0 or end < 0:
     raise SystemExit('Sidebar settings block not found')
 text = text[:start] + text[end:]
+text = text.replace('  Settings,\n', '', 1)
+text = text.replace("          showSettings={can(\n            'settings.manage',\n          )}\n", '', 2)
+text = text.replace('  showSettings,\n', '', 1)
+text = text.replace('  showSettings: boolean\n', '', 1)
 path.write_text(text, encoding='utf-8')
 
 # 2) Google Calendar: persist native GIS token and auto-sync saved events.
