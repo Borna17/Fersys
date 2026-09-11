@@ -3,7 +3,7 @@ name: Mobile quality parity fix
 on:
   push:
     branches:
-      - mobile-quality-parity-fix
+      - pre-release-field-service-upgrade
     paths:
       - '.github/workflows/mobile-quality-parity-fix.yml'
       - '.github/scripts/mobile_quality_parity_fix.py'
@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: mobile-quality-parity-fix
+          ref: pre-release-field-service-upgrade
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -31,16 +31,14 @@ jobs:
         run: npm run build
       - name: Verify key fixes
         run: |
-          grep -q "storeGoogleAccessToken" src/pages/CalendarPage.tsx
-          grep -q "method: calendarEvent.googleEventId ? 'PATCH' : 'POST'" src/pages/CalendarPage.tsx
-          grep -q "Pronađen je nedovršeni radni nalog" src/pages/NewWorkOrderPage.tsx
-          grep -q "campaign-notifications" src/admin/services/emailCenter.service.ts
-          ! grep -q "Moje postavke" src/components/Sidebar.tsx
+          grep -q "Trenutna lokacija" src/pages/CustomersPage.tsx
+          grep -q "AppLanguageRuntime" src/main.tsx
+          grep -q "runtimeCache" src/services/customers.service.ts
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/components/Sidebar.tsx src/pages/CalendarPage.tsx src/pages/NewWorkOrderPage.tsx src/admin/services/emailCenter.service.ts
+          git add src
           git diff --cached --quiet && exit 0
-          git commit -m "Improve mobile parity, calendar sync and drafts [skip ci]"
-          git push origin HEAD:mobile-quality-parity-fix
+          git commit -m "Add pre-release field service improvements [skip ci]"
+          git push origin HEAD:pre-release-field-service-upgrade
