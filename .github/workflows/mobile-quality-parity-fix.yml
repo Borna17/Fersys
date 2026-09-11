@@ -1,0 +1,44 @@
+name: Mobile quality parity fix
+
+on:
+  push:
+    branches:
+      - mobile-quality-parity-fix
+    paths:
+      - '.github/workflows/mobile-quality-parity-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: mobile-quality-parity-fix
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Apply mobile quality patch
+        run: python .github/scripts/mobile_quality_parity_fix.py
+      - name: TypeScript
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Verify key fixes
+        run: |
+          grep -q "storeGoogleAccessToken" src/pages/CalendarPage.tsx
+          grep -q "method: calendarEvent.googleEventId ? 'PATCH' : 'POST'" src/pages/CalendarPage.tsx
+          grep -q "Pronađen je nedovršeni radni nalog" src/pages/NewWorkOrderPage.tsx
+          ! grep -q "Moje postavke" src/components/Sidebar.tsx
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/Sidebar.tsx src/pages/CalendarPage.tsx src/pages/NewWorkOrderPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Improve mobile parity, calendar sync and drafts [skip ci]"
+          git push origin HEAD:mobile-quality-parity-fix
