@@ -371,23 +371,13 @@ export function AccountPage() {
     role !== 'owner'
   ) {
     return (
-      <section className="mx-auto max-w-xl rounded-3xl border border-amber-500/20 bg-slate-900 p-7 text-center">
-        <Building2
-          size={32}
-          className="mx-auto text-amber-300"
-        />
-
-        <h1 className="mt-4 text-2xl font-black text-white">
-          Moj FERSYS je
-          račun vlasnika
-        </h1>
-
-        <p className="mt-3 text-sm leading-6 text-slate-400">
-          Referral bodovi,
-          pretplata i nagrade
-          vezani su uz vlasnika
-          tvrtke.
-        </p>
+      <section className="mx-auto w-full max-w-3xl space-y-4 pb-12">
+        <header className="rounded-3xl border border-slate-800 bg-slate-900 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-400">Moje postavke</p>
+          <h1 className="mt-2 text-2xl font-black text-white">{user?.email}</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-400">Osobne postavke vrijede samo za tvoj korisnički račun. Postavke pretplate i firme dostupne su vlasniku.</p>
+        </header>
+        <AppLanguageSelector />
       </section>
     )
   }

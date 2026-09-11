@@ -735,16 +735,17 @@ function UserCard({
   companyLogoUrl?: string
 }) {
   return (
-    <div
-      className={`flex items-center rounded-2xl bg-slate-800/70 ${
-        expanded
-          ? 'gap-3 p-3'
-          : 'justify-center p-2'
-      }`}
+    <NavLink
+      to="/account"
+      className={({ isActive }) =>
+        `flex items-center rounded-2xl transition ${
+          isActive ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-slate-800/70 hover:bg-slate-800'
+        } ${expanded ? 'gap-3 p-3' : 'justify-center p-2'}`
+      }
       title={
         !expanded
           ? `${displayName} · ${displayRole}`
-          : undefined
+          : 'Otvori moje postavke'
       }
     >
       <CompanyLogo
@@ -768,6 +769,6 @@ function UserCard({
           </p>
         </div>
       )}
-    </div>
+    </NavLink>
   )
 }
