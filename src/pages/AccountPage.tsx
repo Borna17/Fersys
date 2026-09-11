@@ -30,6 +30,7 @@ import {
 import {
   useAuth,
 } from '../auth/AuthProvider'
+import AppLanguageSelector from '../components/AppLanguageSelector'
 import {
   getFersysPortal,
   getMyReferrals,
@@ -496,6 +497,8 @@ export function AccountPage() {
           </div>
         </div>
       </header>
+
+      <AppLanguageSelector />
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase'
 import { assertDeletePermission, assertPermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
+import { readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
 import type {
   Customer,
   CustomerInput,
@@ -111,28 +112,27 @@ Promise<string> {
 
 export async function getCustomers():
 Promise<Customer[]> {
-  const { data, error } =
-    await supabase
-      .from('customers')
-      .select('*')
-      .is(
-        'deleted_at',
-        null,
-      )
-      .order(
-        'created_at',
-        {
-          ascending: false,
-        },
-      )
+  const companyId = await getCurrentCompanyId()
+  const cacheKey = `fersys-cache:customers:${companyId}`
+  const fresh = readRuntimeCache<Customer[]>(cacheKey, 30000)
+  if (fresh) return fresh
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id,company_id,type,name,contact_person,logo_data_url,oib,tax_id,phone,email,street,city,postal_code,iban,notes,work_orders_count,total_spent,status,created_at,updated_at,deleted_at')
+    .eq('company_id', companyId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
 
   if (error) {
+    const stale = readRuntimeCache<Customer[]>(cacheKey, Number.MAX_SAFE_INTEGER, true)
+    if (stale) return stale
     throw error
   }
 
-  return (
-    (data ?? []) as CustomerRow[]
-  ).map(mapCustomer)
+  const mapped = ((data ?? []) as CustomerRow[]).map(mapCustomer)
+  writeRuntimeCache(cacheKey, mapped)
+  return mapped
 }
 
 export async function getCustomerById(

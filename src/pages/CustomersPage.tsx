@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ImagePlus,
   Mail,
+  LocateFixed,
   MapPin,
   Phone,
   Plus,
@@ -150,6 +151,7 @@ export function CustomersPage() {
     useState('')
   const [iban, setIban] = useState('')
   const [notes, setNotes] = useState('')
+  const [isLocating, setIsLocating] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -360,6 +362,40 @@ export function CustomersPage() {
     }
 
     reader.readAsDataURL(file)
+  }
+
+  async function fillCurrentLocation() {
+    if (!navigator.geolocation) {
+      window.alert('Ovaj uređaj ne podržava dohvat lokacije.')
+      return
+    }
+    try {
+      setIsLocating(true)
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 12000,
+          maximumAge: 15000,
+        })
+      })
+      const { latitude, longitude } = position.coords
+      const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(latitude)}&lon=${encodeURIComponent(longitude)}&zoom=18&addressdetails=1&accept-language=hr`)
+      if (!response.ok) throw new Error('Adresu nije moguće dohvatiti.')
+      const result = await response.json() as { address?: Record<string, string> }
+      const address = result.address ?? {}
+      const road = address.road || address.pedestrian || address.residential || address.footway || ''
+      const house = address.house_number || ''
+      const foundCity = address.city || address.town || address.village || address.municipality || address.county || ''
+      const foundPostal = address.postcode || ''
+      if (road || house) setStreet([road, house].filter(Boolean).join(' '))
+      if (foundCity) setCity(foundCity)
+      if (foundPostal) setPostalCode(foundPostal.replace(/\D/g, '').slice(0, 5))
+      if (!road && !foundCity) window.alert('Lokacija je pronađena, ali adresu treba ručno dopuniti.')
+    } catch (error) {
+      window.alert(error instanceof Error ? `Lokacija nije dohvaćena: ${error.message}` : 'Lokacija nije dohvaćena.')
+    } finally {
+      setIsLocating(false)
+    }
   }
 
   async function handleAddCustomer(
@@ -1215,6 +1251,17 @@ export function CustomersPage() {
                     label="Ulica i kućni broj"
                     className="md:col-span-2"
                   >
+                    <div className="mb-2 flex justify-end">
+                      <button
+                        type="button"
+                        disabled={isLocating}
+                        onClick={() => void fillCurrentLocation()}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-blue-500/25 bg-blue-500/10 px-3 text-xs font-black text-blue-300 disabled:opacity-50"
+                      >
+                        <LocateFixed size={16} className={isLocating ? 'animate-pulse' : ''} />
+                        {isLocating ? 'Tražim lokaciju...' : 'Trenutna lokacija'}
+                      </button>
+                    </div>
                     <input
                       value={street}
                       onChange={(event) =>
@@ -1225,6 +1272,7 @@ export function CustomersPage() {
                       placeholder="Ulica i kućni broj"
                       className={inputClass}
                     />
+                    <p className="mt-1.5 text-xs text-slate-500">Automatsku adresu možeš ručno ispraviti prije spremanja.</p>
                   </Field>
 
                   <Field label="Grad">

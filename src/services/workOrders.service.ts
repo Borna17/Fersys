@@ -3,6 +3,7 @@ import { assertDeletePermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
 import { getWorkOrderImagesForDisplay } from './workOrderImages.service'
 import { captureCurrentWeatherSnapshot } from './weather.service'
+import { readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
 
 export type CloudWorkOrderStatus =
   | 'Novi'
@@ -504,17 +505,21 @@ function createDatabasePayload(
 export async function getWorkOrders(): Promise<
   CloudWorkOrder[]
 > {
-  const { data, error } = await supabase.rpc(
-    'get_secure_work_orders',
-  )
+  const companyId = await getCurrentCompanyId()
+  const cacheKey = `fersys-cache:work-orders:${companyId}`
+  const fresh = readRuntimeCache<CloudWorkOrder[]>(cacheKey, 15000)
+  if (fresh) return fresh
 
+  const { data, error } = await supabase.rpc('get_secure_work_orders')
   if (error) {
+    const stale = readRuntimeCache<CloudWorkOrder[]>(cacheKey, Number.MAX_SAFE_INTEGER, true)
+    if (stale) return stale
     throw error
   }
 
-  return ((data ?? []) as WorkOrderRow[]).map(
-    mapWorkOrder,
-  )
+  const mapped = ((data ?? []) as WorkOrderRow[]).map(mapWorkOrder)
+  writeRuntimeCache(cacheKey, mapped)
+  return mapped
 }
 
 async function getWorkOrderMetadataById(

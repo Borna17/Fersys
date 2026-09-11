@@ -17,6 +17,7 @@ import {
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
+import AppLanguageRuntime from './components/AppLanguageRuntime'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import ConnectionStatusNotice from './components/ConnectionStatusNotice'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
@@ -131,6 +132,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <AppLanguageRuntime />
       <ActivityTracker />
       <AdminTrialMessagePolish />
       <ConnectionStatusNotice />
