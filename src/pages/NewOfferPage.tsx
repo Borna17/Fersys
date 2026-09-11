@@ -67,7 +67,8 @@ import type {
   OfferHistoryItem,
   OfferItem,
 } from '../types/offers'
-import { downloadOfferPdf } from '../utils/offerPdf'
+import { createOfferPdfBlob, downloadOfferPdf } from '../utils/offerPdf'
+import { Capacitor } from '@capacitor/core'
 
 type CustomerSuggestion = {
   id: string
@@ -247,60 +248,68 @@ async function openOfferEmailDraft(
 ) {
   const recipient = offer.email.trim()
   if (!recipient) {
-    window.alert(
-      'Ponuda je spremljena, ali investitor nema unesenu e-mail adresu.',
-    )
+    window.alert('Ponuda je spremljena, ali investitor nema unesenu e-mail adresu.')
     return
   }
 
-  const safeGlobalDiscount = Math.min(
-    100,
-    Math.max(0, Number(globalDiscount) || 0),
-  )
+  const safeGlobalDiscount = Math.min(100, Math.max(0, Number(globalDiscount) || 0))
   const globalFactor = 1 - safeGlobalDiscount / 100
   const total = offer.items.reduce((sum, item) => {
     const net = calculateItemNet(item) * globalFactor
     return sum + net + net * (item.vat / 100)
   }, 0)
-
   const formattedTotal = new Intl.NumberFormat('hr-HR', {
-    style: 'currency',
-    currency: company.currency || 'EUR',
+    style: 'currency', currency: company.currency || 'EUR',
   }).format(total)
-
   const formattedValidUntil = offer.validUntil
     ? new Date(`${offer.validUntil}T12:00:00`).toLocaleDateString('hr-HR')
     : 'nije navedeno'
-
   const companyName = company.name.trim() || 'Tvrtka'
   const subject = `Ponuda ${offer.offerNumber} – ${companyName}`
   const body = [
-    `Poštovani/a ${offer.customerName},`,
-    '',
-    `dostavljamo Vam ponudu broj ${offer.offerNumber}.`,
-    '',
+    `Poštovani/a ${offer.customerName},`, '',
+    `dostavljamo Vam ponudu broj ${offer.offerNumber}.`, '',
     `Ponuda vrijedi do ${formattedValidUntil}.`,
-    `Ukupan iznos ponude: ${formattedTotal}.`,
-    '',
-    'PDF ponude otvoren je u zasebnom prozoru. Spremite ga i dodajte kao privitak e-mailu.',
-    '',
-    'Za dodatne informacije stojimo Vam na raspolaganju.',
-    '',
-    'Lijep pozdrav,',
-    companyName,
+    `Ukupan iznos ponude: ${formattedTotal}.`, '',
+    'PDF ponude nalazi se u privitku ove poruke.', '',
+    'Za dodatne informacije stojimo Vam na raspolaganju.', '',
+    'Lijep pozdrav,', companyName,
     company.phone ? `Telefon: ${company.phone}` : '',
     company.email ? `E-mail: ${company.email}` : '',
-  ]
-    .filter((line, index, lines) => line !== '' || lines[index - 1] !== '')
-    .join('\n')
+  ].filter((line, index, lines) => line !== '' || lines[index - 1] !== '').join('\n')
 
-  downloadOfferPdf(offer)
-  const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(
-    subject,
-  )}&body=${encodeURIComponent(body)}`
-  window.setTimeout(() => {
-    window.location.href = mailtoUrl
-  }, 250)
+  try {
+    const { blob, fileName } = await createOfferPdfBlob(offer)
+
+    if (Capacitor.isNativePlatform()) {
+      const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+        import('@capacitor/filesystem'), import('@capacitor/share'),
+      ])
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => typeof reader.result === 'string'
+          ? resolve(reader.result.split(',')[1] || '')
+          : reject(new Error('PDF nije moguće pripremiti.'))
+        reader.onerror = () => reject(new Error('PDF nije moguće pripremiti.'))
+        reader.readAsDataURL(blob)
+      })
+      const saved = await Filesystem.writeFile({
+        path: fileName, data: dataUrl, directory: Directory.Cache, recursive: true,
+      })
+      await Share.share({
+        title: subject,
+        text: body,
+        files: [saved.uri],
+        dialogTitle: 'Pošalji ponudu s PDF privitkom',
+      })
+      return
+    }
+
+    downloadOfferPdf(offer)
+    window.location.href = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : 'Ponudu nije moguće pripremiti za slanje.')
+  }
 }
 
 export function NewOfferPage() {
