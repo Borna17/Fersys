@@ -338,16 +338,44 @@ export async function sendEmailCampaign(
       ...input,
     })
 
+  const campaignId =
+    String(
+      data.campaignId ?? '',
+    )
+
+  try {
+    const { error: notificationError } =
+      await supabase.functions.invoke(
+        'campaign-notifications',
+        {
+          body: {
+            campaignId,
+            title: input.subject,
+            htmlBody: input.htmlBody,
+            route: '/dashboard',
+          },
+        },
+      )
+
+    if (notificationError) {
+      console.warn(
+        'Kampanja je poslana e-mailom, ali app/push obavijest nije uspjela:',
+        notificationError,
+      )
+    }
+  } catch (notificationError) {
+    console.warn(
+      'Kampanja je poslana e-mailom, ali app/push obavijest nije uspjela:',
+      notificationError,
+    )
+  }
+
   return {
     success:
       Boolean(
         data.success,
       ),
-    campaignId:
-      String(
-        data.campaignId ??
-          '',
-      ),
+    campaignId,
     recipients:
       requireNumber(
         data.recipients,

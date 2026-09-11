@@ -55,6 +55,7 @@ type EventForm = {
 type GoogleTokenResponse = {
   access_token?: string
   error?: string
+  expires_in?: number
 }
 
 type GoogleTokenClient = {
@@ -121,6 +122,20 @@ function getStoredGoogleAccessToken() {
   }
 
   return token
+}
+
+function storeGoogleAccessToken(token: string, expiresIn = 3600) {
+  const safeLifetime = Math.max(60, Number(expiresIn || 3600) - 60)
+  window.localStorage.setItem(GOOGLE_TOKEN_KEY, token)
+  window.localStorage.setItem(
+    GOOGLE_TOKEN_EXPIRY_KEY,
+    String(Date.now() + safeLifetime * 1000),
+  )
+}
+
+function clearGoogleAccessToken() {
+  window.localStorage.removeItem(GOOGLE_TOKEN_KEY)
+  window.localStorage.removeItem(GOOGLE_TOKEN_EXPIRY_KEY)
 }
 
 const weekDays = [
@@ -710,6 +725,10 @@ export function CalendarPage() {
       setIsModalOpen(false)
       setEditingEventId('')
       setMessage(editingEventId ? 'Termin je izmijenjen. Svi s pristupom kalendaru dobit će obavijest.' : 'Termin je spremljen. Svi s pristupom kalendaru dobit će obavijest.')
+
+      if (googleAccessToken) {
+        await sendToGoogle(saved)
+      }
     } catch (saveError) {
       const message =
         saveError instanceof Error
@@ -815,8 +834,15 @@ export function CalendarPage() {
               return
             }
 
+            storeGoogleAccessToken(
+              response.access_token,
+              response.expires_in ?? 3600,
+            )
             setGoogleAccessToken(
               response.access_token,
+            )
+            window.dispatchEvent(
+              new CustomEvent('fersys:google-calendar-connected'),
             )
             setMessage(
               'Google Kalendar je povezan.',
@@ -858,12 +884,7 @@ export function CalendarPage() {
       )
     }
 
-    window.localStorage.removeItem(
-      GOOGLE_TOKEN_KEY,
-    )
-    window.localStorage.removeItem(
-      GOOGLE_TOKEN_EXPIRY_KEY,
-    )
+    clearGoogleAccessToken()
     setGoogleAccessToken('')
     setMessage(
       'Google Kalendar je odspojen.',
@@ -932,6 +953,11 @@ export function CalendarPage() {
         })
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          clearGoogleAccessToken()
+          setGoogleAccessToken('')
+          throw new Error('Google veza je istekla. Ponovno poveži Google Kalendar.')
+        }
         throw new Error(
           'Google API greška.',
         )
@@ -1024,15 +1050,6 @@ export function CalendarPage() {
       return
     }
 
-    if (
-      calendarEvent.googleEventId
-    ) {
-      setMessage(
-        'Termin je već povezan s Google Kalendarom.',
-      )
-      return
-    }
-
     setIsGoogleLoading(true)
     setError('')
 
@@ -1047,11 +1064,15 @@ export function CalendarPage() {
       ).toISOString()
 
     try {
+      const googleUrl = calendarEvent.googleEventId
+        ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(calendarEvent.googleEventId)}`
+        : 'https://www.googleapis.com/calendar/v3/calendars/primary/events'
+
       const response =
         await fetch(
-          'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+          googleUrl,
           {
-            method: 'POST',
+            method: calendarEvent.googleEventId ? 'PATCH' : 'POST',
             headers: {
               Authorization:
                 `Bearer ${googleAccessToken}`,
@@ -1096,6 +1117,11 @@ export function CalendarPage() {
         )
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          clearGoogleAccessToken()
+          setGoogleAccessToken('')
+          throw new Error('Google veza je istekla. Ponovno poveži Google Kalendar.')
+        }
         throw new Error(
           'Google API greška.',
         )
@@ -1111,6 +1137,7 @@ export function CalendarPage() {
           {
             googleEventId:
               googleEvent.id ??
+              calendarEvent.googleEventId ??
               '',
           },
         )
@@ -1126,7 +1153,9 @@ export function CalendarPage() {
       )
 
       setMessage(
-        'Termin je poslan u Google Kalendar.',
+        calendarEvent.googleEventId
+          ? 'Termin je ažuriran i u Google Kalendaru.'
+          : 'Termin je poslan u Google Kalendar.',
       )
     } catch (sendError) {
       setError(

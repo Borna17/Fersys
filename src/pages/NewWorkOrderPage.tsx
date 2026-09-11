@@ -72,6 +72,25 @@ const FINALIZED_DRAFT_KEY =
 const EMERGENCY_DRAFT_KEY =
   'fersys_emergency_new_work_order_v1'
 
+function hasMeaningfulWorkOrderDraft(
+  value: Record<string, any>,
+) {
+  return Boolean(
+    value.customerId ||
+    String(value.customerName ?? '').trim() ||
+    String(value.address ?? '').trim() ||
+    value.arrivalTime ||
+    value.departureTime ||
+    String(value.title ?? '').trim() ||
+    String(value.description ?? '').trim() ||
+    (Array.isArray(value.assignedWorkers) && value.assignedWorkers.length) ||
+    (Array.isArray(value.materials) && value.materials.length) ||
+    (Array.isArray(value.images) && value.images.length) ||
+    String(value.investorName ?? '').trim() ||
+    value.investorSignature
+  )
+}
+
 function calculateDuration(
   arrival: string,
   departure: string,
@@ -559,6 +578,24 @@ export function NewWorkOrderPage() {
 
         const value =
           draft.payload ?? {}
+
+        if (!hasMeaningfulWorkOrderDraft(value)) {
+          await deleteUserDraft('work-order', 'new')
+          localStorage.removeItem(EMERGENCY_DRAFT_KEY)
+          if (!cancelled) setDraftReady(true)
+          return
+        }
+
+        const continueDraft = window.confirm(
+          `Pronađen je nedovršeni radni nalog (${formatDraftSavedAt(draft.updatedAt)}).\n\nOK = nastavi nedovršeni nalog\nOdustani = odbaci ga i započni novi.`,
+        )
+
+        if (!continueDraft) {
+          await deleteUserDraft('work-order', 'new')
+          localStorage.removeItem(EMERGENCY_DRAFT_KEY)
+          if (!cancelled) setDraftReady(true)
+          return
+        }
 
         setCustomerId(
           value.customerId ?? '',

@@ -12,7 +12,6 @@ import {
   Package,
   ReceiptText,
   Truck,
-  Settings,
   ShieldCheck,
   Users,
   UsersRound,
@@ -338,9 +337,6 @@ export default function Sidebar() {
           expanded={
             isExpanded
           }
-          showSettings={can(
-            'settings.manage',
-          )}
           showSuperAdmin={
             isSuperAdmin
           }
@@ -430,9 +426,6 @@ export default function Sidebar() {
 
         <SidebarFooter
           expanded
-          showSettings={can(
-            'settings.manage',
-          )}
           showSuperAdmin={
             isSuperAdmin
           }
@@ -633,7 +626,6 @@ function Navigation({
 
 function SidebarFooter({
   expanded,
-  showSettings,
   showSuperAdmin,
   displayName,
   displayRole,
@@ -641,7 +633,6 @@ function SidebarFooter({
   companyLogoUrl,
 }: {
   expanded: boolean
-  showSettings: boolean
   showSuperAdmin: boolean
   displayName: string
   displayRole: string
@@ -680,58 +671,6 @@ function SidebarFooter({
           {expanded && (
             <span className="text-sm font-semibold">
               Super Admin
-            </span>
-          )}
-        </NavLink>
-      )}
-
-      <NavLink
-        to="/account"
-        title={!expanded ? 'Moje postavke' : undefined}
-        className={({ isActive }) =>
-          `mb-3 flex h-12 items-center rounded-xl transition ${
-            expanded ? 'gap-3 px-4' : 'justify-center'
-          } ${
-            isActive
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-              : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-          }`
-        }
-      >
-        <Settings size={21} className="shrink-0" />
-        {expanded && <span className="text-sm font-semibold">Moje postavke</span>}
-      </NavLink>
-
-      {showSettings && (
-        <NavLink
-          to="/settings"
-          title={
-            !expanded
-              ? 'Postavke firme'
-              : undefined
-          }
-          className={({
-            isActive,
-          }) =>
-            `mb-3 flex h-12 items-center rounded-xl transition ${
-              expanded
-                ? 'gap-3 px-4'
-                : 'justify-center'
-            } ${
-              isActive
-                ? 'bg-blue-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-            }`
-          }
-        >
-          <Settings
-            size={21}
-            className="shrink-0"
-          />
-
-          {expanded && (
-            <span className="text-sm font-semibold">
-              Postavke firme
             </span>
           )}
         </NavLink>
