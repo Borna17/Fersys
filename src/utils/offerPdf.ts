@@ -2667,6 +2667,7 @@ async function renderHtmlPagesToPdf(
   html: string,
   fileName: string,
   backgroundColor: string,
+  save = true,
 ) {
   const iframe =
     document.createElement(
@@ -2793,12 +2794,18 @@ async function renderHtmlPagesToPdf(
       )
     }
 
-    saveBlobDownload(
-      pdf.output(
-        'blob',
-      ),
-      fileName,
+    const blob = pdf.output(
+      'blob',
     )
+
+    if (save) {
+      saveBlobDownload(
+        blob,
+        fileName,
+      )
+    }
+
+    return blob
   } finally {
     iframe.remove()
   }
@@ -2904,6 +2911,34 @@ export function openOfferPdf(
       previewWindow.document.close()
     }
   })()
+}
+
+export async function createOfferPdfBlob(
+  data: OfferPdfData,
+  customSettings:
+    Partial<OfferPdfSettings> = {},
+) {
+  const pricedOffer =
+    await resolveOfferPricing(data)
+  const settings =
+    await prepareOfferPdfSettings(
+      pricedOffer,
+      customSettings,
+    )
+  const html = buildOfferPdfHtml(
+    pricedOffer,
+    settings,
+  )
+  const fileName =
+    `${safeFileName(data.offerNumber || 'Ponuda')}-${safeFileName(data.customerName || 'Investitor')}.pdf`
+  const blob = await renderHtmlPagesToPdf(
+    html,
+    fileName,
+    settings.backgroundColor || '#FFFFFF',
+    false,
+  )
+  if (!blob) throw new Error('PDF ponude nije moguće izraditi.')
+  return { blob, fileName }
 }
 
 export async function downloadOfferPdf(
