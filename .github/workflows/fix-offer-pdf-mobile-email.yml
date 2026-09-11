@@ -1,0 +1,37 @@
+name: Fix offer PDF mobile email
+on:
+  push:
+    branches: [fix-offer-pdf-mobile-email]
+    paths:
+      - '.github/scripts/fix_offer_pdf_mobile_email.py'
+      - '.github/workflows/fix-offer-pdf-mobile-email.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-offer-pdf-mobile-email
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: python .github/scripts/fix_offer_pdf_mobile_email.py
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - name: Verify
+        run: |
+          grep -q "createOfferPdfBlob" src/utils/offerPdf.ts
+          grep -q "Pošalji ponudu s PDF privitkom" src/pages/NewOfferPage.tsx
+          grep -q "MobileNotificationBell" src/layouts/AppLayout.tsx
+      - name: Commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/utils/offerPdf.ts src/pages/NewOfferPage.tsx
+          git diff --cached --quiet && exit 0
+          git commit -m "Fix mobile offer PDF download and email attachment [skip ci]"
+          git push origin HEAD:fix-offer-pdf-mobile-email
