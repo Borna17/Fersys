@@ -1,11 +1,24 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigation, Phone, Play, RefreshCw, Wrench } from 'lucide-react'
+import { CheckCircle2, Navigation, Phone, Play, RefreshCw, Wrench } from 'lucide-react'
 import { useLocation, useNavigate } from 'react-router'
+import { supabase } from '../lib/supabase'
 import { getWorkOrders, updateWorkOrder, type CloudWorkOrder } from '../services/workOrders.service'
 
 function todayKey() {
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function currentTime() {
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
+async function notifyInvestor(workOrderId: string, eventType: 'on_my_way' | 'arrived') {
+  const { error } = await supabase.functions.invoke('field-service-customer-notify', {
+    body: { workOrderId, eventType },
+  })
+  if (error) console.warn('[FERSYS] Obavijest investitoru nije poslana:', error)
 }
 
 export default function FieldTodayPanel() {
@@ -41,8 +54,25 @@ export default function FieldTodayPanel() {
       setBusyId(order.id)
       const updated = await updateWorkOrder(order.id, { status: 'U tijeku' })
       setOrders((current) => current.map((item) => item.id === updated.id ? updated : item))
+      void notifyInvestor(order.id, 'on_my_way')
     } catch (error) {
       window.alert(error instanceof Error ? error.message : 'Status nije moguće promijeniti.')
+    } finally {
+      setBusyId('')
+    }
+  }
+
+  async function markArrived(order: CloudWorkOrder) {
+    try {
+      setBusyId(order.id)
+      const updated = await updateWorkOrder(order.id, {
+        status: 'U tijeku',
+        arrivalTime: order.arrivalTime || currentTime(),
+      })
+      setOrders((current) => current.map((item) => item.id === updated.id ? updated : item))
+      void notifyInvestor(order.id, 'arrived')
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : 'Dolazak nije moguće spremiti.')
     } finally {
       setBusyId('')
     }
@@ -69,7 +99,7 @@ export default function FieldTodayPanel() {
               <p className="mt-1 text-sm text-slate-400">{next.customerName}{next.arrivalTime ? ` · ${next.arrivalTime}` : ''}</p>
               {next.address && <p className="mt-2 text-xs text-slate-500">{next.address}</p>}
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
               <button
                 type="button"
                 disabled={!next.address}
@@ -95,7 +125,16 @@ export default function FieldTodayPanel() {
                 <Play size={17} />
                 {next.status === 'U tijeku' ? 'U tijeku' : 'Krenuo sam'}
               </button>
-              <button type="button" onClick={() => navigate(`/work-orders/${next.id}`)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-3 text-sm font-black text-violet-300">
+              <button
+                type="button"
+                disabled={busyId === next.id}
+                onClick={() => void markArrived(next)}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-cyan-500/25 bg-cyan-500/10 px-3 text-sm font-black text-cyan-300 disabled:opacity-50"
+              >
+                <CheckCircle2 size={17} />
+                Stigao sam
+              </button>
+              <button type="button" onClick={() => navigate(`/work-orders/${next.id}`)} className="col-span-2 inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-3 text-sm font-black text-violet-300 lg:col-span-1">
                 <Wrench size={17} />
                 Otvori nalog
               </button>
