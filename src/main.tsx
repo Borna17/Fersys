@@ -19,6 +19,7 @@ import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
 import FieldTodayPanel from './components/FieldTodayPanel'
+import OfflineReadyNotice from './components/OfflineReadyNotice'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import ConnectionStatusNotice from './components/ConnectionStatusNotice'
 import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
@@ -133,6 +134,7 @@ createRoot(document.getElementById('root')!).render(
       <App />
       <AppLanguageRuntime />
       <FieldTodayPanel />
+      <OfflineReadyNotice />
       <ActivityTracker />
       <AdminTrialMessagePolish />
       <ConnectionStatusNotice />

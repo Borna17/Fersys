@@ -20,3 +20,22 @@ export function writeRuntimeCache<T>(key: string, value: T) {
     // Cache never blocks normal app flow.
   }
 }
+
+export function clearRuntimeCache(key: string) {
+  try {
+    localStorage.removeItem(key)
+  } catch {
+    // Cache cleanup never blocks app flow.
+  }
+}
+
+export function clearRuntimeCachePrefix(prefix: string) {
+  try {
+    for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+      const key = localStorage.key(index)
+      if (key?.startsWith(prefix)) localStorage.removeItem(key)
+    }
+  } catch {
+    // Cache cleanup never blocks app flow.
+  }
+}

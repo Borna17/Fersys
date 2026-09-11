@@ -876,6 +876,33 @@ export async function updateWorkOrder(
     updated.updatedAt,
   )
 
+  if (
+    input.status === 'Završen' &&
+    existing.status !== 'Završen'
+  ) {
+    void supabase.functions.invoke(
+      'field-service-customer-notify',
+      {
+        body: {
+          workOrderId,
+          eventType: 'work_completed',
+        },
+      },
+    ).then(({ error: notificationError }) => {
+      if (notificationError) {
+        console.warn(
+          '[FERSYS] Radni nalog je spremljen, ali obavijest investitoru nije poslana:',
+          notificationError,
+        )
+      }
+    }).catch((notificationError) => {
+      console.warn(
+        '[FERSYS] Radni nalog je spremljen, ali obavijest investitoru nije poslana:',
+        notificationError,
+      )
+    })
+  }
+
   return updated
 }
 
