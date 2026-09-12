@@ -14,6 +14,7 @@ import {
 import {
   registerSW,
 } from 'virtual:pwa-register'
+import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
@@ -93,6 +94,40 @@ function registerWebServiceWorker() {
 
 registerWebServiceWorker()
 
+function NativeSplashDismiss() {
+  useEffect(() => {
+    if (!isNativeApp()) return
+
+    let cancelled = false
+    const dismiss = async () => {
+      try {
+        await SplashScreen.hide({ fadeOutDuration: 180 })
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Native splash nije moguće sakriti:', error)
+        }
+      }
+    }
+
+    // Let the first React frame paint, then remove only the native splash.
+    // This component renders nothing, so it can never cover or block the app.
+    const frame = window.requestAnimationFrame(() => {
+      void dismiss()
+    })
+    const fallback = window.setTimeout(() => {
+      void dismiss()
+    }, 1200)
+
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(frame)
+      window.clearTimeout(fallback)
+    }
+  }, [])
+
+  return null
+}
+
 function DeferredEnhancements() {
   const [ready, setReady] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
@@ -132,6 +167,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <NativeSplashDismiss />
       <AppLanguageRuntime />
       <FieldTodayPanel />
       <OfflineReadyNotice />
