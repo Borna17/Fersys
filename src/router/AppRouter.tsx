@@ -19,6 +19,8 @@ import type {
 } from '../auth/permissions'
 
 import AdminGuard from '../admin/AdminGuard'
+import AppLayout from '../layouts/AppLayout'
+import { DashboardPage } from '../pages/DashboardPage'
 
 import FersysLoader from '../components/FersysLoader'
 import WorkOrderPhotoGallerySync from '../components/WorkOrderPhotoGallerySync'
@@ -38,8 +40,6 @@ import {
 } from '../subscription/plans'
 
 const AdminLayout = lazy(() => import('../admin/AdminLayout'))
-const AppLayout = lazy(() => import('../layouts/AppLayout'))
-
 const AdminDashboardPage = lazy(
   () => import('../admin/AdminDashboardPage').then((module) => ({ default: module.AdminDashboardPage })),
 )
@@ -78,9 +78,6 @@ const CustomerProfilePage = lazy(
 )
 const CustomersPage = lazy(
   () => import('../pages/CustomersPage').then((module) => ({ default: module.CustomersPage })),
-)
-const DashboardPage = lazy(
-  () => import('../pages/DashboardPage').then((module) => ({ default: module.DashboardPage })),
 )
 const AccountPage = lazy(
   () => import('../pages/AccountPage').then((module) => ({ default: module.AccountPage })),
