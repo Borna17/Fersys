@@ -4,6 +4,7 @@ path = Path('src/router/AppRouter.tsx')
 text = path.read_text(encoding='utf-8')
 
 # Eager-load the two modules required immediately after authentication on native iOS.
+# This prevents the initial Suspense fallback from hanging on "Učitavanje FERSYS modula...".
 anchor = "import AdminGuard from '../admin/AdminGuard'\n\nimport FersysLoader"
 replacement = "import AdminGuard from '../admin/AdminGuard'\nimport AppLayout from '../layouts/AppLayout'\nimport { DashboardPage } from '../pages/DashboardPage'\n\nimport FersysLoader"
 if anchor not in text:
