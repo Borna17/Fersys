@@ -8,23 +8,23 @@ import {
   useEffect,
   useState,
 } from 'react'
-import {
-  createRoot,
-} from 'react-dom/client'
-import {
-  BrowserRouter,
-} from 'react-router'
-import {
-  registerSW,
-} from 'virtual:pwa-register'
-import { SplashScreen } from '@capacitor/splash-screen'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router'
 
-import App from './App'
-import AppLanguageRuntime from './components/AppLanguageRuntime'
 import FersysLoader from './components/FersysLoader'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
+
+/*
+ * IMPORTANT FOR CAPACITOR/iOS:
+ * Keep the native bootstrap tiny. Web-only/PWA modules and the full app are
+ * loaded lazily so a failing optional module cannot crash WKWebView before
+ * React mounts. If the app import itself fails, StartupErrorBoundary now shows
+ * the real JavaScript error on the device instead of leaving a blank screen.
+ */
+const App = lazy(() => import('./App'))
+const AppLanguageRuntime = lazy(() => import('./components/AppLanguageRuntime'))
 
 const ActivityTracker = lazy(() => import('./components/ActivityTracker'))
 const FieldTodayPanel = lazy(() => import('./components/FieldTodayPanel'))
@@ -41,62 +41,69 @@ const DocumentFlowOrchestrator = lazy(() => import('./components/DocumentFlowOrc
 const FirstTenMinutes = lazy(() => import('./components/FirstTenMinutes'))
 const FirstStepsControlCenter = lazy(() => import('./components/FirstStepsControlCenter'))
 
-function registerWebServiceWorker() {
+async function registerWebServiceWorker() {
   if (isNativeApp()) return
+  if (!('serviceWorker' in navigator)) return
 
-  let reloadingForUpdate = false
-  let activeRegistration: ServiceWorkerRegistration | null = null
+  try {
+    // Do not even evaluate vite-plugin-pwa runtime inside Capacitor WKWebView.
+    const { registerSW } = await import('virtual:pwa-register')
 
-  const updateServiceWorker = registerSW({
-    immediate: true,
-    onRegisteredSW(_serviceWorkerUrl, registration) {
-      if (!registration) return
-      activeRegistration = registration
-      void registration.update()
-      window.setInterval(() => void registration.update(), 30 * 60 * 1000)
-    },
-    onNeedRefresh() {
-      void updateServiceWorker(true)
-    },
-    onRegisterError(error) {
-      console.error('FERSYS PWA service worker nije registriran:', error)
-    },
-  })
+    let reloadingForUpdate = false
+    let activeRegistration: ServiceWorkerRegistration | null = null
 
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadingForUpdate) return
-    reloadingForUpdate = true
-    window.location.reload()
-  })
-
-  let lastUpdateCheckAt = 0
-
-  const checkForUpdate = () => {
-    if (document.visibilityState !== 'visible' || !navigator.onLine) return
-
-    const now = Date.now()
-    if (now - lastUpdateCheckAt < 60_000) return
-    lastUpdateCheckAt = now
-
-    if (activeRegistration) {
-      void activeRegistration.update()
-      return
-    }
-    void navigator.serviceWorker.getRegistration().then((registration) => {
-      if (registration) {
+    const updateServiceWorker = registerSW({
+      immediate: true,
+      onRegisteredSW(_serviceWorkerUrl, registration) {
+        if (!registration) return
         activeRegistration = registration
-        return registration.update()
-      }
-      return undefined
+        void registration.update()
+        window.setInterval(() => void registration.update(), 30 * 60 * 1000)
+      },
+      onNeedRefresh() {
+        void updateServiceWorker(true)
+      },
+      onRegisterError(error) {
+        console.error('FERSYS PWA service worker nije registriran:', error)
+      },
     })
-  }
 
-  window.addEventListener('focus', checkForUpdate)
-  window.addEventListener('online', checkForUpdate)
-  document.addEventListener('visibilitychange', checkForUpdate)
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (reloadingForUpdate) return
+      reloadingForUpdate = true
+      window.location.reload()
+    })
+
+    let lastUpdateCheckAt = 0
+    const checkForUpdate = () => {
+      if (document.visibilityState !== 'visible' || !navigator.onLine) return
+      const now = Date.now()
+      if (now - lastUpdateCheckAt < 60_000) return
+      lastUpdateCheckAt = now
+
+      if (activeRegistration) {
+        void activeRegistration.update()
+        return
+      }
+
+      void navigator.serviceWorker.getRegistration().then((registration) => {
+        if (registration) {
+          activeRegistration = registration
+          return registration.update()
+        }
+        return undefined
+      })
+    }
+
+    window.addEventListener('focus', checkForUpdate)
+    window.addEventListener('online', checkForUpdate)
+    document.addEventListener('visibilitychange', checkForUpdate)
+  } catch (error) {
+    console.error('FERSYS PWA runtime nije moguće pokrenuti:', error)
+  }
 }
 
-registerWebServiceWorker()
+void registerWebServiceWorker()
 
 function NativeSplashDismiss() {
   useEffect(() => {
@@ -105,17 +112,21 @@ function NativeSplashDismiss() {
     let stopped = false
     const dismiss = async () => {
       try {
-        await SplashScreen.hide()
+        // Dynamic import keeps the native splash plugin out of the first JS
+        // evaluation pass and avoids a bridge call before Capacitor is ready.
+        const { SplashScreen } = await import('@capacitor/splash-screen')
+        if (!stopped) await SplashScreen.hide()
       } catch (error) {
         if (!stopped) console.warn('Native splash nije moguće sakriti:', error)
       }
     }
 
-    void dismiss()
-    const fallback = window.setTimeout(() => void dismiss(), 800)
+    const timer = window.setTimeout(() => void dismiss(), 150)
+    const fallback = window.setTimeout(() => void dismiss(), 1200)
 
     return () => {
       stopped = true
+      window.clearTimeout(timer)
       window.clearTimeout(fallback)
     }
   }, [])
