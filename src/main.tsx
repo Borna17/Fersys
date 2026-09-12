@@ -14,13 +14,11 @@ import {
 import {
   registerSW,
 } from 'virtual:pwa-register'
-import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
 import FieldTodayPanel from './components/FieldTodayPanel'
-import FersysLoader from './components/FersysLoader'
 import OfflineReadyNotice from './components/OfflineReadyNotice'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import ConnectionStatusNotice from './components/ConnectionStatusNotice'
@@ -95,40 +93,6 @@ function registerWebServiceWorker() {
 
 registerWebServiceWorker()
 
-function NativeStartupLoader() {
-  const [visible, setVisible] = useState(() => isNativeApp())
-
-  useEffect(() => {
-    if (!isNativeApp()) return
-
-    let cancelled = false
-    const hideNativeSplash = async () => {
-      try {
-        await SplashScreen.hide({ fadeOutDuration: 180 })
-      } catch (error) {
-        console.warn('Native splash nije moguće sakriti:', error)
-      }
-    }
-
-    const nativeTimer = window.setTimeout(() => {
-      if (!cancelled) void hideNativeSplash()
-    }, 250)
-
-    const loaderTimer = window.setTimeout(() => {
-      if (!cancelled) setVisible(false)
-    }, 1100)
-
-    return () => {
-      cancelled = true
-      window.clearTimeout(nativeTimer)
-      window.clearTimeout(loaderTimer)
-    }
-  }, [])
-
-  if (!visible) return null
-  return <FersysLoader fullScreen text="FERSYS se učitava..." />
-}
-
 function DeferredEnhancements() {
   const [ready, setReady] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
@@ -168,7 +132,6 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
-      <NativeStartupLoader />
       <AppLanguageRuntime />
       <FieldTodayPanel />
       <OfflineReadyNotice />
