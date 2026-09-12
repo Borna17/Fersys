@@ -70,6 +70,23 @@ const allowedWithoutUsableSubscription = [
   '/support',
 ]
 
+const SUBSCRIPTION_REQUEST_TIMEOUT_MS = 10_000
+
+async function withSubscriptionTimeout<T>(promise: Promise<T>): Promise<T> {
+  let timer = 0
+  const timeout = new Promise<never>((_, reject) => {
+    timer = window.setTimeout(() => {
+      reject(new Error('Provjera pretplate traje predugo. Provjeri internet vezu i pokušaj ponovno.'))
+    }, SUBSCRIPTION_REQUEST_TIMEOUT_MS)
+  })
+
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    window.clearTimeout(timer)
+  }
+}
+
 function getDaysRemaining(
   dateValue: string | null,
 ) {
@@ -165,7 +182,9 @@ export function SubscriptionProvider({
         setError('')
 
         const context =
-          await getSubscriptionContext()
+          await withSubscriptionTimeout(
+            getSubscriptionContext(),
+          )
 
         setSubscription(context)
         initializedCompanyRef.current = companyId
