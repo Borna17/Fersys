@@ -28,6 +28,6 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/router/AppRouter.tsx
-          git commit -m "Fix iOS startup module loading [skip ci]"
+          git add src/router/AppRouter.tsx src/subscription/SubscriptionProvider.tsx
+          git commit -m "Fix iOS startup account loading [skip ci]"
           git push
