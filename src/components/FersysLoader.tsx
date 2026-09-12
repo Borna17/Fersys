@@ -4,6 +4,7 @@ import {
   Hammer,
   Wrench,
 } from 'lucide-react'
+import { isNativeApp } from '../lib/platform'
 
 type FersysLoaderProps = {
   text?: string
@@ -23,6 +24,8 @@ export default function FersysLoader({
   fullScreen = false,
   compact = false,
 }: FersysLoaderProps) {
+  const native = isNativeApp()
+
   const content = (
     <div
       className={`flex flex-col items-center justify-center text-center ${
@@ -38,8 +41,8 @@ export default function FersysLoader({
           return (
             <div
               key={tool.label}
-              className="fersys-tool grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-blue-400"
-              style={{ animationDelay: `${index * 180}ms` }}
+              className={`${native ? '' : 'fersys-tool'} grid h-11 w-11 place-items-center rounded-xl bg-slate-800 text-blue-400`}
+              style={native ? undefined : { animationDelay: `${index * 180}ms` }}
             >
               <Icon size={21} />
             </div>
@@ -54,32 +57,34 @@ export default function FersysLoader({
         </p>
       </div>
 
-      <style>{`
-        @keyframes fersysToolPulse {
-          0%, 100% {
-            opacity: 0.42;
-            transform: translateY(0) scale(0.96);
+      {!native && (
+        <style>{`
+          @keyframes fersysToolPulse {
+            0%, 100% {
+              opacity: 0.42;
+              transform: translateY(0) scale(0.96);
+            }
+
+            40% {
+              opacity: 1;
+              transform: translateY(-3px) scale(1);
+            }
           }
 
-          40% {
-            opacity: 1;
-            transform: translateY(-3px) scale(1);
-          }
-        }
-
-        .fersys-tool {
-          animation: fersysToolPulse 1.35s ease-in-out infinite;
-          will-change: transform, opacity;
-        }
-
-        @media (prefers-reduced-motion: reduce) {
           .fersys-tool {
-            animation: none;
-            opacity: 1;
-            transform: none;
+            animation: fersysToolPulse 1.35s ease-in-out infinite;
+            will-change: transform, opacity;
           }
-        }
-      `}</style>
+
+          @media (prefers-reduced-motion: reduce) {
+            .fersys-tool {
+              animation: none;
+              opacity: 1;
+              transform: none;
+            }
+          }
+        `}</style>
+      )}
     </div>
   )
 
@@ -88,9 +93,12 @@ export default function FersysLoader({
   }
 
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-slate-950/90 p-5 backdrop-blur-sm">
+    <div
+      className={`fixed inset-0 z-[120] grid place-items-center bg-slate-950/90 p-5 ${
+        native ? '' : 'backdrop-blur-sm'
+      }`}
+    >
       {content}
     </div>
   )
 }
-
