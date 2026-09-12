@@ -29,5 +29,7 @@ jobs:
           node -e "const p=require('./node_modules/@capacitor-community/speech-recognition/package.json'); if(p.version!=='8.0.0-fersys-shim') process.exit(1); console.log('native-safe speech shim OK')"
       - name: Verify Capacitor iOS dependency
         run: npm ls @capacitor/ios @capacitor/core --depth=0
-      - name: Sync iOS web assets and plugins
-        run: npx cap sync ios
+      - name: Create and sync clean iOS project
+        run: |
+          npx cap add ios
+          npx cap sync ios
