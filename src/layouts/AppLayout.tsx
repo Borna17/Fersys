@@ -611,7 +611,7 @@ export default function AppLayout() {
         </div>
 
         <header className="sticky top-0 z-30 grid min-h-16 grid-cols-[5.5rem_minmax(0,1fr)_5.5rem] items-center border-b border-slate-800/80 bg-slate-950/95 px-3 py-2 backdrop-blur-xl md:hidden">
-          <div className="flex items-center justify-start">
+          <div className="relative z-40 flex min-w-0 items-center justify-start">
             <MobileNotificationBell />
           </div>
 

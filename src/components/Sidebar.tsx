@@ -705,15 +705,21 @@ function Brand({
   return (
     <div className="flex min-w-0 items-center">
       {expanded ? (
-        <img
-          src="/logo.svg"
-          alt="FERSYS Business"
-          className="h-10 w-auto max-w-[165px] object-contain object-left"
-        />
+        <div className="flex items-center gap-3">
+          <img
+            src={fersysIcon}
+            alt="FERSYS"
+            className="h-11 w-11 shrink-0 object-contain"
+          />
+          <div className="min-w-0">
+            <div className="text-lg font-black tracking-[0.08em] text-white">FERSYS</div>
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-400">Business</div>
+          </div>
+        </div>
       ) : (
         <img
           src={fersysIcon}
-          alt="FERSYS Business"
+          alt="FERSYS"
           className="h-11 w-11 shrink-0 object-contain"
         />
       )}

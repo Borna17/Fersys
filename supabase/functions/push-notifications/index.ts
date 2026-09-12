@@ -292,7 +292,7 @@ async function sendFcm(
 
                 notification: {
                   icon:
-                    '/fersys-android-icon-512.png',
+                    '/fersys-app-icon-1024.png',
                   badge:
   '/notification-badge-96.png',
                   tag:

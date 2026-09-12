@@ -142,7 +142,7 @@ export default function MobileNotificationBell() {
         const registration = await navigator.serviceWorker.ready
         await registration.showNotification('FERSYS push je uključen', {
           body: 'Ovaj uređaj je registriran za obavijesti i kada FERSYS nije otvoren.',
-          icon: '/pwa-192x192.png',
+          icon: '/fersys-app-icon-1024.png',
           badge: '/favicon-64x64.png',
           tag: 'fersys-push-enabled',
           data: { route: '/dashboard' },

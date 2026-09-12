@@ -19,6 +19,7 @@ import App from './App'
 import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
 import FieldTodayPanel from './components/FieldTodayPanel'
+import FersysLoader from './components/FersysLoader'
 import OfflineReadyNotice from './components/OfflineReadyNotice'
 import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
 import ConnectionStatusNotice from './components/ConnectionStatusNotice'
@@ -93,6 +94,19 @@ function registerWebServiceWorker() {
 
 registerWebServiceWorker()
 
+function NativeStartupLoader() {
+  const [visible, setVisible] = useState(() => isNativeApp())
+
+  useEffect(() => {
+    if (!visible) return
+    const timer = window.setTimeout(() => setVisible(false), 1100)
+    return () => window.clearTimeout(timer)
+  }, [visible])
+
+  if (!visible) return null
+  return <FersysLoader fullScreen text="FERSYS se učitava..." />
+}
+
 function DeferredEnhancements() {
   const [ready, setReady] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
@@ -132,6 +146,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <App />
+      <NativeStartupLoader />
       <AppLanguageRuntime />
       <FieldTodayPanel />
       <OfflineReadyNotice />

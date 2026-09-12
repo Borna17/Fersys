@@ -8,6 +8,7 @@ import {
   useNavigate,
   useParams,
 } from 'react-router'
+import { Capacitor } from '@capacitor/core'
 
 import {
   ArrowLeft,
@@ -335,16 +336,17 @@ export function WorkOrderDetailsPage() {
       const branding =
         await getWorkOrderBrandingFromCompanySettings()
 
-      await Promise.resolve(
-        downloadWorkOrderPdf(
-          canViewPrices
-            ? order
-            : redactWorkOrderPrices(
-                order,
-              ),
-          branding,
-        ),
-      )
+      const printableOrder = canViewPrices
+        ? order
+        : redactWorkOrderPrices(order)
+
+      if (Capacitor.isNativePlatform()) {
+        await shareWorkOrderPdf(printableOrder, branding)
+      } else {
+        await Promise.resolve(
+          downloadWorkOrderPdf(printableOrder, branding),
+        )
+      }
 
       const finalizedOrderId =
         localStorage.getItem(FINALIZED_DRAFT_KEY)

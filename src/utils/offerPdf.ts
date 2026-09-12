@@ -1,5 +1,6 @@
 import html2canvas from 'html2canvas'
 import { jsPDF } from 'jspdf'
+import { Capacitor } from '@capacitor/core'
 
 import {
   getCompanySettings,
@@ -2960,6 +2961,40 @@ export async function downloadOfferPdf(
   )
 
   try {
+    if (Capacitor.isNativePlatform()) {
+      const { blob } = await createOfferPdfBlob(data, customSettings)
+      const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+        import('@capacitor/filesystem'),
+        import('@capacitor/share'),
+      ])
+
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          if (typeof reader.result !== 'string') {
+            reject(new Error('PDF nije moguće pripremiti.'))
+            return
+          }
+          resolve(reader.result.split(',')[1] || '')
+        }
+        reader.onerror = () => reject(new Error('PDF nije moguće pripremiti.'))
+        reader.readAsDataURL(blob)
+      })
+
+      const saved = await Filesystem.writeFile({
+        path: `fersys-share/${fileName}`,
+        data: base64,
+        directory: Directory.Cache,
+        recursive: true,
+      })
+
+      await Share.share({
+        title: fileName.replace(/\.pdf$/i, ''),
+        files: [saved.uri],
+        dialogTitle: 'Spremi ili podijeli PDF ponude',
+      })
+      return
+    }
     const pricedOffer =
       await resolveOfferPricing(
         data,
