@@ -149,6 +149,8 @@ export function SubscriptionProvider({
        */
       if (!companyId) {
         setSubscription(null)
+        initializedCompanyRef.current = null
+        setIsLoading(false)
         return
       }
 
