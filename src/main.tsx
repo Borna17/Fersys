@@ -1,98 +1,46 @@
-import {
-  StrictMode,
-  Suspense,
-  lazy,
-  useEffect,
-  useState,
-} from 'react'
-import {
-  createRoot,
-} from 'react-dom/client'
-import {
-  BrowserRouter,
-} from 'react-router'
-import {
-  registerSW,
-} from 'virtual:pwa-register'
+import { StrictMode, useEffect } from 'react'
+import { createRoot } from 'react-dom/client'
+import { BrowserRouter } from 'react-router'
 import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
-import ActivityTracker from './components/ActivityTracker'
-import AppLanguageRuntime from './components/AppLanguageRuntime'
-import FieldTodayPanel from './components/FieldTodayPanel'
-import OfflineReadyNotice from './components/OfflineReadyNotice'
-import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
-import ConnectionStatusNotice from './components/ConnectionStatusNotice'
-import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
-import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
-import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
-import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
-import IncomingInvoicesDatabaseBridge from './components/IncomingInvoicesDatabaseBridge'
-import WorkOrderEditQuantityTextFix from './components/WorkOrderEditQuantityTextFix'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
-const DocumentFlowOrchestrator = lazy(() => import('./components/DocumentFlowOrchestrator'))
-const FirstTenMinutes = lazy(() => import('./components/FirstTenMinutes'))
-const FirstStepsControlCenter = lazy(() => import('./components/FirstStepsControlCenter'))
+const WEB_RECOVERY_KEY = 'fersys_web_recovery_2026_09_12_v1'
 
-function registerWebServiceWorker() {
-  if (isNativeApp()) return
+async function prepareWebRuntime() {
+  if (isNativeApp()) return true
+  if (window.localStorage.getItem(WEB_RECOVERY_KEY) === 'done') return true
 
-  let reloadingForUpdate = false
-  let activeRegistration: ServiceWorkerRegistration | null = null
-
-  const updateServiceWorker = registerSW({
-    immediate: true,
-    onRegisteredSW(_serviceWorkerUrl, registration) {
-      if (!registration) return
-      activeRegistration = registration
-      void registration.update()
-      window.setInterval(() => void registration.update(), 30 * 60 * 1000)
-    },
-    onNeedRefresh() {
-      void updateServiceWorker(true)
-    },
-    onRegisterError(error) {
-      console.error('FERSYS PWA service worker nije registriran:', error)
-    },
-  })
-
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (reloadingForUpdate) return
-    reloadingForUpdate = true
-    window.location.reload()
-  })
-
-  let lastUpdateCheckAt = 0
-
-  const checkForUpdate = () => {
-    if (document.visibilityState !== 'visible' || !navigator.onLine) return
-
-    const now = Date.now()
-    if (now - lastUpdateCheckAt < 60_000) return
-    lastUpdateCheckAt = now
-
-    if (activeRegistration) {
-      void activeRegistration.update()
-      return
+  try {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(registrations.map((registration) => registration.unregister()))
     }
-    void navigator.serviceWorker.getRegistration().then((registration) => {
-      if (registration) {
-        activeRegistration = registration
-        return registration.update()
-      }
-      return undefined
-    })
+
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(
+        cacheNames
+          .filter((name) => name.startsWith('fersys-') || name.startsWith('workbox-'))
+          .map((name) => caches.delete(name)),
+      )
+    }
+  } catch (error) {
+    console.warn('FERSYS web cache cleanup nije uspio:', error)
   }
 
-  window.addEventListener('focus', checkForUpdate)
-  window.addEventListener('online', checkForUpdate)
-  document.addEventListener('visibilitychange', checkForUpdate)
-}
+  window.localStorage.setItem(WEB_RECOVERY_KEY, 'done')
 
-registerWebServiceWorker()
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    window.location.reload()
+    return false
+  }
+
+  return true
+}
 
 function NativeSplashDismiss() {
   useEffect(() => {
@@ -103,18 +51,12 @@ function NativeSplashDismiss() {
       try {
         await SplashScreen.hide({ fadeOutDuration: 180 })
       } catch (error) {
-        if (!cancelled) {
-          console.warn('Native splash nije moguće sakriti:', error)
-        }
+        if (!cancelled) console.warn('Native splash nije moguće sakriti:', error)
       }
     }
 
-    const frame = window.requestAnimationFrame(() => {
-      void dismiss()
-    })
-    const fallback = window.setTimeout(() => {
-      void dismiss()
-    }, 1200)
+    const frame = window.requestAnimationFrame(() => void dismiss())
+    const fallback = window.setTimeout(() => void dismiss(), 1200)
 
     return () => {
       cancelled = true
@@ -126,59 +68,20 @@ function NativeSplashDismiss() {
   return null
 }
 
-function DeferredEnhancements() {
-  const [ready, setReady] = useState(false)
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+function renderApp() {
+  const root = document.getElementById('root')
+  if (!root) throw new Error('FERSYS root element nije pronađen.')
 
-  useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 767px)')
-    const handleChange = () => setIsMobile(mediaQuery.matches)
-    handleChange()
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [])
-
-  useEffect(() => {
-    if (isMobile) {
-      setReady(false)
-      return
-    }
-
-    const timer = window.setTimeout(() => setReady(true), 1_200)
-    return () => window.clearTimeout(timer)
-  }, [isMobile])
-
-  return (
-    <Suspense fallback={null}>
-      {!isMobile && ready && (
-        <>
-          <DocumentFlowOrchestrator />
-          <FirstTenMinutes />
-          <FirstStepsControlCenter />
-        </>
-      )}
-    </Suspense>
+  createRoot(root).render(
+    <StrictMode>
+      <BrowserRouter>
+        <App />
+        <NativeSplashDismiss />
+      </BrowserRouter>
+    </StrictMode>,
   )
 }
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-      <NativeSplashDismiss />
-      <AppLanguageRuntime />
-      <FieldTodayPanel />
-      <OfflineReadyNotice />
-      <ActivityTracker />
-      <AdminTrialMessagePolish />
-      <ConnectionStatusNotice />
-      <IncomingInvoicesDatabaseBridge />
-      <FloatingUiLayoutFix />
-      <WorkOrderEditQuantityTextFix />
-      <DeliveryNoteMobileLayoutFix />
-      <GoogleCalendarOAuthBridge />
-      <DownloadFeedbackCenter />
-      <DeferredEnhancements />
-    </BrowserRouter>
-  </StrictMode>,
-)
+void prepareWebRuntime().then((ready) => {
+  if (ready) renderApp()
+})
