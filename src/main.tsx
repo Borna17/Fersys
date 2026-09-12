@@ -10,21 +10,14 @@ import {
 } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
+import { SplashScreen } from '@capacitor/splash-screen'
 
+import App from './App'
+import AppLanguageRuntime from './components/AppLanguageRuntime'
 import FersysLoader from './components/FersysLoader'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
-
-/*
- * IMPORTANT FOR CAPACITOR/iOS:
- * Keep the native bootstrap tiny. Web-only/PWA modules and the full app are
- * loaded lazily so a failing optional module cannot crash WKWebView before
- * React mounts. If the app import itself fails, StartupErrorBoundary now shows
- * the real JavaScript error on the device instead of leaving a blank screen.
- */
-const App = lazy(() => import('./App'))
-const AppLanguageRuntime = lazy(() => import('./components/AppLanguageRuntime'))
 
 const ActivityTracker = lazy(() => import('./components/ActivityTracker'))
 const FieldTodayPanel = lazy(() => import('./components/FieldTodayPanel'))
@@ -46,7 +39,6 @@ async function registerWebServiceWorker() {
   if (!('serviceWorker' in navigator)) return
 
   try {
-    // Do not even evaluate vite-plugin-pwa runtime inside Capacitor WKWebView.
     const { registerSW } = await import('virtual:pwa-register')
 
     let reloadingForUpdate = false
@@ -112,21 +104,18 @@ function NativeSplashDismiss() {
     let stopped = false
     const dismiss = async () => {
       try {
-        // Dynamic import keeps the native splash plugin out of the first JS
-        // evaluation pass and avoids a bridge call before Capacitor is ready.
-        const { SplashScreen } = await import('@capacitor/splash-screen')
-        if (!stopped) await SplashScreen.hide()
+        await SplashScreen.hide()
       } catch (error) {
         if (!stopped) console.warn('Native splash nije moguće sakriti:', error)
       }
     }
 
-    const timer = window.setTimeout(() => void dismiss(), 150)
+    const frame = window.requestAnimationFrame(() => void dismiss())
     const fallback = window.setTimeout(() => void dismiss(), 1200)
 
     return () => {
       stopped = true
-      window.clearTimeout(timer)
+      window.cancelAnimationFrame(frame)
       window.clearTimeout(fallback)
     }
   }, [])
