@@ -1,120 +1,123 @@
 import {
-  Component,
   StrictMode,
   Suspense,
   lazy,
-  type ErrorInfo,
-  type ReactNode,
   useEffect,
   useState,
 } from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router'
+import {
+  createRoot,
+} from 'react-dom/client'
+import {
+  BrowserRouter,
+} from 'react-router'
+import {
+  registerSW,
+} from 'virtual:pwa-register'
 import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
+import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
-import FersysLoader from './components/FersysLoader'
+import FieldTodayPanel from './components/FieldTodayPanel'
+import OfflineReadyNotice from './components/OfflineReadyNotice'
+import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
+import ConnectionStatusNotice from './components/ConnectionStatusNotice'
+import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
+import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
+import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
+import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
+import IncomingInvoicesDatabaseBridge from './components/IncomingInvoicesDatabaseBridge'
+import WorkOrderEditQuantityTextFix from './components/WorkOrderEditQuantityTextFix'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
-const ActivityTracker = lazy(() => import('./components/ActivityTracker'))
-const FieldTodayPanel = lazy(() => import('./components/FieldTodayPanel'))
-const OfflineReadyNotice = lazy(() => import('./components/OfflineReadyNotice'))
-const AdminTrialMessagePolish = lazy(() => import('./components/AdminTrialMessagePolish'))
-const ConnectionStatusNotice = lazy(() => import('./components/ConnectionStatusNotice'))
-const DeliveryNoteMobileLayoutFix = lazy(() => import('./components/DeliveryNoteMobileLayoutFix'))
-const DownloadFeedbackCenter = lazy(() => import('./components/DownloadFeedbackCenter'))
-const FloatingUiLayoutFix = lazy(() => import('./components/FloatingUiLayoutFix'))
-const GoogleCalendarOAuthBridge = lazy(() => import('./components/GoogleCalendarOAuthBridge'))
-const IncomingInvoicesDatabaseBridge = lazy(() => import('./components/IncomingInvoicesDatabaseBridge'))
-const WorkOrderEditQuantityTextFix = lazy(() => import('./components/WorkOrderEditQuantityTextFix'))
 const DocumentFlowOrchestrator = lazy(() => import('./components/DocumentFlowOrchestrator'))
 const FirstTenMinutes = lazy(() => import('./components/FirstTenMinutes'))
 const FirstStepsControlCenter = lazy(() => import('./components/FirstStepsControlCenter'))
 
-async function registerWebServiceWorker() {
+function registerWebServiceWorker() {
   if (isNativeApp()) return
-  if (!('serviceWorker' in navigator)) return
 
-  try {
-    const { registerSW } = await import('virtual:pwa-register')
+  let reloadingForUpdate = false
+  let activeRegistration: ServiceWorkerRegistration | null = null
 
-    let reloadingForUpdate = false
-    let activeRegistration: ServiceWorkerRegistration | null = null
+  const updateServiceWorker = registerSW({
+    immediate: true,
+    onRegisteredSW(_serviceWorkerUrl, registration) {
+      if (!registration) return
+      activeRegistration = registration
+      void registration.update()
+      window.setInterval(() => void registration.update(), 30 * 60 * 1000)
+    },
+    onNeedRefresh() {
+      void updateServiceWorker(true)
+    },
+    onRegisterError(error) {
+      console.error('FERSYS PWA service worker nije registriran:', error)
+    },
+  })
 
-    const updateServiceWorker = registerSW({
-      immediate: true,
-      onRegisteredSW(_serviceWorkerUrl, registration) {
-        if (!registration) return
-        activeRegistration = registration
-        void registration.update()
-        window.setInterval(() => void registration.update(), 30 * 60 * 1000)
-      },
-      onNeedRefresh() {
-        void updateServiceWorker(true)
-      },
-      onRegisterError(error) {
-        console.error('FERSYS PWA service worker nije registriran:', error)
-      },
-    })
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloadingForUpdate) return
+    reloadingForUpdate = true
+    window.location.reload()
+  })
 
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloadingForUpdate) return
-      reloadingForUpdate = true
-      window.location.reload()
-    })
+  let lastUpdateCheckAt = 0
 
-    let lastUpdateCheckAt = 0
-    const checkForUpdate = () => {
-      if (document.visibilityState !== 'visible' || !navigator.onLine) return
-      const now = Date.now()
-      if (now - lastUpdateCheckAt < 60_000) return
-      lastUpdateCheckAt = now
+  const checkForUpdate = () => {
+    if (document.visibilityState !== 'visible' || !navigator.onLine) return
 
-      if (activeRegistration) {
-        void activeRegistration.update()
-        return
-      }
+    const now = Date.now()
+    if (now - lastUpdateCheckAt < 60_000) return
+    lastUpdateCheckAt = now
 
-      void navigator.serviceWorker.getRegistration().then((registration) => {
-        if (registration) {
-          activeRegistration = registration
-          return registration.update()
-        }
-        return undefined
-      })
+    if (activeRegistration) {
+      void activeRegistration.update()
+      return
     }
-
-    window.addEventListener('focus', checkForUpdate)
-    window.addEventListener('online', checkForUpdate)
-    document.addEventListener('visibilitychange', checkForUpdate)
-  } catch (error) {
-    console.error('FERSYS PWA runtime nije moguće pokrenuti:', error)
+    void navigator.serviceWorker.getRegistration().then((registration) => {
+      if (registration) {
+        activeRegistration = registration
+        return registration.update()
+      }
+      return undefined
+    })
   }
+
+  window.addEventListener('focus', checkForUpdate)
+  window.addEventListener('online', checkForUpdate)
+  document.addEventListener('visibilitychange', checkForUpdate)
 }
 
-void registerWebServiceWorker()
+registerWebServiceWorker()
 
 function NativeSplashDismiss() {
   useEffect(() => {
     if (!isNativeApp()) return
 
-    let stopped = false
+    let cancelled = false
     const dismiss = async () => {
       try {
-        await SplashScreen.hide()
+        await SplashScreen.hide({ fadeOutDuration: 180 })
       } catch (error) {
-        if (!stopped) console.warn('Native splash nije moguće sakriti:', error)
+        if (!cancelled) {
+          console.warn('Native splash nije moguće sakriti:', error)
+        }
       }
     }
 
-    const frame = window.requestAnimationFrame(() => void dismiss())
-    const fallback = window.setTimeout(() => void dismiss(), 1200)
+    const frame = window.requestAnimationFrame(() => {
+      void dismiss()
+    })
+    const fallback = window.setTimeout(() => {
+      void dismiss()
+    }, 1200)
 
     return () => {
-      stopped = true
+      cancelled = true
       window.cancelAnimationFrame(frame)
       window.clearTimeout(fallback)
     }
@@ -123,60 +126,50 @@ function NativeSplashDismiss() {
   return null
 }
 
-class StartupErrorBoundary extends Component<
-  { children: ReactNode },
-  { error: Error | null }
-> {
-  state = { error: null as Error | null }
-
-  static getDerivedStateFromError(error: Error) {
-    return { error }
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[FERSYS startup error]', error, info)
-  }
-
-  render() {
-    if (!this.state.error) return this.props.children
-
-    return (
-      <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
-        <section className="w-full max-w-lg rounded-3xl border border-red-500/30 bg-slate-900 p-6">
-          <p className="text-xs font-black uppercase tracking-[0.2em] text-red-400">FERSYS STARTUP</p>
-          <h1 className="mt-3 text-xl font-black">Aplikacija se nije mogla pokrenuti</h1>
-          <p className="mt-3 break-words text-sm leading-6 text-slate-300">
-            {this.state.error.message || 'Nepoznata JavaScript greška.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="mt-5 min-h-11 rounded-2xl bg-blue-600 px-5 text-sm font-bold text-white"
-          >
-            Pokušaj ponovno
-          </button>
-        </section>
-      </main>
-    )
-  }
-}
-
-function DeferredWebEnhancements() {
+function DeferredEnhancements() {
   const [ready, setReady] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
 
   useEffect(() => {
-    if (isNativeApp()) return
-    const timer = window.setTimeout(() => setReady(true), 1000)
-    return () => window.clearTimeout(timer)
+    const mediaQuery = window.matchMedia('(max-width: 767px)')
+    const handleChange = () => setIsMobile(mediaQuery.matches)
+    handleChange()
+    mediaQuery.addEventListener('change', handleChange)
+    return () => mediaQuery.removeEventListener('change', handleChange)
   }, [])
 
-  if (!ready || isNativeApp()) return null
+  useEffect(() => {
+    if (isMobile) {
+      setReady(false)
+      return
+    }
+
+    const timer = window.setTimeout(() => setReady(true), 1_200)
+    return () => window.clearTimeout(timer)
+  }, [isMobile])
 
   return (
     <Suspense fallback={null}>
-      <ActivityTracker />
+      {!isMobile && ready && (
+        <>
+          <DocumentFlowOrchestrator />
+          <FirstTenMinutes />
+          <FirstStepsControlCenter />
+        </>
+      )}
+    </Suspense>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <BrowserRouter>
+      <App />
+      <NativeSplashDismiss />
+      <AppLanguageRuntime />
       <FieldTodayPanel />
       <OfflineReadyNotice />
+      <ActivityTracker />
       <AdminTrialMessagePolish />
       <ConnectionStatusNotice />
       <IncomingInvoicesDatabaseBridge />
@@ -185,24 +178,7 @@ function DeferredWebEnhancements() {
       <DeliveryNoteMobileLayoutFix />
       <GoogleCalendarOAuthBridge />
       <DownloadFeedbackCenter />
-      <DocumentFlowOrchestrator />
-      <FirstTenMinutes />
-      <FirstStepsControlCenter />
-    </Suspense>
-  )
-}
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <StartupErrorBoundary>
-      <BrowserRouter>
-        <Suspense fallback={<FersysLoader fullScreen text="Pokretanje FERSYS-a..." />}>
-          <App />
-          <NativeSplashDismiss />
-          <AppLanguageRuntime />
-          <DeferredWebEnhancements />
-        </Suspense>
-      </BrowserRouter>
-    </StartupErrorBoundary>
+      <DeferredEnhancements />
+    </BrowserRouter>
   </StrictMode>,
 )
