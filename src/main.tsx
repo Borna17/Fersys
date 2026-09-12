@@ -14,6 +14,7 @@ import {
 import {
   registerSW,
 } from 'virtual:pwa-register'
+import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
 import ActivityTracker from './components/ActivityTracker'
@@ -98,10 +99,31 @@ function NativeStartupLoader() {
   const [visible, setVisible] = useState(() => isNativeApp())
 
   useEffect(() => {
-    if (!visible) return
-    const timer = window.setTimeout(() => setVisible(false), 1100)
-    return () => window.clearTimeout(timer)
-  }, [visible])
+    if (!isNativeApp()) return
+
+    let cancelled = false
+    const hideNativeSplash = async () => {
+      try {
+        await SplashScreen.hide({ fadeOutDuration: 180 })
+      } catch (error) {
+        console.warn('Native splash nije moguće sakriti:', error)
+      }
+    }
+
+    const nativeTimer = window.setTimeout(() => {
+      if (!cancelled) void hideNativeSplash()
+    }, 250)
+
+    const loaderTimer = window.setTimeout(() => {
+      if (!cancelled) setVisible(false)
+    }, 1100)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(nativeTimer)
+      window.clearTimeout(loaderTimer)
+    }
+  }, [])
 
   if (!visible) return null
   return <FersysLoader fullScreen text="FERSYS se učitava..." />
