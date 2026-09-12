@@ -1,7 +1,10 @@
 import {
+  Component,
   StrictMode,
   Suspense,
   lazy,
+  type ErrorInfo,
+  type ReactNode,
   useEffect,
   useState,
 } from 'react'
@@ -17,22 +20,23 @@ import {
 import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
-import ActivityTracker from './components/ActivityTracker'
 import AppLanguageRuntime from './components/AppLanguageRuntime'
-import FieldTodayPanel from './components/FieldTodayPanel'
-import OfflineReadyNotice from './components/OfflineReadyNotice'
-import AdminTrialMessagePolish from './components/AdminTrialMessagePolish'
-import ConnectionStatusNotice from './components/ConnectionStatusNotice'
-import DeliveryNoteMobileLayoutFix from './components/DeliveryNoteMobileLayoutFix'
-import DownloadFeedbackCenter from './components/DownloadFeedbackCenter'
-import FloatingUiLayoutFix from './components/FloatingUiLayoutFix'
-import GoogleCalendarOAuthBridge from './components/GoogleCalendarOAuthBridge'
-import IncomingInvoicesDatabaseBridge from './components/IncomingInvoicesDatabaseBridge'
-import WorkOrderEditQuantityTextFix from './components/WorkOrderEditQuantityTextFix'
+import FersysLoader from './components/FersysLoader'
 import { isNativeApp } from './lib/platform'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
+const ActivityTracker = lazy(() => import('./components/ActivityTracker'))
+const FieldTodayPanel = lazy(() => import('./components/FieldTodayPanel'))
+const OfflineReadyNotice = lazy(() => import('./components/OfflineReadyNotice'))
+const AdminTrialMessagePolish = lazy(() => import('./components/AdminTrialMessagePolish'))
+const ConnectionStatusNotice = lazy(() => import('./components/ConnectionStatusNotice'))
+const DeliveryNoteMobileLayoutFix = lazy(() => import('./components/DeliveryNoteMobileLayoutFix'))
+const DownloadFeedbackCenter = lazy(() => import('./components/DownloadFeedbackCenter'))
+const FloatingUiLayoutFix = lazy(() => import('./components/FloatingUiLayoutFix'))
+const GoogleCalendarOAuthBridge = lazy(() => import('./components/GoogleCalendarOAuthBridge'))
+const IncomingInvoicesDatabaseBridge = lazy(() => import('./components/IncomingInvoicesDatabaseBridge'))
+const WorkOrderEditQuantityTextFix = lazy(() => import('./components/WorkOrderEditQuantityTextFix'))
 const DocumentFlowOrchestrator = lazy(() => import('./components/DocumentFlowOrchestrator'))
 const FirstTenMinutes = lazy(() => import('./components/FirstTenMinutes'))
 const FirstStepsControlCenter = lazy(() => import('./components/FirstStepsControlCenter'))
@@ -98,29 +102,20 @@ function NativeSplashDismiss() {
   useEffect(() => {
     if (!isNativeApp()) return
 
-    let cancelled = false
+    let stopped = false
     const dismiss = async () => {
       try {
-        await SplashScreen.hide({ fadeOutDuration: 180 })
+        await SplashScreen.hide()
       } catch (error) {
-        if (!cancelled) {
-          console.warn('Native splash nije moguće sakriti:', error)
-        }
+        if (!stopped) console.warn('Native splash nije moguće sakriti:', error)
       }
     }
 
-    // Let the first React frame paint, then remove only the native splash.
-    // This component renders nothing, so it can never cover or block the app.
-    const frame = window.requestAnimationFrame(() => {
-      void dismiss()
-    })
-    const fallback = window.setTimeout(() => {
-      void dismiss()
-    }, 1200)
+    void dismiss()
+    const fallback = window.setTimeout(() => void dismiss(), 800)
 
     return () => {
-      cancelled = true
-      window.cancelAnimationFrame(frame)
+      stopped = true
       window.clearTimeout(fallback)
     }
   }, [])
@@ -128,50 +123,60 @@ function NativeSplashDismiss() {
   return null
 }
 
-function DeferredEnhancements() {
+class StartupErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[FERSYS startup error]', error, info)
+  }
+
+  render() {
+    if (!this.state.error) return this.props.children
+
+    return (
+      <main className="grid min-h-dvh place-items-center bg-slate-950 p-5 text-white">
+        <section className="w-full max-w-lg rounded-3xl border border-red-500/30 bg-slate-900 p-6">
+          <p className="text-xs font-black uppercase tracking-[0.2em] text-red-400">FERSYS STARTUP</p>
+          <h1 className="mt-3 text-xl font-black">Aplikacija se nije mogla pokrenuti</h1>
+          <p className="mt-3 break-words text-sm leading-6 text-slate-300">
+            {this.state.error.message || 'Nepoznata JavaScript greška.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="mt-5 min-h-11 rounded-2xl bg-blue-600 px-5 text-sm font-bold text-white"
+          >
+            Pokušaj ponovno
+          </button>
+        </section>
+      </main>
+    )
+  }
+}
+
+function DeferredWebEnhancements() {
   const [ready, setReady] = useState(false)
-  const [isMobile, setIsMobile] = useState(() => window.matchMedia('(max-width: 767px)').matches)
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 767px)')
-    const handleChange = () => setIsMobile(mediaQuery.matches)
-    handleChange()
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
+    if (isNativeApp()) return
+    const timer = window.setTimeout(() => setReady(true), 1000)
+    return () => window.clearTimeout(timer)
   }, [])
 
-  useEffect(() => {
-    if (isMobile) {
-      setReady(false)
-      return
-    }
-
-    const timer = window.setTimeout(() => setReady(true), 1_200)
-    return () => window.clearTimeout(timer)
-  }, [isMobile])
+  if (!ready || isNativeApp()) return null
 
   return (
     <Suspense fallback={null}>
-      {!isMobile && ready && (
-        <>
-          <DocumentFlowOrchestrator />
-          <FirstTenMinutes />
-          <FirstStepsControlCenter />
-        </>
-      )}
-    </Suspense>
-  )
-}
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <App />
-      <NativeSplashDismiss />
-      <AppLanguageRuntime />
+      <ActivityTracker />
       <FieldTodayPanel />
       <OfflineReadyNotice />
-      <ActivityTracker />
       <AdminTrialMessagePolish />
       <ConnectionStatusNotice />
       <IncomingInvoicesDatabaseBridge />
@@ -180,7 +185,24 @@ createRoot(document.getElementById('root')!).render(
       <DeliveryNoteMobileLayoutFix />
       <GoogleCalendarOAuthBridge />
       <DownloadFeedbackCenter />
-      <DeferredEnhancements />
-    </BrowserRouter>
+      <DocumentFlowOrchestrator />
+      <FirstTenMinutes />
+      <FirstStepsControlCenter />
+    </Suspense>
+  )
+}
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <StartupErrorBoundary>
+      <BrowserRouter>
+        <Suspense fallback={<FersysLoader fullScreen text="Pokretanje FERSYS-a..." />}>
+          <App />
+          <NativeSplashDismiss />
+          <AppLanguageRuntime />
+          <DeferredWebEnhancements />
+        </Suspense>
+      </BrowserRouter>
+    </StartupErrorBoundary>
   </StrictMode>,
 )
