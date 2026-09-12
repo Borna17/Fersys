@@ -19,7 +19,6 @@
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.2",
-    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
