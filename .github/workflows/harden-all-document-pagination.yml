@@ -1,0 +1,103 @@
+name: Harden all document pagination
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/utils/pdfLayoutEngine.ts'
+      - '.github/scripts/harden_all_document_pagination.py'
+      - '.github/workflows/harden-all-document-pagination.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  harden-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply shared document pagination hardening
+        run: python .github/scripts/harden_all_document_pagination.py
+
+      - name: Verify pagination engine wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          engine = Path('src/utils/pdfLayoutEngine.ts').read_text(encoding='utf-8')
+          offer = Path('src/utils/offerPdf.ts').read_text(encoding='utf-8')
+          invoice = Path('src/utils/invoicePdf.ts').read_text(encoding='utf-8')
+          work = Path('src/utils/workOrderPdf.ts').read_text(encoding='utf-8')
+
+          checks = {
+              'engine': [
+                  'stabilizeAdaptiveTableDocument',
+                  'pdfPageOverflows',
+                  'expectedRowCount',
+              ],
+              'offer': [
+                  "from './pdfLayoutEngine'",
+                  'data-pdf-row',
+                  'data-pdf-table',
+                  'data-pdf-final',
+                  'stabilizeOfferPdfLayout',
+                  'data-pdf-continuation-template',
+              ],
+              'invoice': [
+                  "from './pdfLayoutEngine'",
+                  'data-pdf-row',
+                  'data-pdf-table',
+                  'data-pdf-final',
+                  'stabilizeInvoicePdfLayout',
+                  'data-pdf-continuation-template',
+              ],
+              'work': [
+                  'blockInsertionAnchor',
+                  'data-photo-card',
+                  'PDF fotografije nisu potpune',
+                  'PDF blokovi nisu u ispravnom redoslijedu',
+              ],
+          }
+
+          values = {
+              'engine': engine,
+              'offer': offer,
+              'invoice': invoice,
+              'work': work,
+          }
+
+          for name, required in checks.items():
+              missing = [value for value in required if value not in values[name]]
+              if missing:
+                  raise SystemExit(f'{name}: missing {missing}')
+
+          print('Shared PDF pagination wiring verified.')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit hardened document sources
+        run: |
+          if git diff --quiet -- src/utils/offerPdf.ts src/utils/invoicePdf.ts src/utils/workOrderPdf.ts; then
+            echo 'No document source changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/utils/offerPdf.ts src/utils/invoicePdf.ts src/utils/workOrderPdf.ts
+          git commit -m 'Make FERSYS document pagination adaptive'
+          git push
