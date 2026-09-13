@@ -648,13 +648,17 @@ function paginateItems(
    * Bez slika na continuation stranici sigurno ga držimo
    * uz otprilike 6 normalnih stavki. U compact modu može malo više.
    */
+  // Keep the closing/payment block with the last rows whenever the
+  // standard rows genuinely fit on the same A4 page. This avoids creating
+  // a nearly empty continuation page only for totals/HUB3. Rows with images
+  // remain conservative because their rendered height is much larger.
   const finalUnitsCapacity =
     hasImages
       ? 5.4
       : settings.density ===
           'compact'
-        ? 8.2
-        : 7.2
+        ? 9.0
+        : 8.2
 
   const pages: OfferPage[] = []
 

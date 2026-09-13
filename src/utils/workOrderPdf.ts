@@ -2073,6 +2073,29 @@ async function reflowRenderedPdfPages(
       ) {
         changed = true
       }
+
+      // The final price/signature blocks must not live on an otherwise
+      // unnecessary continuation page. Pull them back in document order and
+      // keep each move only when the browser confirms the A4 page still fits.
+      if (
+        tryPullWholeBlockBackward(
+          current,
+          next,
+          '[data-pdf-block="totals"]',
+        )
+      ) {
+        changed = true
+      }
+
+      if (
+        tryPullWholeBlockBackward(
+          current,
+          next,
+          '[data-pdf-block="signature"]',
+        )
+      ) {
+        changed = true
+      }
     }
 
     renderedPages(target)
