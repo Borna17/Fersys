@@ -2,12 +2,33 @@ import {
   useEffect,
   type MouseEvent,
 } from 'react'
+import { Browser } from '@capacitor/browser'
+import { Capacitor } from '@capacitor/core'
 
 import { SupportPage as SupportPageContent } from './SupportPageContent'
 
-const manualViewerHref = 'https://www.fersys.app/korisnicki-prirucnik'
+const manualPdfHref =
+  'https://www.fersys.app/FERSYS-Korisnicki-prirucnik.pdf'
 const legacyGithubManualHref =
   'https://github.com/Borna17/Fersys/blob/main/public/FERSYS-Korisnicki-prirucnik.pdf'
+const legacyManualViewerHref =
+  'https://www.fersys.app/korisnicki-prirucnik'
+
+async function openManual() {
+  if (Capacitor.isNativePlatform()) {
+    await Browser.open({
+      url: manualPdfHref,
+      presentationStyle: 'popover',
+    })
+    return
+  }
+
+  window.open(
+    manualPdfHref,
+    '_blank',
+    'noopener,noreferrer',
+  )
+}
 
 export function SupportPage() {
   useEffect(() => {
@@ -19,13 +40,14 @@ export function SupportPage() {
 
       return (
         href === legacyGithubManualHref ||
+        href === legacyManualViewerHref ||
         text.includes('Otvori PDF')
       )
     })
 
     manualLinks.forEach((link) => {
       link.dataset.downloadFeedback = 'false'
-      link.href = manualViewerHref
+      link.href = manualPdfHref
       link.target = '_blank'
       link.rel = 'noopener noreferrer'
     })
@@ -40,18 +62,15 @@ export function SupportPage() {
     const href = link.getAttribute('href') ?? ''
     const isManualOpenLink =
       href === legacyGithubManualHref ||
-      href === manualViewerHref ||
+      href === legacyManualViewerHref ||
+      href === manualPdfHref ||
       (link.textContent ?? '').includes('Otvori PDF')
 
     if (!isManualOpenLink) return
 
     event.preventDefault()
     event.stopPropagation()
-    window.open(
-      manualViewerHref,
-      '_blank',
-      'noopener,noreferrer',
-    )
+    void openManual()
   }
 
   return (
