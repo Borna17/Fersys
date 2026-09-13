@@ -1,0 +1,56 @@
+name: Validate adaptive document pagination
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/scripts/harden_all_document_pagination_v2.py'
+      - '.github/workflows/harden-all-document-pagination-v2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply adaptive pagination
+        run: python .github/scripts/harden_all_document_pagination_v2.py
+
+      - name: Verify source guards
+        run: |
+          grep -q "stabilizeOfferPdfLayout" src/utils/offerPdf.ts
+          grep -q "stabilizeInvoicePdfLayout" src/utils/invoicePdf.ts
+          grep -q "data-pdf-continuation-template" src/utils/offerPdf.ts
+          grep -q "data-pdf-continuation-template" src/utils/invoicePdf.ts
+          grep -q "data-photo-card" src/utils/workOrderPdf.ts
+          grep -q "PDF fotografije nisu potpune" src/utils/workOrderPdf.ts
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Commit validated pagination
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/utils/offerPdf.ts src/utils/invoicePdf.ts src/utils/workOrderPdf.ts
+          if git diff --cached --quiet; then
+            echo 'No generated changes.'
+            exit 0
+          fi
+          git commit -m 'Make offer invoice and work-order pagination adaptive'
+          git push
