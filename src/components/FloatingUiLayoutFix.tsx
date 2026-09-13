@@ -86,6 +86,18 @@ export default function FloatingUiLayoutFix() {
        * fiksnog "Spremi / Spremljeno" bara.
        */
 
+      /*
+       * Ponude i radni nalozi već imaju "Poslovni tok" s istim
+       * poslovnim akcijama. Na tim ekranima ne prikazujemo i drugi
+       * Smart Flow gumb jer dvije plutajuće navigacije zbunjuju i
+       * nepotrebno prekrivaju sadržaj. Smart Flow ostaje na drugim
+       * dokumentima gdje Poslovni tok nije dostupan.
+       */
+      body:has(button[aria-label="Otvori poslovni tok"])
+        button[aria-label="Otvori FERSYS Smart Flow"] {
+        display: none !important;
+      }
+
       @media (min-width: 768px) {
         button[aria-label^="Otvori video pomoć za"] {
           top: 54% !important;
@@ -231,11 +243,6 @@ export default function FloatingUiLayoutFix() {
          * Stari teren/Rad floating bar i Smart Flow se potpuno
          * skrivaju kako se kontrole ne bi slagale iznad navigacije.
          */
-        body:has(button[aria-label="Otvori poslovni tok"])
-          button[aria-label="Otvori FERSYS Smart Flow"] {
-          display: none !important;
-        }
-
         body:has(button[aria-label="Otvori poslovni tok"])
           div.fixed[class*="left-1/2"]:has(> button:nth-of-type(3)) {
           display: none !important;
