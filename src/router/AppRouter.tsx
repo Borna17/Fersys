@@ -86,7 +86,7 @@ const EditWorkOrderPage = lazy(
   () => import('../pages/EditWorkOrderPage').then((module) => ({ default: module.EditWorkOrderPage })),
 )
 const EmployeesPage = lazy(
-  () => import('../pages/EmployeesPage').then((module) => ({ default: module.EmployeesPage })),
+  () => import('../pages/EmployeesHubPage').then((module) => ({ default: module.EmployeesHubPage })),
 )
 const IncomingInvoicesPage = lazy(
   () => import('../pages/IncomingInvoicesPage').then((module) => ({ default: module.IncomingInvoicesPage })),
