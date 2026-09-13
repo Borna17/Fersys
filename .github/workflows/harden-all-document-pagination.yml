@@ -27,7 +27,79 @@ jobs:
           cache: npm
 
       - name: Apply shared document pagination hardening
-        run: python .github/scripts/harden_all_document_pagination.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          script_path = Path('.github/scripts/harden_all_document_pagination.py')
+          source = script_path.read_text(encoding='utf-8')
+          marker = '# ---------------------------------------------------------------------------\n# WORK ORDER PDF'
+          if marker not in source:
+              raise SystemExit('Work-order section marker missing from hardening script')
+
+          # Offer + invoice share the new adaptive A4 engine.
+          prefix = source.split(marker, 1)[0]
+          exec(compile(prefix, str(script_path), 'exec'))
+
+          # Work orders already have rendered-height reflow and rank-aware
+          # insertion. Add integrity guards only, preserving the current design.
+          path = Path('src/utils/workOrderPdf.ts')
+          text = path.read_text(encoding='utf-8')
+
+          if 'data-photo-card' not in text:
+              old = '              <figure class="photo-card">'
+              new = '              <figure class="photo-card" data-photo-card>'
+              if old not in text:
+                  raise SystemExit('Work-order photo card anchor missing')
+              text = text.replace(old, new, 1)
+
+          if 'PDF fotografije nisu potpune' not in text:
+              old = '''  const actualRows = target.querySelectorAll('[data-material-row]').length
+          if (actualRows !== order.materials.length) {
+            throw new Error(
+              `PDF materijal nije potpun (${actualRows}/${order.materials.length} stavki).`,
+            )
+          }
+          }
+          '''
+              new = '''  const actualRows = target.querySelectorAll('[data-material-row]').length
+          if (actualRows !== order.materials.length) {
+            throw new Error(
+              `PDF materijal nije potpun (${actualRows}/${order.materials.length} stavki).`,
+            )
+          }
+
+          const actualPhotos = target.querySelectorAll('[data-photo-card]').length
+          if (actualPhotos !== order.images.length) {
+            throw new Error(
+              `PDF fotografije nisu potpune (${actualPhotos}/${order.images.length}).`,
+            )
+          }
+
+          for (const page of renderedPages(target)) {
+            const blocks = [
+              page.querySelector('[data-pdf-block="materials"]'),
+              page.querySelector('[data-pdf-block="photos"]'),
+              page.querySelector('[data-pdf-block="totals"]'),
+              page.querySelector('[data-pdf-block="signature"]'),
+            ].filter(Boolean) as Element[]
+
+            for (let index = 1; index < blocks.length; index += 1) {
+              const relation = blocks[index - 1].compareDocumentPosition(blocks[index])
+              if (!(relation & Node.DOCUMENT_POSITION_FOLLOWING)) {
+                throw new Error('PDF blokovi nisu u ispravnom redoslijedu.')
+              }
+            }
+          }
+          }
+          '''
+              if old not in text:
+                  raise SystemExit('Work-order integrity anchor missing')
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          print('Offer, invoice and work-order pagination hardening applied.')
+          PY
 
       - name: Verify pagination engine wiring
         run: |
@@ -62,7 +134,10 @@ jobs:
                   'data-pdf-continuation-template',
               ],
               'work': [
-                  'blockInsertionAnchor',
+                  'function insertionAnchor(',
+                  'selector = \'[data-pdf-block="materials"]\'',
+                  'insertionAnchor(next, selector)',
+                  'insertionAnchor(current, selector)',
                   'data-photo-card',
                   'PDF fotografije nisu potpune',
                   'PDF blokovi nisu u ispravnom redoslijedu',
