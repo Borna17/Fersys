@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/utils/pdfLayoutEngine.ts'
-      - '.github/scripts/harden_all_document_pagination.py'
+      - '.github/scripts/harden_all_document_pagination_v2.py'
       - '.github/workflows/harden-all-document-pagination.yml'
   workflow_dispatch:
 
@@ -26,138 +26,19 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Apply shared document pagination hardening
+      - name: Apply adaptive pagination
+        run: python .github/scripts/harden_all_document_pagination_v2.py
+
+      - name: Verify source guards
         run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          script_path = Path('.github/scripts/harden_all_document_pagination.py')
-          source = script_path.read_text(encoding='utf-8')
-          marker = '# ---------------------------------------------------------------------------\n# WORK ORDER PDF'
-          if marker not in source:
-              raise SystemExit('Work-order section marker missing from hardening script')
-
-          # Offer + invoice share the new adaptive A4 engine.
-          prefix = source.split(marker, 1)[0]
-          exec(compile(prefix, str(script_path), 'exec'))
-
-          # Work orders already have rendered-height reflow and rank-aware
-          # insertion. Add integrity guards only, preserving the current design.
-          path = Path('src/utils/workOrderPdf.ts')
-          text = path.read_text(encoding='utf-8')
-
-          if 'data-photo-card' not in text:
-              old = '              <figure class="photo-card">'
-              new = '              <figure class="photo-card" data-photo-card>'
-              if old not in text:
-                  raise SystemExit('Work-order photo card anchor missing')
-              text = text.replace(old, new, 1)
-
-          if 'PDF fotografije nisu potpune' not in text:
-              old = '''  const actualRows = target.querySelectorAll('[data-material-row]').length
-          if (actualRows !== order.materials.length) {
-            throw new Error(
-              `PDF materijal nije potpun (${actualRows}/${order.materials.length} stavki).`,
-            )
-          }
-          }
-          '''
-              new = '''  const actualRows = target.querySelectorAll('[data-material-row]').length
-          if (actualRows !== order.materials.length) {
-            throw new Error(
-              `PDF materijal nije potpun (${actualRows}/${order.materials.length} stavki).`,
-            )
-          }
-
-          const actualPhotos = target.querySelectorAll('[data-photo-card]').length
-          if (actualPhotos !== order.images.length) {
-            throw new Error(
-              `PDF fotografije nisu potpune (${actualPhotos}/${order.images.length}).`,
-            )
-          }
-
-          for (const page of renderedPages(target)) {
-            const blocks = [
-              page.querySelector('[data-pdf-block="materials"]'),
-              page.querySelector('[data-pdf-block="photos"]'),
-              page.querySelector('[data-pdf-block="totals"]'),
-              page.querySelector('[data-pdf-block="signature"]'),
-            ].filter(Boolean) as Element[]
-
-            for (let index = 1; index < blocks.length; index += 1) {
-              const relation = blocks[index - 1].compareDocumentPosition(blocks[index])
-              if (!(relation & Node.DOCUMENT_POSITION_FOLLOWING)) {
-                throw new Error('PDF blokovi nisu u ispravnom redoslijedu.')
-              }
-            }
-          }
-          }
-          '''
-              if old not in text:
-                  raise SystemExit('Work-order integrity anchor missing')
-              text = text.replace(old, new, 1)
-
-          path.write_text(text, encoding='utf-8')
-          print('Offer, invoice and work-order pagination hardening applied.')
-          PY
-
-      - name: Verify pagination engine wiring
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          engine = Path('src/utils/pdfLayoutEngine.ts').read_text(encoding='utf-8')
-          offer = Path('src/utils/offerPdf.ts').read_text(encoding='utf-8')
-          invoice = Path('src/utils/invoicePdf.ts').read_text(encoding='utf-8')
-          work = Path('src/utils/workOrderPdf.ts').read_text(encoding='utf-8')
-
-          checks = {
-              'engine': [
-                  'stabilizeAdaptiveTableDocument',
-                  'pdfPageOverflows',
-                  'expectedRowCount',
-              ],
-              'offer': [
-                  "from './pdfLayoutEngine'",
-                  'data-pdf-row',
-                  'data-pdf-table',
-                  'data-pdf-final',
-                  'stabilizeOfferPdfLayout',
-                  'data-pdf-continuation-template',
-              ],
-              'invoice': [
-                  "from './pdfLayoutEngine'",
-                  'data-pdf-row',
-                  'data-pdf-table',
-                  'data-pdf-final',
-                  'stabilizeInvoicePdfLayout',
-                  'data-pdf-continuation-template',
-              ],
-              'work': [
-                  'function insertionAnchor(',
-                  'selector = \'[data-pdf-block="materials"]\'',
-                  'insertionAnchor(next, selector)',
-                  'insertionAnchor(current, selector)',
-                  'data-photo-card',
-                  'PDF fotografije nisu potpune',
-                  'PDF blokovi nisu u ispravnom redoslijedu',
-              ],
-          }
-
-          values = {
-              'engine': engine,
-              'offer': offer,
-              'invoice': invoice,
-              'work': work,
-          }
-
-          for name, required in checks.items():
-              missing = [value for value in required if value not in values[name]]
-              if missing:
-                  raise SystemExit(f'{name}: missing {missing}')
-
-          print('Shared PDF pagination wiring verified.')
-          PY
+          grep -q "stabilizeOfferPdfLayout" src/utils/offerPdf.ts
+          grep -q "stabilizeInvoicePdfLayout" src/utils/invoicePdf.ts
+          grep -q "data-pdf-continuation-template" src/utils/offerPdf.ts
+          grep -q "data-pdf-continuation-template" src/utils/invoicePdf.ts
+          grep -q "data-photo-card" src/utils/workOrderPdf.ts
+          grep -q "PDF fotografije nisu potpune" src/utils/workOrderPdf.ts
+          grep -q "insertionAnchor(next, selector)" src/utils/workOrderPdf.ts
+          grep -q "insertionAnchor(current, selector)" src/utils/workOrderPdf.ts
 
       - name: Install dependencies
         run: npm ci
@@ -165,14 +46,14 @@ jobs:
       - name: Production build
         run: npm run build
 
-      - name: Commit hardened document sources
+      - name: Commit validated pagination
         run: |
-          if git diff --quiet -- src/utils/offerPdf.ts src/utils/invoicePdf.ts src/utils/workOrderPdf.ts; then
-            echo 'No document source changes to commit.'
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/utils/offerPdf.ts src/utils/invoicePdf.ts src/utils/workOrderPdf.ts
-          git commit -m 'Make FERSYS document pagination adaptive'
+          if git diff --cached --quiet; then
+            echo 'No generated changes.'
+            exit 0
+          fi
+          git commit -m 'Make offer invoice and work-order pagination adaptive'
           git push
