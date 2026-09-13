@@ -18,26 +18,11 @@ export default function DeliveryNoteContextShortcut() {
     useNavigate()
 
   /*
-   * Shortcut smije postojati samo na već spremljenom dokumentu.
-   * Rute poput /offers/new i /work-orders/new prije su pogrešno
-   * tretirale "new" kao ID dokumenta i prekrivale glavni Spremi gumb.
+   * Ponude i radni nalozi koriste FERSYS Smart Flow kao jedino mjesto
+   * za izradu povezanih dokumenata, uključujući otpremnicu. Ovaj
+   * kontekstualni shortcut ostaje samo na profilu investitora gdje
+   * Smart Flow nije dostupan.
    */
-  const workOrder =
-    location.pathname.match(
-      new RegExp(
-        `^/work-orders/(${SAVED_DOCUMENT_ID})$`,
-        'i',
-      ),
-    )
-
-  const offer =
-    location.pathname.match(
-      new RegExp(
-        `^/offers/(${SAVED_DOCUMENT_ID})$`,
-        'i',
-      ),
-    )
-
   const customer =
     location.pathname.match(
       new RegExp(
@@ -46,35 +31,17 @@ export default function DeliveryNoteContextShortcut() {
       ),
     )
 
-  let path = ''
-  let label = ''
-
-  if (workOrder) {
-    path =
-      `/inventory/delivery-notes/new?fromWorkOrder=${encodeURIComponent(
-        workOrder[1],
-      )}`
-    label =
-      'Izradi otpremnicu'
-  } else if (offer) {
-    path =
-      `/inventory/delivery-notes/new?fromOffer=${encodeURIComponent(
-        offer[1],
-      )}`
-    label =
-      'Otpremnica iz ponude'
-  } else if (customer) {
-    path =
-      `/inventory/delivery-notes/new?customerId=${encodeURIComponent(
-        customer[1],
-      )}`
-    label =
-      'Nova otpremnica'
-  }
-
-  if (!path) {
+  if (!customer) {
     return null
   }
+
+  const path =
+    `/inventory/delivery-notes/new?customerId=${encodeURIComponent(
+      customer[1],
+    )}`
+
+  const label =
+    'Nova otpremnica'
 
   return (
     <button
