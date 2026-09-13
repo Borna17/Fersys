@@ -587,7 +587,7 @@ function estimatedRowUnits(
   const imageUnits =
     settings.showItemImages &&
     item.imageDataUrl
-      ? 1.75
+      ? 0.35
       : 0
 
   return (
@@ -652,13 +652,23 @@ function paginateItems(
   // standard rows genuinely fit on the same A4 page. This avoids creating
   // a nearly empty continuation page only for totals/HUB3. Rows with images
   // remain conservative because their rendered height is much larger.
+  const closingPenalty =
+    (settings.quickPayBarcodeDataUrl
+      ? 0.65
+      : 0) +
+    (settings.showSignature ||
+    settings.showStamp
+      ? 0.35
+      : 0)
+
   const finalUnitsCapacity =
-    hasImages
-      ? 7.2
+    (hasImages
+      ? 9.0
       : settings.density ===
           'compact'
-        ? 9.0
-        : 8.2
+        ? 9.4
+        : 8.8) -
+    closingPenalty
 
   const pages: OfferPage[] = []
 

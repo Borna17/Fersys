@@ -242,14 +242,13 @@ export default function FloatingUiLayoutFix() {
         }
 
         /*
-         * Poslovni tok je sada mali izvučeni tab uz desni rub.
-         * Ne prekriva sadržaj niti donju navigaciju, ali ostaje
-         * uvijek dostupan jednim dodirom.
+         * Poslovni tok ostaje kao kompaktan floating action iznad
+         * mobilne navigacije. Više ne sjedi na sredini sadržaja.
          */
         button[aria-label="Otvori poslovni tok"] {
-          top: 58% !important;
-          right: -0.45rem !important;
-          bottom: auto !important;
+          top: auto !important;
+          right: 0.85rem !important;
+          bottom: calc(5.75rem + var(--fersys-safe-bottom)) !important;
           left: auto !important;
           width: 3.25rem !important;
           min-width: 3.25rem !important;
@@ -258,11 +257,8 @@ export default function FloatingUiLayoutFix() {
           padding: 0 !important;
           gap: 0 !important;
           justify-content: center !important;
-          border-top-right-radius: 0 !important;
-          border-bottom-right-radius: 0 !important;
-          border-top-left-radius: 1rem !important;
-          border-bottom-left-radius: 1rem !important;
-          transform: translateY(-50%) !important;
+          border-radius: 1rem !important;
+          transform: none !important;
           z-index: 58 !important;
         }
 

@@ -470,6 +470,12 @@ export function CustomersPage() {
         ...current,
       ])
 
+      window.dispatchEvent(
+        new CustomEvent('fersys:dashboard-refresh', {
+          detail: { source: 'customers' },
+        }),
+      )
+
       setIsModalOpen(false)
       resetForm()
     } catch (error) {

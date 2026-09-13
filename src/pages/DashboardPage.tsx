@@ -292,6 +292,24 @@ export function DashboardPage() {
     refreshKey,
   ])
 
+  useEffect(() => {
+    const refreshDashboard = () => {
+      setRefreshKey((current) => current + 1)
+    }
+
+    window.addEventListener(
+      'fersys:dashboard-refresh',
+      refreshDashboard,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'fersys:dashboard-refresh',
+        refreshDashboard,
+      )
+    }
+  }, [])
+
   const canViewFinance =
     can('finance.view') ||
     can(

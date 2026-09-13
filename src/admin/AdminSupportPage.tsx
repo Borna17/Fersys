@@ -556,6 +556,12 @@ export function AdminSupportPage() {
                     {ticket.message}
                   </p>
 
+                  {ticket.attachmentUrl && (
+                    <span className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[11px] font-black text-blue-300">
+                      📎 Screenshot priložen
+                    </span>
+                  )}
+
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="truncate">
                       {ticket.companyName ||
@@ -801,13 +807,29 @@ function TicketChat({
           )}
         </div>
 
-        <button
-          type="button"
-          onClick={onClose}
-          className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
-        >
-          <X size={18} />
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            disabled={deleting}
+            onClick={() =>
+              void deleteTicket()
+            }
+            className="grid h-10 w-10 place-items-center rounded-xl border border-red-500/25 bg-red-500/10 text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+            aria-label="Obriši ticket"
+            title="Obriši ticket"
+          >
+            <Trash2 size={17} />
+          </button>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-400"
+            aria-label="Zatvori ticket"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       <div className="mt-5 max-h-[390px] space-y-3 overflow-y-auto rounded-2xl bg-slate-950/50 p-4">
