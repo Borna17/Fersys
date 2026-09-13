@@ -1,19 +1,29 @@
 from pathlib import Path
 
-base = Path('.github/scripts/harden_all_document_pagination.py')
-source = base.read_text(encoding='utf-8')
-marker = '# ---------------------------------------------------------------------------\n# WORK ORDER PDF'
-if marker not in source:
-    raise SystemExit('Work-order marker missing in base pagination script')
+# Offer and invoice may already have the shared adaptive engine from an earlier
+# generated commit. Only run the legacy transformation when either document is
+# still missing it; otherwise keep the current visual source untouched.
+offer_path = Path('src/utils/offerPdf.ts')
+invoice_path = Path('src/utils/invoicePdf.ts')
+offer = offer_path.read_text(encoding='utf-8')
+invoice = invoice_path.read_text(encoding='utf-8')
 
-# Apply the already-defined offer and invoice transformations only.
-exec(compile(source.split(marker, 1)[0], str(base), 'exec'))
+if (
+    'stabilizeOfferPdfLayout' not in offer
+    or 'stabilizeInvoicePdfLayout' not in invoice
+):
+    base = Path('.github/scripts/harden_all_document_pagination.py')
+    source = base.read_text(encoding='utf-8')
+    marker = '# ---------------------------------------------------------------------------\n# WORK ORDER PDF'
+    if marker not in source:
+        raise SystemExit('Work-order marker missing in base pagination script')
+    exec(compile(source.split(marker, 1)[0], str(base), 'exec'))
+    offer = offer_path.read_text(encoding='utf-8')
+    invoice = invoice_path.read_text(encoding='utf-8')
 
 # Preserve the invoice-number prefix while adaptive pagination refreshes page
 # counters. Only the page number changes; the current footer design/content
 # remains otherwise identical.
-invoice_path = Path('src/utils/invoicePdf.ts')
-invoice = invoice_path.read_text(encoding='utf-8')
 old_counter = """      if (counter) {
         counter.textContent = `${index + 1}/${total}`
       }
