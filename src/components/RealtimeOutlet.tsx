@@ -24,7 +24,6 @@ import MobileUxPolish from './MobileUxPolish'
 import OfflineSyncStatus from './OfflineSyncStatus'
 import RuntimeHealthGuard from './RuntimeHealthGuard'
 import SafeRenderBoundary from './SafeRenderBoundary'
-import WorkOrderFieldMode from './WorkOrderFieldMode'
 import WorkOrderPhotoGallerySync from './WorkOrderPhotoGallerySync'
 
 const BLOCKED_REFRESH_PATHS =
@@ -34,8 +33,7 @@ function tablesForPath(
   pathname: string,
 ): string[] {
   if (
-    pathname ===
-      '/dashboard' ||
+    pathname === '/dashboard' ||
     pathname === '/'
   ) {
     return [
@@ -46,51 +44,12 @@ function tablesForPath(
     ]
   }
 
-  if (
-    pathname.startsWith(
-      '/customers',
-    )
-  ) {
-    return [
-      'customers',
-    ]
-  }
+  if (pathname.startsWith('/customers')) return ['customers']
+  if (pathname.startsWith('/work-orders')) return ['work_orders']
+  if (pathname.startsWith('/offers')) return ['offers']
+  if (pathname.startsWith('/invoices')) return ['invoices']
 
-  if (
-    pathname.startsWith(
-      '/work-orders',
-    )
-  ) {
-    return [
-      'work_orders',
-    ]
-  }
-
-  if (
-    pathname.startsWith(
-      '/offers',
-    )
-  ) {
-    return [
-      'offers',
-    ]
-  }
-
-  if (
-    pathname.startsWith(
-      '/invoices',
-    )
-  ) {
-    return [
-      'invoices',
-    ]
-  }
-
-  if (
-    pathname.startsWith(
-      '/inventory',
-    )
-  ) {
+  if (pathname.startsWith('/inventory')) {
     return [
       'inventory_items',
       'inventory_movements',
@@ -98,11 +57,7 @@ function tablesForPath(
     ]
   }
 
-  if (
-    pathname.startsWith(
-      '/calendar',
-    )
-  ) {
+  if (pathname.startsWith('/calendar')) {
     return [
       'calendar_events',
       'work_orders',
@@ -113,153 +68,67 @@ function tablesForPath(
 }
 
 export default function RealtimeOutlet() {
-  const {
-    membership,
-  } =
-    useAuth()
+  const { membership } = useAuth()
+  const location = useLocation()
+  const [version, setVersion] = useState(0)
+  const timerRef = useRef<number | null>(null)
+  const companyId = membership?.companyId ?? ''
 
-  const location =
-    useLocation()
+  const canRefresh = useMemo(
+    () => !BLOCKED_REFRESH_PATHS.test(location.pathname),
+    [location.pathname],
+  )
 
-  const [
-    version,
-    setVersion,
-  ] =
-    useState(0)
-
-  const timerRef =
-    useRef<number | null>(
-      null,
-    )
-
-  const companyId =
-    membership?.companyId ??
-    ''
-
-  const canRefresh =
-    useMemo(
-      () =>
-        !BLOCKED_REFRESH_PATHS.test(
-          location.pathname,
-        ),
-      [location.pathname],
-    )
-
-  const relevantTables =
-    useMemo(
-      () =>
-        tablesForPath(
-          location.pathname,
-        ),
-      [location.pathname],
-    )
+  const relevantTables = useMemo(
+    () => tablesForPath(location.pathname),
+    [location.pathname],
+  )
 
   useEffect(() => {
-    if (
-      !companyId ||
-      !canRefresh ||
-      relevantTables.length ===
-        0
-    ) {
-      return
-    }
+    if (!companyId || !canRefresh || relevantTables.length === 0) return
 
-    const channel =
-      supabase.channel(
-        `route-realtime:${companyId}:${location.pathname}`,
-      )
+    const channel = supabase.channel(
+      `route-realtime:${companyId}:${location.pathname}`,
+    )
 
     function scheduleRefresh() {
-      if (
-        document.visibilityState !==
-        'visible'
-      ) {
-        return
+      if (document.visibilityState !== 'visible') return
+
+      if (timerRef.current) {
+        window.clearTimeout(timerRef.current)
       }
 
-      if (
-        timerRef.current
-      ) {
-        window.clearTimeout(
-          timerRef.current,
-        )
-      }
-
-      timerRef.current =
-        window.setTimeout(
-          () => {
-            setVersion(
-              (current) =>
-                current + 1,
-            )
-          },
-          800,
-        )
+      timerRef.current = window.setTimeout(() => {
+        setVersion((current) => current + 1)
+      }, 800)
     }
 
-    relevantTables.forEach(
-      (table) => {
-        channel.on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table,
-          },
-          (payload) => {
-            const next =
-              payload.new as
-                | Record<
-                    string,
-                    unknown
-                  >
-                | null
+    relevantTables.forEach((table) => {
+      channel.on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table,
+        },
+        (payload) => {
+          const next = payload.new as Record<string, unknown> | null
+          const old = payload.old as Record<string, unknown> | null
+          const eventCompanyId = String(
+            next?.company_id ?? old?.company_id ?? '',
+          )
 
-            const old =
-              payload.old as
-                | Record<
-                    string,
-                    unknown
-                  >
-                | null
-
-            const eventCompanyId =
-              String(
-                next
-                  ?.company_id ??
-                  old
-                    ?.company_id ??
-                  '',
-              )
-
-            if (
-              eventCompanyId &&
-              eventCompanyId !==
-                companyId
-            ) {
-              return
-            }
-
-            scheduleRefresh()
-          },
-        )
-      },
-    )
+          if (eventCompanyId && eventCompanyId !== companyId) return
+          scheduleRefresh()
+        },
+      )
+    })
 
     channel.subscribe()
 
     return () => {
-      if (
-        timerRef.current
-      ) {
-        window.clearTimeout(
-          timerRef.current,
-        )
-      }
-
-      void supabase.removeChannel(
-        channel,
-      )
+      if (timerRef.current) window.clearTimeout(timerRef.current)
+      void supabase.removeChannel(channel)
     }
   }, [
     canRefresh,
@@ -294,10 +163,6 @@ export default function RealtimeOutlet() {
         <BusinessAlerts />
       </SafeRenderBoundary>
 
-      <SafeRenderBoundary name="Field mode">
-        <WorkOrderFieldMode />
-      </SafeRenderBoundary>
-
       <SafeRenderBoundary name="Work order photo sync">
         <WorkOrderPhotoGallerySync />
       </SafeRenderBoundary>
@@ -310,13 +175,8 @@ export default function RealtimeOutlet() {
         <DailyBriefPanel />
       </SafeRenderBoundary>
 
-      <SafeRenderBoundary
-        name="Main route"
-        critical
-      >
-        <Outlet
-          key={`${location.pathname}:${version}`}
-        />
+      <SafeRenderBoundary name="Main route" critical>
+        <Outlet key={`${location.pathname}:${version}`} />
       </SafeRenderBoundary>
     </>
   )
