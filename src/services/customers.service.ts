@@ -1,13 +1,23 @@
 import { supabase } from '../lib/supabase'
 import { assertDeletePermission, assertPermission } from './permissionGuard.service'
 import { assertCanCreate } from '../subscription/subscription.service'
-import { readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
+import { clearRuntimeCachePrefix, readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
 import type {
   Customer,
   CustomerInput,
   CustomerStatus,
   CustomerType,
 } from '../types/customer'
+
+const CUSTOMERS_CHANGED_EVENT = 'fersys:customers-changed'
+
+function notifyCustomersChanged() {
+  clearRuntimeCachePrefix('fersys-cache:customers:')
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(CUSTOMERS_CHANGED_EVENT))
+  }
+}
 
 type CustomerRow = {
   id: string
@@ -255,9 +265,12 @@ export async function createCustomer(
     throw error
   }
 
-  return mapCustomer(
+  const customer = mapCustomer(
     data as CustomerRow,
   )
+
+  notifyCustomersChanged()
+  return customer
 }
 
 export async function updateCustomer(
@@ -352,9 +365,12 @@ export async function updateCustomer(
     throw error
   }
 
-  return mapCustomer(
+  const customer = mapCustomer(
     data as CustomerRow,
   )
+
+  notifyCustomersChanged()
+  return customer
 }
 
 /**
@@ -407,4 +423,6 @@ export async function deleteCustomer(
       'Investitor nije pronađen ili je već obrisan.',
     )
   }
+
+  notifyCustomersChanged()
 }

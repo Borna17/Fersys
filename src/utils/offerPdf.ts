@@ -654,7 +654,7 @@ function paginateItems(
   // remain conservative because their rendered height is much larger.
   const finalUnitsCapacity =
     hasImages
-      ? 5.4
+      ? 7.2
       : settings.density ===
           'compact'
         ? 9.0

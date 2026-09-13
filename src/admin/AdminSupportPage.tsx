@@ -934,24 +934,19 @@ function TicketChat({
             : 'Spremi status i napomenu'}
         </button>
 
-        {[
-          'resolved',
-          'closed',
-        ].includes(status) && (
-          <button
-            type="button"
-            disabled={deleting}
-            onClick={() =>
-              void deleteTicket()
-            }
-            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
-          >
-            <Trash2 size={17} />
-            {deleting
-              ? 'Brisanje...'
-              : 'Obriši ticket'}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={deleting}
+          onClick={() =>
+            void deleteTicket()
+          }
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 font-black text-red-300 transition hover:bg-red-500/20 disabled:opacity-50"
+        >
+          <Trash2 size={17} />
+          {deleting
+            ? 'Brisanje...'
+            : 'Obriši ticket'}
+        </button>
       </div>
     </div>
   )

@@ -218,6 +218,34 @@ export function DashboardPage() {
   }, [companyId])
 
   useEffect(() => {
+    const handleCustomersChanged = () => {
+      try {
+        localStorage.removeItem(
+          cacheKey(companyId),
+        )
+      } catch {
+        // Cache invalidation must never block a live refresh.
+      }
+
+      setRefreshKey(
+        (current) => current + 1,
+      )
+    }
+
+    window.addEventListener(
+      'fersys:customers-changed',
+      handleCustomersChanged,
+    )
+
+    return () => {
+      window.removeEventListener(
+        'fersys:customers-changed',
+        handleCustomersChanged,
+      )
+    }
+  }, [companyId])
+
+  useEffect(() => {
     let cancelled =
       false
 

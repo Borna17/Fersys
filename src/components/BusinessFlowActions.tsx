@@ -623,7 +623,7 @@ export default function BusinessFlowActions() {
         onClick={() =>
           setIsOpen(true)
         }
-        className="fixed bottom-[calc(9.75rem+var(--fersys-safe-bottom))] right-3 z-[55] inline-flex h-12 max-w-[calc(100vw-1.5rem)] items-center gap-2 overflow-hidden rounded-2xl border border-blue-400/20 bg-slate-900/95 px-4 text-sm font-black text-white shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 md:bottom-6 md:right-6 md:h-12 md:max-w-none"
+        className="fixed bottom-[calc(5.75rem+var(--fersys-safe-bottom))] right-4 z-[55] inline-flex h-12 w-12 items-center justify-center gap-2 rounded-full border border-blue-400/25 bg-slate-900/95 p-0 text-sm font-black text-white shadow-2xl shadow-black/50 backdrop-blur-xl transition active:scale-95 md:bottom-6 md:right-6 md:h-12 md:w-auto md:rounded-2xl md:px-4"
         aria-label="Otvori poslovni tok"
       >
         {loading ? (
@@ -638,14 +638,14 @@ export default function BusinessFlowActions() {
           />
         )}
 
-        <span>
+        <span className="hidden md:inline">
           Poslovni tok
         </span>
 
         {(offer?.workOrderId ||
           offer?.invoiceId ||
           linkedInvoice) && (
-          <span className="grid h-5 min-w-5 place-items-center rounded-full bg-emerald-500 px-1 text-[10px] font-black text-slate-950">
+          <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-emerald-500 px-1 text-[10px] font-black text-slate-950 md:static">
             ✓
           </span>
         )}
