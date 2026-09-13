@@ -16,7 +16,6 @@ import {
   supabase,
 } from '../lib/supabase'
 import BusinessAlerts from './BusinessAlerts'
-import BusinessFlowActions from './BusinessFlowActions'
 import DailyBriefPanel from './DailyBriefPanel'
 import FloatingUiGuard from './FloatingUiGuard'
 import GlobalSearch from './GlobalSearch'
@@ -292,10 +291,6 @@ export default function RealtimeOutlet() {
 
       <SafeRenderBoundary name="Business alerts">
         <BusinessAlerts />
-      </SafeRenderBoundary>
-
-      <SafeRenderBoundary name="Business flow">
-        <BusinessFlowActions />
       </SafeRenderBoundary>
 
       <SafeRenderBoundary name="Field mode">
