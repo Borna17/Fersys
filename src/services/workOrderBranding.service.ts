@@ -309,9 +309,32 @@ Promise<WorkOrderBranding> {
         ],
       )
 
-    return {
+    const merged = {
       ...baseBranding,
       ...savedBranding,
+    }
+
+    // Company identity must always come from the current company settings.
+    // Older work-order appearance records may contain a historical copy of
+    // the logo/company data. Those values are presentation snapshots and
+    // must not override a newly saved company logo on future documents.
+    return {
+      ...merged,
+      companyName: baseBranding.companyName,
+      companyOib: baseBranding.companyOib,
+      companyAddress: baseBranding.companyAddress,
+      companyPhone: baseBranding.companyPhone,
+      companyEmail: baseBranding.companyEmail,
+      companyIban: baseBranding.companyIban,
+      companyWebsite: baseBranding.companyWebsite,
+      logo: baseBranding.logo,
+      stamp: baseBranding.stamp,
+      showLogo:
+        savedBranding.showLogo ??
+        baseBranding.showLogo,
+      showStamp:
+        savedBranding.showStamp ??
+        baseBranding.showStamp,
     }
   } catch (error) {
     console.error(
