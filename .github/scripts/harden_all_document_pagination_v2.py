@@ -9,6 +9,28 @@ if marker not in source:
 # Apply the already-defined offer and invoice transformations only.
 exec(compile(source.split(marker, 1)[0], str(base), 'exec'))
 
+# Preserve the invoice-number prefix while adaptive pagination refreshes page
+# counters. Only the page number changes; the current footer design/content
+# remains otherwise identical.
+invoice_path = Path('src/utils/invoicePdf.ts')
+invoice = invoice_path.read_text(encoding='utf-8')
+old_counter = """      if (counter) {
+        counter.textContent = `${index + 1}/${total}`
+      }
+"""
+new_counter = """      if (counter) {
+        const prefix = (counter.textContent || '').split('·')[0]?.trim()
+        counter.textContent = prefix
+          ? `${prefix} · ${index + 1}/${total}`
+          : `${index + 1}/${total}`
+      }
+"""
+if old_counter in invoice:
+    invoice = invoice.replace(old_counter, new_counter, 1)
+elif new_counter not in invoice:
+    raise SystemExit('Invoice adaptive footer counter anchor missing')
+invoice_path.write_text(invoice, encoding='utf-8')
+
 # Current work-order renderer already has rendered-height reflow and
 # selector-aware ordering. Add preservation/order assertions without altering
 # any visual markup or CSS.
