@@ -1,4 +1,3 @@
-
 import {
   ArrowRight,
   Clock3,
@@ -8,6 +7,7 @@ import {
 import { useNavigate } from 'react-router'
 
 import { useSubscription } from '../../subscription/SubscriptionProvider'
+import { plans } from '../../subscription/plans'
 
 export default function TrialBanner() {
   const navigate = useNavigate()
@@ -21,6 +21,8 @@ export default function TrialBanner() {
   if (!subscription) {
     return null
   }
+
+  const planName = plans[subscription.planId]?.name ?? 'FERSYS'
 
   if (!subscription.isUsable) {
     return (
@@ -44,9 +46,7 @@ export default function TrialBanner() {
 
           <button
             type="button"
-            onClick={() =>
-              navigate('/pricing')
-            }
+            onClick={() => navigate('/pricing')}
             className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-sm font-bold text-white transition hover:bg-red-500"
           >
             Odaberi paket
@@ -71,18 +71,15 @@ export default function TrialBanner() {
 
           <div>
             <p className="text-sm font-black">
-              Business probno razdoblje
+              {planName} probno razdoblje
             </p>
 
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-slate-300">
               <Clock3 size={14} />
-
               Preostalo je{' '}
               <strong className="text-white">
                 {trialDaysRemaining}{' '}
-                {trialDaysRemaining === 1
-                  ? 'dan'
-                  : 'dana'}
+                {trialDaysRemaining === 1 ? 'dan' : 'dana'}
               </strong>
             </p>
           </div>
@@ -90,9 +87,7 @@ export default function TrialBanner() {
 
         <button
           type="button"
-          onClick={() =>
-            navigate('/pricing')
-          }
+          onClick={() => navigate('/pricing')}
           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 text-sm font-bold text-white transition hover:bg-blue-500"
         >
           Odaberi paket
