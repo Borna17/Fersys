@@ -82,14 +82,17 @@ function insertFinalBeforeFooter(
   block: HTMLElement,
   config: AdaptiveTableLayoutConfig,
 ) {
-  const content =
-    (config.footerSelector
-      ? page.querySelector(config.footerSelector)?.parentElement
-      : null) || page
-
   const footer = config.footerSelector
     ? page.querySelector(config.footerSelector)
     : null
+
+  // Offer pages keep their document flow inside .page-content. When the
+  // optional footer is hidden we still need to insert the closing block into
+  // that same content container rather than directly under .page.
+  const content =
+    footer?.parentElement ||
+    tableOnPage(page, config)?.parentElement ||
+    page
 
   content.insertBefore(block, footer)
 }
