@@ -449,9 +449,17 @@ function CompanyRow({
     <tr className="border-b border-slate-800/70 transition last:border-0 hover:bg-slate-800/20">
       <td className="px-5 py-4">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-violet-500/10 font-black text-violet-300">
-            {getInitials(
-              company.companyName,
+          <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-950 shadow-sm shadow-black/20">
+            {company.companyLogoUrl ? (
+              <img
+                src={company.companyLogoUrl}
+                alt={`Logo ${company.companyName || 'tvrtke'}`}
+                className="h-full w-full object-contain p-1.5"
+              />
+            ) : (
+              <span className="font-black text-violet-300">
+                {getInitials(company.companyName)}
+              </span>
             )}
           </div>
 
