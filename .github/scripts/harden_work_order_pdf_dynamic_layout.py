@@ -1,6 +1,9 @@
 from pathlib import Path
 import subprocess
 
+# Legacy work-order repair helper retained as a watched trigger for the
+# registered document-validation workflow. The workflow now applies the shared
+# offer/invoice/work-order adaptive pagination patch before building.
 path = Path('src/utils/workOrderPdf.ts')
 
 # Recover the complete known-good PDF generator after the interrupted edit.
