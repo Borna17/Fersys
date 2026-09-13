@@ -788,7 +788,10 @@ async function stabilizeInvoicePdfLayout(
       const spans = page.querySelectorAll('.footer span')
       const counter = spans[spans.length - 1]
       if (counter) {
-        counter.textContent = `${index + 1}/${total}`
+        const prefix = (counter.textContent || '').split('·')[0]?.trim()
+        counter.textContent = prefix
+          ? `${prefix} · ${index + 1}/${total}`
+          : `${index + 1}/${total}`
       }
     },
   })
