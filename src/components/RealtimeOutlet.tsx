@@ -17,6 +17,7 @@ import {
 } from '../lib/supabase'
 import BusinessAlerts from './BusinessAlerts'
 import DailyBriefPanel from './DailyBriefPanel'
+import DocumentFlowOrchestrator from './DocumentFlowOrchestrator'
 import FloatingUiGuard from './FloatingUiGuard'
 import GlobalSearch from './GlobalSearch'
 import MobileUxPolish from './MobileUxPolish'
@@ -299,6 +300,10 @@ export default function RealtimeOutlet() {
 
       <SafeRenderBoundary name="Work order photo sync">
         <WorkOrderPhotoGallerySync />
+      </SafeRenderBoundary>
+
+      <SafeRenderBoundary name="Smart Flow">
+        <DocumentFlowOrchestrator />
       </SafeRenderBoundary>
 
       <SafeRenderBoundary name="Daily brief">
