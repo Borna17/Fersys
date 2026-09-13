@@ -321,11 +321,50 @@ updateAdminSupportTicket(
   }
 }
 
+async function getAdminSupportAttachmentPaths(
+  ticketId: string,
+): Promise<string[]> {
+  const { data, error } =
+    await supabase.rpc(
+      'admin_get_support_attachment_paths',
+      {
+        requested_ticket_id:
+          ticketId,
+      },
+    )
+
+  if (error) {
+    console.warn(
+      'Support attachment paths nisu učitani:',
+      error,
+    )
+    return []
+  }
+
+  return Array.from(
+    new Set(
+      (data ?? [])
+        .map((row: Record<string, unknown>) =>
+          String(row.path ?? '').trim(),
+        )
+        .filter(
+          (path: string) =>
+            Boolean(path) &&
+            !isAbsoluteUrl(path),
+        ),
+    ),
+  )
+}
 
 export async function
 deleteAdminSupportTicket(
   ticketId: string,
 ): Promise<void> {
+  const attachmentPaths =
+    await getAdminSupportAttachmentPaths(
+      ticketId,
+    )
+
   const { error } =
     await supabase.rpc(
       'admin_delete_support_ticket',
@@ -337,5 +376,21 @@ deleteAdminSupportTicket(
 
   if (error) {
     throw error
+  }
+
+  if (attachmentPaths.length > 0) {
+    const { error: storageError } =
+      await supabase.storage
+        .from(
+          SUPPORT_ATTACHMENTS_BUCKET,
+        )
+        .remove(attachmentPaths)
+
+    if (storageError) {
+      console.warn(
+        'Ticket je obrisan, ali stare support slike nisu potpuno očišćene:',
+        storageError,
+      )
+    }
   }
 }
