@@ -617,7 +617,7 @@ function photosHtml(
         ${photos
           .map(
             (photo) => `
-              <figure class="photo-card">
+              <figure class="photo-card" data-photo-card>
                 <img
                   src="${esc(photo.dataUrl)}"
                   alt="${esc(photo.name)}"
@@ -2154,6 +2154,29 @@ async function reflowRenderedPdfPages(
     throw new Error(
       `PDF materijal nije potpun (${actualRows}/${order.materials.length} stavki).`,
     )
+  }
+
+  const actualPhotos = target.querySelectorAll('[data-photo-card]').length
+  if (actualPhotos !== order.images.length) {
+    throw new Error(
+      `PDF fotografije nisu potpune (${actualPhotos}/${order.images.length}).`,
+    )
+  }
+
+  for (const page of renderedPages(target)) {
+    const blocks = [
+      page.querySelector('[data-pdf-block="materials"]'),
+      page.querySelector('[data-pdf-block="photos"]'),
+      page.querySelector('[data-pdf-block="totals"]'),
+      page.querySelector('[data-pdf-block="signature"]'),
+    ].filter(Boolean) as Element[]
+
+    for (let index = 1; index < blocks.length; index += 1) {
+      const relation = blocks[index - 1].compareDocumentPosition(blocks[index])
+      if (!(relation & Node.DOCUMENT_POSITION_FOLLOWING)) {
+        throw new Error('PDF blokovi nisu u ispravnom redoslijedu.')
+      }
+    }
   }
 }
 

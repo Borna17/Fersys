@@ -23,6 +23,9 @@ import {
   notifyDownloadPreparing,
   saveBlobDownload,
 } from './downloadFeedback'
+import {
+  stabilizeAdaptiveTableDocument,
+} from './pdfLayoutEngine'
 
 export type OfferPdfItem = {
   id: string
@@ -1058,6 +1061,7 @@ function itemRows(
 
         return `
           <article
+            data-pdf-row
             class="item-row ${
               image
                 ? 'has-image'
@@ -1991,6 +1995,8 @@ function css(
       text-align: right;
     }
 
+    .pdf-final-layout { display: contents; }
+
     .summary-grid {
       display: grid;
       grid-template-columns:
@@ -2377,6 +2383,7 @@ function buildFirstOrOnlyPage(
         }
 
         <section
+          data-pdf-table
           class="items-wrap"
         >
           ${tableHeaderHtml(
@@ -2393,15 +2400,17 @@ function buildFirstOrOnlyPage(
         ${
           page.final
             ? `
-              ${notesAndTotalsHtml(
-                offer,
-                summary,
-              )}
+              <div data-pdf-final class="pdf-final-layout">
+                ${notesAndTotalsHtml(
+                  offer,
+                  summary,
+                )}
 
-              ${signatureAndPaymentHtml(
-                offer,
-                settings,
-              )}
+                ${signatureAndPaymentHtml(
+                  offer,
+                  settings,
+                )}
+              </div>
             `
             : ''
         }
@@ -2473,6 +2482,21 @@ export function buildOfferPdfHtml(
       )
       .join('')
 
+  const continuationTemplate =
+    buildFirstOrOnlyPage(
+      {
+        items: [],
+        first: false,
+        final: false,
+      },
+      0,
+      1,
+      0,
+      offer,
+      settings,
+      summary,
+    )
+
   return `<!doctype html>
 <html lang="hr">
 <head>
@@ -2511,6 +2535,10 @@ export function buildOfferPdfHtml(
   <main class="pages">
     ${pagesHtml}
   </main>
+
+  <template data-pdf-continuation-template>
+    ${continuationTemplate}
+  </template>
 </body>
 </html>`
 }
@@ -2678,6 +2706,32 @@ async function waitForImages(
   )
 }
 
+async function stabilizeOfferPdfLayout(
+  doc: Document,
+) {
+  const expectedRows =
+    doc.querySelectorAll('[data-pdf-row]').length
+
+  await stabilizeAdaptiveTableDocument(
+    doc,
+    {
+      pagesRootSelector: '.pages',
+      pageSelector: '.pages > .page',
+      tableSelector: '[data-pdf-table]',
+      rowSelector: '[data-pdf-row]',
+      finalSelector: '[data-pdf-final]',
+      continuationTemplateSelector:
+        'template[data-pdf-continuation-template]',
+      footerSelector: '.footer',
+      expectedRowCount: expectedRows,
+      updatePageMetadata: (page, index, total) => {
+        const counter = page.querySelector('.footer strong')
+        if (counter) counter.textContent = `${index + 1} / ${total}`
+      },
+    },
+  )
+}
+
 async function renderHtmlPagesToPdf(
   html: string,
   fileName: string,
@@ -2732,6 +2786,8 @@ async function renderHtmlPagesToPdf(
     )
 
     await doc.fonts?.ready
+    await waitForImages(doc)
+    await stabilizeOfferPdfLayout(doc)
     await waitForImages(doc)
 
     const toolbar =
@@ -2916,6 +2972,10 @@ export function openOfferPdf(
         html,
       )
       previewWindow.document.close()
+
+      await previewWindow.document.fonts?.ready
+      await waitForImages(previewWindow.document)
+      await stabilizeOfferPdfLayout(previewWindow.document)
     } catch (error) {
       console.error(error)
 

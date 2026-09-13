@@ -14,6 +14,7 @@ import {
   type DocumentAppearance,
 } from '../types/documentAppearance'
 import { createHub3Pdf417DataUrl } from './hub3Barcode'
+import { stabilizeAdaptiveTableDocument } from './pdfLayoutEngine'
 
 export type InvoicePdfItem = {
   id: string
@@ -353,7 +354,7 @@ function sectionTitle(label: string, settings: InvoicePdfSettings) {
 
 function itemRows(items: InvoicePdfItem[], startIndex: number, currencyCode: string) {
   return items.map((item, index) => `
-    <div class="item-row">
+    <div class="item-row" data-pdf-row>
       <div class="item-main">
         <strong>${startIndex + index + 1}. ${esc(item.name)}</strong>
         ${item.description ? `<small>${multi(item.description)}</small>` : ''}
@@ -571,6 +572,7 @@ function css(settings: InvoicePdfSettings) {
     .item-main { min-width: 0; text-align: left !important; }
     .item-main strong { display: block; text-align: left; }
     .item-main small { display: block; margin-top: 2px; color: ${alpha(t, '72')}; font-size: 8px; line-height: 1.35; }
+    .pdf-final-layout { display: contents; }
     .summary-grid { display: grid; grid-template-columns: minmax(0,1fr) 46%; gap: 20px; margin-top: 14px; align-items: start; }
     .payment-card { border: 1px solid ${alpha(p, '55')}; border-radius: 7px; padding: 10px; background: ${alpha(p, '04')}; }
     .pay-row, .totals > div { display: flex; justify-content: space-between; gap: 10px; padding: 5px 2px; border-bottom: 1px solid ${b}; font-size: 8.8px; }
@@ -638,13 +640,13 @@ export function buildInvoicePdfHtml(
         ${first ? customerAndMetaHtml(invoice, settings) : ''}
         ${first && invoice.description ? `<div class="description">${multi(invoice.description)}</div>` : ''}
         ${sectionTitle(first ? 'Stavke računa' : 'Stavke računa · nastavak', settings)}
-        <div class="table table-${esc(settings.tableStyle)}">
+        <div class="table table-${esc(settings.tableStyle)}" data-pdf-table>
           <div class="item-head">
             <span>OPIS</span><span>KOL.</span><span>CIJENA</span><span>UKUPNO</span>
           </div>
           ${itemRows(pageItems, startIndex, settings.companyCurrency)}
         </div>
-        ${final ? finalHtml(invoice, settings, totals) : ''}
+        ${final ? `<div data-pdf-final class="pdf-final-layout">${finalHtml(invoice, settings, totals)}</div>` : ''}
         ${settings.showFooter ? `
           <footer class="footer">
             <span>${esc(settings.footerText || '')}</span>
@@ -654,6 +656,27 @@ export function buildInvoicePdfHtml(
       </section>
     `
   }).join('')
+
+  const continuationTemplate = `
+    <section class="page">
+      ${settings.showWatermark && settings.watermarkText
+        ? `<div class="watermark">${esc(settings.watermarkText)}</div>`
+        : ''}
+      ${headerHtml(invoice, settings, true)}
+      ${sectionTitle('Stavke računa · nastavak', settings)}
+      <div class="table table-${esc(settings.tableStyle)}" data-pdf-table>
+        <div class="item-head">
+          <span>OPIS</span><span>KOL.</span><span>CIJENA</span><span>UKUPNO</span>
+        </div>
+      </div>
+      ${settings.showFooter ? `
+        <footer class="footer">
+          <span>${esc(settings.footerText || '')}</span>
+          <span>${esc(invoice.invoiceNumber)} · 1/1</span>
+        </footer>
+      ` : ''}
+    </section>
+  `
 
   return `<!doctype html>
 <html lang="hr">
@@ -669,6 +692,7 @@ export function buildInvoicePdfHtml(
     <button class="secondary" onclick="window.close()">Zatvori</button>
   </div>
   <main class="pages">${htmlPages}</main>
+  <template data-pdf-continuation-template>${continuationTemplate}</template>
 </body>
 </html>`
 }
@@ -746,6 +770,30 @@ async function waitForImages(doc: Document) {
   })))
 }
 
+async function stabilizeInvoicePdfLayout(
+  doc: Document,
+) {
+  const expectedRows = doc.querySelectorAll('[data-pdf-row]').length
+
+  await stabilizeAdaptiveTableDocument(doc, {
+    pagesRootSelector: '.pages',
+    pageSelector: '.pages > .page',
+    tableSelector: '[data-pdf-table]',
+    rowSelector: '[data-pdf-row]',
+    finalSelector: '[data-pdf-final]',
+    continuationTemplateSelector: 'template[data-pdf-continuation-template]',
+    footerSelector: '.footer',
+    expectedRowCount: expectedRows,
+    updatePageMetadata: (page, index, total) => {
+      const spans = page.querySelectorAll('.footer span')
+      const counter = spans[spans.length - 1]
+      if (counter) {
+        counter.textContent = `${index + 1}/${total}`
+      }
+    },
+  })
+}
+
 async function renderHtmlPagesToPdf(
   html: string,
   fileName: string,
@@ -774,6 +822,8 @@ async function renderHtmlPagesToPdf(
 
     await new Promise<void>((resolve) => window.setTimeout(resolve, 140))
     await doc.fonts?.ready
+    await waitForImages(doc)
+    await stabilizeInvoicePdfLayout(doc)
     await waitForImages(doc)
 
     const toolbar = doc.querySelector('.toolbar') as HTMLElement | null
@@ -834,6 +884,10 @@ export function openInvoicePdf(
       previewWindow.document.open()
       previewWindow.document.write(html)
       previewWindow.document.close()
+
+      await previewWindow.document.fonts?.ready
+      await waitForImages(previewWindow.document)
+      await stabilizeInvoicePdfLayout(previewWindow.document)
     } catch (error) {
       console.error(error)
       previewWindow.document.open()
