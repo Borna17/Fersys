@@ -10,11 +10,23 @@ import type {
 } from '../types/customer'
 
 const CUSTOMERS_CHANGED_EVENT = 'fersys:customers-changed'
+const DASHBOARD_CACHE_PREFIX = 'fersys-fast-dashboard-v2:'
 
 function notifyCustomersChanged() {
   clearRuntimeCachePrefix('fersys-cache:customers:')
 
   if (typeof window !== 'undefined') {
+    try {
+      for (let index = localStorage.length - 1; index >= 0; index -= 1) {
+        const key = localStorage.key(index)
+        if (key?.startsWith(DASHBOARD_CACHE_PREFIX)) {
+          localStorage.removeItem(key)
+        }
+      }
+    } catch {
+      // Cache invalidation must never block saving an investor.
+    }
+
     window.dispatchEvent(new Event(CUSTOMERS_CHANGED_EVENT))
   }
 }
