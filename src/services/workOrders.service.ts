@@ -4,6 +4,7 @@ import { assertCanCreate } from '../subscription/subscription.service'
 import { getWorkOrderImagesForDisplay } from './workOrderImages.service'
 import { captureCurrentWeatherSnapshot } from './weather.service'
 import { readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
+import { recordWorkOrderHoursFromCompletedOrder } from './employeeTime.service'
 
 export type CloudWorkOrderStatus =
   | 'Novi'
@@ -880,6 +881,9 @@ export async function updateWorkOrder(
     input.status === 'Završen' &&
     existing.status !== 'Završen'
   ) {
+    void recordWorkOrderHoursFromCompletedOrder(workOrderId).catch((timeError) => {
+      console.warn('[FERSYS] Radni sati iz završenog naloga nisu evidentirani:', timeError)
+    })
     void supabase.functions.invoke(
       'field-service-customer-notify',
       {

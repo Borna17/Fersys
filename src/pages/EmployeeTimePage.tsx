@@ -56,7 +56,16 @@ export function EmployeeTimePage() {
     }
   }
 
-  useEffect(() => { void load() }, [year, month])
+  useEffect(() => {
+    void (async () => {
+      try {
+        await syncAppEmployees(await getEmployees())
+      } catch (syncError) {
+        console.warn('[FERSYS] Zaposlenike nije moguće automatski povezati s evidencijom sati:', syncError)
+      }
+      await load()
+    })()
+  }, [year, month])
 
   const summaries = useMemo(() => workers.map((worker) => ({ worker, summary: summarizeWorker(worker, entries) })), [workers, entries])
 

@@ -15,11 +15,11 @@
     "android:run": "npm run build && npx cap sync android && npx cap run android",
     "android:prepare-release": "node scripts/prepare-android-release.mjs",
     "android:bundle": "node scripts/prepare-android-release.mjs && cd android && gradlew.bat bundleRelease",
-    "android:clean": "cd android && gradlew.bat clean"
+    "android:clean": "cd android && gradlew.bat clean",
+    "ios:sync": "node scripts/sync-ios-with-permissions.mjs"
   },
   "dependencies": {
     "@bwip-js/browser": "^4.11.2",
-    "@capacitor-community/speech-recognition": "file:vendor/speech-recognition-shim",
     "@capacitor/android": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/browser": "^8.0.0",
@@ -32,6 +32,7 @@
     "@capacitor/share": "^8.0.0",
     "@capacitor/splash-screen": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
+    "@capgo/capacitor-speech-recognition": "^8.3.0",
     "@marsidev/react-turnstile": "^1.6.0",
     "@supabase/supabase-js": "^2.111.0",
     "@tailwindcss/vite": "^4.3.3",

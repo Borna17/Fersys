@@ -586,7 +586,10 @@ export function NewWorkOrderPage() {
           return
         }
 
-        const continueDraft = window.confirm(
+        const isAiDraft = Boolean(
+          sessionStorage.getItem('fersys_ai_work_order_prefill'),
+        )
+        const continueDraft = isAiDraft || window.confirm(
           `Pronađen je nedovršeni radni nalog (${formatDraftSavedAt(draft.updatedAt)}).\n\nOK = nastavi nedovršeni nalog\nOdustani = odbaci ga i započni novi.`,
         )
 

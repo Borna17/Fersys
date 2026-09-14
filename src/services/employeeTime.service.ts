@@ -214,3 +214,49 @@ export async function tryHandleEmployeeTimeAiCommand(text: string): Promise<stri
     sickLeaveHours: leave === 'sick' ? first : 0, paidLeaveHours: leave === 'paid' ? first : 0, travelHours: 0, note: 'Uneseno putem FERSYS AI', source: 'ai', sourceRef: `ai:${workDate}:${worker.id}` })
   return `Evidencija je spremljena za ${worker.fullName}: ${workDate}, ${first.toFixed(2)} h${overtime ? ` (${overtime.toFixed(2)} h prekovremeno)` : ''}.`
 }
+
+
+export async function recordWorkOrderHoursFromCompletedOrder(workOrderId: string) {
+  const companyId = await currentCompanyId()
+  const { data: order, error } = await supabase
+    .from('work_orders')
+    .select('id, company_id, work_date, duration_minutes, assigned_workers, status')
+    .eq('id', workOrderId)
+    .eq('company_id', companyId)
+    .maybeSingle()
+  if (error) throw error
+  if (!order || order.status !== 'Završen') return
+
+  const durationHours = Math.max(0, Number(order.duration_minutes) || 0) / 60
+  const names = Array.isArray(order.assigned_workers)
+    ? order.assigned_workers.filter((value): value is string => typeof value === 'string')
+    : []
+  if (!durationHours || !names.length) return
+
+  const workers = await getWorkforcePeople()
+  for (const name of names) {
+    const key = normalized(name.trim())
+    const worker = workers.find((candidate) => normalized(candidate.fullName.trim()) === key)
+    if (!worker) continue
+    await saveEmployeeTimeEntry({
+      workerId: worker.id,
+      workOrderId,
+      workDate: order.work_date,
+      startTime: '',
+      endTime: '',
+      breakMinutes: 0,
+      regularHours: durationHours,
+      overtimeHours: 0,
+      nightHours: 0,
+      sundayHours: 0,
+      holidayHours: 0,
+      vacationHours: 0,
+      sickLeaveHours: 0,
+      paidLeaveHours: 0,
+      travelHours: 0,
+      note: 'Automatski iz završenog radnog naloga',
+      source: 'work_order',
+      sourceRef: `work-order:${workOrderId}`,
+    })
+  }
+}

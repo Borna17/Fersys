@@ -508,7 +508,7 @@ function materialsHtml(
                 </div>
 
                 <div class="material-data">
-                  <small>Količina</small>
+                  <small>Kolicina</small>
                   ${number(material.quantity)} ${esc(material.unit)}
                 </div>
 

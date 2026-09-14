@@ -18,7 +18,7 @@ import {
   type FormEvent,
 } from 'react'
 import { useNavigate } from 'react-router'
-import { SpeechRecognition } from '@capacitor-community/speech-recognition'
+import { SpeechRecognition } from '@capgo/capacitor-speech-recognition'
 
 import { isNativeApp } from '../lib/platform'
 
@@ -32,6 +32,8 @@ import {
 import { updateOfferStatus } from '../services/offers.service'
 import { prepareDocumentConversion, type FlowDocumentType } from '../services/documentFlow.service'
 import { updateWorkOrderQuickStatus } from '../services/quickStatus.service'
+import { saveUserDraft } from '../services/drafts.service'
+import { tryHandleEmployeeTimeAiCommand } from '../services/employeeTime.service'
 import type { OfferStatus } from '../types/offers'
 import type { CloudWorkOrderStatus } from '../services/workOrders.service'
 
@@ -362,9 +364,24 @@ export function AiAssistantPage() {
     }
 
     if (action.type === 'create_work_order') {
+      const aiDraft = {
+        ...payload,
+        date: String(payload.date ?? '').trim() || new Date().toISOString().slice(0, 10),
+        status: String(payload.status ?? '').trim() || 'Novi',
+        priority: String(payload.priority ?? '').trim() || 'Normalan',
+        title: String(payload.title ?? payload.workOrderTitle ?? '').trim(),
+        description: String(payload.description ?? payload.workDescription ?? payload.notes ?? '').trim(),
+        customerName: String(payload.customerName ?? payload.customer ?? '').trim(),
+        investorName: String(payload.investorName ?? payload.contactPerson ?? '').trim(),
+        address: String(payload.address ?? payload.location ?? '').trim(),
+      }
+
+      // AI nacrt se odmah sprema u isti cloud/local autosave sustav kao ručno
+      // izrađen radni nalog. Tako se ne može izgubiti zatvaranjem ekrana.
+      await saveUserDraft('work-order', 'new', aiDraft)
       sessionStorage.setItem(
         'fersys_ai_work_order_prefill',
-        JSON.stringify(payload),
+        JSON.stringify(aiDraft),
       )
       navigate('/work-orders/new')
       return
@@ -633,6 +650,17 @@ export function AiAssistantPage() {
     setIsSending(true)
 
     try {
+      const employeeTimeResult =
+        await tryHandleEmployeeTimeAiCommand(clean)
+
+      if (employeeTimeResult) {
+        setMessages((current) => [
+          ...current,
+          createMessage('assistant', employeeTimeResult),
+        ])
+        return
+      }
+
       const response =
         await askAiAssistant(
           clean,

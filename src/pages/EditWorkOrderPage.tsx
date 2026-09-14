@@ -1231,14 +1231,14 @@ export function EditWorkOrderPage() {
                     canViewPrices ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-2'
                   }`}
                 >
-                  <MiniInput label="Količina">
+                  <MiniInput label="Kolicina">
                     <input
                       type="number"
                       inputMode="decimal"
                       min="0"
                       step="0.01"
                       value={material.quantity === 0 ? '' : material.quantity}
-                      placeholder="KoliÄina"
+                      placeholder="Kolicina"
                       onChange={(event) =>
                         updateMaterial(
                           material.id,
