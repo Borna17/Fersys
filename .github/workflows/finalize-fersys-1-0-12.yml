@@ -1,0 +1,58 @@
+name: Finalize FERSYS 1.0.12 stabilization
+
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-fersys-1-0-12.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  stabilize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Apply source stabilization
+        run: python .github/scripts/finalize_fersys_1_0_12.py
+
+      - name: Replace speech shim with Capacitor 8 native plugin
+        run: |
+          npm uninstall @capacitor-community/speech-recognition
+          npm install @capgo/capacitor-speech-recognition@^8.3.0 --save
+
+      - name: Add safe iOS sync script
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs'
+          const p = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          p.scripts = p.scripts || {}
+          p.scripts['ios:sync'] = 'node scripts/sync-ios-with-permissions.mjs'
+          fs.writeFileSync('package.json', JSON.stringify(p, null, 2) + '\n')
+          NODE
+
+      - name: Validate build
+        run: npm run build
+
+      - name: Commit stabilization
+        run: |
+          git config user.name "FERSYS Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Stabilize FERSYS 1.0.12 permissions AI drafts and employee hours"
+            git push origin HEAD:main
+          fi
