@@ -41,10 +41,10 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
           set -euo pipefail
-          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD FIREBASE_GOOGLE_SERVICES_JSON; do
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD GOOGLE_SERVICES_JSON_B64; do
             if [ -z "${!name:-}" ]; then
               echo "Missing required GitHub Actions secret: $name"
               exit 1
@@ -60,10 +60,10 @@ jobs:
       - name: Restore Firebase Android config
         shell: bash
         env:
-          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
         run: |
           set -euo pipefail
-          printf '%s' "$FIREBASE_GOOGLE_SERVICES_JSON" > android/app/google-services.json
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
           test -s android/app/google-services.json
 
       - name: Restore Android signing key
