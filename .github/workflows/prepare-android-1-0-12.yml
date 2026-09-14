@@ -1,0 +1,43 @@
+name: Prepare Android 1.0.12
+
+on:
+  push:
+    paths:
+      - '.github/workflows/prepare-android-1-0-12.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply release metadata
+        run: python .github/scripts/prepare_android_1_0_12.py
+      - name: Install
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Verify metadata
+        run: |
+          grep -q 'versionCode 14' android/app/build.gradle
+          grep -q 'versionName "1.0.12"' android/app/build.gradle
+          grep -q "EXPECTED_VERSION_CODE = 14" scripts/prepare-android-release.mjs
+          grep -q "EXPECTED_VERSION_NAME = '1.0.12'" scripts/prepare-android-release.mjs
+      - name: Commit
+        run: |
+          git config user.name "FERSYS Release Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add android/app/build.gradle scripts/prepare-android-release.mjs
+          if ! git diff --cached --quiet; then
+            git commit -m "Prepare Android 1.0.12 release"
+            git push origin HEAD:main
+          fi
