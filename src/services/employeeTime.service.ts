@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 
 import { supabase } from '../lib/supabase'
-import type { CompanyEmployee } from './employees.service'
+import { getEmployees, type CompanyEmployee } from './employees.service'
 
 export type WorkforcePerson = {
   id: string
@@ -192,7 +192,7 @@ function dateFromText(text: string) {
 export async function tryHandleEmployeeTimeAiCommand(text: string): Promise<string | null> {
   const clean = normalized(text)
   if (!/(radio|radila|odradio|odradila|prekovremen|godisnj|bolovanj|placeni dopust|koliko.*radio|koliko.*radila)/.test(clean)) return null
-  const workers = await getWorkforcePeople()
+  const workers = await syncAppEmployees(await getEmployees())
   const matched = workers.filter((worker) => normalized(text).includes(normalized(worker.fullName)) || normalized(worker.fullName).split(/\s+/).some((part) => part.length >= 3 && clean.includes(part)))
   if (matched.length !== 1) return matched.length > 1 ? 'Pronašao sam više radnika s tim imenom. Napiši ime i prezime.' : null
   const worker = matched[0]
@@ -233,7 +233,7 @@ export async function recordWorkOrderHoursFromCompletedOrder(workOrderId: string
     : []
   if (!durationHours || !names.length) return
 
-  const workers = await getWorkforcePeople()
+  const workers = await syncAppEmployees(await getEmployees())
   for (const name of names) {
     const key = normalized(name.trim())
     const worker = workers.find((candidate) => normalized(candidate.fullName.trim()) === key)
