@@ -9,11 +9,9 @@ import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
 const WEB_RECOVERY_KEY = 'fersys_web_recovery_2026_09_12_v1'
+const NATIVE_RECOVERY_KEY = 'fersys_native_recovery_1_0_13_v1'
 
-async function prepareWebRuntime() {
-  if (isNativeApp()) return true
-  if (window.localStorage.getItem(WEB_RECOVERY_KEY) === 'done') return true
-
+async function clearStaleWebRuntimeCaches() {
   try {
     if ('serviceWorker' in navigator) {
       const registrations = await navigator.serviceWorker.getRegistrations()
@@ -22,19 +20,31 @@ async function prepareWebRuntime() {
 
     if ('caches' in window) {
       const cacheNames = await caches.keys()
-      await Promise.all(
-        cacheNames
-          .filter((name) => name.startsWith('fersys-') || name.startsWith('workbox-'))
-          .map((name) => caches.delete(name)),
-      )
+      await Promise.all(cacheNames.map((name) => caches.delete(name)))
     }
   } catch (error) {
-    console.warn('FERSYS web cache cleanup nije uspio:', error)
+    console.warn('FERSYS runtime cache cleanup nije uspio:', error)
   }
+}
 
-  window.localStorage.setItem(WEB_RECOVERY_KEY, 'done')
+async function prepareWebRuntime() {
+  const native = isNativeApp()
+  const recoveryKey = native ? NATIVE_RECOVERY_KEY : WEB_RECOVERY_KEY
 
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  if (window.localStorage.getItem(recoveryKey) === 'done') return true
+
+  const hadServiceWorkerController =
+    'serviceWorker' in navigator && Boolean(navigator.serviceWorker.controller)
+
+  await clearStaleWebRuntimeCaches()
+  window.localStorage.setItem(recoveryKey, 'done')
+
+  // Stariji FERSYS buildovi mogli su ostaviti aktivan service worker u
+  // Capacitor WebViewu. Nakon Play Store nadogradnje on može vratiti stari
+  // index.html koji pokazuje na JS chunkove kojih više nema, pa korisnik vidi
+  // samo tamnu pozadinu. Jedan reload nakon unregistera prebacuje WebView na
+  // svježe assete ugrađene u novi APK/AAB.
+  if (hadServiceWorkerController) {
     window.location.reload()
     return false
   }
@@ -82,6 +92,12 @@ function renderApp() {
   )
 }
 
-void prepareWebRuntime().then((ready) => {
-  if (ready) renderApp()
-})
+void prepareWebRuntime()
+  .then((ready) => {
+    if (ready) renderApp()
+  })
+  .catch((error) => {
+    // Cache recovery must never be able to block the entire application.
+    console.error('FERSYS startup recovery nije uspio:', error)
+    renderApp()
+  })
