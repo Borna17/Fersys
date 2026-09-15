@@ -87,6 +87,9 @@ jobs:
       - name: Sync Capacitor Android
         run: npx cap sync android
 
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+
       - name: Build signed Android App Bundle
         working-directory: android
         run: ./gradlew bundleRelease --no-daemon
