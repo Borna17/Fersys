@@ -57,6 +57,14 @@ jobs:
       - name: Build web app
         run: npm run build
 
+      - name: Verify web startup assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          grep -q '/assets/' dist/index.html
+          test -n "$(find dist/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+
       - name: Restore Firebase Android config
         shell: bash
         env:
@@ -86,6 +94,14 @@ jobs:
 
       - name: Sync Capacitor Android
         run: npx cap sync android
+
+      - name: Verify Capacitor copied startup assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s android/app/src/main/assets/public/index.html
+          test -n "$(find android/app/src/main/assets/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+          grep -q 'webDir' android/app/src/main/assets/capacitor.config.json
 
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
@@ -117,5 +133,5 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           tracks: alpha
           status: completed
-          releaseName: FERSYS 1.0.12
+          releaseName: FERSYS 1.0.13
           changesNotSentForReview: false
