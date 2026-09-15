@@ -1,0 +1,112 @@
+name: Release Android Alpha
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: fersys-android-alpha-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Build and publish Android Alpha
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: gradle
+      - name: Verify required secrets
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          for name in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD GOOGLE_SERVICES_JSON_B64; do
+            if [ -z "${!name:-}" ]; then echo "Missing required GitHub Actions secret: $name"; exit 1; fi
+          done
+      - name: Install dependencies
+        run: npm ci
+      - name: Build web app
+        run: npm run build
+      - name: Verify web startup assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s dist/index.html
+          test -n "$(find dist/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+      - name: Restore Firebase Android config
+        shell: bash
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > android/app/google-services.json
+          test -s android/app/google-services.json
+      - name: Restore Android signing key
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/fersys-upload-key.jks
+          cat > android/keystore.properties <<EOF
+          storeFile=fersys-upload-key.jks
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+      - name: Sync Capacitor Android
+        run: npx cap sync android
+      - name: Verify Capacitor copied startup assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s android/app/src/main/assets/public/index.html
+          test -n "$(find android/app/src/main/assets/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+      - name: Make Gradle wrapper executable
+        run: chmod +x android/gradlew
+      - name: Build signed Android App Bundle
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+      - name: Verify bundle exists
+        run: test -s android/app/build/outputs/bundle/release/app-release.aab
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: projects/9546007582/locations/global/workloadIdentityPools/fersys-github-actions/providers/github-fersys
+          service_account: fersys-github-release@fersys-503622.iam.gserviceaccount.com
+          create_credentials_file: true
+          export_environment_variables: true
+      - name: Publish to Google Play Alpha
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJson: ${{ steps.auth.outputs.credentials_file_path }}
+          packageName: com.fersys.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          tracks: alpha
+          status: completed
+          releaseName: FERSYS 1.0.14
+          changesNotSentForReview: false
