@@ -265,8 +265,12 @@ export function EditWorkOrderPage() {
           setAutosaveState('restored')
           setAutosaveText(`Vraćene nespremljene izmjene · ${formatDraftSavedAt(draft!.updatedAt)}`)
         } else if (draft) {
-          // Server ima noviju verziju naloga. Stari nacrt ne smije pregaziti nove podatke.
-          await deleteUserDraft('work-order', draftKey)
+          // Never destroy a recoverable local edit because the server base changed.
+          // Keep both versions and surface recovery instead of silently deleting user work.
+          setAutosaveState('restored')
+          setAutosaveText(
+            `Pronađene su sačuvane izmjene iz prethodne verzije · ${formatDraftSavedAt(draft.updatedAt)}`,
+          )
         }
 
         baselineRef.current = JSON.stringify({

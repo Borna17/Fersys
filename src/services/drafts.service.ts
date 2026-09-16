@@ -492,6 +492,10 @@ async function getSessionUserId() {
   }
 }
 
+function getLocalIdentity(): Identity | null {
+  return readCachedIdentity()
+}
+
 async function getIdentity():
 Promise<Identity> {
   const sessionUserId =
@@ -876,8 +880,10 @@ export async function saveUserDraft<T>(
   draftKey: string,
   payload: T,
 ): Promise<string> {
+  // Critical path is local-only whenever this device already has a verified identity.
+  // This prevents a slow/failed Supabase RPC from blocking IndexedDB autosave.
   const identity =
-    await getIdentity()
+    getLocalIdentity() ?? await getIdentity()
 
   const updatedAt =
     new Date()
@@ -921,26 +927,17 @@ export async function saveUserDraft<T>(
     ),
   )
 
-  if (
-    navigator.onLine
-  ) {
-    try {
-      await uploadEnvelope(
-        envelope,
-      )
-    } catch (error) {
-      console.warn(
-        'Cloud autosave trenutno nije dostupan:',
-        error,
-      )
-    }
+  if (navigator.onLine) {
+    // Cloud is intentionally outside the save critical path. Local success returns immediately.
+    void uploadEnvelope(envelope)
+      .then(() => {
+        window.dispatchEvent(new Event('fersys:draft-sync-change'))
+      })
+      .catch((error) => {
+        console.warn('Cloud autosave trenutno nije dostupan:', error)
+        window.dispatchEvent(new Event('fersys:draft-sync-change'))
+      })
   }
-
-  window.dispatchEvent(
-    new Event(
-      'fersys:draft-sync-change',
-    ),
-  )
 
   return updatedAt
 }
@@ -950,7 +947,7 @@ export async function loadUserDraft<T>(
   draftKey: string,
 ): Promise<DraftRecord<T> | null> {
   const identity =
-    await getIdentity()
+    getLocalIdentity() ?? await getIdentity()
 
   const key =
     localKey(
@@ -1099,7 +1096,7 @@ export async function deleteUserDraft(
   draftKey: string,
 ): Promise<void> {
   const identity =
-    await getIdentity()
+    getLocalIdentity() ?? await getIdentity()
 
   const key =
     localKey(
@@ -1162,7 +1159,7 @@ Promise<DraftSyncStatus> {
 
   try {
     const identity =
-      await getIdentity()
+      getLocalIdentity() ?? await getIdentity()
 
     const drafts =
       await listLocal()
