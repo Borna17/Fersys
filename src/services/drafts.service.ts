@@ -1209,16 +1209,8 @@ Promise<number> {
   const pending =
     drafts.filter(
       (draft) =>
-        (
-          draft.companyId ===
-            identity.companyId ||
-          !draft.companyId
-        ) &&
-        (
-          draft.userId ===
-            identity.userId ||
-          !draft.userId
-        ) &&
+        draft.companyId === identity.companyId &&
+        draft.userId === identity.userId &&
         (
           !draft.syncState ||
           draft.syncState ===
