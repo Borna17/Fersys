@@ -45,6 +45,11 @@ import {
 } from '../services/employees.service'
 import { getWorkOrderEditAccess } from '../services/workOrderAccess.service'
 import {
+  deleteWorkOrderAttachmentDraft,
+  loadWorkOrderAttachmentDraft,
+  saveWorkOrderAttachmentDraft,
+} from '../services/workOrderAttachmentDrafts.service'
+import {
   getWorkOrderById,
   updateWorkOrder,
 } from '../services/workOrders.service'
@@ -234,7 +239,10 @@ export function EditWorkOrderPage() {
         setBaseUpdatedAt(savedOrder.updatedAt)
 
         const draftKey = `edit:${id}`
-        const draft = await loadUserDraft<any>('work-order', draftKey)
+        const [draft, attachmentDraft] = await Promise.all([
+          loadUserDraft<any>('work-order', draftKey),
+          loadWorkOrderAttachmentDraft(id),
+        ])
         const value = draft?.payload ?? null
         const sameBase =
           value && value.baseUpdatedAt === savedOrder.updatedAt
@@ -261,8 +269,8 @@ export function EditWorkOrderPage() {
           setVatRate(value.vatRate ?? String(savedOrder.vatRate))
           setPriceNote(value.priceNote ?? savedOrder.priceNote)
           setInvestorName(value.investorName ?? savedOrder.investorName)
-          setInvestorSignature(value.investorSignature ?? savedOrder.investorSignature)
-          setImages(Array.isArray(value.images) ? value.images : savedOrder.images)
+          setInvestorSignature(attachmentDraft?.investorSignature ?? value.investorSignature ?? savedOrder.investorSignature)
+          setImages(attachmentDraft?.images ?? (Array.isArray(value.images) ? value.images : savedOrder.images))
           setAutosaveState('restored')
           setAutosaveText(`Vraćene nespremljene izmjene · ${formatDraftSavedAt(draft!.updatedAt)}`)
         } else if (draft) {
@@ -296,8 +304,6 @@ export function EditWorkOrderPage() {
           vatRate: sameBase ? value.vatRate ?? String(savedOrder.vatRate) : String(savedOrder.vatRate),
           priceNote: sameBase ? value.priceNote ?? savedOrder.priceNote : savedOrder.priceNote,
           investorName: sameBase ? value.investorName ?? savedOrder.investorName : savedOrder.investorName,
-          investorSignature: sameBase ? value.investorSignature ?? savedOrder.investorSignature : savedOrder.investorSignature,
-          images: sameBase && Array.isArray(value.images) ? value.images : savedOrder.images,
         })
         setDraftReady(true)
         if (!sameBase && !draft) {
@@ -331,14 +337,13 @@ export function EditWorkOrderPage() {
       customerPhone, customerEmail, customerOib, address, date,
       arrivalTime, departureTime, status, priority, title, description,
       assignedWorkers, materials, labourPrice, discountRate, vatRate,
-      priceNote, investorName, investorSignature, images,
+      priceNote, investorName,
     }
     const serialized = JSON.stringify({
       customerId, customerName, customerContactPerson, customerPhone,
       customerEmail, customerOib, address, date, arrivalTime, departureTime,
       status, priority, title, description, assignedWorkers, materials,
       labourPrice, discountRate, vatRate, priceNote, investorName,
-      investorSignature, images,
     })
 
     if (serialized === baselineRef.current) return
@@ -369,8 +374,20 @@ export function EditWorkOrderPage() {
     customerContactPerson, customerPhone, customerEmail, customerOib,
     address, date, arrivalTime, departureTime, status, priority, title,
     description, assignedWorkers, materials, labourPrice, discountRate,
-    vatRate, priceNote, investorName, investorSignature, images,
+    vatRate, priceNote, investorName,
   ])
+
+  useEffect(() => {
+    if (!draftReady || !id || saveSucceededRef.current) return
+
+    const timer = window.setTimeout(() => {
+      void saveWorkOrderAttachmentDraft(id, images, investorSignature).catch((error) => {
+        console.error('Lokalno spremanje fotografija/potpisa nije uspjelo:', error)
+      })
+    }, 400)
+
+    return () => window.clearTimeout(timer)
+  }, [draftReady, id, images, investorSignature])
 
   useEffect(() => {
     if (!draftReady || !id) return
@@ -699,13 +716,16 @@ export function EditWorkOrderPage() {
       baseUpdatedAt, customerId, customerName, customerContactPerson, customerPhone,
       customerEmail, customerOib, address, date, arrivalTime, departureTime, status,
       priority, title, description, assignedWorkers, materials, labourPrice, discountRate,
-      vatRate, priceNote, investorName, investorSignature, images,
+      vatRate, priceNote, investorName,
     }
 
     try {
       setIsSaving(true)
       // Persist the exact form state locally before the network becomes critical.
-      await saveUserDraft('work-order', `edit:${id}`, recoveryPayload)
+      await Promise.all([
+        saveUserDraft('work-order', `edit:${id}`, recoveryPayload),
+        saveWorkOrderAttachmentDraft(id, images, investorSignature),
+      ])
       pendingDraftDirtyRef.current = false
       const saved = await updateWorkOrder(id, {
         customerId,
@@ -771,7 +791,10 @@ export function EditWorkOrderPage() {
 
       saveSucceededRef.current = true
       try {
-        await deleteUserDraft('work-order', `edit:${id}`)
+        await Promise.all([
+        deleteUserDraft('work-order', `edit:${id}`),
+        deleteWorkOrderAttachmentDraft(id),
+      ])
       } catch (draftError) {
         console.warn('Spremljen nalog, ali nacrt nije očišćen:', draftError)
       }
