@@ -1,174 +1,27 @@
-name: Apply offline auth bootstrap
+name: Verify offline auth bootstrap
 
 on:
   push:
-    branches:
-      - fix/local-first-durability-engine
+    branches: [fix/local-first-durability-engine]
     paths:
       - '.github/workflows/apply-offline-auth-bootstrap.yml'
+      - 'src/auth/**'
+      - 'tests/auth/**'
+      - 'package*.json'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  patch:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-      - name: Patch AuthProvider for verified offline bootstrap
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('src/auth/AuthProvider.tsx')
-          s=p.read_text(encoding='utf-8-sig')
-          anchor="const AUTH_REQUEST_TIMEOUT_MS = 10_000\n"
-          insert="""const AUTH_REQUEST_TIMEOUT_MS = 10_000
-const OFFLINE_AUTH_CACHE_KEY = 'fersys-offline-auth-v1'
-
-type OfflineAuthCache = {
-  session: Session
-  membership: CurrentMembership
-  cachedAt: string
-}
-
-function readOfflineAuthCache(): OfflineAuthCache | null {
-  try {
-    const raw = localStorage.getItem(OFFLINE_AUTH_CACHE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as OfflineAuthCache
-    if (!parsed?.session?.user?.id || !parsed?.membership?.companyId) return null
-    if (parsed.membership.status !== 'active') return null
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-function writeOfflineAuthCache(session: Session, membership: CurrentMembership | null) {
-  if (!membership || membership.status !== 'active') return
-  try {
-    localStorage.setItem(OFFLINE_AUTH_CACHE_KEY, JSON.stringify({
-      session,
-      membership,
-      cachedAt: new Date().toISOString(),
-    } satisfies OfflineAuthCache))
-  } catch {
-    // Storage quota/private mode must never break online auth.
-  }
-}
-
-function clearOfflineAuthCache() {
-  try { localStorage.removeItem(OFFLINE_AUTH_CACHE_KEY) } catch { /* noop */ }
-}
-"""
-          if anchor not in s: raise SystemExit('timeout anchor missing')
-          s=s.replace(anchor,insert,1)
-
-          old="""      } catch (error) {
-        if (!isMounted) return
-
-        setSession(null)
-        setCompanySetupError(
-          error instanceof Error
-            ? error.message
-            : 'Korisnička sesija nije se mogla učitati.',
-        )
-"""
-          new="""      } catch (error) {
-        if (!isMounted) return
-
-        const cached = readOfflineAuthCache()
-        if (!navigator.onLine && cached) {
-          setSession(cached.session)
-          setMembership(cached.membership)
-          accessInitializedRef.current = true
-          preparedUserIdRef.current = cached.session.user.id
-          sessionStorage.setItem('fersys_active_company_id', cached.membership.companyId)
-          setCompanySetupError('')
-        } else {
-          setSession(null)
-          setCompanySetupError(
-            error instanceof Error
-              ? error.message
-              : 'Korisnička sesija nije se mogla učitati.',
-          )
-        }
-"""
-          if old not in s: raise SystemExit('initial session catch anchor missing')
-          s=s.replace(old,new,1)
-
-          old2="""    if (!currentUserId) {
-      setMembership(null)
-      return
-    }
-
-    if (
-"""
-          new2="""    if (!currentUserId) {
-      setMembership(null)
-      return
-    }
-
-    if (!navigator.onLine) {
-      const cached = readOfflineAuthCache()
-      if (cached && cached.session.user.id === currentUserId) {
-        preparedUserIdRef.current = currentUserId
-        accessInitializedRef.current = true
-        sessionStorage.setItem('fersys_active_company_id', cached.membership.companyId)
-        setMembership(cached.membership)
-        setCompanySetupError('')
-        return
-      }
-    }
-
-    if (
-"""
-          if old2 not in s: raise SystemExit('prepare effect anchor missing')
-          s=s.replace(old2,new2,1)
-
-          old3="""          setMembership(nextMembership)
-        }
-      } catch (error) {
-"""
-          new3="""          setMembership(nextMembership)
-          if (nextMembership) writeOfflineAuthCache(session, nextMembership)
-        }
-      } catch (error) {
-"""
-          if old3 not in s: raise SystemExit('membership success anchor missing')
-          s=s.replace(old3,new3,1)
-
-          old4="""  async function signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) throw error
-
-    preparedUserIdRef.current = null
-"""
-          new4="""  async function signOut(): Promise<void> {
-    const { error } = await supabase.auth.signOut()
-
-    if (error) throw error
-
-    clearOfflineAuthCache()
-    preparedUserIdRef.current = null
-"""
-          if old4 not in s: raise SystemExit('signout anchor missing')
-          s=s.replace(old4,new4,1)
-
-          p.write_text(s,encoding='utf-8')
-          PY
       - run: npm ci
+      - run: npm run test:auth
       - run: npm run build
-      - name: Commit verified offline bootstrap
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/auth/AuthProvider.tsx
-          git diff --cached --check
-          git commit -m 'Allow verified users to bootstrap FERSYS offline'
-          git push

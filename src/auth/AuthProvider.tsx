@@ -16,7 +16,8 @@ import type {
   User,
 } from '@supabase/supabase-js'
 
-import { supabase } from '../lib/supabase'
+import { supabase, authStorageKey } from '../lib/supabase'
+import { activateLocalIdentity, clearActiveLocalIdentity, clearOfflineBootstrap, readOfflineBootstrap, rememberOfflineBootstrap } from './offlineBootstrap'
 import {
   createDefaultCompanyComplianceSettings,
   normalizeCompanyCountryCode,
@@ -46,6 +47,7 @@ type AuthContextValue = {
   isSuperAdmin: boolean
   isLoading: boolean
   isAccessLoading: boolean
+  isOfflineAccess: boolean
   companySetupError: string
   can: (permission: PermissionKey) => boolean
   signOut: () => Promise<void>
@@ -216,14 +218,22 @@ async function getCurrentMembership(): Promise<
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
+  const initialOffline = useRef(!navigator.onLine ? readOfflineBootstrap(authStorageKey) : null)
+  const sessionRef = useRef<Session | null>(initialOffline.current?.session ?? null)
+  const authGeneration = useRef(0)
+  const [isOfflineAccess, setIsOfflineAccess] = useState(!!initialOffline.current)
   const [session, setSession] =
-    useState<Session | null>(null)
+    useState<Session | null>(() => {
+      const cached = initialOffline.current
+      if (cached) activateLocalIdentity(cached.session.user.id, cached.membership, false)
+      return cached?.session ?? null
+    })
 
   const [membership, setMembership] =
-    useState<CurrentMembership | null>(null)
+    useState<CurrentMembership | null>(initialOffline.current?.membership ?? null)
 
   const [isLoading, setIsLoading] =
-    useState(true)
+    useState(!initialOffline.current)
 
   const [isAccessLoading, setIsAccessLoading] =
     useState(false)
@@ -245,6 +255,8 @@ export function AuthProvider({
         return
       }
 
+      if (!navigator.onLine) return
+      const generation = authGeneration.current
       const shouldBlock =
         !accessInitializedRef.current
 
@@ -259,6 +271,9 @@ export function AuthProvider({
             'Provjera pristupa korisnika',
           )
 
+        if (generation !== authGeneration.current) return
+        rememberOfflineBootstrap(sessionRef.current!, nextMembership)
+        setIsOfflineAccess(false)
         if (nextMembership?.companyId) {
           sessionStorage.setItem('fersys_active_company_id', nextMembership.companyId)
         } else {
@@ -266,6 +281,19 @@ export function AuthProvider({
         }
         setMembership(nextMembership)
         accessInitializedRef.current = true
+      } catch (error) {
+        if (generation !== authGeneration.current) return
+        const cached = readOfflineBootstrap(authStorageKey)
+        const status = Number((error as { status?: number })?.status)
+        if (status === 401 || status === 403) {
+          clearOfflineBootstrap()
+          setMembership(null)
+        } else if (cached && cached.session.user.id === sessionRef.current?.user.id) {
+          activateLocalIdentity(cached.session.user.id, cached.membership, false)
+          setMembership(cached.membership)
+          setIsOfflineAccess(true)
+        }
+        throw error
       } finally {
         if (shouldBlock) {
           setIsAccessLoading(false)
@@ -277,6 +305,14 @@ export function AuthProvider({
     let isMounted = true
 
     async function loadInitialSession(): Promise<void> {
+      if (initialOffline.current) {
+        const cached = initialOffline.current
+        activateLocalIdentity(cached.session.user.id, cached.membership, false)
+        sessionStorage.setItem('fersys_active_company_id', cached.membership.companyId)
+        accessInitializedRef.current = true
+        return
+      }
+      const generation = authGeneration.current
       try {
         const { data, error } =
           await withTimeout(
@@ -284,13 +320,26 @@ export function AuthProvider({
             'Učitavanje korisničke sesije',
           )
 
-        if (!isMounted) return
+        if (!isMounted || generation !== authGeneration.current) return
         if (error) throw error
 
+        sessionRef.current = data.session
         setSession(data.session)
       } catch (error) {
         if (!isMounted) return
 
+        if (generation !== authGeneration.current) return
+        const cached = readOfflineBootstrap(authStorageKey)
+        const status = Number((error as { status?: number })?.status)
+        if (cached && status !== 401 && status !== 403 && status !== 400) {
+          activateLocalIdentity(cached.session.user.id, cached.membership, false)
+          sessionRef.current = cached.session
+          setSession(cached.session)
+          setMembership(cached.membership)
+          setIsOfflineAccess(true)
+          accessInitializedRef.current = true
+          return
+        }
         setSession(null)
         setCompanySetupError(
           error instanceof Error
@@ -309,11 +358,12 @@ export function AuthProvider({
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(
-      (_event, nextSession) => {
+      (event, nextSession) => {
         if (!isMounted) return
 
+        if (event === 'INITIAL_SESSION' && !navigator.onLine && initialOffline.current && !nextSession) return
         const previousUserId =
-          session?.user.id ?? null
+          sessionRef.current?.user.id ?? null
         const nextUserId =
           nextSession?.user.id ?? null
 
@@ -322,15 +372,22 @@ export function AuthProvider({
           nextUserId &&
           previousUserId !== nextUserId
         ) {
+          clearOfflineBootstrap()
+          authGeneration.current += 1
           accessInitializedRef.current = false
           preparedUserIdRef.current = null
           setMembership(null)
         }
 
+        sessionRef.current = nextSession
         setSession(nextSession)
         setIsLoading(false)
 
         if (!nextSession) {
+          authGeneration.current += 1
+          clearOfflineBootstrap()
+          initialOffline.current = null
+          setIsOfflineAccess(false)
           preparedUserIdRef.current = null
           accessInitializedRef.current = false
           sessionStorage.removeItem('fersys_active_company_id')
@@ -351,18 +408,31 @@ export function AuthProvider({
       session?.user.id ?? null
 
     if (!currentUserId) {
+      clearActiveLocalIdentity()
       setMembership(null)
+      return
+    }
+
+    if (!navigator.onLine) {
+      const cached = readOfflineBootstrap(authStorageKey)
+      if (cached?.session.user.id === currentUserId) {
+        activateLocalIdentity(currentUserId, cached.membership, false)
+        setMembership(cached.membership)
+        setIsOfflineAccess(true)
+        accessInitializedRef.current = true
+      }
       return
     }
 
     if (
       preparedUserIdRef.current === currentUserId
     ) {
-      void refreshAccess()
+      void refreshAccess().catch(() => undefined)
       return
     }
 
     let isCancelled = false
+    const generation = authGeneration.current
 
     async function prepareCompany(
       userId: string,
@@ -406,7 +476,9 @@ export function AuthProvider({
           .invoke('company-registration-notify')
           .catch(() => undefined)
 
-        if (!isCancelled) {
+        if (!isCancelled && generation === authGeneration.current) {
+          rememberOfflineBootstrap(sessionRef.current!, nextMembership)
+          setIsOfflineAccess(false)
           preparedUserIdRef.current = userId
           accessInitializedRef.current = true
           if (nextMembership?.companyId) {
@@ -417,7 +489,17 @@ export function AuthProvider({
           setMembership(nextMembership)
         }
       } catch (error) {
-        if (!isCancelled) {
+        if (!isCancelled && generation === authGeneration.current) {
+          const cached = readOfflineBootstrap(authStorageKey)
+          const status = Number((error as { status?: number })?.status)
+          if (cached?.session.user.id === userId && status !== 401 && status !== 403) {
+            activateLocalIdentity(userId, cached.membership, false)
+            setMembership(cached.membership)
+            setIsOfflineAccess(true)
+            accessInitializedRef.current = true
+            return
+          }
+          clearActiveLocalIdentity()
           setMembership(null)
           setCompanySetupError(
             error instanceof Error
@@ -459,7 +541,7 @@ export function AuthProvider({
         () => {
           window.clearTimeout(timer)
           timer = window.setTimeout(() => {
-            void refreshAccess()
+            void refreshAccess().catch(() => undefined)
           }, 150)
         },
       )
@@ -473,9 +555,10 @@ export function AuthProvider({
       const now = Date.now()
       if (now - lastFocusRefreshAt < 30_000) return
       lastFocusRefreshAt = now
-      void refreshAccess()
+      void refreshAccess().catch(() => undefined)
     }
 
+    window.addEventListener('online', refreshOnFocus)
     document.addEventListener(
       'visibilitychange',
       refreshOnFocus,
@@ -483,6 +566,7 @@ export function AuthProvider({
 
     return () => {
       window.clearTimeout(timer)
+      window.removeEventListener('online', refreshOnFocus)
       document.removeEventListener(
         'visibilitychange',
         refreshOnFocus,
@@ -492,6 +576,9 @@ export function AuthProvider({
   }, [refreshAccess, session?.user.id])
 
   async function signOut(): Promise<void> {
+    authGeneration.current += 1
+    clearOfflineBootstrap()
+    initialOffline.current = null
     const { error } = await supabase.auth.signOut()
 
     if (error) throw error
@@ -529,6 +616,8 @@ export function AuthProvider({
       } else {
         sessionStorage.removeItem('fersys_active_company_id')
       }
+      rememberOfflineBootstrap(sessionRef.current!, nextMembership)
+      setIsOfflineAccess(false)
       setMembership(nextMembership)
     } finally {
       setIsAccessLoading(false)
@@ -573,6 +662,7 @@ export function AuthProvider({
       isSuperAdmin,
       isLoading,
       isAccessLoading,
+      isOfflineAccess,
       companySetupError,
       can,
       signOut,
@@ -585,6 +675,7 @@ export function AuthProvider({
       isSuperAdmin,
       isLoading,
       isAccessLoading,
+      isOfflineAccess,
       companySetupError,
       can,
       refreshAccess,
