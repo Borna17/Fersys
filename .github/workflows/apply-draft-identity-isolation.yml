@@ -1,0 +1,42 @@
+name: Apply draft identity isolation
+
+on:
+  push:
+    branches:
+      - fix/local-first-durability-engine
+    paths:
+      - scripts/apply-draft-identity-isolation.mjs
+      - .github/workflows/apply-draft-identity-isolation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/local-first-durability-engine
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Apply strict identity isolation
+        run: node scripts/apply-draft-identity-isolation.mjs
+      - run: npm ci
+      - run: npm run build
+      - run: git diff --check
+      - name: Commit verified isolation hardening
+        run: |
+          if git diff --quiet; then
+            echo "No patch changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/drafts.service.ts
+          git commit -m "Enforce strict company and user draft sync isolation"
+          git push origin HEAD:fix/local-first-durability-engine
