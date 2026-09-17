@@ -51,3 +51,5 @@ jobs:
           git add src/services/drafts.service.ts
           git commit -m "Fix pending local draft conflict recovery"
           git push origin HEAD:fix/local-first-durability-engine
+
+# Triggered after workflow registration.
