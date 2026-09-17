@@ -11,59 +11,33 @@ import {
   LockKeyhole,
   Package,
   ReceiptText,
-  Truck,
+  Settings,
   ShieldCheck,
+  Truck,
   Users,
   UsersRound,
   Wrench,
   X,
 } from 'lucide-react'
-
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from 'react'
-
-import {
-  NavLink,
-  useLocation,
-} from 'react-router'
+import { useEffect, useMemo, useState } from 'react'
+import { NavLink, useLocation } from 'react-router'
 
 import fersysIcon from '../assets/fersys-icon.svg'
-
-import CompanyLogo from './CompanyLogo'
-
-import {
-  useCompanyBranding,
-} from '../services/companyBranding.service'
-
-import {
-  useCompanyModules,
-} from '../services/companyModules.service'
-
-import {
-  useAuth,
-} from '../auth/AuthProvider'
-
-import {
-  type PermissionKey,
-} from '../auth/permissions'
-
+import { useAuth } from '../auth/AuthProvider'
+import { type PermissionKey } from '../auth/permissions'
+import { useCompanyBranding } from '../services/companyBranding.service'
+import { useCompanyModules } from '../services/companyModules.service'
 import {
   getCompanyRoleLabel,
   useCompanyRoleLabelsSync,
 } from '../services/companyRoleLabels.service'
-
-import {
-  useSubscription,
-} from '../subscription/SubscriptionProvider'
-
+import { useSubscription } from '../subscription/SubscriptionProvider'
 import {
   featureRequiredPlan,
   plans,
   type SubscriptionFeature,
 } from '../subscription/plans'
+import CompanyLogo from './CompanyLogo'
 
 const navigationItems: Array<{
   name: string
@@ -72,377 +46,111 @@ const navigationItems: Array<{
   permission: PermissionKey
   feature?: SubscriptionFeature
 }> = [
-  {
-    name: 'Dashboard',
-    path: '/dashboard',
-    icon: Gauge,
-    permission:
-      'dashboard.view',
-  },
-
-  {
-    name: 'Investitori',
-    path: '/customers',
-    icon: Users,
-    permission:
-      'customers.view',
-    feature: 'customers',
-  },
-
-  {
-    name: 'Radni nalozi',
-    path: '/work-orders',
-    icon: Wrench,
-    permission:
-      'workOrders.view',
-    feature:
-      'work_orders',
-  },
-
-  {
-    name: 'Ponude',
-    path: '/offers',
-    icon: FileText,
-    permission:
-      'offers.view',
-    feature: 'offers',
-  },
-
-  {
-    name: 'Izlazni računi',
-    path: '/invoices',
-    icon: ReceiptText,
-    permission:
-      'invoices.view',
-    feature: 'invoices',
-  },
-
-  {
-    name: 'Ulazni računi',
-    path:
-      '/incoming-invoices',
-    icon: FileInput,
-    permission:
-      'incomingInvoices.view',
-    feature:
-      'incoming_invoices',
-  },
-
-  {
-    name: 'Kalendar',
-    path: '/calendar',
-    icon: CalendarDays,
-    permission:
-      'calendar.view',
-    feature: 'calendar',
-  },
-
-  {
-    name: 'Vozila',
-    path: '/vehicles',
-    icon: CarFront,
-    permission:
-      'vehicles.view',
-  },
-
-  {
-    name: 'Skladište',
-    path: '/inventory',
-    icon: Package,
-    permission:
-      'inventory.view',
-    feature: 'inventory',
-  },
-
-  {
-    name: 'Otpremnice',
-    path: '/inventory/delivery-notes',
-    icon: Truck,
-    permission:
-      'inventory.view',
-    feature: 'inventory',
-  },
-
-  {
-    name: 'Zaposlenici',
-    path:
-      '/settings/employees',
-    icon: UsersRound,
-    permission:
-      'employees.view',
-    feature: 'employees',
-  },
-
-  {
-    name: 'Podrška',
-    path: '/support',
-    icon: Headphones,
-    permission:
-      'dashboard.view',
-  },
-
-  {
-    name: 'AI pomoćnik',
-    path: '/ai',
-    icon: Bot,
-    permission: 'ai.use',
-    feature: 'ai',
-  },
+  { name: 'Dashboard', path: '/dashboard', icon: Gauge, permission: 'dashboard.view' },
+  { name: 'Investitori', path: '/customers', icon: Users, permission: 'customers.view', feature: 'customers' },
+  { name: 'Radni nalozi', path: '/work-orders', icon: Wrench, permission: 'workOrders.view', feature: 'work_orders' },
+  { name: 'Ponude', path: '/offers', icon: FileText, permission: 'offers.view', feature: 'offers' },
+  { name: 'Izlazni računi', path: '/invoices', icon: ReceiptText, permission: 'invoices.view', feature: 'invoices' },
+  { name: 'Ulazni računi', path: '/incoming-invoices', icon: FileInput, permission: 'incomingInvoices.view', feature: 'incoming_invoices' },
+  { name: 'Kalendar', path: '/calendar', icon: CalendarDays, permission: 'calendar.view', feature: 'calendar' },
+  { name: 'Vozila', path: '/vehicles', icon: CarFront, permission: 'vehicles.view' },
+  { name: 'Skladište', path: '/inventory', icon: Package, permission: 'inventory.view', feature: 'inventory' },
+  { name: 'Otpremnice', path: '/inventory/delivery-notes', icon: Truck, permission: 'inventory.view', feature: 'inventory' },
+  { name: 'Zaposlenici', path: '/settings/employees', icon: UsersRound, permission: 'employees.view', feature: 'employees' },
+  { name: 'Podrška', path: '/support', icon: Headphones, permission: 'dashboard.view' },
+  { name: 'AI pomoćnik', path: '/ai', icon: Bot, permission: 'ai.use', feature: 'ai' },
 ]
 
 export default function Sidebar() {
   useCompanyRoleLabelsSync()
+  const location = useLocation()
+  const { branding } = useCompanyBranding()
+  const { user, role, can, isSuperAdmin } = useAuth()
+  const { hasFeature } = useSubscription()
+  const { isPathEnabled } = useCompanyModules()
+  const [isExpanded, setIsExpanded] = useState(true)
+  const [isMobileOpen, setIsMobileOpen] = useState(false)
 
-  const location =
-    useLocation()
-
-  const {
-    branding,
-  } = useCompanyBranding()
-
-  const {
-    user,
-    role,
-    can,
-    isSuperAdmin,
-  } = useAuth()
-
-  const {
-    hasFeature,
-  } = useSubscription()
-
-  const {
-    isPathEnabled,
-  } = useCompanyModules()
-
-  const [
-    isExpanded,
-    setIsExpanded,
-  ] = useState(true)
-
-  const [
-    isMobileOpen,
-    setIsMobileOpen,
-  ] = useState(false)
-
+  useEffect(() => setIsMobileOpen(false), [location.pathname])
   useEffect(() => {
-    setIsMobileOpen(false)
-  }, [location.pathname])
-
-  useEffect(() => {
-    document.body.style.overflow =
-      isMobileOpen
-        ? 'hidden'
-        : ''
-
+    document.body.style.overflow = isMobileOpen ? 'hidden' : ''
     return () => {
-      document.body.style.overflow =
-        ''
+      document.body.style.overflow = ''
     }
   }, [isMobileOpen])
 
-  const visibleItems =
-    useMemo(
-      () =>
-        navigationItems.filter(
-          (item) =>
-            can(
-              item.permission,
-            ) &&
-            isPathEnabled(
-              item.path,
-            ),
-        ),
-      [
-        can,
-        isPathEnabled,
-      ],
-    )
+  const visibleItems = useMemo(
+    () => navigationItems.filter((item) => can(item.permission) && isPathEnabled(item.path)),
+    [can, isPathEnabled],
+  )
 
-  const displayName =
-    useMemo(() => {
-      const metadataName =
-        typeof user
-          ?.user_metadata
-          ?.full_name ===
-        'string'
-          ? user.user_metadata.full_name.trim()
-          : ''
+  const displayName = useMemo(() => {
+    const metadataName = typeof user?.user_metadata?.full_name === 'string'
+      ? user.user_metadata.full_name.trim()
+      : ''
+    const emailName = user?.email?.split('@')[0]?.replace(/[._-]+/g, ' ')?.trim() ?? ''
+    return metadataName || emailName || 'Korisnik'
+  }, [user?.email, user?.user_metadata?.full_name])
 
-      const emailName =
-        user?.email
-          ?.split('@')[0]
-          ?.replace(
-            /[._-]+/g,
-            ' ',
-          )
-          ?.trim() ?? ''
-
-      return (
-        metadataName ||
-        emailName ||
-        'Korisnik'
-      )
-    }, [
-      user?.email,
-      user?.user_metadata
-        ?.full_name,
-    ])
-
-  const displayRole =
-    role
-      ? getCompanyRoleLabel(
-          role,
-        )
-      : 'Korisnik'
+  const displayRole = role ? getCompanyRoleLabel(role) : 'Korisnik'
+  const footerProps = {
+    showSuperAdmin: isSuperAdmin,
+    showCompanySettings: can('settings.manage'),
+    displayName,
+    displayRole,
+    companyName: branding?.name || 'FERSYS tvrtka',
+    companyLogoUrl: branding?.logoUrl,
+  }
 
   return (
     <>
-      <aside
-        className={`hidden h-dvh min-h-0 shrink-0 flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${
-          isExpanded
-            ? 'w-72'
-            : 'w-[88px]'
-        }`}
-      >
+      <aside className={`hidden h-dvh min-h-0 shrink-0 flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white transition-all duration-300 md:flex ${isExpanded ? 'w-72' : 'w-[88px]'}`}>
         <SidebarHeader
-          expanded={
-            isExpanded
-          }
-          onCollapse={() =>
-            setIsExpanded(
-              false,
-            )
-          }
-          onExpand={() =>
-            setIsExpanded(
-              true,
-            )
-          }
+          expanded={isExpanded}
+          onCollapse={() => setIsExpanded(false)}
+          onExpand={() => setIsExpanded(true)}
         />
-
-        <Navigation
-          expanded={
-            isExpanded
-          }
-          items={
-            visibleItems
-          }
-          hasFeature={
-            hasFeature
-          }
-        />
-
-        <SidebarFooter
-          expanded={
-            isExpanded
-          }
-          showSuperAdmin={
-            isSuperAdmin
-          }
-          displayName={
-            displayName
-          }
-          displayRole={
-            displayRole
-          }
-          companyName={
-            branding?.name ||
-            'FERSYS tvrtka'
-          }
-          companyLogoUrl={
-            branding?.logoUrl
-          }
-        />
+        <Navigation expanded={isExpanded} items={visibleItems} hasFeature={hasFeature} />
+        <SidebarFooter expanded={isExpanded} {...footerProps} />
       </aside>
 
       {!isMobileOpen && (
         <button
           type="button"
-          onClick={() =>
-            setIsMobileOpen(
-              true,
-            )
-          }
+          onClick={() => setIsMobileOpen(true)}
           className="fixed left-0 top-1/2 z-[70] flex h-16 w-7 -translate-y-1/2 items-center justify-center rounded-r-xl border border-l-0 border-slate-700 bg-slate-900 text-slate-300 shadow-xl md:hidden"
           aria-label="Otvori izbornik"
         >
-          <ChevronRight
-            size={18}
-          />
+          <ChevronRight size={18} />
         </button>
       )}
 
       {isMobileOpen && (
         <button
           type="button"
-          onClick={() =>
-            setIsMobileOpen(
-              false,
-            )
-          }
+          onClick={() => setIsMobileOpen(false)}
           className="fixed inset-0 z-[75] bg-black/70 backdrop-blur-[2px] md:hidden"
           aria-label="Zatvori izbornik"
         />
       )}
 
-      <aside
-        className={`fixed inset-y-0 left-0 z-[80] flex h-dvh min-h-0 w-[86vw] max-w-[330px] flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white shadow-2xl transition-transform duration-200 md:hidden ${
-          isMobileOpen
-            ? 'translate-x-0'
-            : '-translate-x-full'
-        }`}
-      >
+      <aside className={`fixed inset-y-0 left-0 z-[80] flex h-dvh min-h-0 w-[86vw] max-w-[330px] flex-col overflow-hidden border-r border-slate-800 bg-slate-900 text-white shadow-2xl transition-transform duration-200 md:hidden ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex h-20 shrink-0 items-center justify-between border-b border-slate-800 px-5">
           <Brand expanded />
-
           <button
             type="button"
-            onClick={() =>
-              setIsMobileOpen(
-                false,
-              )
-            }
+            onClick={() => setIsMobileOpen(false)}
             className="grid h-10 w-10 place-items-center rounded-xl bg-slate-800 text-slate-300"
             aria-label="Zatvori izbornik"
           >
             <X size={20} />
           </button>
         </div>
-
         <p className="shrink-0 px-5 pb-3 pt-5 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Glavni izbornik
         </p>
-
-        <Navigation
-          expanded
-          items={
-            visibleItems
-          }
-          hasFeature={
-            hasFeature
-          }
-        />
-
-        <SidebarFooter
-          expanded
-          showSuperAdmin={
-            isSuperAdmin
-          }
-          displayName={
-            displayName
-          }
-          displayRole={
-            displayRole
-          }
-          companyName={
-            branding?.name ||
-            'FERSYS tvrtka'
-          }
-          companyLogoUrl={
-            branding?.logoUrl
-          }
-        />
+        <Navigation expanded items={visibleItems} hasFeature={hasFeature} />
+        <SidebarFooter expanded {...footerProps} />
       </aside>
     </>
   )
@@ -459,35 +167,19 @@ function SidebarHeader({
 }) {
   return (
     <>
-      <div
-        className={`flex h-24 items-center ${
-          expanded
-            ? 'justify-between px-6'
-            : 'justify-center'
-        }`}
-      >
-        <Brand
-          expanded={
-            expanded
-          }
-        />
-
+      <div className={`flex h-24 items-center ${expanded ? 'justify-between px-6' : 'justify-center'}`}>
+        <Brand expanded={expanded} />
         {expanded && (
           <button
             type="button"
-            onClick={
-              onCollapse
-            }
+            onClick={onCollapse}
             className="grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
             aria-label="Smanji izbornik"
           >
-            <ChevronLeft
-              size={20}
-            />
+            <ChevronLeft size={20} />
           </button>
         )}
       </div>
-
       {!expanded && (
         <button
           type="button"
@@ -495,12 +187,9 @@ function SidebarHeader({
           className="mx-auto mb-4 grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
           aria-label="Proširi izbornik"
         >
-          <ChevronRight
-            size={20}
-          />
+          <ChevronRight size={20} />
         </button>
       )}
-
       {expanded && (
         <p className="px-6 pb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
           Glavni izbornik
@@ -516,110 +205,47 @@ function Navigation({
   hasFeature,
 }: {
   expanded: boolean
-  items:
-    typeof navigationItems
-  hasFeature: (
-    feature:
-      SubscriptionFeature,
-  ) => boolean
+  items: typeof navigationItems
+  hasFeature: (feature: SubscriptionFeature) => boolean
 }) {
   return (
     <nav className="fersys-scrollbar-hidden min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain px-3 pb-5">
-      {items.map(
-        (item) => {
-          const Icon =
-            item.icon
-
-          const isLocked =
-            item.feature
-              ? !hasFeature(
-                  item.feature,
-                )
-              : false
-
-          const requiredPlan =
-            item.feature
-              ? plans[
-                  featureRequiredPlan[
-                    item
-                      .feature
-                  ]
-                ].name
-              : ''
-
-          return (
-            <NavLink
-              key={
-                item.path
-              }
-              to={
-                isLocked
-                  ? '/pricing'
-                  : item.path
-              }
-              title={
-                !expanded
-                  ? item.name
-                  : undefined
-              }
-              className={({
-                isActive,
-              }) =>
-                `relative flex h-12 items-center rounded-xl transition ${
-                  expanded
-                    ? 'gap-3 px-4'
-                    : 'justify-center'
-                } ${
-                  isActive
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30'
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
-                }`
-              }
-            >
-              <Icon
-                size={21}
-                className="shrink-0"
-              />
-
-              {expanded && (
-                <>
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    {
-                      item.name
-                    }
-                  </span>
-
-                  {isLocked && (
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300"
-                      title={`Dostupno u ${requiredPlan}`}
-                    >
-                      <LockKeyhole
-                        size={
-                          10
-                        }
-                      />
-
-                      {
-                        requiredPlan
-                      }
-                    </span>
-                  )}
-                </>
-              )}
-
-              {!expanded &&
-                isLocked && (
-                  <span className="absolute ml-7 mt-[-24px] grid h-4 w-4 place-items-center rounded-full bg-violet-600 text-white">
-                    <LockKeyhole
-                      size={9}
-                    />
+      {items.map((item) => {
+        const Icon = item.icon
+        const isLocked = item.feature ? !hasFeature(item.feature) : false
+        const requiredPlan = item.feature ? plans[featureRequiredPlan[item.feature]].name : ''
+        return (
+          <NavLink
+            key={item.path}
+            to={isLocked ? '/pricing' : item.path}
+            title={!expanded ? item.name : undefined}
+            className={({ isActive }) =>
+              `relative flex h-12 items-center rounded-xl transition ${expanded ? 'gap-3 px-4' : 'justify-center'} ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`
+            }
+          >
+            <Icon size={21} className="shrink-0" />
+            {expanded && (
+              <>
+                <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.name}</span>
+                {isLocked && (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-0.5 text-[9px] font-black uppercase tracking-wide text-violet-300"
+                    title={`Dostupno u ${requiredPlan}`}
+                  >
+                    <LockKeyhole size={10} />
+                    {requiredPlan}
                   </span>
                 )}
-            </NavLink>
-          )
-        },
-      )}
+              </>
+            )}
+            {!expanded && isLocked && (
+              <span className="absolute ml-7 mt-[-24px] grid h-4 w-4 place-items-center rounded-full bg-violet-600 text-white">
+                <LockKeyhole size={9} />
+              </span>
+            )}
+          </NavLink>
+        )
+      })}
     </nav>
   )
 }
@@ -627,6 +253,7 @@ function Navigation({
 function SidebarFooter({
   expanded,
   showSuperAdmin,
+  showCompanySettings,
   displayName,
   displayRole,
   companyName,
@@ -634,6 +261,7 @@ function SidebarFooter({
 }: {
   expanded: boolean
   showSuperAdmin: boolean
+  showCompanySettings: boolean
   displayName: string
   displayRole: string
   companyName: string
@@ -644,84 +272,53 @@ function SidebarFooter({
       {showSuperAdmin && (
         <NavLink
           to="/admin"
-          title={
-            !expanded
-              ? 'Super Admin'
-              : undefined
-          }
-          className={({
-            isActive,
-          }) =>
-            `mb-3 flex h-12 items-center rounded-xl border transition ${
-              expanded
-                ? 'gap-3 px-4'
-                : 'justify-center'
-            } ${
-              isActive
-                ? 'border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-950/30'
-                : 'border-violet-500/20 bg-violet-500/5 text-violet-300 hover:border-violet-500/40 hover:bg-violet-500/10'
-            }`
+          title={!expanded ? 'Super Admin' : undefined}
+          className={({ isActive }) =>
+            `mb-3 flex h-12 items-center rounded-xl border transition ${expanded ? 'gap-3 px-4' : 'justify-center'} ${isActive ? 'border-violet-500 bg-violet-600 text-white shadow-lg shadow-violet-950/30' : 'border-violet-500/20 bg-violet-500/5 text-violet-300 hover:border-violet-500/40 hover:bg-violet-500/10'}`
           }
         >
-          <ShieldCheck
-            size={21}
-            className="shrink-0"
-          />
+          <ShieldCheck size={21} className="shrink-0" />
+          {expanded && <span className="text-sm font-semibold">Super Admin</span>}
+        </NavLink>
+      )}
 
-          {expanded && (
-            <span className="text-sm font-semibold">
-              Super Admin
-            </span>
-          )}
+      {showCompanySettings && (
+        <NavLink
+          to="/settings"
+          title={!expanded ? 'Postavke tvrtke' : undefined}
+          className={({ isActive }) =>
+            `mb-3 flex h-12 items-center rounded-xl transition ${expanded ? 'gap-3 px-4' : 'justify-center'} ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-950/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`
+          }
+        >
+          <Settings size={21} className="shrink-0" />
+          {expanded && <span className="text-sm font-semibold">Postavke tvrtke</span>}
         </NavLink>
       )}
 
       <UserCard
-        expanded={
-          expanded
-        }
-        displayName={
-          displayName
-        }
-        displayRole={
-          displayRole
-        }
-        companyName={
-          companyName
-        }
-        companyLogoUrl={
-          companyLogoUrl
-        }
+        expanded={expanded}
+        displayName={displayName}
+        displayRole={displayRole}
+        companyName={companyName}
+        companyLogoUrl={companyLogoUrl}
       />
     </div>
   )
 }
 
-function Brand({
-  expanded,
-}: {
-  expanded: boolean
-}) {
+function Brand({ expanded }: { expanded: boolean }) {
   return (
     <div className="flex min-w-0 items-center">
       {expanded ? (
         <div className="flex items-center gap-3">
-          <img
-            src={fersysIcon}
-            alt="FERSYS"
-            className="h-11 w-11 shrink-0 object-contain"
-          />
+          <img src={fersysIcon} alt="FERSYS" className="h-11 w-11 shrink-0 object-contain" />
           <div className="min-w-0">
             <div className="text-lg font-black tracking-[0.08em] text-white">FERSYS</div>
             <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-blue-400">Business</div>
           </div>
         </div>
       ) : (
-        <img
-          src={fersysIcon}
-          alt="FERSYS"
-          className="h-11 w-11 shrink-0 object-contain"
-        />
+        <img src={fersysIcon} alt="FERSYS" className="h-11 w-11 shrink-0 object-contain" />
       )}
     </div>
   )
@@ -744,35 +341,15 @@ function UserCard({
     <NavLink
       to="/account"
       className={({ isActive }) =>
-        `flex items-center rounded-2xl transition ${
-          isActive ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-slate-800/70 hover:bg-slate-800'
-        } ${expanded ? 'gap-3 p-3' : 'justify-center p-2'}`
+        `flex items-center rounded-2xl transition ${isActive ? 'bg-blue-600/20 ring-1 ring-blue-500/30' : 'bg-slate-800/70 hover:bg-slate-800'} ${expanded ? 'gap-3 p-3' : 'justify-center p-2'}`
       }
-      title={
-        !expanded
-          ? `${displayName} · ${displayRole}`
-          : 'Otvori moje postavke'
-      }
+      title={!expanded ? `${displayName} · ${displayRole}` : 'Otvori moje postavke'}
     >
-      <CompanyLogo
-        logoUrl={
-          companyLogoUrl
-        }
-        companyName={
-          companyName
-        }
-        className="h-10 w-10"
-      />
-
+      <CompanyLogo logoUrl={companyLogoUrl} companyName={companyName} className="h-10 w-10" />
       {expanded && (
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">
-            {displayName}
-          </p>
-
-          <p className="truncate text-xs text-slate-400">
-            {displayRole}
-          </p>
+          <p className="truncate text-sm font-semibold">{displayName}</p>
+          <p className="truncate text-xs text-slate-400">{displayRole}</p>
         </div>
       )}
     </NavLink>
