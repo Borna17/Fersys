@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://www.fersys.app/sitemap.xml
+Sitemap: https://fersys.app/sitemap.xml
