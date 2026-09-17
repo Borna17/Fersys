@@ -41,4 +41,5 @@ const newBlock = `export async function getEmployees(): Promise<
 `
 
 source = source.slice(0, start) + newBlock + source.slice(end + 1)
+source = source.split('\n').map((line) => line.trimEnd()).join('\n')
 fs.writeFileSync(path, source)
