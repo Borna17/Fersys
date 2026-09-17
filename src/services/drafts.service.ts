@@ -868,6 +868,29 @@ async function uploadEnvelope(
     throw error
   }
 
+  // Recovery history is append-only and must never block normal draft sync.
+  // The latest user_drafts row remains the fast current state, while these
+  // snapshots give Admin Recovery older versions after a failed/overwritten save.
+  try {
+    const { error: recoveryError } = await supabase
+      .from('recovery_snapshots')
+      .insert({
+        company_id: envelope.companyId,
+        user_id: envelope.userId,
+        draft_type: envelope.draftType,
+        draft_key: envelope.draftKey,
+        payload: envelope.payload,
+        reason: 'draft_sync',
+        source_updated_at: envelope.updatedAt,
+      })
+
+    if (recoveryError) {
+      console.warn('[FERSYS] Recovery snapshot nije spremljen:', recoveryError)
+    }
+  } catch (recoveryError) {
+    console.warn('[FERSYS] Recovery snapshot trenutno nije dostupan:', recoveryError)
+  }
+
   await putLocal({
     ...envelope,
     syncState:
