@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   Award,
   Building2,
+  DatabaseBackup,
   Gauge,
   Headphones,
   LayoutDashboard,
@@ -44,6 +45,11 @@ const items = [
     name: 'Sustav',
     path: '/admin/system',
     icon: ServerCog,
+  },
+  {
+    name: 'Recovery',
+    path: '/admin/recovery',
+    icon: DatabaseBackup,
   },
   {
     name: 'Tvrtke',

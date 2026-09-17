@@ -1,0 +1,51 @@
+name: P0 Final Validation
+
+on:
+  push:
+    branches:
+      - fix/local-first-durability-engine
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Auth durability tests
+        run: npm run test:auth
+
+      - name: Full test suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Verify P0 recovery wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f src/admin/AdminRecoveryPage.tsx
+          grep -R "admin_get_recovery_snapshots_v1" -n src supabase
+          grep -R "recovery_snapshots" -n src supabase
+          grep -R "attachment" -n src/services src/pages | head -n 20
+          grep -R "'/admin/recovery'\|\"/admin/recovery\"" -n src/admin src/router
+
+      - name: Git whitespace check
+        run: git diff --check HEAD^
