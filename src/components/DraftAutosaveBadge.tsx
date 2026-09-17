@@ -43,7 +43,9 @@ export default function DraftAutosaveBadge({
     setVisible(true)
     setDragX(0)
 
-    if (state === 'saved') {
+    // Kada nacrt ima akciju brisanja, obavijest ostaje dostupna kako bi
+    // korisnik u svakom trenutku mogao odbaciti nedovršeni posao i krenuti ispočetka.
+    if (state === 'saved' && !onDiscard) {
       const timer = window.setTimeout(() => setVisible(false), 1400)
       return () => window.clearTimeout(timer)
     }
@@ -98,14 +100,14 @@ export default function DraftAutosaveBadge({
     state === 'saving'
       ? 'Automatsko spremanje...'
       : state === 'saved'
-        ? 'Automatski spremljeno'
+        ? 'Nedovršeni nalog je spremljen'
         : text
 
   const dragOpacity = Math.max(0.25, 1 - Math.abs(dragX) / 180)
 
   return (
     <div
-      className="fixed left-1/2 top-[5.35rem] z-[90] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 touch-pan-y select-none items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl md:bottom-4 md:left-auto md:right-4 md:top-auto md:max-w-sm md:translate-x-0 md:text-sm"
+      className="fixed left-1/2 top-[5.35rem] z-[90] flex max-w-[calc(100vw-1.5rem)] -translate-x-1/2 touch-pan-y select-none items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950/95 px-3 py-2 text-xs shadow-xl backdrop-blur-xl md:bottom-4 md:left-auto md:right-4 md:top-auto md:max-w-md md:translate-x-0 md:text-sm"
       style={{
         translate: `${dragX}px 0`,
         opacity: dragOpacity,
@@ -144,11 +146,12 @@ export default function DraftAutosaveBadge({
           type="button"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={onDiscard}
-          className="grid h-7 w-7 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-red-500/10 hover:text-red-400"
-          title="Odbaci nedovršeni nacrt"
-          aria-label="Odbaci nedovršeni nacrt"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-red-500/20 bg-red-500/10 px-2.5 font-black text-red-300 transition hover:border-red-500/40 hover:bg-red-500/20 hover:text-red-200"
+          title="Obriši nedovršeni nalog i započni novi"
+          aria-label="Obriši nedovršeni nalog i započni novi"
         >
           <Trash2 size={14} />
+          <span>Obriši nacrt</span>
         </button>
       )}
 
