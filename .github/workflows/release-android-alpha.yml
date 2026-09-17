@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - fix/local-first-durability-engine
     paths:
       - '.github/release-android-alpha.trigger'
 
@@ -22,8 +23,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Checkout
+      - name: Checkout exact release source
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record release source
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Release ref: $GITHUB_REF_NAME"
+          echo "Release SHA: $GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -50,14 +60,20 @@ jobs:
           done
       - name: Install dependencies
         run: npm ci
-      - name: Build web app
+      - name: Run tests before native packaging
+        run: npm test -- --run
+      - name: Remove stale generated web assets
+        run: rm -rf dist android/app/src/main/assets/public
+      - name: Build fresh production web app
         run: npm run build
-      - name: Verify web startup assets
+      - name: Verify current web source and fresh build
         shell: bash
         run: |
           set -euo pipefail
+          test -s src/pages/SettingsPage.tsx
+          grep -q "Postavke" src/pages/SettingsPage.tsx
           test -s dist/index.html
-          test -n "$(find dist/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+          test -n "$(find dist/assets -maxdepth 1 -type f -name '*.js' -print -quit)"
       - name: Restore Firebase Android config
         shell: bash
         env:
@@ -82,14 +98,39 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           keyPassword=$ANDROID_KEY_PASSWORD
           EOF
-      - name: Sync Capacitor Android
+      - name: Sync fresh web build into Capacitor Android
         run: npx cap sync android
-      - name: Verify Capacitor copied startup assets
+      - name: Prove Android contains exact fresh web build
         shell: bash
         run: |
           set -euo pipefail
           test -s android/app/src/main/assets/public/index.html
-          test -n "$(find android/app/src/main/assets/public/assets -maxdepth 1 -type f -name 'index-*.js' -print -quit)"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib
+          def manifest(root):
+              root = Path(root)
+              return {p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in sorted(root.rglob('*')) if p.is_file()}
+          web = manifest('dist')
+          native = manifest('android/app/src/main/assets/public')
+          if web != native:
+              missing = sorted(set(web) - set(native))
+              extra = sorted(set(native) - set(web))
+              changed = sorted(k for k in set(web) & set(native) if web[k] != native[k])
+              raise SystemExit(f'STALE ANDROID ASSETS: missing={missing[:10]} extra={extra[:10]} changed={changed[:10]}')
+          print(f'Android parity OK: {len(web)} files match dist byte-for-byte')
+          PY
+      - name: Read and verify Android version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION_CODE=$(sed -n 's/.*versionCode \([0-9][0-9]*\).*/\1/p' android/app/build.gradle | head -1)
+          VERSION_NAME=$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' android/app/build.gradle | head -1)
+          test -n "$VERSION_CODE" && test -n "$VERSION_NAME"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "FERSYS $VERSION_NAME ($VERSION_CODE), source $GITHUB_SHA"
       - name: Make Gradle wrapper executable
         run: chmod +x android/gradlew
       - name: Build signed Android App Bundle
@@ -113,5 +154,5 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           tracks: alpha
           status: completed
-          releaseName: FERSYS 1.0.14
+          releaseName: FERSYS ${{ env.VERSION_NAME }} (${{ env.VERSION_CODE }})
           changesNotSentForReview: false
