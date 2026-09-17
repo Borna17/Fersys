@@ -1,0 +1,53 @@
+name: Apply draft conflict recovery fix
+
+on:
+  push:
+    branches:
+      - fix/local-first-durability-engine
+    paths:
+      - .github/workflows/apply-fix-draft-conflict-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/local-first-durability-engine
+          fetch-depth: 0
+
+      - name: Preserve pending local draft over newer cloud draft
+        shell: python
+        run: |
+          from pathlib import Path
+          path = Path('src/services/drafts.service.ts')
+          text = path.read_text()
+          old = """  if (\n    cloud &&\n    (\n      !local ||\n      new Date(\n        cloud.updatedAt,\n      ).getTime() >\n        new Date(\n          local.updatedAt,\n        ).getTime()\n    )\n  ) {"""
+          new = """  if (\n    cloud &&\n    (\n      !local ||\n      (\n        local.syncState !== 'pending' &&\n        new Date(\n          cloud.updatedAt,\n        ).getTime() >\n          new Date(\n            local.updatedAt,\n          ).getTime()\n      )\n    )\n  ) {"""
+          if old not in text:
+              raise SystemExit('Expected loadUserDraft cloud selection block was not found; refusing unsafe patch.')
+          path.write_text(text.replace(old, new, 1))
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run P0 focused tests
+        run: npx vitest run tests/auth/offlineAuthBootstrap.test.ts tests/auth/offlineAuthExpiry.test.ts tests/services/runtimeCache.test.ts tests/services/workOrderAttachmentDrafts.test.ts tests/services/draftConflictRecovery.test.ts
+
+      - name: Build
+        run: npm run build
+
+      - name: Commit verified fix
+        run: |
+          if git diff --quiet; then
+            echo "No change required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/services/drafts.service.ts
+          git commit -m "Fix pending local draft conflict recovery"
+          git push origin HEAD:fix/local-first-durability-engine
