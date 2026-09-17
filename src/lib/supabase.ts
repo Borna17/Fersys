@@ -19,11 +19,14 @@ if (!supabasePublishableKey) {
   )
 }
 
+export const authStorageKey = `sb-${new URL(supabaseUrl).hostname.split('.')[0]}-auth-token`
+
 const client = createClient(
   supabaseUrl,
   supabasePublishableKey,
   {
     auth: {
+      storageKey: authStorageKey,
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,

@@ -1,0 +1,42 @@
+name: Apply work order attachment drafts
+
+on:
+  push:
+    branches:
+      - fix/local-first-durability-engine
+    paths:
+      - scripts/apply-work-order-attachment-drafts.mjs
+      - .github/workflows/apply-work-order-attachment-drafts.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/local-first-durability-engine
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Separate attachment drafts from structured autosave
+        run: node scripts/apply-work-order-attachment-drafts.mjs
+      - run: npm ci
+      - run: npm run build
+      - run: git diff --check
+      - name: Commit verified attachment integration
+        run: |
+          if git diff --quiet; then
+            echo "No patch changes to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/EditWorkOrderPage.tsx
+          git commit -m "Separate work order attachments from autosave payload"
+          git push origin HEAD:fix/local-first-durability-engine

@@ -1,0 +1,91 @@
+name: Apply local-first durability engine
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-local-first-durability.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Patch draft engine and edited work-order recovery
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/services/drafts.service.ts')
+          s = p.read_text(encoding='utf-8-sig')
+
+          identity_anchor = """async function getIdentity():\nPromise<Identity> {"""
+          if identity_anchor not in s:
+              raise SystemExit('getIdentity anchor missing')
+
+          # Cached identity is the fast path. Network validation must never run before local persistence.
+          insert = """function getLocalIdentity(): Identity | null {\n  return readCachedIdentity()\n}\n\n"""
+          s = s.replace(identity_anchor, insert + identity_anchor, 1)
+
+          old_save = """export async function saveUserDraft<T>(\n  draftType: DraftType,\n  draftKey: string,\n  payload: T,\n): Promise<string> {\n  const identity =\n    await getIdentity()"""
+          new_save = """export async function saveUserDraft<T>(\n  draftType: DraftType,\n  draftKey: string,\n  payload: T,\n): Promise<string> {\n  // Critical path is local-only whenever this device already has a verified identity.\n  // This prevents a slow/failed Supabase RPC from blocking IndexedDB autosave.\n  const identity =\n    getLocalIdentity() ?? await getIdentity()"""
+          if old_save not in s:
+              raise SystemExit('saveUserDraft identity anchor missing')
+          s = s.replace(old_save, new_save, 1)
+
+          old_upload = """  if (\n    navigator.onLine\n  ) {\n    try {\n      await uploadEnvelope(\n        envelope,\n      )\n    } catch (error) {\n      console.warn(\n        'Cloud autosave trenutno nije dostupan:',\n        error,\n      )\n    }\n  }\n\n  window.dispatchEvent(\n    new Event(\n      'fersys:draft-sync-change',\n    ),\n  )\n\n  return updatedAt"""
+          new_upload = """  if (navigator.onLine) {\n    // Cloud is intentionally outside the save critical path. Local success returns immediately.\n    void uploadEnvelope(envelope)\n      .then(() => {\n        window.dispatchEvent(new Event('fersys:draft-sync-change'))\n      })\n      .catch((error) => {\n        console.warn('Cloud autosave trenutno nije dostupan:', error)\n        window.dispatchEvent(new Event('fersys:draft-sync-change'))\n      })\n  }\n\n  return updatedAt"""
+          if old_upload not in s:
+              raise SystemExit('cloud upload anchor missing')
+          s = s.replace(old_upload, new_upload, 1)
+
+          # Local recovery and deletion must not wait for network identity validation either.
+          load_anchor = """export async function loadUserDraft<T>(\n  draftType: DraftType,\n  draftKey: string,\n): Promise<DraftRecord<T> | null> {\n  const identity =\n    await getIdentity()"""
+          load_new = """export async function loadUserDraft<T>(\n  draftType: DraftType,\n  draftKey: string,\n): Promise<DraftRecord<T> | null> {\n  const identity =\n    getLocalIdentity() ?? await getIdentity()"""
+          if load_anchor not in s:
+              raise SystemExit('loadUserDraft identity anchor missing')
+          s = s.replace(load_anchor, load_new, 1)
+
+          delete_anchor = """export async function deleteUserDraft(\n  draftType: DraftType,\n  draftKey: string,\n): Promise<void> {\n  const identity =\n    await getIdentity()"""
+          delete_new = """export async function deleteUserDraft(\n  draftType: DraftType,\n  draftKey: string,\n): Promise<void> {\n  const identity =\n    getLocalIdentity() ?? await getIdentity()"""
+          if delete_anchor not in s:
+              raise SystemExit('deleteUserDraft identity anchor missing')
+          s = s.replace(delete_anchor, delete_new, 1)
+
+          status_anchor = """    const identity =\n      await getIdentity()\n\n    const drafts =\n      await listLocal()"""
+          status_new = """    const identity =\n      getLocalIdentity() ?? await getIdentity()\n\n    const drafts =\n      await listLocal()"""
+          if status_anchor not in s:
+              raise SystemExit('sync status identity anchor missing')
+          s = s.replace(status_anchor, status_new, 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          p = Path('src/pages/EditWorkOrderPage.tsx')
+          s = p.read_text(encoding='utf-8-sig')
+          dangerous = """        } else if (draft) {\n          // Server ima noviju verziju naloga. Stari nacrt ne smije pregaziti nove podatke.\n          await deleteUserDraft('work-order', draftKey)\n        }"""
+          safe = """        } else if (draft) {\n          // Never destroy a recoverable local edit because the server base changed.\n          // Keep both versions and surface recovery instead of silently deleting user work.\n          setAutosaveState('restored')\n          setAutosaveText(\n            `Pronađene su sačuvane izmjene iz prethodne verzije · ${formatDraftSavedAt(draft.updatedAt)}`,\n          )\n        }"""
+          if dangerous not in s:
+              raise SystemExit('dangerous stale-draft deletion anchor missing')
+          s = s.replace(dangerous, safe, 1)
+          p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Install dependencies
+        run: npm ci
+      - name: Build
+        run: npm run build
+      - name: Commit verified durability patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/services/drafts.service.ts src/pages/EditWorkOrderPage.tsx
+          git diff --cached --check
+          git commit -m 'Make draft persistence local-first and preserve conflicts'
+          git push

@@ -45,6 +45,11 @@ import {
 } from '../services/employees.service'
 import { getWorkOrderEditAccess } from '../services/workOrderAccess.service'
 import {
+  deleteWorkOrderAttachmentDraft,
+  loadWorkOrderAttachmentDraft,
+  saveWorkOrderAttachmentDraft,
+} from '../services/workOrderAttachmentDrafts.service'
+import {
   getWorkOrderById,
   updateWorkOrder,
 } from '../services/workOrders.service'
@@ -159,6 +164,7 @@ export function EditWorkOrderPage() {
   const saveSucceededRef = useRef(false)
   const pendingDraftRef = useRef<any>(null)
   const pendingDraftDirtyRef = useRef(false)
+  const [staleRecoveryDraft, setStaleRecoveryDraft] = useState<any>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -233,7 +239,10 @@ export function EditWorkOrderPage() {
         setBaseUpdatedAt(savedOrder.updatedAt)
 
         const draftKey = `edit:${id}`
-        const draft = await loadUserDraft<any>('work-order', draftKey)
+        const [draft, attachmentDraft] = await Promise.all([
+          loadUserDraft<any>('work-order', draftKey),
+          loadWorkOrderAttachmentDraft(id),
+        ])
         const value = draft?.payload ?? null
         const sameBase =
           value && value.baseUpdatedAt === savedOrder.updatedAt
@@ -260,13 +269,17 @@ export function EditWorkOrderPage() {
           setVatRate(value.vatRate ?? String(savedOrder.vatRate))
           setPriceNote(value.priceNote ?? savedOrder.priceNote)
           setInvestorName(value.investorName ?? savedOrder.investorName)
-          setInvestorSignature(value.investorSignature ?? savedOrder.investorSignature)
-          setImages(Array.isArray(value.images) ? value.images : savedOrder.images)
+          setInvestorSignature(attachmentDraft?.investorSignature ?? value.investorSignature ?? savedOrder.investorSignature)
+          setImages(attachmentDraft?.images ?? (Array.isArray(value.images) ? value.images : savedOrder.images))
           setAutosaveState('restored')
           setAutosaveText(`Vraćene nespremljene izmjene · ${formatDraftSavedAt(draft!.updatedAt)}`)
         } else if (draft) {
-          // Server ima noviju verziju naloga. Stari nacrt ne smije pregaziti nove podatke.
-          await deleteUserDraft('work-order', draftKey)
+          // Keep stale edits recoverable instead of silently deleting or applying them.
+          setStaleRecoveryDraft(draft)
+          setAutosaveState('restored')
+          setAutosaveText(
+            `Pronađene su sačuvane izmjene iz prethodne verzije · ${formatDraftSavedAt(draft.updatedAt)}`,
+          )
         }
 
         baselineRef.current = JSON.stringify({
@@ -291,11 +304,9 @@ export function EditWorkOrderPage() {
           vatRate: sameBase ? value.vatRate ?? String(savedOrder.vatRate) : String(savedOrder.vatRate),
           priceNote: sameBase ? value.priceNote ?? savedOrder.priceNote : savedOrder.priceNote,
           investorName: sameBase ? value.investorName ?? savedOrder.investorName : savedOrder.investorName,
-          investorSignature: sameBase ? value.investorSignature ?? savedOrder.investorSignature : savedOrder.investorSignature,
-          images: sameBase && Array.isArray(value.images) ? value.images : savedOrder.images,
         })
         setDraftReady(true)
-        if (!sameBase) {
+        if (!sameBase && !draft) {
           setAutosaveState('saved')
           setAutosaveText('Automatsko spremanje uključeno')
         }
@@ -326,14 +337,13 @@ export function EditWorkOrderPage() {
       customerPhone, customerEmail, customerOib, address, date,
       arrivalTime, departureTime, status, priority, title, description,
       assignedWorkers, materials, labourPrice, discountRate, vatRate,
-      priceNote, investorName, investorSignature, images,
+      priceNote, investorName,
     }
     const serialized = JSON.stringify({
       customerId, customerName, customerContactPerson, customerPhone,
       customerEmail, customerOib, address, date, arrivalTime, departureTime,
       status, priority, title, description, assignedWorkers, materials,
       labourPrice, discountRate, vatRate, priceNote, investorName,
-      investorSignature, images,
     })
 
     if (serialized === baselineRef.current) return
@@ -364,8 +374,20 @@ export function EditWorkOrderPage() {
     customerContactPerson, customerPhone, customerEmail, customerOib,
     address, date, arrivalTime, departureTime, status, priority, title,
     description, assignedWorkers, materials, labourPrice, discountRate,
-    vatRate, priceNote, investorName, investorSignature, images,
+    vatRate, priceNote, investorName,
   ])
+
+  useEffect(() => {
+    if (!draftReady || !id || saveSucceededRef.current) return
+
+    const timer = window.setTimeout(() => {
+      void saveWorkOrderAttachmentDraft(id, images, investorSignature).catch((error) => {
+        console.error('Lokalno spremanje fotografija/potpisa nije uspjelo:', error)
+      })
+    }, 400)
+
+    return () => window.clearTimeout(timer)
+  }, [draftReady, id, images, investorSignature])
 
   useEffect(() => {
     if (!draftReady || !id) return
@@ -620,6 +642,38 @@ export function EditWorkOrderPage() {
     setImages((current) => current.filter((image) => image.id !== imageId))
   }
 
+  function restoreStaleRecoveryDraft() {
+    const value = staleRecoveryDraft?.payload
+    if (!value) return
+
+    setCustomerId(value.customerId ?? customerId)
+    setCustomerName(value.customerName ?? customerName)
+    setCustomerContactPerson(value.customerContactPerson ?? customerContactPerson)
+    setCustomerPhone(value.customerPhone ?? customerPhone)
+    setCustomerEmail(value.customerEmail ?? customerEmail)
+    setCustomerOib(value.customerOib ?? customerOib)
+    setAddress(value.address ?? address)
+    setDate(value.date ?? date)
+    setArrivalTime(value.arrivalTime ?? arrivalTime)
+    setDepartureTime(value.departureTime ?? departureTime)
+    setStatus(value.status ?? status)
+    setPriority(value.priority ?? priority)
+    setTitle(value.title ?? title)
+    setDescription(value.description ?? description)
+    if (Array.isArray(value.assignedWorkers)) setAssignedWorkers(value.assignedWorkers)
+    if (Array.isArray(value.materials)) setMaterials(value.materials)
+    setLabourPrice(value.labourPrice ?? labourPrice)
+    setDiscountRate(value.discountRate ?? discountRate)
+    setVatRate(value.vatRate ?? vatRate)
+    setPriceNote(value.priceNote ?? priceNote)
+    setInvestorName(value.investorName ?? investorName)
+    setInvestorSignature(value.investorSignature ?? investorSignature)
+    if (Array.isArray(value.images)) setImages(value.images)
+    setStaleRecoveryDraft(null)
+    setAutosaveState('restored')
+    setAutosaveText('Vraćene su sačuvane izmjene. Pregledajte ih prije spremanja.')
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!id || isSaving) return
@@ -658,8 +712,21 @@ export function EditWorkOrderPage() {
       vatRate: canViewPrices ? Number(vatRate) || 0 : 0,
     })
 
+    const recoveryPayload = {
+      baseUpdatedAt, customerId, customerName, customerContactPerson, customerPhone,
+      customerEmail, customerOib, address, date, arrivalTime, departureTime, status,
+      priority, title, description, assignedWorkers, materials, labourPrice, discountRate,
+      vatRate, priceNote, investorName,
+    }
+
     try {
       setIsSaving(true)
+      // Persist the exact form state locally before the network becomes critical.
+      await Promise.all([
+        saveUserDraft('work-order', `edit:${id}`, recoveryPayload),
+        saveWorkOrderAttachmentDraft(id, images, investorSignature),
+      ])
+      pendingDraftDirtyRef.current = false
       const saved = await updateWorkOrder(id, {
         customerId,
         customerName: customerName.trim(),
@@ -724,12 +791,23 @@ export function EditWorkOrderPage() {
 
       saveSucceededRef.current = true
       try {
-        await deleteUserDraft('work-order', `edit:${id}`)
+        await Promise.all([
+        deleteUserDraft('work-order', `edit:${id}`),
+        deleteWorkOrderAttachmentDraft(id),
+      ])
       } catch (draftError) {
         console.warn('Spremljen nalog, ali nacrt nije očišćen:', draftError)
       }
       navigate(`/work-orders/${saved.id}`, { replace: true })
     } catch (error) {
+      // Keep a fresh local recovery copy even when the canonical save fails.
+      try {
+        await saveUserDraft('work-order', `edit:${id}`, recoveryPayload)
+      } catch (draftError) {
+        console.error('Recovery snapshot nakon greške spremanja nije uspio:', draftError)
+      }
+      setAutosaveState('offline')
+      setAutosaveText('Izmjene su sačuvane kao nacrt za oporavak.')
       alert(
         error instanceof Error
           ? error.message
@@ -789,6 +867,19 @@ export function EditWorkOrderPage() {
   return (
     <>
       <DraftAutosaveBadge state={autosaveState} text={autosaveText} />
+      {staleRecoveryDraft ? (
+        <section className="mx-auto mb-4 w-full max-w-[1500px] rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-black">Pronađene su ranije nespremljene izmjene</p>
+              <p className="mt-1 text-sm text-amber-200">Server ima noviju verziju pa ih FERSYS nije automatski pregazio. Možete ih sigurno vratiti i pregledati.</p>
+            </div>
+            <button type="button" onClick={restoreStaleRecoveryDraft} className="min-h-11 shrink-0 rounded-xl bg-amber-400 px-4 font-black text-slate-950">
+              Vrati izmjene
+            </button>
+          </div>
+        </section>
+      ) : null}
       <form
         id="mobile-edit-work-order-form"
         onSubmit={submit}

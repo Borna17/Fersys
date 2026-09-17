@@ -16,6 +16,7 @@ import {
 } from 'react-router'
 
 import { useAuth } from '../auth/AuthProvider'
+import { readOfflineSubscription, rememberOfflineSubscription } from './offlineSubscription'
 import LimitReachedModal from '../components/subscription/LimitReachedModal'
 import {
   getSubscriptionContext,
@@ -126,6 +127,7 @@ export function SubscriptionProvider({
     session,
     membership,
     isAccessLoading,
+    isOfflineAccess,
   } = useAuth()
 
   const [subscription, setSubscription] =
@@ -174,6 +176,20 @@ export function SubscriptionProvider({
       const shouldBlock =
         initializedCompanyRef.current !== companyId
 
+      const cached = readOfflineSubscription(session.user.id, companyId)
+      if (!navigator.onLine || isOfflineAccess) {
+        if (cached) {
+          setSubscription(cached)
+          initializedCompanyRef.current = companyId
+          setError('')
+        } else {
+          setSubscription(null)
+          setError('Pretplata još nije dostupna offline. Spoji uređaj na internet barem jednom.')
+        }
+        setIsLoading(false)
+        return
+      }
+
       try {
         if (shouldBlock) {
           setIsLoading(true)
@@ -187,6 +203,7 @@ export function SubscriptionProvider({
           )
 
         setSubscription(context)
+        rememberOfflineSubscription(session.user.id, companyId, context)
         initializedCompanyRef.current = companyId
       } catch (loadError) {
         if (shouldBlock) {
@@ -206,6 +223,7 @@ export function SubscriptionProvider({
     }, [
       membership?.companyId,
       session?.user.id,
+      isOfflineAccess,
     ])
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase'
 import { assertDeletePermission } from './permissionGuard.service'
+import { readRuntimeCache, writeRuntimeCache } from './runtimeCache.service'
 
 export type CompanyRole =
   | 'owner'
@@ -245,21 +246,29 @@ async function getCurrentCompanyId(): Promise<string> {
 export async function getEmployees(): Promise<
   CompanyEmployee[]
 > {
+  const companyId = await getCurrentCompanyId()
+  const cacheKey = `fersys-cache:employees:${companyId}`
+  const fresh = readRuntimeCache<CompanyEmployee[]>(cacheKey, 30000)
+  if (fresh) return fresh
+
   const { data, error } = await supabase.rpc(
     'get_company_employees',
   )
 
   if (error) {
+    const stale = readRuntimeCache<CompanyEmployee[]>(cacheKey, Number.MAX_SAFE_INTEGER, true)
+    if (stale) return stale
     throw new Error(
       formatSupabaseError(error),
     )
   }
 
-  return ((data ?? []) as EmployeeRow[]).map(
+  const mapped = ((data ?? []) as EmployeeRow[]).map(
     mapEmployee,
   )
+  writeRuntimeCache(cacheKey, mapped)
+  return mapped
 }
-
 export async function getInvitations(): Promise<
   CompanyInvitation[]
 > {
