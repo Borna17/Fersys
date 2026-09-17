@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-<url><loc>https://www.fersys.app/</loc></url>
-<url><loc>https://www.fersys.app/mogucnosti</loc></url>
-<url><loc>https://www.fersys.app/sigurnost</loc></url>
-<url><loc>https://www.fersys.app/legal/privacy.html</loc></url>
-<url><loc>https://www.fersys.app/legal/terms.html</loc></url>
-<url><loc>https://www.fersys.app/legal/delete-account.html</loc></url>
+  <url><loc>https://fersys.app/</loc></url>
+  <url><loc>https://fersys.app/mogucnosti</loc></url>
+  <url><loc>https://fersys.app/aplikacija-za-servisere</loc></url>
+  <url><loc>https://fersys.app/evidencija-radnih-naloga</loc></url>
+  <url><loc>https://fersys.app/korisnicki-prirucnik</loc></url>
+  <url><loc>https://fersys.app/podrska</loc></url>
+  <url><loc>https://fersys.app/pravila-privatnosti</loc></url>
+  <url><loc>https://fersys.app/program-za-obrtnike</loc></url>
+  <url><loc>https://fersys.app/program-za-ponude</loc></url>
+  <url><loc>https://fersys.app/program-za-racune</loc></url>
+  <url><loc>https://fersys.app/radni-nalozi</loc></url>
+  <url><loc>https://fersys.app/sigurnost</loc></url>
+  <url><loc>https://fersys.app/legal/privacy.html</loc></url>
+  <url><loc>https://fersys.app/legal/terms.html</loc></url>
+  <url><loc>https://fersys.app/legal/delete-account.html</loc></url>
 </urlset>
