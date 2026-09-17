@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const migration = readFileSync(
-  new URL('../../supabase/migrations/20260917_recovery_snapshots_v1.sql', import.meta.url),
+  resolve(process.cwd(), 'supabase/migrations/20260917_recovery_snapshots_v1.sql'),
   'utf8',
 )
 
 const adminPage = readFileSync(
-  new URL('../../src/admin/AdminRecoveryPage.tsx', import.meta.url),
+  resolve(process.cwd(), 'src/admin/AdminRecoveryPage.tsx'),
   'utf8',
 )
 
