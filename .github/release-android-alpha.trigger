@@ -1,4 +1,5 @@
 FERSYS Android Alpha release
-versionName=1.0.14
-versionCode=16
-triggered=2026-09-15
+versionName=1.0.15
+versionCode=17
+triggered=2026-09-17
+source=fresh-build-capacitor-parity
