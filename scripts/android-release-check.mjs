@@ -50,10 +50,10 @@ if (exists('capacitor.config.ts')) {
 
 if (exists('android/app/build.gradle')) {
   const gradle = read('android/app/build.gradle')
-  if (!gradle.includes('versionCode 21') || !gradle.includes('versionName "1.0.19"')) {
-    fail('Android verzija nije 1.0.19 / code 21.')
+  if (!gradle.includes('versionCode 22') || !gradle.includes('versionName "1.0.20"')) {
+    fail('Android verzija nije 1.0.20 / code 22.')
   } else {
-    ok('Android verzija je 1.0.19 / code 21.')
+    ok('Android verzija je 1.0.20 / code 22.')
   }
 }
 
