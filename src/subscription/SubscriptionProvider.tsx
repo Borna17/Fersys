@@ -206,15 +206,28 @@ export function SubscriptionProvider({
         rememberOfflineSubscription(session.user.id, companyId, context)
         initializedCompanyRef.current = companyId
       } catch (loadError) {
-        if (shouldBlock) {
-          setSubscription(null)
-        }
+        // A transient network/API failure must never lock an already activated
+        // user out of the native app. Reuse the last verified subscription
+        // snapshot and let the next foreground/online refresh heal it.
+        if (cached) {
+          setSubscription(cached)
+          initializedCompanyRef.current = companyId
+          setError('')
+          console.warn(
+            '[FERSYS] Provjera pretplate nije uspjela; koristi se zadnja provjerena lokalna kopija.',
+            loadError,
+          )
+        } else {
+          if (shouldBlock) {
+            setSubscription(null)
+          }
 
-        setError(
-          loadError instanceof Error
-            ? loadError.message
-            : 'Pretplatu nije moguće učitati.',
-        )
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : 'Pretplatu nije moguće učitati.',
+          )
+        }
       } finally {
         if (shouldBlock) {
           setIsLoading(false)
