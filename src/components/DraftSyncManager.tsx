@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import { useEffect } from 'react'
 import { syncPendingUserDrafts } from '../services/drafts.service'
 
@@ -9,7 +10,7 @@ export default function DraftSyncManager() {
     let disposed = false
 
     const sync = async () => {
-      if (disposed || running || !navigator.onLine) return
+      if (disposed || running || !isNetworkOnline()) return
       running = true
       try {
         await syncPendingUserDrafts()

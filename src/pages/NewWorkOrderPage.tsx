@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   useEffect,
   useMemo,
@@ -1171,7 +1172,7 @@ export function NewWorkOrderPage() {
               )
 
             setAutosaveState(
-              navigator.onLine
+              isNetworkOnline()
                 ? 'saved'
                 : 'offline',
             )

@@ -6,6 +6,7 @@ on:
     branches:
       - main
       - fix/local-first-durability-engine
+      - fix/android-final-verified
     paths:
       - '.github/release-android-alpha.trigger'
 
@@ -61,7 +62,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run tests before native packaging
-        run: npm test -- --run
+        run: npm test
       - name: Remove stale generated web assets
         run: rm -rf dist android/app/src/main/assets/public
       - name: Build fresh production web app
@@ -114,6 +115,8 @@ jobs:
                       for p in sorted(root.rglob('*')) if p.is_file()}
           web = manifest('dist')
           native = manifest('android/app/src/main/assets/public')
+          for generated in ('cordova.js', 'cordova_plugins.js'):
+              native.pop(generated, None)
           if web != native:
               missing = sorted(set(web) - set(native))
               extra = sorted(set(native) - set(web))

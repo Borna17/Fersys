@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   AlertTriangle,
   ChevronRight,
@@ -261,7 +262,7 @@ export default function UniversalDraftProtection() {
     let cloudRefreshRunning = false
 
     const refreshCloud = async () => {
-      if (cloudRefreshRunning || !navigator.onLine) {
+      if (cloudRefreshRunning || !isNetworkOnline()) {
         refresh()
         return
       }
