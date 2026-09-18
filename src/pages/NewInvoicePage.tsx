@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import {
@@ -735,7 +736,7 @@ export function NewInvoicePage() {
         })
 
         setAutosaveState(
-          navigator.onLine ? 'saved' : 'offline',
+          isNetworkOnline() ? 'saved' : 'offline',
         )
 
         setAutosaveText(formatDraftSavedAt(savedAt))

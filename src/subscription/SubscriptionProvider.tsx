@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import type {
   ReactNode,
 } from 'react'
@@ -177,7 +178,7 @@ export function SubscriptionProvider({
         initializedCompanyRef.current !== companyId
 
       const cached = readOfflineSubscription(session.user.id, companyId)
-      if (!navigator.onLine || isOfflineAccess) {
+      if (!isNetworkOnline() || isOfflineAccess) {
         if (cached) {
           setSubscription(cached)
           initializedCompanyRef.current = companyId

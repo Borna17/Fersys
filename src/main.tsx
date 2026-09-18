@@ -5,6 +5,7 @@ import { SplashScreen } from '@capacitor/splash-screen'
 
 import App from './App'
 import { isNativeApp } from './lib/platform'
+import { initializeNetworkStatus } from './lib/networkStatus'
 import './index.css'
 import './styles/workOrderPdfTotalsFix.css'
 
@@ -92,6 +93,8 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('[FERSYS] Unhandled startup rejection', event.reason)
 })
 
-void prepareWebRuntime().then((ready) => {
+void (async () => {
+  await initializeNetworkStatus()
+  const ready = await prepareWebRuntime()
   if (ready) renderApp()
-}).catch(showFatalStartup)
+})().catch(showFatalStartup)

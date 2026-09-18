@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import { supabase } from '../lib/supabase'
 
 export type DraftType =
@@ -299,7 +300,7 @@ Promise<DraftManifestEntry[]> {
     writeDraftManifest([])
   }
 
-  if (!navigator.onLine) {
+  if (!isNetworkOnline()) {
     return localEntries
   }
 
@@ -552,7 +553,7 @@ Promise<Identity> {
   }
 
   throw new Error(
-    navigator.onLine
+    isNetworkOnline()
       ? 'Korisnik nije povezan s aktivnom tvrtkom.'
       : 'Nema mreže i lokalni identitet još nije spremljen. Otvori FERSYS jednom dok si online.',
   )
@@ -950,7 +951,7 @@ export async function saveUserDraft<T>(
     ),
   )
 
-  if (navigator.onLine) {
+  if (isNetworkOnline()) {
     // Cloud is intentionally outside the save critical path. Local success returns immediately.
     void uploadEnvelope(envelope)
       .then(() => {
@@ -1002,7 +1003,7 @@ export async function loadUserDraft<T>(
     | null = null
 
   if (
-    navigator.onLine
+    isNetworkOnline()
   ) {
     try {
       const {
@@ -1144,7 +1145,7 @@ export async function deleteUserDraft(
   )
 
   if (
-    !navigator.onLine
+    !isNetworkOnline()
   ) {
     return
   }
@@ -1206,7 +1207,7 @@ Promise<DraftSyncStatus> {
 
   return {
     online:
-      navigator.onLine,
+      isNetworkOnline(),
     pending,
     lastSyncedAt:
       localStorage.getItem(
@@ -1218,7 +1219,7 @@ Promise<DraftSyncStatus> {
 export async function syncPendingUserDrafts():
 Promise<number> {
   if (
-    !navigator.onLine
+    !isNetworkOnline()
   ) {
     return 0
   }

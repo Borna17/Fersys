@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import type {
   ReactNode,
 } from 'react'
@@ -218,7 +219,7 @@ async function getCurrentMembership(): Promise<
 export function AuthProvider({
   children,
 }: AuthProviderProps) {
-  const initialOffline = useRef(!navigator.onLine ? readOfflineBootstrap(authStorageKey) : null)
+  const initialOffline = useRef(!isNetworkOnline() ? readOfflineBootstrap(authStorageKey) : null)
   const sessionRef = useRef<Session | null>(initialOffline.current?.session ?? null)
   const authGeneration = useRef(0)
   const [isOfflineAccess, setIsOfflineAccess] = useState(!!initialOffline.current)
@@ -255,7 +256,7 @@ export function AuthProvider({
         return
       }
 
-      if (!navigator.onLine) return
+      if (!isNetworkOnline()) return
       const generation = authGeneration.current
       const shouldBlock =
         !accessInitializedRef.current
@@ -361,7 +362,7 @@ export function AuthProvider({
       (event, nextSession) => {
         if (!isMounted) return
 
-        if (event === 'INITIAL_SESSION' && !navigator.onLine && initialOffline.current && !nextSession) return
+        if (event === 'INITIAL_SESSION' && !isNetworkOnline() && initialOffline.current && !nextSession) return
         const previousUserId =
           sessionRef.current?.user.id ?? null
         const nextUserId =
@@ -413,7 +414,7 @@ export function AuthProvider({
       return
     }
 
-    if (!navigator.onLine) {
+    if (!isNetworkOnline()) {
       const cached = readOfflineBootstrap(authStorageKey)
       if (cached?.session.user.id === currentUserId) {
         activateLocalIdentity(currentUserId, cached.membership, false)
