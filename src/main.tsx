@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, type ErrorInfo, type ReactNode } from 'react'
+import { Component, StrictMode, useEffect, type ErrorInfo, type ReactNode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { SplashScreen } from '@capacitor/splash-screen'
@@ -43,7 +43,7 @@ function showFatalStartup(error: unknown) {
   void SplashScreen.hide().catch(() => undefined)
 }
 
-class StartupErrorBoundary extends (await import('react')).Component<{ children: ReactNode }, { error: Error | null }> {
+class StartupErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null }
   static getDerivedStateFromError(error: Error) { return { error } }
   componentDidCatch(error: Error, info: ErrorInfo) { console.error('[FERSYS] React startup crash', error, info) }
