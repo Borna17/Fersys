@@ -52,6 +52,13 @@ jobs:
         run: npm ci
       - name: Build web app
         run: npm run build
+      - name: Verify Android 1.0.19 release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/android-release-check.mjs
+          grep -q 'versionCode 21' android/app/build.gradle
+          grep -q 'versionName "1.0.19"' android/app/build.gradle
       - name: Verify web startup assets
         shell: bash
         run: |
@@ -113,5 +120,5 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           tracks: alpha
           status: completed
-          releaseName: FERSYS 1.0.14
+          releaseName: FERSYS 1.0.19
           changesNotSentForReview: false
