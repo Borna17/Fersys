@@ -1,4 +1,1 @@
-FERSYS Android Alpha release
-versionName=1.0.14
-versionCode=16
-triggered=2026-09-15
+FERSYS 1.0.18 Android alpha release - verified native connectivity and speech recognition
