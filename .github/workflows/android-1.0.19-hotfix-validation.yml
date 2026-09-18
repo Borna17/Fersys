@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - hotfix/android-1.0.19-startup-release
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
