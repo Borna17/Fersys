@@ -1,8 +1,0 @@
-{
-  "name": "@capacitor-community/speech-recognition",
-  "version": "8.0.0-fersys-shim",
-  "type": "module",
-  "main": "./index.js",
-  "types": "./index.d.ts",
-  "sideEffects": false
-}

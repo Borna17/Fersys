@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   Check,
   CloudOff,
@@ -22,7 +23,7 @@ DraftSyncStatus = {
     typeof navigator ===
       'undefined'
       ? true
-      : navigator.onLine,
+      : isNetworkOnline(),
   pending: 0,
   lastSyncedAt: '',
 }
@@ -54,7 +55,7 @@ export default function OfflineSyncStatus() {
 
   async function sync() {
     if (
-      !navigator.onLine ||
+      !isNetworkOnline() ||
       syncing
     ) {
       await refresh()

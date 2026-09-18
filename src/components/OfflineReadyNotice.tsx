@@ -1,11 +1,12 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import { useEffect, useState } from 'react'
 import { WifiOff } from 'lucide-react'
 
 export default function OfflineReadyNotice() {
-  const [online, setOnline] = useState(() => navigator.onLine)
+  const [online, setOnline] = useState(() => isNetworkOnline())
 
   useEffect(() => {
-    const update = () => setOnline(navigator.onLine)
+    const update = () => setOnline(isNetworkOnline())
     window.addEventListener('online', update)
     window.addEventListener('offline', update)
     return () => {

@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   useEffect,
   useMemo,
@@ -902,7 +903,7 @@ export function NewOfferPage() {
             items,
             customerSearch,
           })
-          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveState(isNetworkOnline() ? 'saved' : 'offline')
           setAutosaveText(formatDraftSavedAt(savedAt))
         } catch {
           setAutosaveState('offline')

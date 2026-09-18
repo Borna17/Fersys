@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   useEffect,
   useRef,
@@ -60,7 +61,7 @@ function isChunkLoadError(
 export default function RuntimeHealthGuard() {
   const onlineRef =
     useRef(
-      navigator.onLine,
+      isNetworkOnline(),
     )
 
   useEffect(() => {
@@ -97,7 +98,7 @@ export default function RuntimeHealthGuard() {
         !isChunkLoadError(
           event.reason,
         ) ||
-        !navigator.onLine ||
+        !isNetworkOnline() ||
         !canAutoReload()
       ) {
         return
@@ -115,7 +116,7 @@ export default function RuntimeHealthGuard() {
           event.error ??
             event.message,
         ) ||
-        !navigator.onLine ||
+        !isNetworkOnline() ||
         !canAutoReload()
       ) {
         return

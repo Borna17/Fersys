@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   Wifi,
   WifiOff,
@@ -49,7 +50,7 @@ export default function ConnectionStatusNotice() {
     setNotice,
   ] =
     useState<NoticeState>(
-      navigator.onLine
+      isNetworkOnline()
         ? null
         : 'offline',
     )
@@ -117,7 +118,7 @@ export default function ConnectionStatusNotice() {
       handleOnline,
     )
 
-    if (!navigator.onLine) {
+    if (!isNetworkOnline()) {
       handleOffline()
     } else {
       void syncPendingUserDrafts().catch((error) => {
@@ -126,7 +127,7 @@ export default function ConnectionStatusNotice() {
     }
 
     const syncInterval = window.setInterval(() => {
-      if (navigator.onLine && document.visibilityState === 'visible') {
+      if (isNetworkOnline() && document.visibilityState === 'visible') {
         void syncPendingUserDrafts().catch((error) => {
           console.warn('Periodična sinkronizacija nacrta nije uspjela:', error)
         })

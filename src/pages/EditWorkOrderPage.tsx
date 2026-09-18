@@ -1,3 +1,4 @@
+import { isNetworkOnline } from '../lib/networkStatus'
 import {
   ArrowLeft,
   Camera,
@@ -358,7 +359,7 @@ export function EditWorkOrderPage() {
         try {
           const savedAt = await saveUserDraft('work-order', `edit:${id}`, payload)
           pendingDraftDirtyRef.current = false
-          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveState(isNetworkOnline() ? 'saved' : 'offline')
           setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)
         } catch (error) {
           console.error('Autosave izmjena radnog naloga nije uspio:', error)
@@ -400,7 +401,7 @@ export function EditWorkOrderPage() {
       void saveUserDraft('work-order', `edit:${id}`, payload)
         .then((savedAt) => {
           pendingDraftDirtyRef.current = false
-          setAutosaveState(navigator.onLine ? 'saved' : 'offline')
+          setAutosaveState(isNetworkOnline() ? 'saved' : 'offline')
           setAutosaveText(`Automatski spremljeno · ${formatDraftSavedAt(savedAt)}`)
         })
         .catch((error) => {
