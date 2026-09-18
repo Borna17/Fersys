@@ -1,0 +1,29 @@
+name: Android 1.0.19 Hotfix Validation
+
+on:
+  push:
+    branches:
+      - hotfix/android-1.0.19-startup-release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      - name: Verify release metadata
+        run: |
+          grep -q 'versionCode 21' android/app/build.gradle
+          grep -q 'versionName "1.0.19"' android/app/build.gradle
+          grep -q 'EXPECTED_VERSION_CODE = 21' scripts/prepare-android-release.mjs
+          grep -q "EXPECTED_VERSION_NAME = '1.0.19'" scripts/prepare-android-release.mjs
